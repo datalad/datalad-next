@@ -22,6 +22,23 @@ command_suite = (
     ]
 )
 
+
+from datalad.interface.common_cfg import register_config
+from datalad.support.constraints import EnsureBool
+register_config(
+    'datalad.credentials.repeat-secret-entry',
+    'Require entering secrets twice for interactive specification?',
+    type=EnsureBool(),
+    default=True,
+    dialog='yesno')
+register_config(
+    'datalad.credentials.hidden-secret-entry',
+    'Hide secret in interactive entry?',
+    type=EnsureBool(),
+    default=True,
+    dialog='yesno')
+
+
 from datalad import setup_package
 from datalad import teardown_package
 
