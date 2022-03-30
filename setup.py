@@ -12,7 +12,7 @@ cmdclass = versioneer.get_cmdclass()
 cmdclass.update(build_manpage=BuildManPage)
 
 if __name__ == '__main__':
-    setup(name='datalad_helloworld',
+    setup(name='datalad_next',
           version=versioneer.get_version(),
           cmdclass=cmdclass,
     )
