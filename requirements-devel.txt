@@ -7,4 +7,4 @@ sphinx_rtd_theme
 # we need an unrelease datalad for now
 # which has enhanced possibilities to be customized
 # by extensions
-git+https://github.com/mih/datalad@bf-6314#egg=datalad
+git+https://github.com/mih/datalad@next-base#egg=datalad
