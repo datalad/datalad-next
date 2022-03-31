@@ -23,6 +23,10 @@ command_suite = (
 )
 
 
+# patch datalad-core
+import datalad_next.patches
+
+# register additional configuration items in datalad-core
 from datalad.interface.common_cfg import register_config
 from datalad.support.constraints import EnsureBool
 register_config(
