@@ -1,9 +1,3 @@
-# requirements for a development environment
-nose
-coverage
-sphinx
-sphinx_rtd_theme
-
 # we need an unreleased datalad for now
 # which has enhanced possibilities to be customized
 # by extensions
