@@ -24,7 +24,7 @@ Command line reference
 .. toctree::
    :maxdepth: 1
 
-   generated/man/datalad-crcedentials
+   generated/man/datalad-credentials
 
 
 Python utilities
