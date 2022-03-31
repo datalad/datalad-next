@@ -1,4 +1,4 @@
-# 0.1.0 (UNRELEASED) --  TITLE
+# 0.1.0 (2022-03-31) --  Credentials, please!
 
 #### 💫 Enhancements and new features
 - A new credential management system is introduced that enables storage and query of credentials with any number of properties associated with a secret. These properties are stored as regular configuration items, following the scheme `datalad.credential.<name>.<property>`. The special property `secret` lives in a keystore, but can be overriden using the normal configuration mechanisms. The new system continues to support the previous credential storage setup. Fixes [#6519](https://github.com/datalad/datalad/issues/6519) ([@mih](https://github.com/mih))
