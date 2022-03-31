@@ -123,6 +123,8 @@ init:
   # Identity setup
   - git config --global user.email "test@appveyor.land"
   - git config --global user.name "Appveyor Almighty"
+  # enable "next" extension for patching datalad core
+  - git config --global datalad.extensions.load next
   # Scratch space
   - cmd: md C:\DLTMP
   # we place the "unix" one into the user's HOME to avoid git-annex issues on MacOSX
