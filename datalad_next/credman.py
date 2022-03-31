@@ -585,6 +585,10 @@ class CredentialManager(object):
             type_hint, {}).get('secret')
         if not secret_field:
             return
+        # first try to get it from the config to catch any overrides
+        secret = self._cfg.get(_get_cred_cfg_var(name, secret_field))
+        if secret is not None:
+            return secret
         secret = self._keyring.get(name, secret_field)
         return secret
 
