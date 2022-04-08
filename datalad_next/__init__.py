@@ -19,6 +19,12 @@ command_suite = (
             # name of the command class implementation in above module
             'Credentials',
         ),
+        (
+            # importable module that contains the command implementation
+            'datalad_next.create_sibling_webdav',
+            # name of the command class implementation in above module
+            'CreateSiblingWebDAV',
+        ),
     ]
 )
 
