@@ -1,5 +1,4 @@
 import logging
-import sys
 from typing import (
     Dict,
     Generator,
