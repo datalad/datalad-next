@@ -1,5 +1,4 @@
 import logging
-import sys
 from typing import (
     Dict,
     Generator,
@@ -11,7 +10,6 @@ from typing import (
 import datalad.core.distributed.push as push
 from datalad.distribution.dataset import Dataset
 from datalad.support.annexrepo import AnnexRepo
-from datalad_mihextras.export_to_webdav import ExportToWEBDAV
 
 
 __docformat__ = "restructuredtext"
