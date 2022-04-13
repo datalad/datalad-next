@@ -3,8 +3,4 @@ nose
 coverage
 sphinx
 sphinx_rtd_theme
-
-# we need an unreleased datalad for now
-# which has enhanced possibilities to be customized
-# by extensions
-git+https://github.com/mih/datalad@next-base#egg=datalad
+-e .

@@ -21,8 +21,6 @@ software packages that intend to build on this improved set of functionality.
 # create and enter a new virtual environment (optional)
 $ virtualenv --python=python3 ~/env/dl-next
 $ . ~/env/dl-next/bin/activate
-# needs a particular datalad version (for now)
-$ python -m pip install git+https://github.com/mih/datalad@next-base#egg=datalad
 # install from PyPi
 $ python -m pip install datalad-next
 ```
