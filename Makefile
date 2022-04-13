@@ -18,4 +18,4 @@ update-buildsupport:
 		--squash \
 		--prefix _datalad_buildsupport \
 		https://github.com/datalad/datalad-buildsupport.git \
-		master
+		main
