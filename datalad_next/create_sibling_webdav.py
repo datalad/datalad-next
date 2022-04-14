@@ -204,6 +204,7 @@ class CreateSiblingWebDAV(Interface):
             if failed:
                 return
 
+        return
         # TODO the rest should be wrapped into a helper function and be executed with
         # foreach-dataset
 
