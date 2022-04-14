@@ -64,7 +64,8 @@ class CreateSiblingWebDAV(Interface):
         name=Parameter(
             args=('-s', '--name',),
             metavar='NAME',
-            doc="""name of the sibling.
+            doc="""name of the sibling. If none is given, the hostname-part
+            of the WebDAV URL will be used.
             With `recursive`, the same name will be used to label all
             the subdatasets' siblings.""",
             constraints=EnsureStr() | EnsureNone()),
@@ -137,7 +138,6 @@ class CreateSiblingWebDAV(Interface):
             recursive: Optional[bool] = False,
             recursion_limit: Optional[int] = None):
 
-
         # TODO catch broken URLs
         parsed_url = urlparse(url)
         if not name:
@@ -168,15 +168,44 @@ class CreateSiblingWebDAV(Interface):
             raise ValueError("sibling names must not be equal")
 
         ds = require_dataset(
-            dataset or ".",
+            dataset,
             check_installed=True,
-            purpose=f'create WebDAV sibling(s)')
+            purpose='create WebDAV sibling(s)')
 
         res_kwargs = dict(
-            action=f'create_sibling_webdav',
+            action='create_sibling_webdav',
             logger=lgr,
             refds=ds.path,
         )
+
+        # Query existing siblings upfront in order to fail early on
+        # existing=='error', since misconfiguration (particularly of special
+        # remotes) only to fail in a subdataset later on with that config, can
+        # be quite painful.
+        if existing == 'error':
+            # even if we have to fail, let's report all conflicting siblings
+            # in subdatasets, an outside controller can stop the generator
+            # if desired
+            failed = False
+            for dpath, sname in _yield_ds_w_matching_siblings(
+                    ds,
+                    (name, storage_name),
+                    recursive=recursive,
+                    recursion_limit=recursion_limit):
+                res = get_status_dict(
+                    status='error',
+                    message=(
+                        "a sibling %r is already configured in dataset %r",
+                        sname, dpath),
+                    **res_kwargs,
+                )
+                failed = True
+                yield res
+            if failed:
+                return
+
+        # TODO the rest should be wrapped into a helper function and be executed with
+        # foreach-dataset
 
         if not isinstance(ds.repo, AnnexRepo):
             yield {
@@ -233,3 +262,63 @@ class CreateSiblingWebDAV(Interface):
             **res_kwargs,
             "status": "ok"
         }
+
+
+# TODO in create-sibling-ria something like this is spaghetti-coded, it should be
+# RF'ed eventually
+def _yield_ds_w_matching_siblings(
+        ds, names, recursive=False, recursion_limit=None):
+    """(Recursively) inspect a dataset for siblings with particular name(s)
+
+    Parameters
+    ----------
+    ds: Dataset
+      The dataset to be inspected.
+    names: iterable
+      Sibling names (str) to test for.
+    recursive: bool, optional
+      Whether to recurse into subdatasets.
+    recursion_limit: int, optional
+      Recursion depth limit.
+
+    Yields
+    ------
+    str, str
+      Path to the dataset with a matching sibling, and name of the matching
+      sibling in that dataset.
+    """
+    # in recursive mode this check could take a substantial amount of
+    # time: employ a progress bar (or rather a counter, because we don't
+    # know the total in advance
+    pbar_id = 'check-siblings-{}'.format(id(ds))
+    if recursive:
+        log_progress(
+            lgr.info, pbar_id,
+            'Start checking pre-existing sibling configuration %s', ds,
+            label='Query siblings',
+            unit=' Siblings',
+        )
+    for r in ds.siblings(result_renderer='disabled',
+                         return_type='generator',
+                         recursive=recursive,
+                         recursion_limit=recursion_limit):
+        if recursive:
+            log_progress(
+                lgr.info, pbar_id,
+                'Discovered sibling %s in dataset at %s',
+                r['name'], r['path'],
+                update=1,
+                increment=True)
+        if not r['type'] == 'sibling' or r['status'] != 'ok':
+            # this is an internal status query that has not consequence
+            # for the outside world. Be silent unless something useful
+            # can be said
+            #yield r
+            continue
+        if r['name'] in names:
+            yield r['path'], r['name']
+    if recursive:
+        log_progress(
+            lgr.info, pbar_id,
+            'Finished checking pre-existing sibling configuration %s', ds,
+        )
