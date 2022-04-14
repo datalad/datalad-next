@@ -167,6 +167,9 @@ class CreateSiblingWebDAV(Interface):
             # leads to unresolvable, circular dependency with publish-depends
             raise ValueError("sibling names must not be equal")
 
+        if parsed_url.query:
+            raise ValueError("URLs with a query component are not supported")
+
         ds = require_dataset(
             dataset,
             check_installed=True,
@@ -204,25 +207,43 @@ class CreateSiblingWebDAV(Interface):
             if failed:
                 return
 
+        def _dummy(ds, refds, **kwargs):
+            """Small helper to prepare the actual call to _create_sibling_webdav()
+            for a particular (sub)dataset.
+
+            We only have kwargs to catch whatever it throws at us.
+            """
+            relpath = ds.pathobj.relative_to(refds.pathobj) if not ds == refds else None
+            if relpath:
+                # TODO needs more complicated parsing when the URL does not end with a
+                # path, but also has query or fragment
+                dsurl = f"{url.rstrip('/')}/{relpath}"
+            else:
+                dsurl = url
+
+            return _create_sibling_webdav(
+                ds,
+                dsurl,
+                storage_sibling=storage_sibling,
+                name=name,
+                storage_name=storage_name,
+                existing=existing,
+                # TODO actually determine the credential upfront
+                # can be done once at the start, all siblings will live on the same
+                # server
+                credential=(None, None),
+            )
+
+        # [{'action': 'foreach-dataset',
+        #   'path': '/tmp/datalad_temp_test_mikej910qtc4',
+        #   'type': 'dataset',
+        #   'command': <function CreateSiblingWebDAV.__call__.<locals>._dummy at 0x7f8c0ab3e0d0>,
+        #   'result': 5,
+        #   'status': 'ok'}]
+        yield from ds.foreach_dataset(_dummy)
         return
         # TODO the rest should be wrapped into a helper function and be executed with
         # foreach-dataset
-
-        if not isinstance(ds.repo, AnnexRepo):
-            yield {
-                **res_kwargs,
-                "status": "error",
-                "msg": "require annex repo to create WebDAV sibling"
-            }
-            return
-
-        if parsed_url.query:
-            yield {
-                **res_kwargs,
-                "status": "error",
-                "msg": "URLs with query are not yet supported"
-            }
-            return
 
         name_base = name or parsed_url.hostname
         git_name = name_base + "-wd-vcs"
@@ -263,6 +284,25 @@ class CreateSiblingWebDAV(Interface):
             **res_kwargs,
             "status": "ok"
         }
+
+
+def _create_sibling_webdav(
+        ds, url, *,
+        storage_sibling='no', name=None, storage_name=None, existing='error',
+        credential=None):
+    """
+    Parameters
+    ----------
+    ds: Dataset
+    url: str
+    storage_sibling: str, optional
+    name: str, optional
+    storage_name: str, optional
+    existing: str, optional
+    credential: tuple, optional
+    """
+    print("MAKE", ds, url)
+    pass
 
 
 # TODO in create-sibling-ria something like this is spaghetti-coded, it should be
