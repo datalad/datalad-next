@@ -137,6 +137,36 @@ class CreateSiblingWebDAV(Interface):
             recursive: Optional[bool] = False,
             recursion_limit: Optional[int] = None):
 
+
+        # TODO catch broken URLs
+        parsed_url = urlparse(url)
+        if not name:
+            # not using .netloc to avoid ports to show up in the name
+            name = parsed_url.hostname
+
+        if not name:
+            # could happen with broken URLs (e.g. without //)
+            raise ValueError(
+                f"no sibling name given and none could be derived from the URL {url!r}")
+
+        if storage_sibling.startswith('only') and storage_name:
+            lgr.warning(
+                "Sibling name will be used for storage sibling in "
+                "storage-sibling-only mode, but a storage sibling name "
+                "was provided"
+            )
+        if storage_sibling == 'no' and storage_name:
+            lgr.warning(
+                "Storage sibling setup disabled, but a storage sibling name "
+                "was provided"
+            )
+        if storage_sibling != 'no' and not storage_name:
+            storage_name = "{}-storage".format(name)
+
+        if storage_sibling != 'no' and name == storage_name:
+            # leads to unresolvable, circular dependency with publish-depends
+            raise ValueError("sibling names must not be equal")
+
         ds = require_dataset(
             dataset or ".",
             check_installed=True,
@@ -156,8 +186,7 @@ class CreateSiblingWebDAV(Interface):
             }
             return
 
-        parser_url = urlparse(url)
-        if parser_url.query:
+        if parsed_url.query:
             yield {
                 **res_kwargs,
                 "status": "error",
@@ -165,7 +194,7 @@ class CreateSiblingWebDAV(Interface):
             }
             return
 
-        name_base = name or parser_url.hostname
+        name_base = name or parsed_url.hostname
         git_name = name_base + "-wd-vcs"
         annex_name = name_base + "-wd-tree"
 
