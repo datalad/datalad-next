@@ -24,10 +24,15 @@ from datalad.distribution.dataset import (
 )
 from datalad.downloaders.credentials import UserPassword
 from datalad.interface.base import Interface
+from datalad.interface.common_opts import (
+    recursion_flag,
+    recursion_limit
+)
 from datalad.interface.utils import eval_results
 from datalad.support.param import Parameter
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.constraints import (
+    EnsureChoice,
     EnsureNone,
     EnsureStr,
 )
@@ -48,8 +53,7 @@ class CreateSiblingWebDAV(Interface):
     _params_ = dict(
         url=Parameter(
             args=("url",),
-            metavar="https://<host>[:<port>]/<local part>",
-            doc="URL identifying the target WebDAV server",
+            doc="URL identifying the sibling root on the target WebDAV server",
             constraints=EnsureStr()),
         dataset=Parameter(
             args=("-d", "--dataset"),
@@ -60,14 +64,62 @@ class CreateSiblingWebDAV(Interface):
         name=Parameter(
             args=('-s', '--name',),
             metavar='NAME',
-            doc="Name of the sibling.",
-            constraints=EnsureStr() | EnsureNone(),
-            required=True),
+            doc="""name of the sibling.
+            With `recursive`, the same name will be used to label all
+            the subdatasets' siblings.""",
+            constraints=EnsureStr() | EnsureNone()),
+        storage_name=Parameter(
+            args=("--storage-name",),
+            metavar="NAME",
+            doc="""name of the storage sibling (git-annex special remote).
+            Must not be identical to the sibling name. If not specified,
+            defaults to the sibling name plus '-storage' suffix. If only
+            a storage sibling is created, this setting is ignored, and
+            the primary sibling name is used.""",
+            constraints=EnsureStr() | EnsureNone()),
         credential=Parameter(
             args=("--credential",),
-            doc="""Name of the credentials that should be used to access
-            the WebDAV server.""",
-        )
+            doc="""name of the credential providing a user/password credential
+            to be used for authorization. The credential can be supplied via
+            configuration setting 'datalad.credential.<name>.user|password', or
+            environment variable DATALAD_CREDENTIAL_<NAME>_USER|PASSWORD, or will
+            be queried from the active credential store using the provided
+            name. If none is provided, the last-used token for the
+            API URL realm will be used.""",
+        ),
+        existing=Parameter(
+            args=("--existing",),
+            constraints=EnsureChoice('skip', 'error', 'reconfigure', None),
+            metavar='MODE',
+            doc="""action to perform, if a (storage) sibling is already
+            configured under the given name and/or a target already exists.
+            In this case, a dataset can be skipped ('skip'), an existing target
+            repository be forcefully re-initialized, and the sibling
+            (re-)configured ('reconfigure'), or the command be instructed to
+            fail ('error').""", ),
+        recursive=recursion_flag,
+        recursion_limit=recursion_limit,
+        storage_sibling=Parameter(
+            args=("--storage-sibling",),
+            dest='storage_sibling',
+            metavar='MODE',
+            constraints=EnsureChoice(
+                'yes', 'export', 'only', 'only-export', 'no'),
+            doc="""Both Git history and file content can be hosted on WEBDAV.
+            With 'yes', a storage sibling and a Git repository
+            sibling are created ('yes').
+            Alternatively, creation of the storage sibling can be disabled
+            ('no'),
+            or a storage sibling can be created only and no Git sibling
+            ('only').
+            The storage sibling can be set up as a standard git-annex special
+            remote that is capable of storage any number of file versions,
+            using a content hash based file tree ('yes'|'only'), or
+            as an export-type special remote, that can only store a single
+            file version corresponding to one unique state of the dataset,
+            but using a human-readable data data organization on the WEBDAV
+            remote that matches the file tree of the dataset
+            ('export'|'only-export')."""),
     )
 
     @staticmethod
@@ -78,15 +130,12 @@ class CreateSiblingWebDAV(Interface):
             *,
             dataset: Optional[Union[str, Dataset]] = None,
             name: Optional[str] = None,
-            credential: Optional[str] = None):
-        """
-
-        :param url:
-        :param dataset:
-        :param name:
-        :param credential:
-        :return: a generator yielding result records
-        """
+            storage_name: Optional[str] = None,
+            storage_sibling: Optional[str] = 'yes',
+            credential: Optional[str] = None,
+            existing: Optional[str] = None,
+            recursive: Optional[bool] = False,
+            recursion_limit: Optional[int] = None):
 
         ds = require_dataset(
             dataset or ".",
