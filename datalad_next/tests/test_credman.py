@@ -100,7 +100,7 @@ def check_credmanager():
 
 @with_tempfile
 def test_credman_local(path):
-    ds = Dataset.create(path)
+    ds = Dataset(path).create(result_renderer='disabled')
     credman = CredentialManager(ds.config)
 
     # deposit a credential into the dataset's config, and die trying to
@@ -125,14 +125,14 @@ def check_query():
     # set a bunch of credentials with a common realm AND timestamp
     for i in range(3):
         credman.set(
-            f'cred{i}',
+            f'cred.{i}',
             _lastused=True,
             secret=f'diff{i}',
             realm='http://ex.com/login',
         )
     # now a credential with the common realm, but without a timestamp
     credman.set(
-        'crednotime',
+        'cred.no.time',
         _lastused=False,
         secret='notime',
         realm='http://ex.com/login',
@@ -143,10 +143,10 @@ def check_query():
     # now we want all credentials that match the realm, sorted by
     # last-used timestamp -- most recent first
     slist = credman.query(realm='http://ex.com/login', _sortby='last-used')
-    eq_(['cred2', 'cred1', 'cred0', 'crednotime'],
+    eq_(['cred.2', 'cred.1', 'cred.0', 'cred.no.time'],
         [i[0] for i in slist])
     # same now, but least recent first, importantly no timestamp stays last
     slist = credman.query(realm='http://ex.com/login', _sortby='last-used',
                           _reverse=False)
-    eq_(['cred0', 'cred1', 'cred2', 'crednotime'],
+    eq_(['cred.0', 'cred.1', 'cred.2', 'cred.no.time'],
         [i[0] for i in slist])

@@ -416,7 +416,7 @@ class CredentialManager(object):
         """
         done = set()
         known_credentials = set(
-            (k.split('.')[2], None) for k in self._cfg.keys()
+            ('.'.join(k.split('.')[2:-1]), None) for k in self._cfg.keys()
             if k.startswith('datalad.credential.')
         )
         from itertools import chain
@@ -494,12 +494,14 @@ class CredentialManager(object):
 
     def _ask_property(self, name, prompt=None):
         if not ui.is_interactive:
+            lgr.debug('Cannot ask for credential property %r in non-interactive session', name)
             return
         self._prompt(prompt)
         return ui.question(name, title=None)
 
     def _ask_secret(self, type_hint=None, prompt=None):
         if not ui.is_interactive:
+            lgr.debug('Cannot ask for credential secret in non-interactive session')
             return
         self._prompt(prompt)
         return ui.question(
