@@ -264,10 +264,11 @@ class CredentialManager(object):
         # over time
         type_hint = kwargs.get('type')
         cred = self._get_legacy_field_from_keyring(name, type_hint) or {}
-        if _lastused:
-            cred['last-used'] = datetime.now().isoformat()
         # amend with given properties
         cred.update(**kwargs)
+        # update last-used, if requested
+        if _lastused:
+            cred['last-used'] = datetime.now().isoformat()
 
         # remove props
         #

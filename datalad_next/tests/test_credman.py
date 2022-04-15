@@ -23,6 +23,7 @@ from datalad.tests.utils import (
     assert_not_in,
     assert_raises,
     eq_,
+    neq_,
     patch_config,
     with_tempfile,
 )
@@ -51,8 +52,13 @@ def check_credmanager():
     # but the secret was written to the keystore
     eq_(credman.set('mycred', secret='some'), dict(secret='some'))
     # redo but with timestep
-    assert_in('last-used',
-              credman.set('lastusedcred', _lastused=True, secret='some'))
+    setprops = credman.set('lastusedcred', _lastused=True, secret='some')
+    assert_in('last-used', setprops)
+    # now re-set, based on the retrieved info, but update the timestamp
+    setprops_new = credman.set('lastusedcred', _lastused=True,
+                               **credman.get('lastusedcred'))
+    # must have updated 'last-used'
+    neq_(setprops['last-used'], setprops_new['last-used'])
     # first property store attempt
     eq_(credman.set('changed', secret='some', prop='val'),
         dict(secret='some', prop='val'))
