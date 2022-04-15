@@ -129,7 +129,13 @@ def get_auth_realm(url, auth_info, scheme=None):
         # netloc of the given URL (ignoring its path) to achieve
         # the same server-specific realm semantics
         parsed = urlparse(url)
-        return f'{parsed.scheme}://{parsed.netloc}/{realm}'
+        return '{scheme}://{netloc}{slash}{realm}'.format(
+            scheme=parsed.scheme,
+            netloc=parsed.netloc,
+            slash='' if realm.startswith('/') else'/',
+            realm=realm,
+        )
+
 
 
 def _is_valid_url(url):

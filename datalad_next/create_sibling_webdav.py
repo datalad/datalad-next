@@ -36,6 +36,8 @@ from datalad.support.constraints import (
     EnsureNone,
     EnsureStr,
 )
+from datalad.support.exceptions import CapturedException
+from datalad_next.credman import CredentialManager
 
 
 __docformat__ = "restructuredtext"
@@ -207,6 +209,23 @@ class CreateSiblingWebDAV(Interface):
             if failed:
                 return
 
+        credman = CredentialManager(ds.config)
+        # determine the credential upfront
+        # can be done once at the start, all siblings will live on the same
+        # server
+        cred = _get_url_credential(credential, url, credman)
+        if not cred:
+            raise ValueError(
+                f'No suitable credential for {url} found or specified')
+        try:
+            # take them apart here to avoid needly complexity in _dummy() which
+            # has impaired error reporting via foreach_dataset()
+            cred_user = cred[1]['user']
+            cred_password = cred[1]['secret']
+        except Exception as e:
+            raise ValueError(
+                f'No suitable credential for {url} found or specified') from e
+
         def _dummy(ds, refds, **kwargs):
             """Small helper to prepare the actual call to _create_sibling_webdav()
             for a particular (sub)dataset.
@@ -228,10 +247,7 @@ class CreateSiblingWebDAV(Interface):
                 name=name,
                 storage_name=storage_name,
                 existing=existing,
-                # TODO actually determine the credential upfront
-                # can be done once at the start, all siblings will live on the same
-                # server
-                credential=(None, None),
+                credential=(cred_user, cred_password),
             )
 
         # [{'action': 'foreach-dataset',
@@ -240,7 +256,28 @@ class CreateSiblingWebDAV(Interface):
         #   'command': <function CreateSiblingWebDAV.__call__.<locals>._dummy at 0x7f8c0ab3e0d0>,
         #   'result': 5,
         #   'status': 'ok'}]
-        yield from ds.foreach_dataset(_dummy)
+        yield from ds.foreach_dataset(
+            _dummy,
+            return_type='generator',
+            result_renderer='disabled',
+        )
+
+        # this went well, update the credential
+        try:
+            credman.set(
+                cred[0],
+                _lastused=True,
+                # strip internal properties like '_edited'
+                **{k: v for k, v in cred[1].items() if not k.startswith('_')},
+            )
+        except Exception as e:
+            # we do not want to crash for any failure to store a
+            # credential
+            lgr.warn(
+                'Exception raised when storing credential %r %r: %s',
+                *cred,
+                CapturedException(e),
+            )
         return
         # TODO the rest should be wrapped into a helper function and be executed with
         # foreach-dataset
@@ -280,10 +317,46 @@ class CreateSiblingWebDAV(Interface):
             "encryption=none"
         ])
 
-        yield {
-            **res_kwargs,
-            "status": "ok"
-        }
+
+def _get_url_credential(credential_name, url, credman):
+    """
+    """
+    cred = None
+    realm = None
+    if not credential_name:
+        # we don't know which one to get, probe the URL
+        # needs www_authenticate package, import locally
+        # TODO possibly always probe to make sure that
+        # we would be passing the credentials to the correct
+        # URL (redirects, etc)
+        from datalad_next.http_support import (
+            probe_url,
+            get_auth_realm,
+        )
+        url, props = probe_url(url)
+        # TODO we should actually check if auth is required
+        # but for now assume that noone would run a webdav instance
+        # without auth -- I believe git-annex (which will ultimately
+        # use the credential), would not even attempt to do anything
+        # without a credential being provided
+        realm = get_auth_realm(url, props.get('auth'))
+        cred = credman.query(realm=realm, _sortby='last-used')
+        if cred:
+            cred = cred[0]
+
+    if not cred:
+        try:
+            cred = credman.get(
+                # if we don't have a name given, use the full URL
+                credential_name or url,
+                _prompt=f'User name and password are required for WebDAV access at {url}',
+                type='user_password',
+                realm=realm,
+            )
+        except Exception as e:
+            lgr.debug('Credential retrieval failed: %s', e)
+
+    return cred
 
 
 def _create_sibling_webdav(
@@ -301,8 +374,7 @@ def _create_sibling_webdav(
     existing: str, optional
     credential: tuple, optional
     """
-    print("MAKE", ds, url)
-    pass
+    return ("MAKE", ds, url, storage_sibling, name, storage_name, existing, credential)
 
 
 # TODO in create-sibling-ria something like this is spaghetti-coded, it should be
