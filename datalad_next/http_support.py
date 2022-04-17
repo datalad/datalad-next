@@ -85,7 +85,7 @@ def get_auth_realm(url, auth_info, scheme=None):
 
        >>> url, props = probe_url('https://fz-juelich.sciebo.de/...')
        >>> get_auth_realm(url, props.get('auth'))
-       'https://fz-juelich.sciebo.de/sciebo'
+       'https://fz-juelich.sciebo.de/login'
 
     Parameters
     ----------
