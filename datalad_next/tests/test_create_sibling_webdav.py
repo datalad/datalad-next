@@ -5,11 +5,11 @@ from datalad.tests.utils import (
 from datalad_next.credman import CredentialManager
 from datalad_next.tests.utils import serve_path_via_webdav
 
+webdav_cred = ('datalad', 'secure')
 
 @with_tempfile
 @with_tempfile
-@serve_path_via_webdav(auth=('datalad', 'secure'))
-#@serve_path_via_webdav
+@serve_path_via_webdav(auth=webdav_cred)
 def test_mike(localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
@@ -21,7 +21,8 @@ def test_mike(localpath, remotepath, url):
             realm=url + '/',
             user='datalad',
             secret='secure'),
-    )
+        **ca)
 
     print(localpath)
-    print(ds.create_sibling_webdav(url, **ca))
+    print(ds.create_sibling_webdav(url, storage_sibling='yes', **ca))
+    pass

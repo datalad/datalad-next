@@ -24,10 +24,15 @@ from datalad.distribution.dataset import (
 )
 from datalad.downloaders.credentials import UserPassword
 from datalad.interface.base import Interface
+from datalad.interface.base import (
+    Interface,
+    build_doc,
+)
 from datalad.interface.common_opts import (
     recursion_flag,
     recursion_limit
 )
+from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.support.param import Parameter
 from datalad.support.annexrepo import AnnexRepo
@@ -45,16 +50,20 @@ __docformat__ = "restructuredtext"
 lgr = logging.getLogger('datalad_next.create_sibling_webdav')
 
 
+@build_doc
 class CreateSiblingWebDAV(Interface):
-    """
+    """Some
 
+    No support for setting up encryption (yet)
+
+    TODO consider adding --dry-run
     """
     _examples_ = [
     ]
 
     _params_ = dict(
         url=Parameter(
-            args=("url",),
+            args=("URL",),
             doc="URL identifying the sibling root on the target WebDAV server",
             constraints=EnsureStr()),
         dataset=Parameter(
@@ -82,6 +91,7 @@ class CreateSiblingWebDAV(Interface):
             constraints=EnsureStr() | EnsureNone()),
         credential=Parameter(
             args=("--credential",),
+            metavar='NAME',
             doc="""name of the credential providing a user/password credential
             to be used for authorization. The credential can be supplied via
             configuration setting 'datalad.credential.<name>.user|password', or
@@ -93,7 +103,6 @@ class CreateSiblingWebDAV(Interface):
         existing=Parameter(
             args=("--existing",),
             constraints=EnsureChoice('skip', 'error', 'reconfigure', None),
-            metavar='MODE',
             doc="""action to perform, if a (storage) sibling is already
             configured under the given name and/or a target already exists.
             In this case, a dataset can be skipped ('skip'), an existing target
@@ -105,7 +114,6 @@ class CreateSiblingWebDAV(Interface):
         storage_sibling=Parameter(
             args=("--storage-sibling",),
             dest='storage_sibling',
-            metavar='MODE',
             constraints=EnsureChoice(
                 'yes', 'export', 'only', 'only-export', 'no'),
             doc="""Both Git history and file content can be hosted on WEBDAV.
@@ -150,6 +158,18 @@ class CreateSiblingWebDAV(Interface):
             # could happen with broken URLs (e.g. without //)
             raise ValueError(
                 f"no sibling name given and none could be derived from the URL {url!r}")
+
+        # ensure values of critical switches. this duplicated the CLI processing, but
+        # compliance is critical in a python session too.
+        # whe cannot make it conditional to apimode == cmdline, because this command
+        # might be called by other python code
+        for param, value in (('storage_sibling', storage_sibling),
+                             ('existing', existing)):
+            try:
+                CreateSiblingWebDAV._params_[param].constraints(value)
+            except ValueError as e:
+                # give message a context
+                raise ValueError(f"{param!r}: {e}") from e
 
         if storage_sibling.startswith('only') and storage_name:
             lgr.warning(
@@ -209,10 +229,11 @@ class CreateSiblingWebDAV(Interface):
             if failed:
                 return
 
-        credman = CredentialManager(ds.config)
         # determine the credential upfront
         # can be done once at the start, all siblings will live on the same
         # server
+        # if all goes well, we'll store a credential (update) at the very end
+        credman = CredentialManager(ds.config)
         cred = _get_url_credential(credential, url, credman)
         if not cred:
             raise ValueError(
@@ -240,14 +261,17 @@ class CreateSiblingWebDAV(Interface):
             else:
                 dsurl = url
 
+            # will eventually return a generator to be unwound in the mother thread
+            # TODO check that this works
             return _create_sibling_webdav(
                 ds,
                 dsurl,
+                credential_name=cred[0],
+                credential=(cred_user, cred_password),
                 storage_sibling=storage_sibling,
                 name=name,
                 storage_name=storage_name,
                 existing=existing,
-                credential=(cred_user, cred_password),
             )
 
         # [{'action': 'foreach-dataset',
@@ -256,11 +280,14 @@ class CreateSiblingWebDAV(Interface):
         #   'command': <function CreateSiblingWebDAV.__call__.<locals>._dummy at 0x7f8c0ab3e0d0>,
         #   'result': 5,
         #   'status': 'ok'}]
-        yield from ds.foreach_dataset(
+        for res in ds.foreach_dataset(
             _dummy,
             return_type='generator',
             result_renderer='disabled',
-        )
+        ):
+            # unwind result generator
+            if 'result' in res:
+                yield from res['result']
 
         # this went well, update the credential
         try:
@@ -286,36 +313,6 @@ class CreateSiblingWebDAV(Interface):
         git_name = name_base + "-wd-vcs"
         annex_name = name_base + "-wd-tree"
 
-        datalad_annex_url = (
-            "datalad_annex::"
-            + url
-            + "?type=webdav&url={noquery}&encryption=none&exporttree=yes"
-            + "" if credential is None else f"&dlacredential={credential}"
-        )
-
-        # Add the datalad_annex:: sibling to datalad
-        from datalad.api import siblings
-
-        siblings(
-            action="add",
-            dataset=ds,
-            name=git_name,
-            url=datalad_annex_url)
-
-        # Add a git-annex webdav special remote. This might requires to set
-        # the webdav environment variables accordingly.
-
-        credential_holder = UserPassword(name=credential)()
-        os.environ["WEBDAV_USERNAME"] = credential_holder["user"]
-        os.environ["WEBDAV_PASSWORD"] = credential_holder["password"]
-        ds.repo.call_annex([
-            "initremote",
-            annex_name,
-            "type=webdav",
-            f"url={url}",
-            "exporttree=yes",
-            "encryption=none"
-        ])
 
 
 def _get_url_credential(credential_name, url, credman):
@@ -361,20 +358,133 @@ def _get_url_credential(credential_name, url, credman):
 
 def _create_sibling_webdav(
         ds, url, *,
-        storage_sibling='no', name=None, storage_name=None, existing='error',
-        credential=None):
+        credential_name, credential,
+        storage_sibling='no', name=None, storage_name=None, existing='error'):
     """
     Parameters
     ----------
     ds: Dataset
     url: str
+    credential_name: str
+    credential: tuple
     storage_sibling: str, optional
     name: str, optional
     storage_name: str, optional
     existing: str, optional
-    credential: tuple, optional
     """
-    return ("MAKE", ds, url, storage_sibling, name, storage_name, existing, credential)
+    # simplify downstream logic, export yes or no
+    export_storage = 'export' in storage_sibling
+
+    if storage_sibling != 'no':
+        yield from _create_storage_sibling(
+            ds,
+            url,
+            storage_name,
+            existing,
+            credential,
+            export=export_storage,
+        )
+    if 'only' not in storage_sibling:
+        yield from _create_git_sibling(
+            ds,
+            url,
+            name,
+            existing,
+            credential_name,
+            credential,
+            export=export_storage,
+        )
+    print ("MADE", ds, url, storage_sibling, name, storage_name, existing, credential)
+
+
+def _create_git_sibling(
+        ds, url, name, existing, credential_name, credential, export):
+    """
+    Parameters
+    ----------
+    ds: Dataset
+    url: str
+    name: str
+    existing: {skip, error, reconfigure}
+    credential_name: str
+    credential: tuple
+    export: bool
+    """
+    remote_url = "datalad-annex::?type=webdav&encryption=none&" \
+                 "exporttree={export}&dlacredential={cred}&url={url}".format(
+        export='yes' if export else 'no',
+        cred=credential_name,
+        # TODO urlquote, because it goes into the query part of another URL
+        url=url,
+    )
+    print("MAKEREPO", remote_url)
+    # TODO dlacredential=
+    # this is a bit of a mess: the mihextras code still used the old
+    # credential code, hence it cannot use the new-style credentials this
+    # command would produce. so far now we just patch the ENV like for special
+    # remotes, but eventually we should make sure it queries the new
+    # credentials. once that happens, we still patch the env here, because
+    # on first use the credential will not yet be in the store (only saved
+    # after successful use), but we would want to record `dlacredential`
+    # such that a plain `git-fetch` would work. Far that we must make sure
+    # that the env credential is declared the Datalad way
+    # (DATALAD_CREDENTIAL_....)
+
+    yield from ds.siblings(
+        # TODO set vs add, consider `existing`
+        action="add",
+        name=name,
+        url=remote_url,
+        # TODO probably needed when reconfiguring, but needs credential patch
+        fetch=False,
+        # TODO publish-depend on storage sibling
+        return_type='generator',
+        result_renderer='disabled')
+
+
+def _create_storage_sibling(ds, url, name, existing, credential, export):
+    """
+    Parameters
+    ----------
+    ds: Dataset
+    url: str
+    name: str
+    existing: {skip, error, reconfigure}
+    credential: tuple
+    export: bool
+    """
+    cmd_args = [
+        # TODO not always init, consider existing
+        'initremote',
+        name,
+        "type=webdav",
+        f"url={url}",
+        f"exporttree={'yes' if export else 'no'}",
+        # TODO for now not, but ultimately we should have it
+        "encryption=none"
+        # TODO consider
+        #chunk/chunksize
+        # TODO embedding credentials would simplify a non-datalad
+        # push/copy, but would also scatter duplicates of credentials
+        # around that need maintenance when expiring/changing
+        #embedcreds
+        # TODO autoenable?
+    ]
+    print("MAKESTORE", cmd_args)
+    # delayed heavy-ish import
+    from unittest.mock import patch
+    # Add a git-annex webdav special remote. This requires to set
+    # the webdav environment variables accordingly.
+    with patch.dict('os.environ', {
+            'WEBDAV_USERNAME': credential[0],
+            'WEBDAV_PASSWORD': credential[1],
+    }):
+        ds.repo.call_annex(cmd_args)
+    yield get_status_dict(
+        ds=ds,
+        status='ok',
+        action='create_sibling_webdav.storage',
+    )
 
 
 # TODO in create-sibling-ria something like this is spaghetti-coded, it should be
