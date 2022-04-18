@@ -37,6 +37,16 @@ Python utilities
    credman
 
 
+Git remote helpers
+------------------
+
+.. currentmodule:: datalad_next.gitremote
+.. autosummary::
+   :toctree: generated
+
+   datalad_annex
+
+
 Git-annex backends
 ------------------
 
