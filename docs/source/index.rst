@@ -37,6 +37,17 @@ Python utilities
    credman
 
 
+Git-annex backends
+------------------
+
+.. currentmodule:: datalad_next.backend
+.. autosummary::
+   :toctree: generated
+
+   base
+   xdlra
+
+
 Indices and tables
 ==================
 
