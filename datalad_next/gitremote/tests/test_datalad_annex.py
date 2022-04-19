@@ -96,7 +96,9 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath):
     remotepath = Path(remotepath)
 
     # basic push/clone roundtrip on clean locations
-    dsrepo.call_git(['push', 'dla'])
+    # Since some version of git > 2.30.2 and <= 2.35.1
+    # it would work without specifying branch.
+    dsrepo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     eq_dla_branch_state(dsrepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     dsclone = clone(remoteurl, localtargetpath)
     dsclonerepo = dsclone.repo
