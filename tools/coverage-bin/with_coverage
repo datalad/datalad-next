@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# A little helper to overload executables with a coverage harness
+
+set -eu
+
+# what script is actually being called
+bin=$(basename $0)
+# where does this script live
+curbin=$(which "$bin")
+# this seems to determine where the full package puts it binaries
+# in -core this is using `datalad` as the reference binary,
+# here explicitly, and less confusingly use the name of the coverage
+# wrapper
+curdatalad=$(which with_coverage)
+curdir=$(dirname $curdatalad)
+
+COVERAGE_RUN="-m coverage run"
+export COVERAGE_PROCESS_START=$PWD/../.coveragerc
+export PYTHONPATH="$PWD/../tools/coverage-bin/"
+# remove the coverage wrapper binary location from the PATH
+export PATH=${PATH//$curdir:/}
+# check where the datalad binary is to
+# - figure out which Python to call
+# - to verify that we are in the right/different env/location
+#   and not where the coverage wrapper is coming from
+newdatalad=$(which datalad)
+newbin=$(which $bin)
+newpython=$(sed -ne '1s/#!//gp' $newdatalad)
+
+if [ $(dirname $newdatalad) = $curdir ]; then
+   echo "E: binary remained the same: $newdatalad" >&2
+   exit 1
+fi
+
+touch /tmp/coverages
+export COVERAGE_FILE=/tmp/.coverage-entrypoints-$RANDOM
+echo "Running now $newpython $COVERAGE_RUN -a $newbin $@" >> /tmp/coverages
+$newpython $COVERAGE_RUN -a $newbin "$@"
