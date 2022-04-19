@@ -212,7 +212,7 @@ def _check_repush_after_vanish(ds, remoteurl, remotepath):
     dsrepo.call_git(['remote', 'add', 'dla', remoteurl])
     remotepath = Path(remotepath)
 
-    dsrepo.call_git(['push', 'dla'])
+    dsrepo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     eq_dla_branch_state(dsrepo.get_hexsha(DEFAULT_BRANCH), remotepath)
 
     # wipe out the remote
@@ -293,7 +293,7 @@ def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
         'dla',
         pushtmpl.format(**locals()),
     ])
-    ds.repo.call_git(['push', 'dla'])
+    ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # must override git-annex security setting for localhost
     with patch.dict(
             "os.environ", {
@@ -322,7 +322,7 @@ def test_submodule_url(servepath, url, workdir):
         if on_windows else
         f'datalad-annex::file://{servepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes',
     ])
-    tobesubds.repo.call_git(['push', 'dla'])
+    tobesubds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # create a superdataset to register the subds to
     super = Dataset(workdir / 'super').create()
     with patch.dict(
