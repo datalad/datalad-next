@@ -80,7 +80,8 @@ def test_export_remote(dspath, remotepath):
 
 
 @with_tempfile
-def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath):
+@with_tempfile
+def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepath):
     """Test helper
 
     - add a dla remote to the dataset
@@ -115,8 +116,9 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath):
 
     # if we are on a sane system, also test recovery from (temporary)
     # push failure. MIH cannot force himself to figure out how to do
-    # this on windows, sorry
-    if not on_windows:
+    # this on windows/crippledFS, sorry
+    probeds = Dataset(probepath).create()
+    if not probeds.repo.is_managed_branch():
         # preserve stat-info for later restore
         stat_records = {}
         # must go reverse to not block chmod'ing of children
