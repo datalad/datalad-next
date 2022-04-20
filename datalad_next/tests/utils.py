@@ -65,7 +65,8 @@ class WebDAVPath(object):
         # hmm, it seems as if this would be the proper way, but the docs are
         # super-terse and it does not work like this
         #self.server_thread = Thread(target=self.server._run_in_thread)
-        self.server_thread = Thread(target=self.server.start)
+        self.server.prepare()
+        self.server_thread = Thread(target=self.server.serve)
         self.server_thread.start()
         lgr.debug('WEBDAV started')
         return f'http://{config["host"]}:{config["port"]}'
