@@ -169,22 +169,6 @@ class NotLinkedError(AnnexError):
     """
 
 
-class AnnexLoggingHandler(logging.StreamHandler):
-    """
-    Stream Handler that sends log records to git annex via the backend protocol
-    """
-    def __init__(self, annex):
-        super().__init__()
-        self.annex = annex
-        self.setFormatter(
-            logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
-
-    def emit(self, record: logging.LogRecord):
-        log_entry = self.format(record)
-        for line in log_entry.splitlines():
-            self.annex.debug(line)
-
-
 class Protocol(object):
     """
     Helper class handling the receiving part of the protocol (git-annex to
@@ -198,11 +182,13 @@ class Protocol(object):
 
     def command(self, line):
         line = line.strip()
-        parts = line.split(" ", 1)
-        if not parts:
+        if not line:
             raise ProtocolError("Got empty line")
+        parts = line.split(" ", 1)
 
-        method = self.lookupMethod(parts[0]) or self.do_UNKNOWN
+        method = self.lookupMethod(parts[0])
+        if method is None:
+            raise UnsupportedRequest(f'Unknown request {line!r}')
 
         try:
             if len(parts) == 1:
@@ -216,13 +202,6 @@ class Protocol(object):
 
     def lookupMethod(self, command):
         return getattr(self, 'do_' + command.upper(), None)
-
-    def check_key(self, key):
-        if len(key.split()) != 1:
-            raise ValueError("Invalid key. Key contains whitespace character")
-
-    def do_UNKNOWN(self, *arg):
-        raise UnsupportedRequest(f'Unknown request {arg}')
 
     def do_GETVERSION(self):
         return self.version
@@ -299,16 +278,6 @@ class Master(object):
         self.backend = backend
         self.protocol = Protocol(backend)
 
-    def LoggingHandler(self):
-        """
-        Gets an instance of AnnexLoggingHandler
-
-        Returns
-        -------
-        AnnexLoggingHandler
-        """
-        return AnnexLoggingHandler(self)
-
     def Listen(self, input=sys.stdin):
         """
         Listen on `input` for messages from git annex.
@@ -340,23 +309,12 @@ class Master(object):
                     self._send(reply)
             except UnsupportedRequest as e:
                 self.debug(str(e))
-                self._send ("UNSUPPORTED-REQUEST")
+                self._send("UNSUPPORTED-REQUEST")
             except Exception as e:
                 for line in traceback.format_exc().splitlines():
                     self.debug(line)
                 self.error(e)
                 raise SystemExit
-
-    def _ask(self, request, reply_keyword, reply_count):
-        self._send(request)
-        line = self.input.readline().rstrip().split(" ", reply_count)
-        if line and line[0] == reply_keyword:
-            line.extend([""] * (reply_count+1-len(line)))
-            return line[1:]
-        else:
-            raise UnexpectedMessage(
-                f"Expected {reply_keyword} and {reply_count} "
-                f"values. Got {line}")
 
     def debug(self, *args):
         """
