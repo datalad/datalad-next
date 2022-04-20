@@ -142,10 +142,10 @@ class CreateSiblingWebDAV(Interface):
             dataset: Optional[Union[str, Dataset]] = None,
             name: Optional[str] = None,
             storage_name: Optional[str] = None,
-            storage_sibling: Optional[str] = 'yes',
+            storage_sibling: str = 'yes',
             credential: Optional[str] = None,
             existing: Optional[str] = None,
-            recursive: Optional[bool] = False,
+            recursive: bool = False,
             recursion_limit: Optional[int] = None):
 
         # TODO catch broken URLs
