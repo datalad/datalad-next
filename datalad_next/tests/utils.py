@@ -1,6 +1,5 @@
-import logging
-import logging
 from functools import wraps
+import logging
 from pathlib import Path
 
 from datalad.utils import optional_args
@@ -93,7 +92,7 @@ def serve_path_via_webdav(tfunc, *targs, auth=None):
     """
     @wraps(tfunc)
     @attr('serve_path_via_webdav')
-    def _wrap_serve_path_via_http(*args, **kwargs):
+    def  _wrap_serve_path_via_http(*args, **kwargs):
 
         if len(args) > 1:
             args, path = args[:-1], args[-1]
@@ -102,4 +101,4 @@ def serve_path_via_webdav(tfunc, *targs, auth=None):
 
         with WebDAVPath(path, auth=auth) as url:
             return tfunc(*(args + (path, url)), **kwargs)
-    return _wrap_serve_path_via_http
+    return  _wrap_serve_path_via_http
