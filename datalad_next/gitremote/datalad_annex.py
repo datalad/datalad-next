@@ -232,14 +232,14 @@ class RepoAnnexGitRemote(object):
         # a credential store, it can be given via AWS_SESSION_TOKEN
         # in any case
         glacier=dict(
-            user='AWS_ACCESS_KEY_ID',
-            password='AWS_SECRET_ACCESS_KEY'),
+            user='AWS_ACCESS_KEY_ID',  # nosec
+            password='AWS_SECRET_ACCESS_KEY'),  # nosec
         s3=dict(
-            user='AWS_ACCESS_KEY_ID',
-            password='AWS_SECRET_ACCESS_KEY'),
+            user='AWS_ACCESS_KEY_ID',  # nosec
+            password='AWS_SECRET_ACCESS_KEY'),  # nosec
         webdav=dict(
-            user='WEBDAV_USERNAME',
-            password='WEBDAV_PASSWORD'),
+            user='WEBDAV_USERNAME',  # nosec
+            password='WEBDAV_PASSWORD'),  # nosec
     )
 
     def __init__(self,
