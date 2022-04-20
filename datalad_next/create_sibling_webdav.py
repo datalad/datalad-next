@@ -34,6 +34,7 @@ from datalad.interface.common_opts import (
 )
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
+from datalad.log import log_progress
 from datalad.support.param import Parameter
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.constraints import (
