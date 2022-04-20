@@ -62,9 +62,6 @@ class WebDAVPath(object):
         )
         lgr.debug('Starting WEBDAV server')
         from threading import Thread
-        # hmm, it seems as if this would be the proper way, but the docs are
-        # super-terse and it does not work like this
-        #self.server_thread = Thread(target=self.server._run_in_thread)
         self.server.prepare()
         self.server_thread = Thread(target=self.server.serve)
         self.server_thread.start()
@@ -75,9 +72,10 @@ class WebDAVPath(object):
         lgr.debug('Stopping WEBDAV server')
         # graceful exit
         self.server.stop()
+        lgr.debug('WEBDAV server stopped, waiting for server thread to exit')
         # wait for shutdown
         self.server_thread.join()
-        lgr.debug('WEBDAV server stopped')
+        lgr.debug('WEBDAV server thread exited')
 
 
 @optional_args
