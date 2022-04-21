@@ -301,7 +301,7 @@ class CreateSiblingWebDAV(Interface):
         except Exception as e:
             # we do not want to crash for any failure to store a
             # credential
-            lgr.warn(
+            lgr.warning(
                 'Exception raised when storing credential %r %r: %s',
                 *cred,
                 CapturedException(e),
