@@ -307,13 +307,13 @@ class CreateSiblingWebDAV(Interface):
                 CapturedException(e),
             )
         return
-        # TODO the rest should be wrapped into a helper function and be executed with
-        # foreach-dataset
 
-        name_base = name or parsed_url.hostname
-        git_name = name_base + "-wd-vcs"
-        annex_name = name_base + "-wd-tree"
-
+        # TODO the code below should be wrapped into a helper function and be
+        #  executed with foreach-dataset:
+        #
+        # name_base = name or parsed_url.hostname
+        # git_name = name_base + "-wd-vcs"
+        # annex_name = name_base + "-wd-tree"
 
 
 def _get_url_credential(credential_name, url, credman):
