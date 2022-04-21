@@ -160,11 +160,10 @@ class CreateSiblingWebDAV(Interface):
             args=("--existing",),
             constraints=EnsureChoice('skip', 'error', 'reconfigure'),
             doc="""action to perform, if a (storage) sibling is already
-            configured under the given name and/or a target already exists.
-            In this case, a dataset can be skipped ('skip'), an existing target
-            repository be forcefully re-initialized, and the sibling
-            (re-)configured ('reconfigure'), or the command be instructed to
-            fail ('error').""", ),
+            configured under the given name.
+            In this case, a sibling creation can be skipped ('skip') or the
+            sibling (re-)configured ('reconfigure'), or the command be
+            instructed to fail ('error').""", ),
         recursive=recursion_flag,
         recursion_limit=recursion_limit,
         storage_sibling=Parameter(
@@ -350,8 +349,10 @@ class CreateSiblingWebDAV(Interface):
                                       recursive=recursive,
                                       recursion_limit=recursion_limit):
             # unwind result generator
-            if 'result' in res:
-                yield from res['result']
+            for partial_result in res.get('result', []):
+                result = res_kwargs.copy()
+                result.update(partial_result)
+                yield result
 
         # this went well, update the credential
         credname, credprops = cred
@@ -422,41 +423,100 @@ def _create_sibling_webdav(
     # simplify downstream logic, export yes or no
     export_storage = 'export' in storage_sibling
 
+    existing_siblings = [r[1] for r in
+                         _yield_ds_w_matching_siblings(ds,
+                                                       (name, storage_name),
+                                                       recursive=False)
+                         ]
+
+    results = []
+
     if storage_sibling != 'no':
-        yield from _create_storage_sibling(
-            ds,
-            url,
-            storage_name,
-            existing,
-            credential,
-            export=export_storage,
-        )
+        if storage_name in existing_siblings:
+            if existing == 'skip':
+                r = get_status_dict(ds=ds,
+                                    status='notneeded',
+                                    message=f"Skipped on existing "
+                                            f"sibling {storage_name}")
+            elif existing == 'reconfigure':
+                r = _create_storage_sibling(
+                        ds,
+                        url,
+                        storage_name,
+                        credential,
+                        export=export_storage,
+                        reconfigure=True,
+                    )
+            else:
+                # Shouldn't happen, since 'error' was treated upfront
+                raise ValueError(f"Unexpected value of 'existing': {existing}")
+        else:
+            r = _create_storage_sibling(
+                    ds,
+                    url,
+                    storage_name,
+                    credential,
+                    export=export_storage,
+                    reconfigure=False,
+                )
+        results.append(r)
     if 'only' not in storage_sibling:
-        yield from _create_git_sibling(
-            ds,
-            url,
-            name,
-            existing,
-            credential_name,
-            credential,
-            export=export_storage,
-            dependency=None if storage_sibling == 'no' else storage_name,
-        )
+        if name in existing_siblings:
+            if existing == 'skip':
+                r = get_status_dict(ds=ds,
+                                    status='notneeded',
+                                    message=f"Skipped on existing sibling "
+                                            f"{name}")
+            elif existing == 'reconfigure':
+                r = _create_git_sibling(
+                        ds,
+                        url,
+                        name,
+                        credential_name,
+                        credential,
+                        export=export_storage,
+                        reconfigure=True,
+                        publish_depends=storage_name
+                            if storage_sibling != 'no' else None
+                    )
+            else:
+                # Shouldn't happen, since 'error' was treated upfront
+                raise ValueError(f"Unexpected value of 'existing': {existing}")
+        else:
+            r = _create_git_sibling(
+                    ds,
+                    url,
+                    name,
+                    credential_name,
+                    credential,
+                    export=export_storage,
+                    reconfigure=False,
+                    publish_depends=storage_name
+                        if storage_sibling != 'no' else None
+            )
+        results.append(r)
+
+    print ("MADE", ds, url, storage_sibling, name, storage_name, existing, credential)
+
+    return results
 
 
 def _create_git_sibling(
-        ds, url, name, existing, credential_name, credential, export,
-        dependency=None):
+        ds, url, name, credential_name, credential, export, reconfigure,
+        publish_depends=None):
     """
     Parameters
     ----------
     ds: Dataset
     url: str
     name: str
-    existing: {skip, error, reconfigure}
     credential_name: str
     credential: tuple
     export: bool
+    reconfigure: bool
+        whether or not to replace the git remote
+    publish_depends: str or None
+        publication dependency to set
     """
 
     remote_url = \
@@ -483,27 +543,25 @@ def _create_git_sibling(
         action="configure",
         name=name,
         url=remote_url,
-        # TODO probably needed when reconfiguring, but needs credential patch
-        fetch=False,
-        publish_depends=dependency,
-        return_type='generator',
+        publish_depends=publish_depends,
+        return_type='item-or-list',
         result_renderer='disabled')
 
 
-def _create_storage_sibling(ds, url, name, existing, credential, export):
+def _create_storage_sibling(ds, url, name, credential, export, reconfigure):
     """
     Parameters
     ----------
     ds: Dataset
     url: str
     name: str
-    existing: {skip, error, reconfigure}
     credential: tuple
     export: bool
+    reconfigure: bool
+        whether or not to call `enableremote` instead of `initremote`
     """
     cmd_args = [
-        # TODO not always init, consider existing
-        'initremote',
+        'initremote' if not reconfigure else 'enableremote',
         name,
         "type=webdav",
         f"url={url}",
@@ -520,7 +578,7 @@ def _create_storage_sibling(ds, url, name, existing, credential, export):
             'WEBDAV_PASSWORD': credential[1],
     }):
         ds.repo.call_annex(cmd_args)
-    yield get_status_dict(
+    return get_status_dict(
         ds=ds,
         status='ok',
         action='create_sibling_webdav.storage',
@@ -559,25 +617,45 @@ def _yield_ds_w_matching_siblings(
             label='Query siblings',
             unit=' Siblings',
         )
-    for r in ds.siblings(result_renderer='disabled',
-                         return_type='generator',
-                         recursive=recursive,
-                         recursion_limit=recursion_limit):
-        if recursive:
-            log_progress(
-                lgr.info, pbar_id,
-                'Discovered sibling %s in dataset at %s',
-                r['name'], r['path'],
-                update=1,
-                increment=True)
-        if not r['type'] == 'sibling' or r['status'] != 'ok':
-            # this is an internal status query that has not consequence
-            # for the outside world. Be silent unless something useful
-            # can be said
-            #yield r
-            continue
-        if r['name'] in names:
-            yield r['path'], r['name']
+
+    def _discover_all_remotes(ds, refds, **kwargs):
+        """Helper to be run on all relevant datasets via foreach
+        """
+        # Note, that `siblings` doesn't tell us about not enabled special
+        # remotes. There could still be conflicting names we need to know
+        # about in order to properly deal with the `existing` switch.
+
+        repo = ds.repo
+        # list of known git remotes
+        if isinstance(repo, AnnexRepo):
+            remotes = repo.get_remotes(exclude_special_remotes=True)
+            remotes.extend([v['name']
+                            for k, v in repo.get_special_remotes().items()]
+                           )
+        else:
+            remotes = repo.get_remotes()
+        return remotes
+
+    for res in ds.foreach_dataset(
+            _discover_all_remotes,
+            recursive=recursive,
+            recursion_limit=recursion_limit,
+            return_type='generator',
+            result_renderer='disabled',
+    ):
+        # unwind result generator
+        if 'result' in res:
+            for name in res['result']:
+                if recursive:
+                    log_progress(
+                        lgr.info, pbar_id,
+                        'Discovered sibling %s in dataset at %s',
+                        name, res['path'],
+                        update=1,
+                        increment=True)
+                if name in names:
+                    yield res['path'], name
+
     if recursive:
         log_progress(
             lgr.info, pbar_id,
