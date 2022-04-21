@@ -35,6 +35,7 @@ from datalad.tests.utils import (
 from datalad.utils import on_windows
 from datalad_next.tests.utils import (
     serve_path_via_webdav,
+    with_credential,
 )
 from ..datalad_annex import get_initremote_params_from_url
 
@@ -353,6 +354,9 @@ def test_submodule_url(servepath, url, workdir):
     eq_(tobesubds.id, subdsclone.id)
 
 
+@with_credential(
+    'dltest-mystuff', user=webdav_cred[0], secret=webdav_cred[1],
+    type='user_password')
 @with_tempfile
 @with_tempfile
 @with_tempfile
@@ -363,20 +367,14 @@ def test_webdav_auth(preppath, clnpath, remotepath, webdavurl):
 
     remoteurl = \
         f'datalad-annex::{webdavurl}' \
-        '?type=webdav&url={noquery}&encryption=none&dlacredential=mystuff'
+        '?type=webdav&url={noquery}&encryption=none&' \
+        'dlacredential=dltest-mystuff'
 
     ds.repo.call_git(['remote', 'add', 'dla', remoteurl])
-    # we are providing the credentials via the environment to avoid
-    # complictions with an actual credential store.
-    # importantly we use a different credential source than the one
-    # used by the testhelper
-    with patch.dict(
-            'os.environ',
-            {"DATALAD_CREDENTIAL_MYSTUFF_USER": webdav_cred[0],
-             "DATALAD_CREDENTIAL_MYSTUFF_PASSWORD": webdav_cred[1]}):
-        # roundtrip
-        ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
-        cln = clone(remoteurl, clnpath)
-        # must give the same thing
-        eq_(ds.repo.get_hexsha(DEFAULT_BRANCH),
-            cln.repo.get_hexsha(DEFAULT_BRANCH))
+
+    # roundtrip
+    ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
+    cln = clone(remoteurl, clnpath)
+    # must give the same thing
+    eq_(ds.repo.get_hexsha(DEFAULT_BRANCH),
+        cln.repo.get_hexsha(DEFAULT_BRANCH))
