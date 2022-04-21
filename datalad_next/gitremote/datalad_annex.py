@@ -188,6 +188,7 @@ from datalad.support.annexrepo import AnnexRepo
 from datalad.support.exceptions import CapturedException
 from datalad.support.gitrepo import GitRepo
 from datalad.support.constraints import EnsureInt
+from datalad.ui import ui
 from datalad.utils import rmtree
 
 
@@ -1092,6 +1093,13 @@ def main():
         # no fallback, must be present
         if gitdir is None:
             raise RuntimeError('GIT_DIR environment variable not defined')
+
+        # stdin/stdout will be used for interactions with git
+        # the 'annex' backend really doesn't do much annex-specific
+        # albeit maybe progress reporting (unclear to MIH right now)
+        # but it does make credential entry possible here, despite the
+        # remote helper process being connected to Git with its stdin/stdout
+        ui.set_backend('annex')
 
         # lock and load
         remote = RepoAnnexGitRemote(gitdir, remote, url)
