@@ -102,3 +102,33 @@ def serve_path_via_webdav(tfunc, *targs, auth=None):
         with WebDAVPath(path, auth=auth) as url:
             return tfunc(*(args + (path, url)), **kwargs)
     return  _wrap_serve_path_via_http
+
+
+def with_credential(name, **kwargs):
+    """A decorator to temporarily deploy a credential.
+
+    If a credential of the given name already exists, it will
+    be temporarily replaced by the given one.
+
+    In pretty much all cases, the keyword arguments need to include
+    `secret`. Otherwise any properties are supported.
+    """
+    def with_credential_decorator(fx):
+        @wraps(fx)
+        def _with_credential(*dargs, **dkw):
+            from datalad_next.credman import CredentialManager
+            credman = CredentialManager()
+            # retrieve anything that might be conflicting with the
+            # to-be-deployed credential
+            prev_cred = credman.get(name)
+            try:
+                credman.set(name, **kwargs)
+                fx(*dargs, **dkw)
+            finally:
+                if prev_cred:
+                    credman.set(name, **prev_cred)
+                else:
+                    credman.remove(name)
+
+        return _with_credential
+    return with_credential_decorator
