@@ -4,12 +4,14 @@ from nose.tools import (
     assert_in,
     assert_raises,
     assert_raises_regexp,
-    assert_true,
     eq_,
 )
 
 from datalad.api import create_sibling_webdav
-from datalad.distribution.dataset import Dataset
+from datalad.distribution.dataset import (
+    Dataset,
+    require_dataset,
+)
 from datalad.support.exceptions import IncompleteResultsError
 from datalad.tests.utils import (
     with_tempfile,
@@ -139,6 +141,11 @@ def test_check_existing_siblings():
     # Ensure that constraints are checked internally
     url = "http://localhost:22334/abc"
 
+    ds = require_dataset(
+        None,
+        check_installed=True,
+        purpose='create WebDAV sibling(s)')
+
     with patch("datalad_next.create_sibling_webdav."
                "_yield_ds_w_matching_siblings") as ms_mock:
 
@@ -155,7 +162,7 @@ def test_check_existing_siblings():
                 assert_in(
                     {
                         'action': 'create_sibling_webdav',
-                        'refds': '/home/cristian/Develop/datalad-next',
+                        'refds': ds.path,
                         'status': 'error',
                         'message': (
                             'a sibling %r is already configured in dataset %r',
