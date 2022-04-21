@@ -98,17 +98,18 @@ Some git-annex special remotes require the specification of credentials via
 environment variables. With the URL parameter ``dlacredential=<name>`` it
 is possible to query DataLad for a user/password credential to be used for
 this purpose. This convenience functionality is supported for the special
-remotes ``glacier``, ``s3``, and ``webdav``. Unfortunately, interactive
-credential entry on first use is not possible (because the remote helper
-is not connected to a terminal when it runs). A credential of the given
-name must already exist. Until DataLad provides a command to do this, it can
-be achieved with the following Python code snippet that can be executed
-on the command line::
+remotes ``glacier``, ``s3``, and ``webdav``.
 
-    python -c 'from datalad.downloaders.credentials import UserPassword; UserPassword(name="<NAME>")()'
+When a credential of the given name does not exist, or no credential name
+was specified, an attempt is made to determine a suitable credential based
+on, for example, a detected HTTP authentication realm. If no matching
+credential could be found, the user will be prompted to enter a credential.
+After having successfully established access, the entered credential will
+be saved in the local credential store.
 
-where ``<NAME>`` must be replaced with the desired credential name. Username
-and password can then be entered interactively.
+DataLad-based credentials are only utilized, when the native git-annex
+credential setup via environment variables is not in use (see the documentation
+of a particular special remote implementation for more information).
 
 
 Implementation details
@@ -165,6 +166,7 @@ upload.
 __all__ = ['RepoAnnexGitRemote']
 
 import datetime
+import logging
 import os
 import sys
 import zipfile
@@ -178,7 +180,6 @@ from urllib.parse import (
 
 from datalad.consts import PRE_INIT_COMMIT_SHA
 from datalad.core.local.repo import repo_from_path
-from datalad.downloaders.credentials import UserPassword
 from datalad.runner import (
     CommandError,
     NoCapture,
@@ -190,6 +191,10 @@ from datalad.support.gitrepo import GitRepo
 from datalad.support.constraints import EnsureInt
 from datalad.ui import ui
 from datalad.utils import rmtree
+
+from datalad_next.credman import CredentialManager
+
+lgr = logging.getLogger('datalad.gitremote.datalad_annex')
 
 
 class RepoAnnexGitRemote(object):
@@ -234,13 +239,13 @@ class RepoAnnexGitRemote(object):
         # in any case
         glacier=dict(
             user='AWS_ACCESS_KEY_ID',  # nosec
-            password='AWS_SECRET_ACCESS_KEY'),  # nosec
+            secret='AWS_SECRET_ACCESS_KEY'),  # nosec
         s3=dict(
             user='AWS_ACCESS_KEY_ID',  # nosec
-            password='AWS_SECRET_ACCESS_KEY'),  # nosec
+            secret='AWS_SECRET_ACCESS_KEY'),  # nosec
         webdav=dict(
             user='WEBDAV_USERNAME',  # nosec
-            password='WEBDAV_PASSWORD'),  # nosec
+            secret='WEBDAV_PASSWORD'),  # nosec
     )
 
     def __init__(self,
@@ -298,6 +303,9 @@ class RepoAnnexGitRemote(object):
         # ID of the tree to export, if needed
         self.exporttree = None
 
+        self.credman = None
+        self.pending_credential = None
+        # must come after the two above!
         self.credential_env = self._get_credential_env()
 
     def _get_credential_env(self):
@@ -317,31 +325,169 @@ class RepoAnnexGitRemote(object):
         credential_name = [
             p[14:] for p in self.initremote_params
             if p.startswith('dlacredential=')
-        ]
-        if not credential_name:
+        ] or None
+        if credential_name:
+            credential_name = credential_name[0]
+        remote_type = self._get_remote_type()
+        supported_remote_type = remote_type in self.credential_env_map
+        if credential_name and not supported_remote_type:
+            # we have no idea how to deploy credentials for this remote type
+            raise ValueError(
+                f"Deploying credentials for type={remote_type[0]} special "
+                "remote is not supported. Remove dlacredential= parameter from "
+                "the remote URL and provide credentials according to the "
+                "documentation of this particular special remote.")
+
+        if not supported_remote_type:
+            lgr.debug('Special remote type %r not supported for credential setup',
+                      remote_type)
             return
 
-        credential_name = credential_name[0]
+        # retrieve deployment mapping
+        env_map = self.credential_env_map[remote_type]
+        if all(k in os.environ for k in env_map.values()):
+            # the ENV is fully set up
+            # let's prefer the environment to behave like git-annex
+            lgr.debug(
+                'Not deploying credentials for special remote type %r, '
+                'already present in environment', remote_type)
+            return
+
+        cred = self._retrieve_credential(credential_name)
+
+        if not cred:
+            lgr.debug(
+                'Could not find a matching credential for special remote %s',
+                self.initremote_params)
+            return
+
+        return {
+            # take whatever partial setup the ENV has already
+            v: os.environ.get(v, cred[k])
+            for k, v in env_map.items()
+        }
+
+    def _retrieve_credential(self, name):
+        """Retrieve a credential
+
+        Successfully retrieved credentials are also placed in
+        self.pending_credential to be picked up by `_store_credential()`.
+
+        Returns
+        -------
+        dict or None
+          If a credential could be retrieved, a dict with 'user' and
+          'secret' keys will be return, or None otherwise.
+        """
+        if not self.credman:
+            self.credman = CredentialManager(self.repo.config)
+        cred = None
+        realm = None
+        if name:
+            # we can ask blindly first, caller seems to know what to do
+            cred = self.credman.get(
+                name=name,
+                # give to make legacy credentials accessible
+                _type_hint='user_password',
+            )
+        if not cred:
+            # direct lookup failed, try query.
+            realm = self._get_auth_realm()
+            if realm:
+                creds = self.credman.query(realm=realm, _sortby='last-used')
+                if creds:
+                    name, cred = creds[0]
+        if not cred:
+            # credential query failed too, enable manual entry
+            known_props = {'type': 'user_password'}
+            if realm:
+                known_props['realm'] = realm
+            cred = self.credman.get(
+                # this might still be None
+                name=name,
+                _type_hint='user_password',
+                _prompt=f'A credential is required for access',
+                # inject anything we already know to make sure we store it
+                # at the very end, and can use it for discovery next time
+                **known_props
+            )
+
+        if not cred:
+            return
+        # stage for eventual (re-)storage after having proven to work
+        self.pending_credential = (name, cred)
+        return {k: cred[k] for k in ('user', 'secret')}
+
+    def _get_remote_type(self):
         remote_type = [
             p[5:] for p in self.initremote_params
             if p.startswith('type=')
         ]
-        if remote_type[0] not in self.credential_env_map:
-            raise ValueError(
-                "No known mapping for credential to environment variables "
-                "for type={remote_type[0]} special remote.")
-        env_map = self.credential_env_map[remote_type[0]]
-        # prefer the environment to behave like git-annex, but if we do not
-        # have a complete credential set, go acquire one
-        if not all(k in os.environ for k in env_map.values()):
-            up_auth = UserPassword(name=credential_name)
-            if not up_auth.is_known:
-                # nothing we can do, no terminal attached
+        if not remote_type:
+            return
+        return remote_type[0]
+
+    def _get_auth_realm(self):
+        # no other way to do this specifically for each supported remote type
+        remote_type = self._get_remote_type()
+        if remote_type == 'webdav':
+            from datalad_next.http_support import (
+                probe_url,
+                get_auth_realm,
+            )
+            url = [
+                p[4:] for p in self.initremote_params
+                if p.startswith('url=')
+            ]
+            if not url:
                 return
-            return {
-                v: os.environ.get(v, up_auth()[k])
-                for k, v in env_map.items()
-            }
+            else:
+                url = url[0]
+            url, props = probe_url(url)
+            realm = get_auth_realm(url, props.get('auth'))
+            return realm
+
+    def _store_credential(self):
+        """Look for a pending credential and store it
+
+        Safe to call unconditionally.
+        """
+        if self.pending_credential and self.credman:
+            name, cred = self.pending_credential
+            if not name:
+                # name could still be None, if this was entered
+                # create a default name, and check if it has not been used
+                name = '{type}-{user}{delim}{realm}'.format(
+                    type=self._get_remote_type(),
+                    user=cred['user'],
+                    delim='-' if 'realm' in cred else '',
+                    realm=cred.get('realm', ''),
+                )
+                if self.credman.get(
+                        name=name,
+                        # give to make legacy credentials accessible
+                        _type_hint='user_password'):
+                    # this is already in use, do not override
+                    lgr.warning(
+                        'The entered credential will not be stored, '
+                        'a credential with the default name %r already exists. '
+                        'Specify a credential name via the dlacredential= '
+                        'remote URL parameter, and/or configure a credential '
+                        'with the datalad-credentials command%s',
+                        name,
+                        f' with a `realm={cred["realm"]}` property'
+                        if 'realm' in cred else '')
+                    return
+            # we have used a credential, store it with updated usage info
+            try:
+                self.credman.set(name, _lastused=True, **cred)
+            except Exception as e:
+                # we do not want to crash for any failure to store a
+                # credential
+                lgr.warn(
+                    'Exception raised when storing credential %r %r: %s',
+                    name, cred, CapturedException(e),
+                )
 
     def _ensure_workdir(self):
         self.workdir.mkdir(parents=True, exist_ok=True)
@@ -594,6 +740,8 @@ class RepoAnnexGitRemote(object):
                     self.repo.call_git(['update-ref', '-d', ref['refname']])
                 # we do not need to update `self._cached_remote_refs`,
                 # because we end the remote-helper process here
+                # everything has worked, if we used a credential, update it
+                self._store_credential()
                 return
             elif line == 'connect git-upload-pack\n':
                 self.log('Connecting git-upload-pack\n')
@@ -605,6 +753,8 @@ class RepoAnnexGitRemote(object):
                     ['git', 'upload-pack', self.mirrorrepo.path],
                     protocol=NoCapture,
                 )
+                # everything has worked, if we used a credential, update it
+                self._store_credential()
                 return
             elif line.startswith('option '):
                 key, value = line[7:].split(' ', maxsplit=1)
