@@ -14,7 +14,10 @@ from typing import (
     Optional,
     Union,
 )
-from urllib.parse import urlparse
+from urllib.parse import (
+    quote as urlquote,
+    urlparse,
+)
 
 from datalad.distribution.dataset import (
     Dataset,
@@ -131,7 +134,10 @@ class CreateSiblingWebDAV(Interface):
             file version corresponding to one unique state of the dataset,
             but using a human-readable data data organization on the WEBDAV
             remote that matches the file tree of the dataset
-            ('export'|'only-export')."""),
+            ('export'|'only-export').
+            When a storage sibling and a regular sibling are created, a
+            publication dependency on the storage sibling is configured
+            for the regular sibling in the local dataset clone."""),
     )
 
     @staticmethod
@@ -382,11 +388,13 @@ def _create_sibling_webdav(
             credential_name,
             credential,
             export=export_storage,
+            dependency=None if storage_sibling == 'no' else storage_name,
         )
 
 
 def _create_git_sibling(
-        ds, url, name, existing, credential_name, credential, export):
+        ds, url, name, existing, credential_name, credential, export,
+        dependency=None):
     """
     Parameters
     ----------
@@ -402,8 +410,8 @@ def _create_git_sibling(
                  "exporttree={export}&dlacredential={cred}&url={url}".format(
         export='yes' if export else 'no',
         cred=credential_name,
-        # TODO urlquote, because it goes into the query part of another URL
-        url=url,
+        # urlquote, because it goes into the query part of another URL
+        url=urlquote(url),
     )
     # TODO dlacredential=
     # this is a bit of a mess: the mihextras code still used the old
@@ -424,7 +432,7 @@ def _create_git_sibling(
         url=remote_url,
         # TODO probably needed when reconfiguring, but needs credential patch
         fetch=False,
-        # TODO publish-depend on storage sibling
+        publish_depends=dependency,
         return_type='generator',
         result_renderer='disabled')
 
