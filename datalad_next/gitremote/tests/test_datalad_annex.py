@@ -70,7 +70,7 @@ def test_annex_remote(dspath, remotepath):
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none'
-    ds = Dataset(dspath).create(annex=False)
+    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
     _check_push_fetch_cycle(ds, dlaurl, remotepath)
 
 
@@ -82,7 +82,7 @@ def test_export_remote(dspath, remotepath):
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes'
-    ds = Dataset(dspath).create(annex=False)
+    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
     _check_push_fetch_cycle(ds, dlaurl, remotepath)
 
 
@@ -200,7 +200,7 @@ def test_annex_remote_autorepush(dspath, remotepath):
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none'
-    ds = Dataset(dspath).create(annex=False)
+    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
     _check_repush_after_vanish(ds, dlaurl, remotepath)
 
 
@@ -212,7 +212,7 @@ def test_export_remote_autorepush(dspath, remotepath):
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes'
-    ds = Dataset(dspath).create(annex=False)
+    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
     _check_repush_after_vanish(ds, dlaurl, remotepath)
 
 
@@ -296,7 +296,7 @@ def test_typeweb_export():
 @with_tempfile
 @with_tempfile
 def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
-    ds = Dataset(preppath).create(annex=False)
+    ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
     ds.repo.call_git([
         'remote', 'add',
         'dla',
@@ -322,7 +322,7 @@ def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
 def test_submodule_url(servepath, url, workdir):
     workdir = Path(workdir)
     # a future subdataset that we want to register under a complex URL
-    tobesubds = Dataset(workdir / 'subdsprep').create(annex=False)
+    tobesubds = Dataset(workdir / 'subdsprep').create(annex=False, result_renderer='disabled')
     # push to test web server, this URL doesn't matter yet
     tobesubds.repo.call_git([
         'remote', 'add', 'dla',
@@ -363,7 +363,7 @@ def test_submodule_url(servepath, url, workdir):
 @serve_path_via_webdav(auth=webdav_cred)
 def test_webdav_auth(preppath, clnpath, remotepath, webdavurl):
     # this is the dataset we want to roundtrip through webdav
-    ds = Dataset(preppath).create(annex=False)
+    ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
 
     remoteurl = \
         f'datalad-annex::{webdavurl}' \

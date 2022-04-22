@@ -5,6 +5,7 @@ from datalad.tests.utils import (
     assert_in,
     assert_in_results,
     assert_raises,
+    assert_status,
     eq_,
     ok_,
 )
@@ -58,7 +59,6 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
     targetdir = Path(remotepath) / targetdir_name
     url = f'{url}/{targetdir_name}'
 
-    print(clonepath, localpath, remotepath, url)
     res = ds.create_sibling_webdav(url, storage_sibling='yes', **ca)
     assert_in_results(
         res,
@@ -98,8 +98,15 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
     eq_(ds.repo.get_hexsha(ds.repo.get_corresponding_branch()),
         dsclone.repo.get_hexsha(dsclone.repo.get_corresponding_branch()))
 
-    # TODO verify that we can get testfile.dat
-    # -- waiting for siblings to be able to deploy credentials
+    # check that it auto-deploys webdav credentials
+    # at some point, clone should be able to do this internally
+    # https://github.com/datalad/datalad/issues/6634
+    dsclone.siblings('enable', name='127.0.0.1-storage')
+    # verify that we can get testfile.dat
+    # just get the whole damn thing
+    assert_status('ok', dsclone.get('.'))
+    # verify testfile content
+    eq_('dummy', (dsclone.pathobj / 'testfile.dat').read_text())
 
 
 def test_bad_url_catching():

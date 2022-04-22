@@ -1,1 +1,5 @@
-import datalad_next.patches.create_sibling_ghlike
+from . import (
+    annexrepo,
+    create_sibling_ghlike,
+    siblings,
+)
