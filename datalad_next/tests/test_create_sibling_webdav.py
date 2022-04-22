@@ -59,7 +59,6 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
     targetdir = Path(remotepath) / targetdir_name
     url = f'{url}/{targetdir_name}'
 
-    print(clonepath, localpath, remotepath, url)
     res = ds.create_sibling_webdav(url, storage_sibling='yes', **ca)
     assert_in_results(
         res,
