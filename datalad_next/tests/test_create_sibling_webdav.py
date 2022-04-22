@@ -130,11 +130,9 @@ def test_credential_handling():
     url = "http://localhost:22334/abc"
     with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
          patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
-         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock, \
-         patch("datalad_next.create_sibling_webdav.CredentialManager") as credman_mock:
+         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
 
         csw_mock.return_value = iter([])
-        credman_mock.return_value = None
 
         gur_mock.return_value = None
         assert_raises_regexp(
@@ -160,7 +158,6 @@ def test_credential_handling():
             url=url,
             name="some_name",
             existing="error")
-        eq_(lgr_mock.warning.call_count, 1)
 
 
 def test_name_clash_detection():

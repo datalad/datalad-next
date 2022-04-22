@@ -193,6 +193,10 @@ from datalad.ui import ui
 from datalad.utils import rmtree
 
 from datalad_next.credman import CredentialManager
+from datalad_next.utils import (
+    get_specialremote_credential_properties,
+    update_specialremote_credential,
+)
 
 lgr = logging.getLogger('datalad.gitremote.datalad_annex')
 
@@ -382,7 +386,7 @@ class RepoAnnexGitRemote(object):
         if not self.credman:
             self.credman = CredentialManager(self.repo.config)
         cred = None
-        realm = None
+        credprops = {}
         if name:
             # we can ask blindly first, caller seems to know what to do
             cred = self.credman.get(
@@ -392,16 +396,15 @@ class RepoAnnexGitRemote(object):
             )
         if not cred:
             # direct lookup failed, try query.
-            realm = self._get_auth_realm()
-            if realm:
-                creds = self.credman.query(realm=realm, _sortby='last-used')
+            credprops = get_specialremote_credential_properties(
+                self.initremote_params)
+            if credprops:
+                creds = self.credman.query(_sortby='last-used', **credprops)
                 if creds:
                     name, cred = creds[0]
         if not cred:
             # credential query failed too, enable manual entry
-            known_props = {'type': 'user_password'}
-            if realm:
-                known_props['realm'] = realm
+            credprops['type'] = 'user_password'
             cred = self.credman.get(
                 # this might still be None
                 name=name,
@@ -409,7 +412,7 @@ class RepoAnnexGitRemote(object):
                 _prompt=f'A credential is required for access',
                 # inject anything we already know to make sure we store it
                 # at the very end, and can use it for discovery next time
-                **known_props
+                **credprops
             )
 
         if not cred:
@@ -427,26 +430,6 @@ class RepoAnnexGitRemote(object):
             return
         return remote_type[0]
 
-    def _get_auth_realm(self):
-        # no other way to do this specifically for each supported remote type
-        remote_type = self._get_remote_type()
-        if remote_type == 'webdav':
-            from datalad_next.http_support import (
-                probe_url,
-                get_auth_realm,
-            )
-            url = [
-                p[4:] for p in self.initremote_params
-                if p.startswith('url=')
-            ]
-            if not url:
-                return
-            else:
-                url = url[0]
-            url, props = probe_url(url)
-            realm = get_auth_realm(url, props.get('auth'))
-            return realm
-
     def _store_credential(self):
         """Look for a pending credential and store it
 
@@ -454,40 +437,19 @@ class RepoAnnexGitRemote(object):
         """
         if self.pending_credential and self.credman:
             name, cred = self.pending_credential
-            if not name:
-                # name could still be None, if this was entered
-                # create a default name, and check if it has not been used
-                name = '{type}-{user}{delim}{realm}'.format(
-                    type=self._get_remote_type(),
-                    user=cred['user'],
-                    delim='-' if 'realm' in cred else '',
-                    realm=cred.get('realm', ''),
-                )
-                if self.credman.get(
-                        name=name,
-                        # give to make legacy credentials accessible
-                        _type_hint='user_password'):
-                    # this is already in use, do not override
-                    lgr.warning(
-                        'The entered credential will not be stored, '
-                        'a credential with the default name %r already exists. '
-                        'Specify a credential name via the dlacredential= '
-                        'remote URL parameter, and/or configure a credential '
-                        'with the datalad-credentials command%s',
-                        name,
-                        f' with a `realm={cred["realm"]}` property'
-                        if 'realm' in cred else '')
-                    return
-            # we have used a credential, store it with updated usage info
-            try:
-                self.credman.set(name, _lastused=True, **cred)
-            except Exception as e:
-                # we do not want to crash for any failure to store a
-                # credential
-                lgr.warn(
-                    'Exception raised when storing credential %r %r: %s',
-                    name, cred, CapturedException(e),
-                )
+            update_specialremote_credential(
+                self._get_remote_type(),
+                self.credman,
+                name,
+                cred,
+                credtype_hint='user_password',
+                duplicate_hint=
+                'Specify a credential name via the dlacredential= '
+                'remote URL parameter, and/or configure a credential '
+                'with the datalad-credentials command{}'.format(
+                    f' with a `realm={cred["realm"]}` property'
+                    if 'realm' in cred else ''),
+            )
 
     def _ensure_workdir(self):
         self.workdir.mkdir(parents=True, exist_ok=True)
