@@ -1,13 +1,22 @@
+from pathlib import Path
 from unittest.mock import patch
 
-from nose.tools import (
+from datalad.tests.utils import (
     assert_in,
+    assert_in_results,
     assert_raises,
-    assert_raises_regexp,
     eq_,
+    ok_,
+)
+# TODO find a replacement for this in anticipation of nose->pytest
+from nose.tools import (
+    assert_raises_regexp,
 )
 
-from datalad.api import create_sibling_webdav
+from datalad.api import (
+    clone,
+    create_sibling_webdav,
+)
 from datalad.distribution.dataset import (
     Dataset,
     require_dataset,
@@ -16,29 +25,81 @@ from datalad.support.exceptions import IncompleteResultsError
 from datalad.tests.utils import (
     with_tempfile,
 )
-from datalad_next.tests.utils import serve_path_via_webdav
+from datalad_next.tests.utils import (
+    serve_path_via_webdav,
+    with_credential,
+)
 
 
 webdav_cred = ('datalad', 'secure')
 
 
+@with_credential(
+    'dltest-mywebdav', user=webdav_cred[0], secret=webdav_cred[1],
+    type='user_password')
+@with_tempfile
+@with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred)
-def test_mike(localpath, url):
+def test_common_workflow(clonepath, localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
+    # need to amend the test credential, can only do after we know the URL
     ds.credentials(
         'set',
-        name='mywebdav',
-        spec=dict(
-            # the test webdav webserver uses a realm label '/'
-            realm=url + '/',
-            user='datalad',
-            secret='secure'),
+        name='dltest-mywebdav',
+        # the test webdav webserver uses a realm label '/'
+        spec=dict(realm=url + '/'),
         **ca)
 
-    print(localpath)
-    print(ds.create_sibling_webdav(url, storage_sibling='yes', **ca))
+    # we use a nasty target directory that has the potential to ruin the
+    # git-remote URL handling
+    targetdir_name = 'tar&get=mike'
+    targetdir = Path(remotepath) / targetdir_name
+    url = f'{url}/{targetdir_name}'
+
+    print(clonepath, localpath, remotepath, url)
+    res = ds.create_sibling_webdav(url, storage_sibling='yes', **ca)
+    assert_in_results(
+        res,
+        action='create_sibling_webdav.storage',
+        status='ok',
+        type='dataset',
+        path=ds.path,
+    )
+    # where it should be accessible
+    # needs to be quoted
+    dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
+           'dlacredential=dltest-mywebdav&' \
+           'url=http%3A//127.0.0.1%3A43612/tar%26get%3Dmike'
+    assert_in_results(
+        res,
+        action='add-sibling',
+        status='ok',
+        path=ds.path,
+        name='127.0.0.1',
+        url=dlaurl,
+    )
+    ok_(targetdir.exists())
+    # add some annex payload
+    (ds.pathobj / 'testfile.dat').write_text('dummy')
+    ds.save(**ca)
+    res = ds.push(to='127.0.0.1', **ca)
+    assert_in_results(
+        res,
+        action='copy',
+        path=str(ds.pathobj / 'testfile.dat'),
+        status='ok',
+    )
+    assert_in_results(res, action='publish', status='ok')
+
+    dsclone = clone(dlaurl, clonepath, **ca)
+    # we get the same thing
+    eq_(ds.repo.get_hexsha(ds.repo.get_corresponding_branch()),
+        dsclone.repo.get_hexsha(dsclone.repo.get_corresponding_branch()))
+
+    # TODO verify that we can get testfile.dat
+    # -- waiting for siblings to be able to deploy credentials
 
 
 def test_bad_url_catching():
