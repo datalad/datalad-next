@@ -5,7 +5,8 @@ from datalad.downloaders.http import DEFAULT_USER_AGENT
 from datalad.support.exceptions import CapturedException
 from datalad_next.credman import CredentialManager
 
-lgr = logging.getLogger('datalad_next.create_sibling_ghlike')
+# use same logger as -core
+lgr = logging.getLogger('datalad.distributed.create_sibling_ghlike')
 
 
 def _set_request_headers(self, credential_name, auth_info, require_token):
@@ -99,6 +100,7 @@ def _set_request_headers(self, credential_name, auth_info, require_token):
             )
 
 # patch the core class
+lgr.debug('Apply datalad-next patch to create_sibling_ghlike.py:_GitHubLike._set_request_headers')
 _GitHubLike._set_request_headers = _set_request_headers
 
 # update docs
