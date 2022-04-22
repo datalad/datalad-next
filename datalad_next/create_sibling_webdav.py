@@ -14,7 +14,10 @@ from typing import (
     Optional,
     Union,
 )
-from urllib.parse import urlparse
+from urllib.parse import (
+    quote as urlquote,
+    urlparse,
+)
 
 from datalad.distribution.dataset import (
     Dataset,
@@ -402,8 +405,8 @@ def _create_git_sibling(
                  "exporttree={export}&dlacredential={cred}&url={url}".format(
         export='yes' if export else 'no',
         cred=credential_name,
-        # TODO urlquote, because it goes into the query part of another URL
-        url=url,
+        # urlquote, because it goes into the query part of another URL
+        url=urlquote(url),
     )
     # TODO dlacredential=
     # this is a bit of a mess: the mihextras code still used the old
