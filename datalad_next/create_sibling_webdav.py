@@ -292,12 +292,7 @@ class CreateSiblingWebDAV(Interface):
 
         # this went well, update the credential
         try:
-            credman.set(
-                cred[0],
-                _lastused=True,
-                # strip internal properties like '_edited'
-                **{k: v for k, v in cred[1].items() if not k.startswith('_')},
-            )
+            credman.set(cred[0], _lastused=True, **cred[1])
         except Exception as e:
             # we do not want to crash for any failure to store a
             # credential
