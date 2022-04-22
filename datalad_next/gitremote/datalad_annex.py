@@ -194,7 +194,9 @@ from datalad.utils import rmtree
 
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
+    get_specialremote_credential_envpatch,
     get_specialremote_credential_properties,
+    specialremote_credential_envmap,
     update_specialremote_credential,
 )
 
@@ -232,25 +234,6 @@ class RepoAnnexGitRemote(object):
     # supported parameters that can come in via the URL, but must not
     # be relayed to `git annex initremote`
     internal_parameters = ('dladotgit=uncompressed', 'dlacredential=')
-
-    # mapping for credential properties for specific special remote
-    # types. this is unpleasantly non-generic, but only a small
-    # subset of git-annex special remotes require credentials to be
-    # given via ENV vars, and all of rclone's handle it internally
-    credential_env_map = dict(
-        # it makes no sense to pull a short-lived access token from
-        # a credential store, it can be given via AWS_SESSION_TOKEN
-        # in any case
-        glacier=dict(
-            user='AWS_ACCESS_KEY_ID',  # nosec
-            secret='AWS_SECRET_ACCESS_KEY'),  # nosec
-        s3=dict(
-            user='AWS_ACCESS_KEY_ID',  # nosec
-            secret='AWS_SECRET_ACCESS_KEY'),  # nosec
-        webdav=dict(
-            user='WEBDAV_USERNAME',  # nosec
-            secret='WEBDAV_PASSWORD'),  # nosec
-    )
 
     def __init__(self,
                  gitdir,
@@ -333,7 +316,7 @@ class RepoAnnexGitRemote(object):
         if credential_name:
             credential_name = credential_name[0]
         remote_type = self._get_remote_type()
-        supported_remote_type = remote_type in self.credential_env_map
+        supported_remote_type = remote_type in specialremote_credential_envmap
         if credential_name and not supported_remote_type:
             # we have no idea how to deploy credentials for this remote type
             raise ValueError(
@@ -341,21 +324,6 @@ class RepoAnnexGitRemote(object):
                 "remote is not supported. Remove dlacredential= parameter from "
                 "the remote URL and provide credentials according to the "
                 "documentation of this particular special remote.")
-
-        if not supported_remote_type:
-            lgr.debug('Special remote type %r not supported for credential setup',
-                      remote_type)
-            return
-
-        # retrieve deployment mapping
-        env_map = self.credential_env_map[remote_type]
-        if all(k in os.environ for k in env_map.values()):
-            # the ENV is fully set up
-            # let's prefer the environment to behave like git-annex
-            lgr.debug(
-                'Not deploying credentials for special remote type %r, '
-                'already present in environment', remote_type)
-            return
 
         cred = self._retrieve_credential(credential_name)
 
@@ -365,11 +333,7 @@ class RepoAnnexGitRemote(object):
                 self.initremote_params)
             return
 
-        return {
-            # take whatever partial setup the ENV has already
-            v: os.environ.get(v, cred[k])
-            for k, v in env_map.items()
-        }
+        return get_specialremote_credential_envpatch(remote_type, cred)
 
     def _retrieve_credential(self, name):
         """Retrieve a credential
