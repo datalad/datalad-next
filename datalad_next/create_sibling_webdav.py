@@ -303,13 +303,6 @@ class CreateSiblingWebDAV(Interface):
             )
         return
 
-        # TODO the code below should be wrapped into a helper function and be
-        #  executed with foreach-dataset:
-        #
-        # name_base = name or parsed_url.hostname
-        # git_name = name_base + "-wd-vcs"
-        # annex_name = name_base + "-wd-tree"
-
 
 def _get_url_credential(credential_name, url, credman):
     """
@@ -390,7 +383,6 @@ def _create_sibling_webdav(
             credential,
             export=export_storage,
         )
-    print ("MADE", ds, url, storage_sibling, name, storage_name, existing, credential)
 
 
 def _create_git_sibling(
@@ -413,7 +405,6 @@ def _create_git_sibling(
         # TODO urlquote, because it goes into the query part of another URL
         url=url,
     )
-    print("MAKEREPO", remote_url)
     # TODO dlacredential=
     # this is a bit of a mess: the mihextras code still used the old
     # credential code, hence it cannot use the new-style credentials this
@@ -466,7 +457,6 @@ def _create_storage_sibling(ds, url, name, existing, credential, export):
         #embedcreds
         # TODO autoenable?
     ]
-    print("MAKESTORE", cmd_args)
     # delayed heavy-ish import
     from unittest.mock import patch
     # Add a git-annex webdav special remote. This requires to set
