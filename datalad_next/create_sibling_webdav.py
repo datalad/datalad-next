@@ -9,7 +9,6 @@
 """High-level interface for creating a combi-target on a WebDAV capable server
  """
 import logging
-import os
 from typing import (
     Optional,
     Union,
@@ -17,6 +16,7 @@ from typing import (
 from urllib.parse import (
     quote as urlquote,
     urlparse,
+    urlunparse,
 )
 
 from datalad.distribution.dataset import (
@@ -25,8 +25,6 @@ from datalad.distribution.dataset import (
     datasetmethod,
     require_dataset,
 )
-from datalad.downloaders.credentials import UserPassword
-from datalad.interface.base import Interface
 from datalad.interface.base import (
     Interface,
     build_doc,
@@ -39,7 +37,6 @@ from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.log import log_progress
 from datalad.support.param import Parameter
-from datalad.support.annexrepo import AnnexRepo
 from datalad.support.constraints import (
     EnsureChoice,
     EnsureNone,
@@ -160,8 +157,25 @@ class CreateSiblingWebDAV(Interface):
             recursive: bool = False,
             recursion_limit: Optional[int] = None):
 
-        # TODO catch broken URLs
         parsed_url = urlparse(url)
+        if parsed_url.query:
+            raise ValueError(
+                "URLs with query component are not supported: {url!r}")
+        if parsed_url.fragment:
+            raise ValueError(
+                f"URLs with fragment are not supported: {url!r}")
+        if not parsed_url.netloc:
+            raise ValueError(
+                f"URLs without network location are not supported: {url!r}")
+        if parsed_url.scheme not in ("http", "https"):
+            raise ValueError(
+                f"Only 'http'- or 'https'-scheme are supported: : {url!r}")
+        if parsed_url.scheme == "http":
+            lgr.warning(
+                f"Using 'http:' (: {url!r}) means that WEBDAV credentials might"
+                " be sent unencrypted over network links. Consider using "
+                "'https:'.")
+
         if not name:
             # not using .netloc to avoid ports to show up in the name
             name = parsed_url.hostname
@@ -169,7 +183,8 @@ class CreateSiblingWebDAV(Interface):
         if not name:
             # could happen with broken URLs (e.g. without //)
             raise ValueError(
-                f"no sibling name given and none could be derived from the URL {url!r}")
+                f"no sibling name given and none could be derived from the URL:"
+                f" {url!r}")
 
         # ensure values of critical switches. this duplicated the CLI processing, but
         # compliance is critical in a python session too.
@@ -200,9 +215,6 @@ class CreateSiblingWebDAV(Interface):
         if storage_sibling != 'no' and name == storage_name:
             # leads to unresolvable, circular dependency with publish-depends
             raise ValueError("sibling names must not be equal")
-
-        if parsed_url.query:
-            raise ValueError("URLs with a query component are not supported")
 
         ds = require_dataset(
             dataset,
@@ -267,14 +279,10 @@ class CreateSiblingWebDAV(Interface):
             """
             relpath = ds.pathobj.relative_to(refds.pathobj) if not ds == refds else None
             if relpath:
-                # TODO needs more complicated parsing when the URL does not end with a
-                # path, but also has query or fragment
-                dsurl = f"{url.rstrip('/')}/{relpath}"
+                dsurl = f"{urlunparse(parsed_url)}/{relpath}"
             else:
                 dsurl = url
 
-            # will eventually return a generator to be unwound in the mother thread
-            # TODO check that this works
             return _create_sibling_webdav(
                 ds,
                 dsurl,
@@ -286,17 +294,13 @@ class CreateSiblingWebDAV(Interface):
                 existing=existing,
             )
 
-        # [{'action': 'foreach-dataset',
-        #   'path': '/tmp/datalad_temp_test_mikej910qtc4',
-        #   'type': 'dataset',
-        #   'command': <function CreateSiblingWebDAV.__call__.<locals>._dummy at 0x7f8c0ab3e0d0>,
-        #   'result': 5,
-        #   'status': 'ok'}]
-        for res in ds.foreach_dataset(
-            _dummy,
-            return_type='generator',
-            result_renderer='disabled',
-        ):
+        # Generate a sibling for dataset "ds", and for sub-datasets if recursive
+        # is True.
+        for res in ds.foreach_dataset(_dummy,
+                                      return_type='generator',
+                                      result_renderer='disabled',
+                                      recursive=recursive,
+                                      recursion_limit=recursion_limit):
             # unwind result generator
             if 'result' in res:
                 yield from res['result']
@@ -406,24 +410,26 @@ def _create_git_sibling(
     credential: tuple
     export: bool
     """
-    remote_url = "datalad-annex::?type=webdav&encryption=none&" \
-                 "exporttree={export}&dlacredential={cred}&url={url}".format(
-        export='yes' if export else 'no',
-        cred=credential_name,
-        # urlquote, because it goes into the query part of another URL
-        url=urlquote(url),
-    )
+
+    remote_url = \
+        "datalad-annex::?type=webdav&encryption=none&" \
+        "exporttree={export}&dlacredential={cred}&url={url}".format(
+            export='yes' if export else 'no',
+            cred=credential_name,
+            # urlquote, because it goes into the query part of another URL
+            url=urlquote(url))
+
     # TODO dlacredential=
-    # this is a bit of a mess: the mihextras code still used the old
-    # credential code, hence it cannot use the new-style credentials this
-    # command would produce. so far now we just patch the ENV like for special
-    # remotes, but eventually we should make sure it queries the new
-    # credentials. once that happens, we still patch the env here, because
-    # on first use the credential will not yet be in the store (only saved
-    # after successful use), but we would want to record `dlacredential`
-    # such that a plain `git-fetch` would work. Far that we must make sure
-    # that the env credential is declared the Datalad way
-    # (DATALAD_CREDENTIAL_....)
+    #  this is a bit of a mess: the mihextras code still used the old
+    #  credential code, hence it cannot use the new-style credentials this
+    #  command would produce. so far now we just patch the ENV like for special
+    #  remotes, but eventually we should make sure it queries the new
+    #  credentials. once that happens, we still patch the env here, because
+    #  on first use the credential will not yet be in the store (only saved
+    #  after successful use), but we would want to record `dlacredential`
+    #  such that a plain `git-fetch` would work. Far that we must make sure
+    #  that the env credential is declared the Datalad way
+    #  (DATALAD_CREDENTIAL_....)
 
     yield from ds.siblings(
         # TODO set vs add, consider `existing`
@@ -456,14 +462,17 @@ def _create_storage_sibling(ds, url, name, existing, credential, export):
         f"url={url}",
         f"exporttree={'yes' if export else 'no'}",
         # TODO for now not, but ultimately we should have it
-        "encryption=none"
+        "encryption=none",
         # TODO consider
         #chunk/chunksize
         # TODO embedding credentials would simplify a non-datalad
-        # push/copy, but would also scatter duplicates of credentials
-        # around that need maintenance when expiring/changing
+        #  push/copy, but would also scatter duplicates of credentials
+        #  around that need maintenance when expiring/changing
         #embedcreds
-        # TODO autoenable?
+        # TODO: autoenable should probably be controlled by a parameter
+        #  to create_sibling_webdav. For example, "--autoenable", probably
+        #  with default "True".
+        "autoenable=true"
     ]
     # delayed heavy-ish import
     from unittest.mock import patch
@@ -481,8 +490,6 @@ def _create_storage_sibling(ds, url, name, existing, credential, export):
     )
 
 
-# TODO in create-sibling-ria something like this is spaghetti-coded, it should be
-# RF'ed eventually
 def _yield_ds_w_matching_siblings(
         ds, names, recursive=False, recursion_limit=None):
     """(Recursively) inspect a dataset for siblings with particular name(s)
