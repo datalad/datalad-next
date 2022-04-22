@@ -128,19 +128,20 @@ specialremote_credential_envmap = dict(
 )
 
 
-def get_specialremote_credential_envpatch(remote_type, cred):
-    """Create an environment path for a particular remote type and credential
+def needs_specialremote_credential_envpatch(remote_type):
+    """Returns whether the environment needs to be patched with credentials
 
     Returns
     -------
-    dict or None
-      A dict with all required items to patch the environment, or None
-      if not enough information is available, or nothing needs to be patched.
+    bool
+      False, if the special remote type is not recognized as one needing
+      credentials, or if there are credentials already present.
+      True, otherwise.
     """
     if remote_type not in specialremote_credential_envmap:
         lgr.debug('Special remote type %r not supported for credential setup',
                   remote_type)
-        return
+        return False
 
     # retrieve deployment mapping
     env_map = specialremote_credential_envmap[remote_type]
@@ -150,11 +151,25 @@ def get_specialremote_credential_envpatch(remote_type, cred):
         lgr.debug(
             'Not deploying credentials for special remote type %r, '
             'already present in environment', remote_type)
-        return
+        return False
 
+    # no counterevidence
+    return True
+
+
+def get_specialremote_credential_envpatch(remote_type, cred):
+    """Create an environment path for a particular remote type and credential
+
+    Returns
+    -------
+    dict or None
+      A dict with all required items to patch the environment, or None
+      if not enough information is available, or nothing needs to be patched.
+    """
+    env_map = specialremote_credential_envmap.get(remote_type, {})
     return {
         # take whatever partial setup the ENV has already
         v: cred[k]
         for k, v in env_map.items()
         if v not in os.environ
-    }
+    } or None

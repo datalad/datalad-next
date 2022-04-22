@@ -196,6 +196,7 @@ from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_envpatch,
     get_specialremote_credential_properties,
+    needs_specialremote_credential_envpatch,
     specialremote_credential_envmap,
     update_specialremote_credential,
 )
@@ -325,6 +326,9 @@ class RepoAnnexGitRemote(object):
                 "the remote URL and provide credentials according to the "
                 "documentation of this particular special remote.")
 
+        if not needs_specialremote_credential_envpatch(remote_type):
+            return
+
         cred = self._retrieve_credential(credential_name)
 
         if not cred:
@@ -361,7 +365,7 @@ class RepoAnnexGitRemote(object):
         if not cred:
             # direct lookup failed, try query.
             credprops = get_specialremote_credential_properties(
-                self.initremote_params)
+                self.initremote_params) or {}
             if credprops:
                 creds = self.credman.query(_sortby='last-used', **credprops)
                 if creds:
