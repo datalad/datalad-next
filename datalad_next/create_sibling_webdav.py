@@ -71,7 +71,8 @@ class CreateSiblingWebDAV(Interface):
 
     _params_ = dict(
         url=Parameter(
-            args=("URL",),
+            args=("url",),
+            metavar='URL',
             doc="URL identifying the sibling root on the target WebDAV server",
             constraints=EnsureStr()),
         dataset=Parameter(
