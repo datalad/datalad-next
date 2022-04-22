@@ -47,6 +47,10 @@ from datalad.support.constraints import (
 )
 from datalad.support.exceptions import CapturedException
 from datalad_next.credman import CredentialManager
+from datalad_next.utils import (
+    get_specialremote_credential_properties,
+    update_specialremote_credential,
+)
 
 
 __docformat__ = "restructuredtext"
@@ -297,58 +301,53 @@ class CreateSiblingWebDAV(Interface):
                 yield from res['result']
 
         # this went well, update the credential
-        try:
-            credman.set(cred[0], _lastused=True, **cred[1])
-        except Exception as e:
-            # we do not want to crash for any failure to store a
-            # credential
-            lgr.warning(
-                'Exception raised when storing credential %r %r: %s',
-                *cred,
-                CapturedException(e),
-            )
-        return
+        credname, credprops = cred
+        update_specialremote_credential(
+            'webdav',
+            credman,
+            credname,
+            credprops,
+            credtype_hint='user_password',
+            duplicate_hint=
+            'Specify a credential name via the `credential` parameter '
+            ' and/or configure a credential with the datalad-credentials '
+            'command{}'.format(
+                f' with a `realm={credprops["realm"]}` property'
+                if 'realm' in credprops else ''),
+        )
 
 
-def _get_url_credential(credential_name, url, credman):
+def _get_url_credential(name, url, credman):
     """
+    Returns
+    -------
+    (str, dict)
+      Credential name (possibly different from the input, when a credential
+      was discovered based on the URL), and credential properties
     """
     cred = None
-    realm = None
-    if not credential_name:
-        # we don't know which one to get, probe the URL
-        # needs www_authenticate package, import locally
-        # TODO possibly always probe to make sure that
-        # we would be passing the credentials to the correct
-        # URL (redirects, etc)
-        from datalad_next.http_support import (
-            probe_url,
-            get_auth_realm,
-        )
-        url, props = probe_url(url)
-        # TODO we should actually check if auth is required
-        # but for now assume that noone would run a webdav instance
-        # without auth -- I believe git-annex (which will ultimately
-        # use the credential), would not even attempt to do anything
-        # without a credential being provided
-        realm = get_auth_realm(url, props.get('auth'))
-        cred = credman.query(realm=realm, _sortby='last-used')
-        if cred:
-            cred = cred[0]
+    credprops = {}
+    if not name:
+        credprops = get_specialremote_credential_properties(
+            dict(type='webdav', url=url))
+        if credprops:
+            creds = credman.query(_sortby='last-used', **credprops)
+            if creds:
+                name, cred = creds[0]
 
     if not cred:
         try:
             cred = credman.get(
-                # if we don't have a name given, use the full URL
-                credential_name or url,
+                # name could be none
+                name=name,
                 _prompt=f'User name and password are required for WebDAV access at {url}',
                 type='user_password',
-                realm=realm,
+                realm=credprops.get('realm'),
             )
         except Exception as e:
             lgr.debug('Credential retrieval failed: %s', e)
 
-    return cred
+    return name, cred
 
 
 def _create_sibling_webdav(
