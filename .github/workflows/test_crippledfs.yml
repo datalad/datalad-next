@@ -39,7 +39,8 @@ jobs:
     - name: Installation
       run: |
         # package install
-        python -m pip install .
+        # --user is key-enabler for subprocess coverage reporting
+        python -m pip install --user .
     - name: Run tests
       env:
         # forces all test repos/paths into the VFAT FS
@@ -52,4 +53,11 @@ jobs:
         echo "== mount >>"
         mount
         echo "<< mount =="
-        python -m nose -s -v --with-doctest --with-coverage --cover-package datalad_next datalad_next
+        PATH=$PWD/../tools/coverage-bin:$PATH python -m nose -s -v --with-doctest --with-coverage --cover-package datalad_next datalad_next
+    - name: Report coverage
+      run: |
+        python -m coverage combine -a /tmp/.coverage-entrypoints-*;
+        python -m coverage xml
+        curl -Os "https://uploader.codecov.io/latest/linux/codecov"
+        chmod +x codecov
+        ./codecov

@@ -47,3 +47,8 @@ package and its commands.
   are equipped with improved credential handling that, for example, only stores
   entered credentials after they were confirmed working, or auto-selects the
   most recently used, matching credentials, when none are specified.
+- `git-remote-datalad-annex` is a Git remote helper to push/fetch to any
+  location accessible by any git-annex special remote.
+- `git-annex-backend-XDLRA` (originally available from the `mihextras` extension)
+  is a custom external git-annex backend used by git-remote-datalad-annex. A base
+  class to facilitate development of external backends in Python is also provided.

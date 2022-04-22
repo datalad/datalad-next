@@ -242,6 +242,8 @@ class CredentialManager(object):
         **kwargs:
           Any number of credential property key/value pairs. Values of
           ``None`` indicate removal of a property from a credential.
+          Properties whose name starts with an underscore are automatically
+          removed prior storage.
 
         Returns
         -------
@@ -258,6 +260,12 @@ class CredentialManager(object):
         ValueError
           When property names in kwargs are not syntax-compliant.
         """
+        # we strip internal properties, such as '_edited' automatically
+        # forcing each caller to to this by hand is kinda pointless, if
+        # they can never be stored anyway, and e.g. a previous `get()`
+        # would include one for any credentials that was manually entered
+        kwargs = {k: v for k, v in kwargs.items() if not k.startswith('_')}
+        # check syntax for the rest
         verify_property_names(kwargs)
         # if we know the type, hence we can do a query for legacy secrets
         # and properties. This will migrate them to the new setup
