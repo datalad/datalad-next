@@ -160,7 +160,7 @@ class CreateSiblingWebDAV(Interface):
         parsed_url = urlparse(url)
         if parsed_url.query:
             raise ValueError(
-                "URLs with query component are not supported: {url!r}")
+                f"URLs with query component are not supported: {url!r}")
         if parsed_url.fragment:
             raise ValueError(
                 f"URLs with fragment are not supported: {url!r}")
@@ -169,10 +169,10 @@ class CreateSiblingWebDAV(Interface):
                 f"URLs without network location are not supported: {url!r}")
         if parsed_url.scheme not in ("http", "https"):
             raise ValueError(
-                f"Only 'http'- or 'https'-scheme are supported: : {url!r}")
+                f"Only 'http'- or 'https'-scheme are supported: {url!r}")
         if parsed_url.scheme == "http":
             lgr.warning(
-                f"Using 'http:' (: {url!r}) means that WEBDAV credentials might"
+                f"Using 'http:' ({url!r}) means that WEBDAV credentials might"
                 " be sent unencrypted over network links. Consider using "
                 "'https:'.")
 
