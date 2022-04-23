@@ -180,12 +180,6 @@ class CreateSiblingWebDAV(Interface):
             # not using .netloc to avoid ports to show up in the name
             name = parsed_url.hostname
 
-        if not name:
-            # could happen with broken URLs (e.g. without //)
-            raise ValueError(
-                f"no sibling name given and none could be derived from the URL:"
-                f" {url!r}")
-
         # ensure values of critical switches. this duplicated the CLI processing, but
         # compliance is critical in a python session too.
         # whe cannot make it conditional to apimode == cmdline, because this command
