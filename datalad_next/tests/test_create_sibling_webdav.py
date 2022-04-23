@@ -1,5 +1,8 @@
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import (
+    call,
+    patch,
+)
 
 from datalad.tests.utils import (
     assert_in,
@@ -30,6 +33,8 @@ from datalad_next.tests.utils import (
     serve_path_via_webdav,
     with_credential,
 )
+
+from ..create_sibling_webdav import _get_url_credential
 
 
 webdav_cred = ('datalad', 'secure')
@@ -111,15 +116,61 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
 
 def test_bad_url_catching():
     # Ensure that bad URLs are detected and handled
-    bad_url = "this:is-not-an-expected-url"
-    assert_raises_regexp(
-        ValueError, f"no sibling name given.*{bad_url}",
-        create_sibling_webdav, url=bad_url)
 
-    bad_url = "http://localhost:33322/abc?a=b"
-    assert_raises_regexp(
-        ValueError, "URLs with a query component are not supported",
-        create_sibling_webdav, url=bad_url)
+    check_pairs = [
+        (
+            "http://localhost:33322/abc?a",
+            "URLs with query component are not supported:"
+        ),
+        (
+            "this://netloc/has-a-fragment#sdsd",
+            "URLs with fragment are not supported: {url!r}"
+        ),
+        (
+            "this:has-no-net-location",
+            "URLs without network location are not supported: {url!r}"
+        ),
+        (
+            "xxx://localhost:33322/abc",
+            "Only 'http'- or 'https'-scheme are supported: {url!r}"
+        ),
+    ]
+
+    for bad_url, expected_message in check_pairs:
+        assert_raises_regexp(
+            ValueError,
+            expected_message.format(url=bad_url),
+            create_sibling_webdav,
+            url=bad_url
+        )
+
+
+def test_http_warning():
+    # Check that usage of http: triggers a warning.
+    url = "http://localhost:33322/abc"
+
+    with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
+         patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
+         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
+
+        csw_mock.return_value = iter([])
+        gur_mock.return_value = None
+
+        # We set up the mocks to generate the following exception. This allows
+        # us to limit the test to the logic in 'create_sibling_wabdav'.
+        assert_raises_regexp(
+            ValueError,
+            f"No suitable credential for {url} found or specified",
+            create_sibling_webdav,
+            url=url)
+
+        eq_(lgr_mock.warning.call_count, 1)
+        assert_in(
+            call(
+                f"Using 'http:' ({url!r}) means that WEBDAV credentials might "
+                f"be sent unencrypted over network links. Consider using "
+                f"'https:'."),
+            lgr_mock.warning.mock_calls)
 
 
 def test_constraints_checking():
@@ -134,7 +185,7 @@ def test_constraints_checking():
 
 
 def test_credential_handling():
-    url = "http://localhost:22334/abc"
+    url = "https://localhost:22334/abc"
     with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
          patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
          patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
@@ -143,7 +194,8 @@ def test_credential_handling():
 
         gur_mock.return_value = None
         assert_raises_regexp(
-            ValueError, "No suitable credential for http://localhost:22334/abc found or specified",
+            ValueError,
+            f"No suitable credential for {url} found or specified",
             create_sibling_webdav,
             url=url,
             name="some_name",
@@ -152,7 +204,8 @@ def test_credential_handling():
         gur_mock.reset_mock()
         gur_mock.return_value = [None, {"some_key": "some_value"}]
         assert_raises_regexp(
-            ValueError, "No suitable credential for http://localhost:22334/abc found or specified",
+            ValueError,
+            f"No suitable credential for {url} found or specified",
             create_sibling_webdav,
             url=url,
             name="some_name",
@@ -183,15 +236,19 @@ def test_name_clash_detection():
 def test_unused_storage_name_warning():
     # Ensure that constraints are checked internally
 
-    # We use a URL with query for an early exit form 'create_sibling_webdav'.
-    # This is NOT nice, instead we should either mock out all other calls in
-    # 'create_sibling_webdav', or factor out the parameter check and test it in
-    # isolation.
-    url = "http://localhost:22334/abc?x=1"
+    url = "https://localhost:22334/abc"
 
-    with patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
+    with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
+         patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
+         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
+
+        csw_mock.return_value = iter([])
+        gur_mock.return_value = None
+
         storage_sibling_values = ("no", "only", "only-export")
         for storage_sibling in storage_sibling_values:
+            # We set up the mocks to generate the following exception. This allows
+            # us to limit the test to the logic in 'create_sibling_wabdav'.
             assert_raises(
                 ValueError,
                 create_sibling_webdav,
@@ -239,3 +296,50 @@ def test_check_existing_siblings():
         else:
             raise ValueError(
                 "expected exception not raised: IncompleteResultsError")
+
+
+def test_get_url_credential():
+    url = "https://localhost:22334/abc"
+
+    class MockCredentialManager:
+        def __init__(self, name=None, credentials=None):
+            self.name = name
+            self.credentials = credentials
+
+        def query(self, *args, **kwargs):
+            if self.name or self.credentials:
+                return [(self.name, kwargs.copy())]
+            return None
+
+        get = query
+
+    with patch("datalad_next.create_sibling_webdav."
+               "get_specialremote_credential_properties") as gscp_mock:
+
+        # Expect credentials to be derived from WEBDAV-url if no credential
+        # name is provided
+        gscp_mock.return_value = {"some": "value"}
+        result = _get_url_credential(
+            name=None,
+            url=url,
+            credman=MockCredentialManager("n1", "c1"))
+        eq_(result, ("n1", {'_sortby': 'last-used', 'some': 'value'}))
+
+        # Expect the credential name to be used, if provided
+        result = _get_url_credential(
+            name="some-name",
+            url=url,
+            credman=MockCredentialManager("x", "y"))
+        eq_(result[0], "some-name")
+        eq_(result[1][0][1]["name"], "some-name")
+
+        # Expect the credentials to be derived from realm,
+        # if no name is provided, and if the URL is not known.
+        gscp_mock.reset_mock()
+        gscp_mock.return_value = dict()
+        result = _get_url_credential(
+            name=None,
+            url=url,
+            credman=MockCredentialManager("u", "v"))
+        eq_(result[0], None)
+        eq_(result[1][0][1]["realm"], None)
