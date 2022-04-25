@@ -100,11 +100,14 @@ class CreateSiblingWebDAV(Interface):
             metavar='NAME',
             doc="""name of the credential providing a user/password credential
             to be used for authorization. The credential can be supplied via
-            configuration setting 'datalad.credential.<name>.user|password', or
-            environment variable DATALAD_CREDENTIAL_<NAME>_USER|PASSWORD, or will
+            configuration setting 'datalad.credential.<name>.user|secret', or
+            environment variable DATALAD_CREDENTIAL_<NAME>_USER|SECRET, or will
             be queried from the active credential store using the provided
-            name. If none is provided, the last-used token for the
-            API URL realm will be used.""",
+            name. If none is provided, the last-used credential for the
+            authentication realm associated with the WebDAV URL will be used.
+            Only if a credential name was given, it will be encoded in the
+            URL of the created WebDAV Git remote, credential auto-discovery
+            will be performed on each remote access.""",
         ),
         existing=Parameter(
             args=("--existing",),
@@ -419,18 +422,6 @@ def _create_git_sibling(
         # we need to quote the credential name too.
         # e.g., it is not uncommon for credentials to be named after URLs
         remote_url += f'&dlacredential={urlquote(credential_name)}'
-
-    # TODO dlacredential=
-    #  this is a bit of a mess: the mihextras code still used the old
-    #  credential code, hence it cannot use the new-style credentials this
-    #  command would produce. so far now we just patch the ENV like for special
-    #  remotes, but eventually we should make sure it queries the new
-    #  credentials. once that happens, we still patch the env here, because
-    #  on first use the credential will not yet be in the store (only saved
-    #  after successful use), but we would want to record `dlacredential`
-    #  such that a plain `git-fetch` would work. Far that we must make sure
-    #  that the env credential is declared the Datalad way
-    #  (DATALAD_CREDENTIAL_....)
 
     yield from ds.siblings(
         # TODO set vs add, consider `existing`

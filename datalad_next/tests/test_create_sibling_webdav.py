@@ -3,6 +3,7 @@ from unittest.mock import (
     call,
     patch,
 )
+from urllib.parse import quote as urlquote
 
 from datalad.tests.utils import (
     assert_in,
@@ -37,7 +38,7 @@ from datalad_next.tests.utils import (
 from ..create_sibling_webdav import _get_url_credential
 
 
-webdav_cred = ('datalad', 'secure')
+webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
 
 
 def test_common_workflow_implicit_cred():
@@ -49,12 +50,12 @@ def test_common_workflow_explicit_cred():
 
 
 @with_credential(
-    'dltest-mywebdav', user=webdav_cred[0], secret=webdav_cred[1],
+    webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
     type='user_password')
 @with_tempfile
 @with_tempfile
 @with_tempfile
-@serve_path_via_webdav(auth=webdav_cred)
+@serve_path_via_webdav(auth=webdav_cred[1:])
 def check_common_workflow(
         declare_credential, clonepath, localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
@@ -62,7 +63,7 @@ def check_common_workflow(
     # need to amend the test credential, can only do after we know the URL
     ds.credentials(
         'set',
-        name='dltest-mywebdav',
+        name=webdav_cred[0],
         # the test webdav webserver uses a realm label '/'
         spec=dict(realm=url + '/'),
         **ca)
@@ -75,7 +76,7 @@ def check_common_workflow(
 
     res = ds.create_sibling_webdav(
         url,
-        credential='dltest-mywebdav' if declare_credential else None,
+        credential=webdav_cred[0] if declare_credential else None,
         storage_sibling='yes',
         **ca)
     assert_in_results(
@@ -90,7 +91,7 @@ def check_common_workflow(
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
            'url=http%3A//127.0.0.1%3A43612/tar%26get%3Dmike'
     if declare_credential:
-        dlaurl += '&dlacredential=dltest-mywebdav'
+        dlaurl += f'&dlacredential={urlquote(webdav_cred[0])}'
 
     assert_in_results(
         res,
