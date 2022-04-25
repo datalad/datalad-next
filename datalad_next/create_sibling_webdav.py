@@ -52,7 +52,7 @@ from datalad_next.utils import (
 
 __docformat__ = "restructuredtext"
 
-lgr = logging.getLogger('datalad_next.create_sibling_webdav')
+lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 
 @build_doc
@@ -100,11 +100,14 @@ class CreateSiblingWebDAV(Interface):
             metavar='NAME',
             doc="""name of the credential providing a user/password credential
             to be used for authorization. The credential can be supplied via
-            configuration setting 'datalad.credential.<name>.user|password', or
-            environment variable DATALAD_CREDENTIAL_<NAME>_USER|PASSWORD, or will
+            configuration setting 'datalad.credential.<name>.user|secret', or
+            environment variable DATALAD_CREDENTIAL_<NAME>_USER|SECRET, or will
             be queried from the active credential store using the provided
-            name. If none is provided, the last-used token for the
-            API URL realm will be used.""",
+            name. If none is provided, the last-used credential for the
+            authentication realm associated with the WebDAV URL will be used.
+            Only if a credential name was given, it will be encoded in the
+            URL of the created WebDAV Git remote, credential auto-discovery
+            will be performed on each remote access.""",
         ),
         existing=Parameter(
             args=("--existing",),
@@ -280,7 +283,11 @@ class CreateSiblingWebDAV(Interface):
             return _create_sibling_webdav(
                 ds,
                 dsurl,
-                credential_name=cred[0],
+                # we pass the given, not the discovered, credential name!
+                # given a name means "take this particular one", not giving a
+                # name means "take what is best". Only if we pass this
+                # information on, we achieve maintaining this behavior
+                credential_name=credential,
                 credential=(cred_user, cred_password),
                 storage_sibling=storage_sibling,
                 name=name,
@@ -406,24 +413,15 @@ def _create_git_sibling(
     """
 
     remote_url = \
-        "datalad-annex::?type=webdav&encryption=none&" \
-        "exporttree={export}&dlacredential={cred}&url={url}".format(
+        "datalad-annex::?type=webdav&encryption=none" \
+        "&exporttree={export}&url={url}".format(
             export='yes' if export else 'no',
-            cred=credential_name,
             # urlquote, because it goes into the query part of another URL
             url=urlquote(url))
-
-    # TODO dlacredential=
-    #  this is a bit of a mess: the mihextras code still used the old
-    #  credential code, hence it cannot use the new-style credentials this
-    #  command would produce. so far now we just patch the ENV like for special
-    #  remotes, but eventually we should make sure it queries the new
-    #  credentials. once that happens, we still patch the env here, because
-    #  on first use the credential will not yet be in the store (only saved
-    #  after successful use), but we would want to record `dlacredential`
-    #  such that a plain `git-fetch` would work. Far that we must make sure
-    #  that the env credential is declared the Datalad way
-    #  (DATALAD_CREDENTIAL_....)
+    if credential_name:
+        # we need to quote the credential name too.
+        # e.g., it is not uncommon for credentials to be named after URLs
+        remote_url += f'&dlacredential={urlquote(credential_name)}'
 
     yield from ds.siblings(
         # TODO set vs add, consider `existing`

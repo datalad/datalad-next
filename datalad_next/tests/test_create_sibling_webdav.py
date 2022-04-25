@@ -3,6 +3,7 @@ from unittest.mock import (
     call,
     patch,
 )
+from urllib.parse import quote as urlquote
 
 from datalad.tests.utils import (
     assert_in,
@@ -37,23 +38,32 @@ from datalad_next.tests.utils import (
 from ..create_sibling_webdav import _get_url_credential
 
 
-webdav_cred = ('datalad', 'secure')
+webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
+
+
+def test_common_workflow_implicit_cred():
+    check_common_workflow(False)
+
+
+def test_common_workflow_explicit_cred():
+    check_common_workflow(True)
 
 
 @with_credential(
-    'dltest-mywebdav', user=webdav_cred[0], secret=webdav_cred[1],
+    webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
     type='user_password')
 @with_tempfile
 @with_tempfile
 @with_tempfile
-@serve_path_via_webdav(auth=webdav_cred)
-def test_common_workflow(clonepath, localpath, remotepath, url):
+@serve_path_via_webdav(auth=webdav_cred[1:])
+def check_common_workflow(
+        declare_credential, clonepath, localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
     # need to amend the test credential, can only do after we know the URL
     ds.credentials(
         'set',
-        name='dltest-mywebdav',
+        name=webdav_cred[0],
         # the test webdav webserver uses a realm label '/'
         spec=dict(realm=url + '/'),
         **ca)
@@ -64,7 +74,11 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
     targetdir = Path(remotepath) / targetdir_name
     url = f'{url}/{targetdir_name}'
 
-    res = ds.create_sibling_webdav(url, storage_sibling='yes', **ca)
+    res = ds.create_sibling_webdav(
+        url,
+        credential=webdav_cred[0] if declare_credential else None,
+        storage_sibling='yes',
+        **ca)
     assert_in_results(
         res,
         action='create_sibling_webdav.storage',
@@ -75,8 +89,10 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
     # where it should be accessible
     # needs to be quoted
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
-           'dlacredential=dltest-mywebdav&' \
            'url=http%3A//127.0.0.1%3A43612/tar%26get%3Dmike'
+    if declare_credential:
+        dlaurl += f'&dlacredential={urlquote(webdav_cred[0])}'
+
     assert_in_results(
         res,
         action='add-sibling',
@@ -109,7 +125,7 @@ def test_common_workflow(clonepath, localpath, remotepath, url):
     dsclone.siblings('enable', name='127.0.0.1-storage')
     # verify that we can get testfile.dat
     # just get the whole damn thing
-    assert_status('ok', dsclone.get('.'))
+    assert_status('ok', dsclone.get('.', **ca))
     # verify testfile content
     eq_('dummy', (dsclone.pathobj / 'testfile.dat').read_text())
 
