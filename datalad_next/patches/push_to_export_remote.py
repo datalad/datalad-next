@@ -21,18 +21,22 @@ from datalad_next.utils import (
 )
 
 
-__docformat__ = "restructuredtext"
-
-
 lgr = logging.getLogger('datalad.core.distributed.push')
 
 
 def _is_export_remote(remote_info: Optional[Dict]) -> bool:
     """Check if remote_info is valid and has exporttree set to "yes"
 
-    :param remote_info: None or a dictionary the contains git annex special
-    remote info
-    :return: True if exporttree is yes, else False
+    Parameters
+    ----------
+    remote_info: Optional[Dict]
+        Optional dictionary the contains git annex special.
+
+    Returns
+    -------
+    bool
+        True if exporttree key is contained in remote_info and is set to yes,
+        else False.
     """
     if remote_info is not None:
         return remote_info.get("exporttree") == "yes"
@@ -59,7 +63,6 @@ def _transfer_data(repo: AnnexRepo,
         # TODO:
         #  - check for configuration entries, e.g. what to export
         #  - check for all kind of things that are checked in push._push_data
-        #  - proper error handling
 
         lgr.debug("Exporting HEAD to a remote with exporttree == yes")
 
@@ -74,15 +77,15 @@ def _transfer_data(repo: AnnexRepo,
             "type": remote_info.get("type"),
             "url": remote_info.get("url")
         }
-        credential_name, credentials = None, None
+        credentials = None
         credential_properties = get_specialremote_credential_properties(sr_params)
         if credential_properties:
             # TODO: lower prio: factor this if clause out, also used in
             #  create_sibling_webdav.py
             credential_manager = CredentialManager(ds.config)
-            credential_name, credentials = (credential_manager.query(
+            credentials = (credential_manager.query(
                 _sortby='last-used',
-                **credential_properties) or [(None, None)])[0]
+                **credential_properties) or [(None, None)])[0][1]
 
         # If we have credentials, check whether we require an environment patch
         env_patch = {}
