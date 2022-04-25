@@ -42,11 +42,16 @@ webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
 
 
 def test_common_workflow_implicit_cred():
-    check_common_workflow(False)
+    check_common_workflow(False, 'yes')
 
 
 def test_common_workflow_explicit_cred():
-    check_common_workflow(True)
+    check_common_workflow(True, 'yes')
+
+
+# to be used by https://github.com/datalad/datalad-next/pull/4
+#def test_common_workflow_export():
+#    check_common_workflow(False, 'export')
 
 
 @with_credential(
@@ -57,7 +62,8 @@ def test_common_workflow_explicit_cred():
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
 def check_common_workflow(
-        declare_credential, clonepath, localpath, remotepath, url):
+        declare_credential, storage_sibling,
+        clonepath, localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
     # need to amend the test credential, can only do after we know the URL
@@ -77,7 +83,7 @@ def check_common_workflow(
     res = ds.create_sibling_webdav(
         url,
         credential=webdav_cred[0] if declare_credential else None,
-        storage_sibling='yes',
+        storage_sibling=storage_sibling,
         **ca)
     assert_in_results(
         res,
@@ -88,8 +94,11 @@ def check_common_workflow(
     )
     # where it should be accessible
     # needs to be quoted
-    dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
-           'url=http%3A//127.0.0.1%3A43612/tar%26get%3Dmike'
+    dlaurl = (
+        'datalad-annex::?type=webdav&encryption=none&exporttree={exp}&'
+        'url=http%3A//127.0.0.1%3A43612/tar%26get%3Dmike').format(
+        exp='yes' if 'export' in storage_sibling else 'no',
+    )
     if declare_credential:
         dlaurl += f'&dlacredential={urlquote(webdav_cred[0])}'
 
