@@ -59,9 +59,30 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 class CreateSiblingWebDAV(Interface):
     """Some
 
-    No support for setting up encryption (yet)
+    Git-annex implementation details
 
-    TODO consider adding --dry-run
+    Storage siblings are presently always configured to be enabled
+    automatically on cloning a dataset. Due to a limitation of git-annex, this
+    will initially fails (missing credentials), but a command to properly
+    enable the storage sibling will be displayed.
+    See https://github.com/datalad/datalad/issues/6634 for details.
+
+    This command does not (and likely will not) support embedding credentials
+    in the repository (see ``embedcreds`` option of the git-annex ``webdav``
+    special remote; https://git-annex.branchable.com/special_remotes/webdav),
+    because such credential copies would need to be updated, whenever they
+    change or expire. Instead, credentials are retrieved from DataLad's
+    credential system. In many cases, credentials are determined automatically,
+    based on the HTTP authentication realm identified by a WebDAV server.
+
+    This command does not support setting up encrypted remotes (yet). Neither
+    for the storage sibling, nor for the regular Git-remote. However, adding
+    support for it is primarily a matter of extending the API of this command,
+    and to pass the respective options on to the underlying git-annex
+    setup.
+
+    This command does not support setting up chunking for webdav storage
+    siblings (https://git-annex.branchable.com/chunking).
     """
     _examples_ = [
     ]
@@ -453,17 +474,7 @@ def _create_storage_sibling(ds, url, name, existing, credential, export):
         "type=webdav",
         f"url={url}",
         f"exporttree={'yes' if export else 'no'}",
-        # TODO for now not, but ultimately we should have it
         "encryption=none",
-        # TODO consider
-        #chunk/chunksize
-        # TODO embedding credentials would simplify a non-datalad
-        #  push/copy, but would also scatter duplicates of credentials
-        #  around that need maintenance when expiring/changing
-        #embedcreds
-        # TODO: autoenable should probably be controlled by a parameter
-        #  to create_sibling_webdav. For example, "--autoenable", probably
-        #  with default "True".
         "autoenable=true"
     ]
     # delayed heavy-ish import
