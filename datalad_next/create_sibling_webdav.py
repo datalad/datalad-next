@@ -57,13 +57,60 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 @build_doc
 class CreateSiblingWebDAV(Interface):
-    """Some
+    """Create a sibling(-tandem) on a WebDAV server
 
-    No support for setting up encryption (yet)
+    WebDAV is standard HTTP protocol extension for placing files on a server
+    that is supported by a number of commercial storage services (e.g.
+    4shared.com, box.com), but also instances of cloud-storage solutions like
+    Nextcloud or ownCloud. These software packages are also the basis for
+    some institutional or public cloud storage solutions, such as EUDAT B2DROP.
 
-    TODO consider adding --dry-run
+    For basic usage, only the URL with the desired dataset location on a WebDAV
+    server needs to be specified for creating a sibling. However, the sibling
+    setup can be flexibly customized (no storage sibling, or only a storage
+    sibling, multi-version storage, or human-browsable single-version storage).
+
+    When creating siblings recursively for a dataset hierarchy, subdatasets
+    exports are placed at their corresponding relative paths underneath the
+    root location on the WebDAV server.
+
+
+    Git-annex implementation details
+
+    Storage siblings are presently always configured to be enabled
+    automatically on cloning a dataset. Due to a limitation of git-annex, this
+    will initially fails (missing credentials), but a command to properly
+    enable the storage sibling will be displayed.
+    See https://github.com/datalad/datalad/issues/6634 for details.
+
+    This command does not (and likely will not) support embedding credentials
+    in the repository (see ``embedcreds`` option of the git-annex ``webdav``
+    special remote; https://git-annex.branchable.com/special_remotes/webdav),
+    because such credential copies would need to be updated, whenever they
+    change or expire. Instead, credentials are retrieved from DataLad's
+    credential system. In many cases, credentials are determined automatically,
+    based on the HTTP authentication realm identified by a WebDAV server.
+
+    This command does not support setting up encrypted remotes (yet). Neither
+    for the storage sibling, nor for the regular Git-remote. However, adding
+    support for it is primarily a matter of extending the API of this command,
+    and to pass the respective options on to the underlying git-annex
+    setup.
+
+    This command does not support setting up chunking for webdav storage
+    siblings (https://git-annex.branchable.com/chunking).
     """
     _examples_ = [
+       dict(text="Create a WebDAV sibling tandem for storage a dataset's file "
+                 "content and revision history. A user will be prompted for "
+                 "any required credentials, if they are not yet known.",
+             code_py="create_sibling_webdav(url='https://webdav.example.com/myds')",
+             code_cmd='datalad create-sibling-webdav "https://webdav.example.com/myds"'),
+       dict(text="Such a dataset can be cloned by DataLad via a specially "
+                 "crafted URL. Again, credentials are automatically "
+                 "determined, or a user is prompted to enter them",
+            code_py="clone('datalad-annex::?type=webdav&encryption=none&url=https://webdav.example.com/myds')",
+            code_cmd='datalad clone "datalad-annex::?type=webdav&encryption=none&url=https://webdav.example.com/myds"'),
     ]
 
     _params_ = dict(
@@ -453,17 +500,7 @@ def _create_storage_sibling(ds, url, name, existing, credential, export):
         "type=webdav",
         f"url={url}",
         f"exporttree={'yes' if export else 'no'}",
-        # TODO for now not, but ultimately we should have it
         "encryption=none",
-        # TODO consider
-        #chunk/chunksize
-        # TODO embedding credentials would simplify a non-datalad
-        #  push/copy, but would also scatter duplicates of credentials
-        #  around that need maintenance when expiring/changing
-        #embedcreds
-        # TODO: autoenable should probably be controlled by a parameter
-        #  to create_sibling_webdav. For example, "--autoenable", probably
-        #  with default "True".
         "autoenable=true"
     ]
     # delayed heavy-ish import
