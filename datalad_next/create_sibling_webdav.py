@@ -52,7 +52,7 @@ from datalad_next.utils import (
 
 __docformat__ = "restructuredtext"
 
-lgr = logging.getLogger('datalad_next.create_sibling_webdav')
+lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 
 @build_doc
