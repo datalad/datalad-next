@@ -108,7 +108,7 @@ class CreateSiblingWebDAV(Interface):
         ),
         existing=Parameter(
             args=("--existing",),
-            constraints=EnsureChoice('skip', 'error', 'reconfigure', None),
+            constraints=EnsureChoice('skip', 'error', 'reconfigure'),
             doc="""action to perform, if a (storage) sibling is already
             configured under the given name and/or a target already exists.
             In this case, a dataset can be skipped ('skip'), an existing target
@@ -153,7 +153,7 @@ class CreateSiblingWebDAV(Interface):
             storage_name: Optional[str] = None,
             storage_sibling: str = 'yes',
             credential: Optional[str] = None,
-            existing: Optional[str] = None,
+            existing: str = 'error',
             recursive: bool = False,
             recursion_limit: Optional[int] = None):
 
