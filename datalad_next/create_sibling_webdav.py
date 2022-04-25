@@ -280,7 +280,11 @@ class CreateSiblingWebDAV(Interface):
             return _create_sibling_webdav(
                 ds,
                 dsurl,
-                credential_name=cred[0],
+                # we pass the given, not the discovered, credential name!
+                # given a name means "take this particular one", not giving a
+                # name means "take what is best". Only if we pass this
+                # information on, we achieve maintaining this behavior
+                credential_name=credential,
                 credential=(cred_user, cred_password),
                 storage_sibling=storage_sibling,
                 name=name,
@@ -406,12 +410,15 @@ def _create_git_sibling(
     """
 
     remote_url = \
-        "datalad-annex::?type=webdav&encryption=none&" \
-        "exporttree={export}&dlacredential={cred}&url={url}".format(
+        "datalad-annex::?type=webdav&encryption=none" \
+        "&exporttree={export}&url={url}".format(
             export='yes' if export else 'no',
-            cred=credential_name,
             # urlquote, because it goes into the query part of another URL
             url=urlquote(url))
+    if credential_name:
+        # we need to quote the credential name too.
+        # e.g., it is not uncommon for credentials to be named after URLs
+        remote_url += f'&dlacredential={urlquote(credential_name)}'
 
     # TODO dlacredential=
     #  this is a bit of a mess: the mihextras code still used the old
