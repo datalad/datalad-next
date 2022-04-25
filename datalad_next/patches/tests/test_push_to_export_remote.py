@@ -1,4 +1,7 @@
-from unittest.mock import patch
+from unittest.mock import (
+    MagicMock,
+    patch,
+)
 
 from datalad.tests.utils import (
     assert_false,
@@ -12,7 +15,10 @@ from datalad.tests.utils import (
 )
 
 
-from datalad_next.patches.push_to_export_remote import _is_export_remote
+from datalad_next.patches.push_to_export_remote import (
+    _is_export_remote,
+    _transfer_data,
+)
 
 
 class MockRepo:
@@ -27,6 +33,9 @@ class MockRepo:
                 "exporttree": "yes"
             }
         }
+
+    def call_git(self, *args, **kwargs):
+        return
 
 
 def test_is_export_remote():
@@ -44,13 +53,8 @@ def test_is_export_remote():
 def test_patch_pass_through():
     # Ensure that the original _transfer_data is called if the target remote
     # has exporttree # not set to "yes"
-    from datalad.core.distributed.push import _transfer_data as _original_transfer_data
-    from datalad_next.patches.push_to_export_remote import _transfer_data
-
-    print(_original_transfer_data, _transfer_data)
-    _transfer_data(*([None]*9))
     with patch("datalad_next.patches.push_to_export_remote.push._push_data") as pd_mock:
-        _original_transfer_data(
+        results = tuple(_transfer_data(
             repo=MockRepo(),
             ds=None,
             target="no-target",
@@ -59,23 +63,27 @@ def test_patch_pass_through():
             force=None,
             jobs=None,
             res_kwargs=dict(),
-            got_path_arg=False)
+            got_path_arg=False))
         eq_(pd_mock.call_count, 1)
 
 
 def test_patch_execute_export():
     # Ensure that export is called if the target remote has exporttree not set
     # to "yes"
-    from datalad_next.patches.push_to_export_remote import _transfer_data
+    ds_mock = MagicMock()
+    ds_mock.config.getbool.return_value = False
     with patch("datalad_next.patches.push_to_export_remote.push._push_data") as pd_mock:
-        _transfer_data(
+        results = tuple(_transfer_data(
             repo=MockRepo(),
-            ds=None,
+            ds=ds_mock,
             target="yes-target",
             content=[],
             data="",
             force=None,
             jobs=None,
-            res_kwargs=dict(),
-            got_path_arg=False)
-        eq_(pd_mock.call_count, 1)
+            res_kwargs={"some": "arg"},
+            got_path_arg=False))
+        eq_(pd_mock.call_count, 0)
+        assert_in(
+            {"target": "yes-target", "status": "ok", "some": "arg"},
+            results)
