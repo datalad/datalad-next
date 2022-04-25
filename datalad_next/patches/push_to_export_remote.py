@@ -24,7 +24,7 @@ from datalad_next.utils import (
 __docformat__ = "restructuredtext"
 
 
-lgr = logging.getLogger('datalad_next.push_to_export_remote')
+lgr = logging.getLogger('datalad.core.distributed.push')
 
 
 def _is_export_remote(remote_info: Optional[Dict]) -> bool:
