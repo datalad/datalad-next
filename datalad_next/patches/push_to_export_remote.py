@@ -39,24 +39,6 @@ def _is_export_remote(remote_info: Optional[Dict]) -> bool:
     return False
 
 
-def _is_webdav_remote(repo: AnnexRepo,
-                      target: str,
-                      ) -> bool:
-    """Check if remote "target" exists and has type set to "webdav"
-
-    :param repo: the repository that contains the remote
-    :param target: name of the remote that should be checked
-    :return: True if git annex reports exporttree is yes, else False
-    """
-    remote_info = [
-        record
-        for record in repo.get_special_remotes().values()
-        if record.get("name") == target]
-    if len(remote_info) == 1:
-        return remote_info[0].get("exporttree") == "yes"
-    return False
-
-
 def _transfer_data(repo: AnnexRepo,
                    ds: Dataset,
                    target: str,
