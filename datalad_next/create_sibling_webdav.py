@@ -57,7 +57,23 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 @build_doc
 class CreateSiblingWebDAV(Interface):
-    """Some
+    """Create a sibling(-tandem) on a WebDAV server
+
+    WebDAV is standard HTTP protocol extension for placing files on a server
+    that is supported by a number of commercial storage services (e.g.
+    4shared.com, box.com), but also instances of cloud-storage solutions like
+    Nextcloud or ownCloud. These software packages are also the basis for
+    some institutional or public cloud storage solutions, such as EUDAT B2DROP.
+
+    For basic usage, only the URL with the desired dataset location on a WebDAV
+    server needs to be specified for creating a sibling. However, the sibling
+    setup can be flexibly customized (no storage sibling, or only a storage
+    sibling, multi-version storage, or human-browsable single-version storage).
+
+    When creating siblings recursively for a dataset hierarchy, subdatasets
+    exports are placed at their corresponding relative paths underneath the
+    root location on the WebDAV server.
+
 
     Git-annex implementation details
 
@@ -85,6 +101,16 @@ class CreateSiblingWebDAV(Interface):
     siblings (https://git-annex.branchable.com/chunking).
     """
     _examples_ = [
+       dict(text="Create a WebDAV sibling tandem for storage a dataset's file "
+                 "content and revision history. A user will be prompted for "
+                 "any required credentials, if they are not yet known.",
+             code_py="create_sibling_webdav(url='https://webdav.example.com/myds')",
+             code_cmd='datalad create-sibling-webdav "https://webdav.example.com/myds"'),
+       dict(text="Such a dataset can be cloned by DataLad via a specially "
+                 "crafted URL. Again, credentials are automatically "
+                 "determined, or a user is prompted to enter them",
+            code_py="clone('datalad-annex::?type=webdav&encryption=none&url=https://webdav.example.com/myds')",
+            code_cmd='datalad clone "datalad-annex::?type=webdav&encryption=none&url=https://webdav.example.com/myds"'),
     ]
 
     _params_ = dict(
