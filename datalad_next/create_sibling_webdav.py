@@ -327,7 +327,7 @@ class CreateSiblingWebDAV(Interface):
             else:
                 dsurl = url
 
-            return _create_sibling_webdav(
+            yield from _create_sibling_webdav(
                 ds,
                 dsurl,
                 # we pass the given, not the discovered, credential name!
@@ -346,9 +346,7 @@ class CreateSiblingWebDAV(Interface):
         # is True.
         if not recursive:
             for partial_result in _dummy(ds, ds):
-                result = res_kwargs.copy()
-                result.update(partial_result)
-                yield result
+                yield dict(res_kwargs, **partial_result)
         else:
             for res in ds.foreach_dataset(_dummy,
                                           return_type='generator',
@@ -357,9 +355,7 @@ class CreateSiblingWebDAV(Interface):
                                           recursion_limit=recursion_limit):
                 # unwind result generator
                 for partial_result in res.get('result', []):
-                    result = res_kwargs.copy()
-                    result.update(partial_result)
-                    yield result
+                    yield dict(res_kwargs, **partial_result)
 
         # this went well, update the credential
         credname, credprops = cred
@@ -436,17 +432,15 @@ def _create_sibling_webdav(
                                                        recursive=False)
                          ]
 
-    results = []
-
     if storage_sibling != 'no':
         if storage_name in existing_siblings:
             if existing == 'skip':
-                r = get_status_dict(ds=ds,
+                yield get_status_dict(ds=ds,
                                     status='notneeded',
                                     message=f"Skipped on existing "
                                             f"sibling {storage_name}")
             elif existing == 'reconfigure':
-                r = _create_storage_sibling(
+                yield _create_storage_sibling(
                         ds,
                         url,
                         storage_name,
@@ -458,7 +452,7 @@ def _create_sibling_webdav(
                 # Shouldn't happen, since 'error' was treated upfront
                 raise ValueError(f"Unexpected value of 'existing': {existing}")
         else:
-            r = _create_storage_sibling(
+            yield _create_storage_sibling(
                     ds,
                     url,
                     storage_name,
@@ -466,16 +460,16 @@ def _create_sibling_webdav(
                     export=export_storage,
                     reconfigure=False,
                 )
-        results.append(r)
+
     if 'only' not in storage_sibling:
         if name in existing_siblings:
             if existing == 'skip':
-                r = get_status_dict(ds=ds,
-                                    status='notneeded',
-                                    message=f"Skipped on existing sibling "
+                yield get_status_dict(ds=ds,
+                                      status='notneeded',
+                                      message=f"Skipped on existing sibling "
                                             f"{name}")
             elif existing == 'reconfigure':
-                r = _create_git_sibling(
+                yield _create_git_sibling(
                         ds,
                         url,
                         name,
@@ -483,14 +477,14 @@ def _create_sibling_webdav(
                         credential,
                         export=export_storage,
                         reconfigure=True,
-                        publish_depends=storage_name
-                            if storage_sibling != 'no' else None
+                        publish_depends=storage_name if storage_sibling !=
+                                                        'no' else None
                     )
             else:
                 # Shouldn't happen, since 'error' was treated upfront
                 raise ValueError(f"Unexpected value of 'existing': {existing}")
         else:
-            r = _create_git_sibling(
+            yield _create_git_sibling(
                     ds,
                     url,
                     name,
@@ -498,14 +492,9 @@ def _create_sibling_webdav(
                     credential,
                     export=export_storage,
                     reconfigure=False,
-                    publish_depends=storage_name
-                        if storage_sibling != 'no' else None
+                    publish_depends=storage_name if storage_sibling != 'no'
+                    else None
             )
-        results.append(r)
-
-    print ("MADE", ds, url, storage_sibling, name, storage_name, existing, credential)
-
-    return results
 
 
 def _create_git_sibling(
@@ -632,7 +621,6 @@ def _yield_ds_w_matching_siblings(
             remotes = repo.get_remotes()
         return remotes
 
-    lgr.error(f"DEBUG: {recursive}, {ds}")
     if not recursive:
         for name in _discover_all_remotes(ds, ds):
             if name in names:
