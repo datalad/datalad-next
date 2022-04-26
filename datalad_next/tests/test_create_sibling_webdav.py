@@ -123,7 +123,14 @@ def check_common_workflow(
     )
     assert_in_results(res, action='publish', status='ok')
 
-    dsclone = clone(dlaurl, clonepath, **ca)
+    cloneurl = dlaurl
+    if not declare_credential and 'export' in storage_sibling:
+        # we can use a simplified URL
+        cloneurl = 'webdav://{url}'.format(
+            # strip http://
+            url=url[7:],
+        )
+    dsclone = clone(cloneurl, clonepath, **ca)
     # we get the same thing
     eq_(ds.repo.get_hexsha(ds.repo.get_corresponding_branch()),
         dsclone.repo.get_hexsha(dsclone.repo.get_corresponding_branch()))
@@ -131,7 +138,7 @@ def check_common_workflow(
     # check that it auto-deploys webdav credentials
     # at some point, clone should be able to do this internally
     # https://github.com/datalad/datalad/issues/6634
-    dsclone.siblings('enable', name='127.0.0.1-storage')
+    dsclone.siblings('enable', name='127.0.0.1-storage', **ca)
     # verify that we can get testfile.dat
     # just get the whole damn thing
     assert_status('ok', dsclone.get('.', **ca))

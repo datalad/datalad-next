@@ -47,6 +47,19 @@ register_config(
     type=EnsureBool(),
     default=True,
     dialog='yesno')
+register_config(
+    'datalad.clone.url-substitute.webdav',
+    'webdav(s):// clone URL substitution',
+    description="Convenience conversion of custom WebDAV URLs to "
+    "git-cloneable 'datalad-annex::'-type URLs. The 'webdav://' "
+    "prefix implies a remote sibling in 'filetree' or 'export' mode "
+    "See https://docs.datalad.org/design/url_substitution.html for details",
+    dialog='question',
+    scope='global',
+    default=(
+        r',^webdav([s]*)://([^?]+)$,datalad-annex::http\1://\2?type=webdav&encryption=none&exporttree=yes&url={noquery}',
+    ),
+)
 
 
 from datalad import setup_package
