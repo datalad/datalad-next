@@ -87,12 +87,26 @@ def get_export_records(repo: AnnexRepo) -> Generator:
         "destination-annex-uuid", "treeish". The timestamp-value is a float,
         all other values are strings.
     """
-    for line in repo.call_git_items_(["cat-file", "blob", "git-annex:export.log"]):
-        result_dict = dict(zip(
-            ["timestamp", "source-annex-uuid", "destination-annex-uuid", "treeish"],
-            line.replace(":", " ").split()))
-        result_dict["timestamp"] = float(result_dict["timestamp"][:-1])
-        yield result_dict
+    try:
+        for line in repo.call_git_items_(["cat-file", "blob", "git-annex:export.log"]):
+            result_dict = dict(zip(
+                [
+                    "timestamp",
+                    "source-annex-uuid",
+                    "destination-annex-uuid",
+                    "treeish"
+                ],
+                line.replace(":", " ").split()))
+            result_dict["timestamp"] = float(result_dict["timestamp"][:-1])
+            yield result_dict
+    except CommandError as command_error:
+        # Some errors indicate that there was no export yet.
+        expected_errors = (
+            "fatal: Not a valid object name git-annex:export.log",
+        )
+        if command_error.stderr.strip() in expected_errors:
+            return []
+        raise
 
 
 def _get_export_log_entry(repo: AnnexRepo,
