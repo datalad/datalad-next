@@ -70,6 +70,9 @@ class CreateSiblingWebDAV(Interface):
     server needs to be specified for creating a sibling. However, the sibling
     setup can be flexibly customized (no storage sibling, or only a storage
     sibling, multi-version storage, or human-browsable single-version storage).
+    The target location is currently expected by this command to have no
+    potentially conflicting content. Please make sure of that beforehand!
+    Such content may be overwritten.
 
     When creating siblings recursively for a dataset hierarchy, subdatasets
     exports are placed at their corresponding relative paths underneath the
