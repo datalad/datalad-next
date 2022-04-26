@@ -97,7 +97,12 @@ def test_patch_execute_export():
         results = tuple(_call_transfer("yes-target", False))
         eq_(pd_mock.call_count, 0)
         assert_in(
-            {"target": "yes-target", "status": "ok", "some": "arg"},
+            {
+                "target": "yes-target",
+                "action": "copy",
+                "status": "ok",
+                "some": "arg"
+            },
             results)
 
 
@@ -124,7 +129,12 @@ def test_patch_check_envpatch():
         results = tuple(_call_transfer("yes-target", False))
         eq_(pd_mock.call_count, 0)
         assert_in(
-            {"target": "yes-target", "status": "ok", "some": "arg"},
+            {
+                "target": "yes-target",
+                "action": "copy",
+                "status": "ok",
+                "some": "arg"
+            },
             results)
 
 
