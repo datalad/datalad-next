@@ -192,7 +192,7 @@ def test_http_warning():
         eq_(lgr_mock.warning.call_count, 1)
         assert_in(
             call(
-                f"Using 'http:' ({url!r}) means that WEBDAV credentials might "
+                f"Using 'http:' ({url!r}) means that WebDAV credentials might "
                 f"be sent unencrypted over network links. Consider using "
                 f"'https:'."),
             lgr_mock.warning.mock_calls)
@@ -341,7 +341,7 @@ def test_get_url_credential():
     with patch("datalad_next.create_sibling_webdav."
                "get_specialremote_credential_properties") as gscp_mock:
 
-        # Expect credentials to be derived from WEBDAV-url if no credential
+        # Expect credentials to be derived from WebDAV-url if no credential
         # name is provided
         gscp_mock.return_value = {"some": "value"}
         result = _get_url_credential(
