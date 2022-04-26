@@ -381,14 +381,14 @@ def test_get_url_credential():
 
 
 @with_credential(
-    'dltest-mywebdav', user=webdav_cred[0], secret=webdav_cred[1],
+    'dltest-mywebdav', user=webdav_cred[1], secret=webdav_cred[2],
     type='user_password')
 @with_tree(tree={'sub': {'f0': '0'},
                  'sub2': {'subsub': {'f1': '1'},
                           'f2': '2'},
                  'f3': '3'})
 @with_tempfile
-@serve_path_via_webdav(auth=webdav_cred)
+@serve_path_via_webdav(auth=webdav_cred[1:])
 def test_existing_switch(localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(force=True, **ca)
@@ -414,7 +414,6 @@ def test_existing_switch(localpath, remotepath, url):
                                    existing='skip',
                                    recursive=True, **ca)
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
-           'dlacredential=dltest-mywebdav&' \
            'url=http%3A//127.0.0.1%3A43612/'
 
     # results per dataset:
