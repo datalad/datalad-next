@@ -172,7 +172,7 @@ class CreateSiblingWebDAV(Interface):
             dest='storage_sibling',
             constraints=EnsureChoice(
                 'yes', 'export', 'only', 'only-export', 'no'),
-            doc="""Both Git history and file content can be hosted on WEBDAV.
+            doc="""Both Git history and file content can be hosted on WebDAV.
             With 'yes', a storage sibling and a Git repository
             sibling are created ('yes').
             Alternatively, creation of the storage sibling can be disabled
@@ -184,7 +184,7 @@ class CreateSiblingWebDAV(Interface):
             using a content hash based file tree ('yes'|'only'), or
             as an export-type special remote, that can only store a single
             file version corresponding to one unique state of the dataset,
-            but using a human-readable data data organization on the WEBDAV
+            but using a human-readable data data organization on the WebDAV
             remote that matches the file tree of the dataset
             ('export'|'only-export').
             When a storage sibling and a regular sibling are created, a
@@ -222,7 +222,7 @@ class CreateSiblingWebDAV(Interface):
                 f"Only 'http'- or 'https'-scheme are supported: {url!r}")
         if parsed_url.scheme == "http":
             lgr.warning(
-                f"Using 'http:' ({url!r}) means that WEBDAV credentials might"
+                f"Using 'http:' ({url!r}) means that WebDAV credentials might"
                 " be sent unencrypted over network links. Consider using "
                 "'https:'.")
 

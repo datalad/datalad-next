@@ -60,22 +60,22 @@ class WebDAVPath(object):
             bind_addr=(config["host"], config["port"]),
             wsgi_app=app,
         )
-        lgr.debug('Starting WEBDAV server')
+        lgr.debug('Starting WebDAV server')
         from threading import Thread
         self.server.prepare()
         self.server_thread = Thread(target=self.server.serve)
         self.server_thread.start()
-        lgr.debug('WEBDAV started')
+        lgr.debug('WebDAV started')
         return f'http://{config["host"]}:{config["port"]}'
 
     def __exit__(self, *args):
-        lgr.debug('Stopping WEBDAV server')
+        lgr.debug('Stopping WebDAV server')
         # graceful exit
         self.server.stop()
-        lgr.debug('WEBDAV server stopped, waiting for server thread to exit')
+        lgr.debug('WebDAV server stopped, waiting for server thread to exit')
         # wait for shutdown
         self.server_thread.join()
-        lgr.debug('WEBDAV server thread exited')
+        lgr.debug('WebDAV server thread exited')
 
 
 @optional_args
