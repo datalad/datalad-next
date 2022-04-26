@@ -36,6 +36,7 @@ from datalad.interface.common_opts import (
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.log import log_progress
+from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
 from datalad.support.constraints import (
     EnsureChoice,
@@ -343,16 +344,22 @@ class CreateSiblingWebDAV(Interface):
 
         # Generate a sibling for dataset "ds", and for sub-datasets if recursive
         # is True.
-        for res in ds.foreach_dataset(_dummy,
-                                      return_type='generator',
-                                      result_renderer='disabled',
-                                      recursive=recursive,
-                                      recursion_limit=recursion_limit):
-            # unwind result generator
-            for partial_result in res.get('result', []):
+        if not recursive:
+            for partial_result in _dummy(ds, ds):
                 result = res_kwargs.copy()
                 result.update(partial_result)
                 yield result
+        else:
+            for res in ds.foreach_dataset(_dummy,
+                                          return_type='generator',
+                                          result_renderer='disabled',
+                                          recursive=recursive,
+                                          recursion_limit=recursion_limit):
+                # unwind result generator
+                for partial_result in res.get('result', []):
+                    result = res_kwargs.copy()
+                    result.update(partial_result)
+                    yield result
 
         # this went well, update the credential
         credname, credprops = cred
@@ -606,17 +613,6 @@ def _yield_ds_w_matching_siblings(
       Path to the dataset with a matching sibling, and name of the matching
       sibling in that dataset.
     """
-    # in recursive mode this check could take a substantial amount of
-    # time: employ a progress bar (or rather a counter, because we don't
-    # know the total in advance
-    pbar_id = 'check-siblings-{}'.format(id(ds))
-    if recursive:
-        log_progress(
-            lgr.info, pbar_id,
-            'Start checking pre-existing sibling configuration %s', ds,
-            label='Query siblings',
-            unit=' Siblings',
-        )
 
     def _discover_all_remotes(ds, refds, **kwargs):
         """Helper to be run on all relevant datasets via foreach
@@ -636,27 +632,43 @@ def _yield_ds_w_matching_siblings(
             remotes = repo.get_remotes()
         return remotes
 
-    for res in ds.foreach_dataset(
-            _discover_all_remotes,
-            recursive=recursive,
-            recursion_limit=recursion_limit,
-            return_type='generator',
-            result_renderer='disabled',
-    ):
-        # unwind result generator
-        if 'result' in res:
-            for name in res['result']:
-                if recursive:
+    lgr.error(f"DEBUG: {recursive}, {ds}")
+    if not recursive:
+        for name in _discover_all_remotes(ds, ds):
+            if name in names:
+                yield ds.path, name
+
+    else:
+        # in recursive mode this check could take a substantial amount of
+        # time: employ a progress bar (or rather a counter, because we don't
+        # know the total in advance
+        pbar_id = 'check-siblings-{}'.format(id(ds))
+        log_progress(
+            lgr.info, pbar_id,
+            'Start checking pre-existing sibling configuration %s', ds,
+            label='Query siblings',
+            unit=' Siblings',
+        )
+
+        for res in ds.foreach_dataset(
+                _discover_all_remotes,
+                recursive=recursive,
+                recursion_limit=recursion_limit,
+                return_type='generator',
+                result_renderer='disabled',
+        ):
+            # unwind result generator
+            if 'result' in res:
+                for name in res['result']:
                     log_progress(
                         lgr.info, pbar_id,
                         'Discovered sibling %s in dataset at %s',
                         name, res['path'],
                         update=1,
                         increment=True)
-                if name in names:
-                    yield res['path'], name
+                    if name in names:
+                        yield res['path'], name
 
-    if recursive:
         log_progress(
             lgr.info, pbar_id,
             'Finished checking pre-existing sibling configuration %s', ds,
