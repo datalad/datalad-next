@@ -49,9 +49,8 @@ def test_common_workflow_explicit_cred():
     check_common_workflow(True, 'yes')
 
 
-# to be used by https://github.com/datalad/datalad-next/pull/4
-#def test_common_workflow_export():
-#    check_common_workflow(False, 'export')
+def test_common_workflow_export():
+    check_common_workflow(False, 'export')
 
 
 @with_credential(
@@ -118,7 +117,9 @@ def check_common_workflow(
     assert_in_results(
         res,
         action='copy',
-        path=str(ds.pathobj / 'testfile.dat'),
+        path=str(ds.pathobj)
+             if 'export' in storage_sibling
+             else str(ds.pathobj / 'testfile.dat'),
         status='ok',
     )
     assert_in_results(res, action='publish', status='ok')
