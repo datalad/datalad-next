@@ -206,10 +206,11 @@ def _transfer_data(repo: AnnexRepo,
                     exception=ce)
                 return
 
-        yield dict(
+        yield {
             **res_kwargs,
-            status='ok',
-        )
+            "action": "copy",
+            "status": "ok",
+        }
 
     else:
         yield from push._push_data(
