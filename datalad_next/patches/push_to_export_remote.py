@@ -12,7 +12,9 @@ import datalad.core.distributed.push as push
 from datalad.distribution.dataset import Dataset
 from datalad.runner.exception import CommandError
 from datalad.support.annexrepo import AnnexRepo
+from datalad.support.constraints import EnsureChoice
 from datalad.support.exceptions import CapturedException
+from datalad.support.param import Parameter
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_envpatch,
@@ -43,6 +45,80 @@ def _is_export_remote(remote_info: Optional[Dict]) -> bool:
     return False
 
 
+def _get_credentials(ds: Dataset,
+                     remote_info: Dict
+                     ) -> Optional[Dict]:
+
+    # Check for credentials
+    params = {
+        "type": remote_info.get("type"),
+        "url": remote_info.get("url")
+    }
+    credentials = None
+    credential_properties = get_specialremote_credential_properties(params)
+    if credential_properties:
+        # TODO: lower prio: factor this if clause out, also used in
+        #  create_sibling_webdav.py
+        credential_manager = CredentialManager(ds.config)
+        credentials = (credential_manager.query(
+            _sortby='last-used',
+            **credential_properties) or [(None, None)])[0][1]
+    return credentials
+
+
+# TODO: create a function similar to AnnexRepo.get_special_remote() and put it
+#  into core.
+def get_export_records(repo: AnnexRepo) -> Generator:
+    """Read exports that git-annex recorded in its 'export.log'-file
+
+    Interpret the lines in export.log. Each line has the following structure:
+
+        time-stamp " " source-annex-uuid ":" destination-annex-uuid " " treeish
+
+    Parameters
+    ----------
+    repo: AnnexRepo
+        The annex repo from which exports should be determined
+
+    Returns
+    -------
+    List[Dict]
+        Dictionary containing the keys: "timestamp", "source-annex-uuid",
+        "destination-annex-uuid", "treeish". The timestamp-value is a float,
+        all other values are strings.
+    """
+    for line in repo.call_git_items_(["cat-file", "blob", "git-annex:export.log"]):
+        result_dict = dict(zip(
+            ["timestamp", "source-annex-uuid", "destination-annex-uuid", "treeish"],
+            line.replace(":", " ").split()))
+        result_dict["timestamp"] = float(result_dict["timestamp"][:-1])
+        yield result_dict
+
+
+def _get_export_log_entry(repo: AnnexRepo,
+                          target_uuid: str
+                          ) -> Optional[Dict]:
+    target_entries = [
+        entry
+        for entry in get_export_records(repo)
+        if entry["destination-annex-uuid"] == target_uuid]
+
+    if not target_entries:
+        return None
+    return sorted(target_entries, key=lambda e: e["timestamp"])[-1]
+
+
+def _is_valid_treeish(repo: AnnexRepo,
+                      export_entry: Dict,
+                      ) -> bool:
+
+    for line in repo.call_git_items_(["log", "--pretty=%H %T"]):
+        commit_hash, treeish = line.split()
+        if treeish == export_entry["treeish"]:
+            return True
+    return False
+
+
 def _transfer_data(repo: AnnexRepo,
                    ds: Dataset,
                    target: str,
@@ -54,15 +130,13 @@ def _transfer_data(repo: AnnexRepo,
                    got_path_arg: bool
                    ) -> Generator:
 
-    remote_info = ([
-        record
-        for record in repo.get_special_remotes().values()
-        if record.get("name") == target] or [None])[0]
+    target_uuid, remote_info = tuple(filter(
+        lambda item: item[1].get("name") == target,
+        repo.get_special_remotes().items()))[0]
 
     if _is_export_remote(remote_info):
         # TODO:
         #  - check for configuration entries, e.g. what to export
-        #  - check for all kind of things that are checked in push._push_data
 
         lgr.debug("Exporting HEAD to a remote with exporttree == yes")
 
@@ -72,26 +146,36 @@ def _transfer_data(repo: AnnexRepo,
                 target)
             return
 
-        # Check for credentials
-        sr_params = {
-            "type": remote_info.get("type"),
-            "url": remote_info.get("url")
-        }
-        credentials = None
-        credential_properties = get_specialremote_credential_properties(sr_params)
-        if credential_properties:
-            # TODO: lower prio: factor this if clause out, also used in
-            #  create_sibling_webdav.py
-            credential_manager = CredentialManager(ds.config)
-            credentials = (credential_manager.query(
-                _sortby='last-used',
-                **credential_properties) or [(None, None)])[0][1]
+        if force not in ("all", "export"):
+            export_entry = _get_export_log_entry(repo, target_uuid)
+            if export_entry:
+                if export_entry["source-annex-uuid"] != repo.uuid:
+                    yield dict(
+                        **res_kwargs,
+                        status="error",
+                        message=f"refuse to export to {target}, because the "
+                                f"last known export came from another repo "
+                                f"({export_entry['source-annex-uuid']}). Use "
+                                f"--force=export to enforce the export anyway.")
+                    return
+                if not _is_valid_treeish(repo, export_entry):
+                    yield dict(
+                        **res_kwargs,
+                        status="error",
+                        message=f"refuse to export to {target}, because the "
+                                f"current state is not a fast-forward of the "
+                                f"last known exported state. Use "
+                                f"--force=export to enforce the export anyway.")
+                    return
+
+        credentials = _get_credentials(ds, remote_info)
 
         # If we have credentials, check whether we require an environment patch
         env_patch = {}
-        if credentials and needs_specialremote_credential_envpatch(sr_params["type"]):
+        remote_type = remote_info.get("type")
+        if credentials and needs_specialremote_credential_envpatch(remote_type):
             env_patch = get_specialremote_credential_envpatch(
-                sr_params["type"],
+                remote_type,
                 credentials)
 
         res_kwargs['target'] = target
@@ -128,3 +212,12 @@ def _transfer_data(repo: AnnexRepo,
 
 lgr.debug("Patching datalad.core.distributed.push._transfer_data")
 push._transfer_data = _transfer_data
+push.Push._params_["force"] = Parameter(
+    args=("-f", "--force",),
+    doc="""force particular operations, possibly overruling safety
+    protections or optimizations: use --force with git-push ('gitpush');
+    do not use --fast with git-annex copy ('checkdatapresent'); force an
+    annex export (to git annex remotes with "exporttree" set to "yes");
+    combine all force modes ('all').""",
+    constraints=EnsureChoice(
+        'all', 'gitpush', 'checkdatapresent', 'export', None))

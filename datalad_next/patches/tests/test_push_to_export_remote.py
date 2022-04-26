@@ -68,11 +68,65 @@ def test_patch_pass_through():
 
 
 def test_patch_execute_export():
+    # Ensure that export is called if the target remote has exporttree set to
+    # "yes"
+    ds_mock = MagicMock()
+    ds_mock.config.getbool.return_value = False
+    module_name = "datalad_next.patches.push_to_export_remote"
+    with patch(f"{module_name}.push._push_data") as pd_mock, \
+         patch(f"{module_name}._get_export_log_entry") as gele_mock:
+
+        gele_mock.return_value = None
+        results = tuple(_transfer_data(
+            repo=MockRepo(),
+            ds=ds_mock,
+            target="yes-target",
+            content=[],
+            data="",
+            force=None,
+            jobs=None,
+            res_kwargs={"some": "arg"},
+            got_path_arg=False))
+        eq_(pd_mock.call_count, 0)
+        assert_in(
+            {"target": "yes-target", "status": "ok", "some": "arg"},
+            results)
+
+
+def test_patch_skip_ignore_targets_export():
+    ds_mock = MagicMock()
+    ds_mock.config.getbool.return_value = True
+    with patch("datalad_next.patches.push_to_export_remote.lgr") as lgr_mock:
+        results = tuple(_transfer_data(
+            repo=MockRepo(),
+            ds=ds_mock,
+            target="yes-target",
+            content=[],
+            data="",
+            force=None,
+            jobs=None,
+            res_kwargs={"some": "arg"},
+            got_path_arg=False))
+        eq_(lgr_mock.debug.call_count, 2)
+        assert_true(lgr_mock.mock_calls[1].args[0].startswith("Target"))
+
+
+def test_patch_check_envpatch():
     # Ensure that export is called if the target remote has exporttree not set
     # to "yes"
     ds_mock = MagicMock()
     ds_mock.config.getbool.return_value = False
-    with patch("datalad_next.patches.push_to_export_remote.push._push_data") as pd_mock:
+    module_name = "datalad_next.patches.push_to_export_remote"
+    with patch(f"{module_name}.push._push_data") as pd_mock, \
+         patch(f"{module_name}.needs_specialremote_credential_envpatch") as nsce_mock, \
+         patch(f"{module_name}.get_specialremote_credential_envpatch") as gsce_mock, \
+         patch(f"{module_name}._get_export_log_entry") as gele_mock, \
+         patch(f"{module_name}._get_credentials") as gc_mock:
+
+        nsce_mock.return_value = True
+        gsce_mock.return_value = {"WEBDAVU": "hans", "WEBDAVP": "abc"}
+        gele_mock.return_value = None
+        gc_mock.return_value = {"secret": "abc", "user": "hans"}
         results = tuple(_transfer_data(
             repo=MockRepo(),
             ds=ds_mock,
