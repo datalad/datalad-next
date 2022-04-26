@@ -434,23 +434,10 @@ def _create_sibling_webdav(
 
     if storage_sibling != 'no':
         if storage_name in existing_siblings:
-            if existing == 'skip':
-                yield get_status_dict(ds=ds,
-                                    status='notneeded',
-                                    message=f"Skipped on existing "
-                                            f"sibling {storage_name}")
-            elif existing == 'reconfigure':
-                yield _create_storage_sibling(
-                        ds,
-                        url,
-                        storage_name,
-                        credential,
-                        export=export_storage,
-                        reconfigure=True,
-                    )
-            else:
-                # Shouldn't happen, since 'error' was treated upfront
-                raise ValueError(f"Unexpected value of 'existing': {existing}")
+            yield from maybe_skip_sibling(credential, credential_name, ds,
+                                          existing, export_storage, name,
+                                          storage_name, storage_sibling,
+                                          url, 'storage')
         else:
             yield _create_storage_sibling(
                     ds,
@@ -463,26 +450,10 @@ def _create_sibling_webdav(
 
     if 'only' not in storage_sibling:
         if name in existing_siblings:
-            if existing == 'skip':
-                yield get_status_dict(ds=ds,
-                                      status='notneeded',
-                                      message=f"Skipped on existing sibling "
-                                            f"{name}")
-            elif existing == 'reconfigure':
-                yield _create_git_sibling(
-                        ds,
-                        url,
-                        name,
-                        credential_name,
-                        credential,
-                        export=export_storage,
-                        reconfigure=True,
-                        publish_depends=storage_name if storage_sibling !=
-                                                        'no' else None
-                    )
-            else:
-                # Shouldn't happen, since 'error' was treated upfront
-                raise ValueError(f"Unexpected value of 'existing': {existing}")
+            yield from maybe_skip_sibling(credential, credential_name, ds,
+                                          existing, export_storage, name,
+                                          storage_name, storage_sibling,
+                                          url, 'git')
         else:
             yield _create_git_sibling(
                     ds,
@@ -495,6 +466,49 @@ def _create_sibling_webdav(
                     publish_depends=storage_name if storage_sibling != 'no'
                     else None
             )
+
+
+def maybe_skip_sibling(credential, credential_name, ds, existing,
+                       export_storage, name, storage_name, storage_sibling,
+                       url, sibling_type):
+    """
+
+    Parameters:
+    -----------
+    sibling_type: str
+      'git' or 'storage'
+    """
+    if existing == 'skip':
+        yield get_status_dict(
+            ds=ds,
+            status='notneeded',
+            message=f"Skipped on existing sibling "
+                    f"{name if sibling_type == 'git' else storage_name}")
+    elif existing == 'reconfigure':
+        if sibling_type == 'git':
+            yield _create_git_sibling(
+                ds,
+                url,
+                name,
+                credential_name,
+                credential,
+                export=export_storage,
+                reconfigure=True,
+                publish_depends=storage_name
+                                if storage_sibling != 'no' else None
+            )
+        elif sibling_type == 'storage':
+            yield _create_storage_sibling(
+                ds,
+                url,
+                storage_name,
+                credential,
+                export=export_storage,
+                reconfigure=True,
+            )
+    else:
+        # Shouldn't happen, since 'error' was treated upfront
+        raise ValueError(f"Unexpected value of 'existing': {existing}")
 
 
 def _create_git_sibling(
