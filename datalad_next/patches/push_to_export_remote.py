@@ -199,11 +199,13 @@ def _transfer_data(repo: AnnexRepo,
                 repo.call_git(["annex", "export", "HEAD", "--to", target])
             except CommandError as cmd_error:
                 ce = CapturedException(cmd_error)
-                yield dict(
+                yield {
                     **res_kwargs,
-                    status="error",
-                    message=str(ce),
-                    exception=ce)
+                    "action": "copy",
+                    "status": "error",
+                    "message": str(ce),
+                    "exception": ce
+                }
                 return
 
         yield {
