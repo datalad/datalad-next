@@ -22,17 +22,27 @@ from datalad_next.patches.push_to_export_remote import (
 
 
 class MockRepo:
+    def __init__(self, return_special_remotes=True):
+        self.return_special_remotes = return_special_remotes
+
     def get_special_remotes(self):
-        return {
-            0: {
-                "name": "no-target",
-                "exporttree": "no"
-            },
-            1: {
-                "name": "yes-target",
-                "exporttree": "yes"
+        if self.return_special_remotes:
+            return {
+                0: {
+                    "name": "no-target",
+                    "exporttree": "no"
+                },
+                1: {
+                    "name": "yes-target",
+                    "exporttree": "yes"
+                },
+                2: {
+                    "name": "some-target",
+                    "exporttree": "no"
+                }
             }
-        }
+        else:
+            return {}
 
     def call_git(self, *args, **kwargs):
         return
@@ -141,3 +151,19 @@ def test_patch_check_envpatch():
         assert_in(
             {"target": "yes-target", "status": "ok", "some": "arg"},
             results)
+
+
+def test_no_special_remotes():
+    # Ensure that the code works if no special remotes exist
+    with patch("datalad_next.patches.push_to_export_remote.push._push_data") as pd_mock:
+        results = tuple(_transfer_data(
+            repo=MockRepo(return_special_remotes=False),
+            ds=None,
+            target="no-target",
+            content=[],
+            data="",
+            force=None,
+            jobs=None,
+            res_kwargs=dict(),
+            got_path_arg=False))
+        eq_(pd_mock.call_count, 1)

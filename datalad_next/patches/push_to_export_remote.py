@@ -144,9 +144,9 @@ def _transfer_data(repo: AnnexRepo,
                    got_path_arg: bool
                    ) -> Generator:
 
-    target_uuid, remote_info = tuple(filter(
-        lambda item: item[1].get("name") == target,
-        repo.get_special_remotes().items()))[0]
+    target_uuid, remote_info = ([
+        (uuid, info) for uuid, info in repo.get_special_remotes().items()
+        if info.get("name") == target] or [(None, None)])[0]
 
     if _is_export_remote(remote_info):
         # TODO:
