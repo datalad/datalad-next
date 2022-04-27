@@ -236,6 +236,13 @@ def _transfer_data(repo: AnnexRepo,
 
 lgr.debug("Patching datalad.core.distributed.push._transfer_data")
 push._transfer_data = _transfer_data
+push.Push.__doc__ += """\
+
+
+Features added by the datalad-next extension
+
+Transparently transfer data to git-annex special remotes in export-mode (`exporttree=yes`), whenever ...
+"""
 push.Push._params_["force"] = Parameter(
     args=("-f", "--force",),
     doc="""force particular operations, possibly overruling safety
