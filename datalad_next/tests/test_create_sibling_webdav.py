@@ -51,9 +51,8 @@ def test_common_workflow_explicit_cred():
     check_common_workflow(True, 'yes')
 
 
-# to be used by https://github.com/datalad/datalad-next/pull/4
-#def test_common_workflow_export():
-#    check_common_workflow(False, 'export')
+def test_common_workflow_export():
+    check_common_workflow(False, 'export')
 
 
 @with_credential(
