@@ -70,9 +70,9 @@ class CreateSiblingWebDAV(Interface):
     server needs to be specified for creating a sibling. However, the sibling
     setup can be flexibly customized (no storage sibling, or only a storage
     sibling, multi-version storage, or human-browsable single-version storage).
-    The target location is currently expected by this command to have no
-    potentially conflicting content. Please make sure of that beforehand!
-    Such content may be overwritten.
+
+    This command does not check for conflicting content on the WebDAV
+    server!
 
     When creating siblings recursively for a dataset hierarchy, subdatasets
     exports are placed at their corresponding relative paths underneath the
@@ -165,9 +165,9 @@ class CreateSiblingWebDAV(Interface):
             constraints=EnsureChoice('skip', 'error', 'reconfigure'),
             doc="""action to perform, if a (storage) sibling is already
             configured under the given name.
-            In this case, a sibling creation can be skipped ('skip') or the
-            sibling (re-)configured ('reconfigure'), or the command be
-            instructed to fail ('error').""", ),
+            In this case, sibling creation can be skipped ('skip') or the
+            sibling (re-)configured ('reconfigure') in the dataset, or the
+            command be instructed to fail ('error').""", ),
         recursive=recursion_flag,
         recursion_limit=recursion_limit,
         storage_sibling=Parameter(
