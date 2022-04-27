@@ -83,8 +83,9 @@ def get_export_records(repo: AnnexRepo) -> Generator:
 
     Returns
     -------
-    List[Dict]
-        Dictionary containing the keys: "timestamp", "source-annex-uuid",
+    Generator
+        Generator yielding one dictionary for each export entry in git-annex.
+        Each dictionary contains the keys: "timestamp", "source-annex-uuid",
         "destination-annex-uuid", "treeish". The timestamp-value is a float,
         all other values are strings.
     """
@@ -106,7 +107,7 @@ def get_export_records(repo: AnnexRepo) -> Generator:
             "fatal: Not a valid object name git-annex:export.log",
         )
         if command_error.stderr.strip() in expected_errors:
-            return []
+            return
         raise
 
 
