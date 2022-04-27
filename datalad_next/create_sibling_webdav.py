@@ -347,18 +347,18 @@ class CreateSiblingWebDAV(Interface):
 
         # Generate a sibling for dataset "ds", and for sub-datasets if recursive
         # is True.
-        if not recursive:
-            for partial_result in _dummy(ds, ds):
+        for res in ds.foreach_dataset(
+                _dummy,
+                return_type='generator',
+                result_renderer='disabled',
+                recursive=recursive,
+                # recursive False is not enough to disable recursion
+                # https://github.com/datalad/datalad/issues/6659
+                recursion_limit=0 if not recursive else recursion_limit,
+        ):
+            # unwind result generator
+            for partial_result in res.get('result', []):
                 yield dict(res_kwargs, **partial_result)
-        else:
-            for res in ds.foreach_dataset(_dummy,
-                                          return_type='generator',
-                                          result_renderer='disabled',
-                                          recursive=recursive,
-                                          recursion_limit=recursion_limit):
-                # unwind result generator
-                for partial_result in res.get('result', []):
-                    yield dict(res_kwargs, **partial_result)
 
         # this went well, update the credential
         credname, credprops = cred
