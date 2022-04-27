@@ -383,7 +383,9 @@ def test_get_url_credential():
 def test_existing_switch(localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(force=True, **ca)
-    sub = ds.create('sub', force=True, **ca)
+    # use a tricky name: '3f7' will be the hashdir of the XDLRA
+    # key containing the superdataset's datalad-annex archive after a push
+    sub = ds.create('3f7', force=True, **ca)
     sub2 = ds.create('sub2', force=True, **ca)
     subsub = sub2.create('subsub', force=True, **ca)
     ds.save(recursive=True, **ca)
@@ -399,7 +401,7 @@ def test_existing_switch(localpath, remotepath, url):
     subsub.create_sibling_webdav(f'{url}/sub2/subsub', storage_sibling='yes',
                                  **ca)
     sub2.create_sibling_webdav(f'{url}/sub2', storage_sibling='only', **ca)
-    sub.create_sibling_webdav(f'{url}/sub', storage_sibling='no', **ca)
+    sub.create_sibling_webdav(f'{url}/3f7', storage_sibling='no', **ca)
 
     res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
                                    existing='skip',
@@ -484,7 +486,7 @@ def test_existing_switch(localpath, remotepath, url):
     )
 
     srv_rt = Path(remotepath)
-    (srv_rt / 'sub').rmdir()
+    (srv_rt / '3f7').rmdir()
     (srv_rt / 'sub2' / 'subsub').rmdir()
     (srv_rt / 'sub2').rmdir()
 
@@ -505,6 +507,6 @@ def test_existing_switch(localpath, remotepath, url):
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='ok')
     remote_content = list(new_root.glob('**'))
-    assert_in(new_root / 'sub', remote_content)
+    assert_in(new_root / '3f7', remote_content)
     assert_in(new_root / 'sub2', remote_content)
     assert_in(new_root / 'sub2' / 'subsub', remote_content)
