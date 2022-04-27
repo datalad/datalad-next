@@ -117,9 +117,7 @@ def check_common_workflow(
     assert_in_results(
         res,
         action='copy',
-        path=str(ds.pathobj)
-             if 'export' in storage_sibling
-             else str(ds.pathobj / 'testfile.dat'),
+        path=str(ds.pathobj / 'testfile.dat'),
         status='ok',
     )
     assert_in_results(res, action='publish', status='ok')

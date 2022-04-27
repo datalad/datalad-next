@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import (
     Dict,
     Generator,
@@ -196,7 +197,18 @@ def _transfer_data(repo: AnnexRepo,
 
         with patch.dict('os.environ', env_patch):
             try:
-                repo.call_git(["annex", "export", "HEAD", "--to", target])
+                for result in repo._call_annex_records_items_([
+                    "export", "HEAD",
+                    "--to", target],
+                    progress=True
+                ):
+                    yield {
+                        **res_kwargs,
+                        "action": "copy",
+                        "status": "ok",
+                        "path": str(Path(res_kwargs["path"]) / result["file"])
+                    }
+
             except CommandError as cmd_error:
                 ce = CapturedException(cmd_error)
                 yield {
@@ -207,12 +219,6 @@ def _transfer_data(repo: AnnexRepo,
                     "exception": ce
                 }
                 return
-
-        yield {
-            **res_kwargs,
-            "action": "copy",
-            "status": "ok",
-        }
 
     else:
         yield from push._push_data(
