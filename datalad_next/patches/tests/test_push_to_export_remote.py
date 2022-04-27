@@ -7,6 +7,7 @@ from unittest.mock import (
 
 from datalad.runner.exception import CommandError
 from datalad.tests.utils import (
+    SkipTest,
     assert_false,
     assert_in,
     assert_true,
@@ -208,7 +209,10 @@ def test_get_export_log_entry():
 
 
 def test_is_valid_treeish():
-    # expect success if the
+    raise SkipTest(
+        "this test is skipped until issue "
+        "https://github.com/datalad/datalad-next/issues/39 is solved")
+
     class LogRepo:
         def call_git_items_(self, *args, **kwargs):
             return [

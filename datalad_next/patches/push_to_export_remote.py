@@ -128,11 +128,14 @@ def _is_valid_treeish(repo: AnnexRepo,
                       export_entry: Dict,
                       ) -> bool:
 
-    for line in repo.call_git_items_(["log", "--pretty=%H %T"]):
-        commit_hash, treeish = line.split()
-        if treeish == export_entry["treeish"]:
-            return True
-    return False
+    # Due to issue https://github.com/datalad/datalad-next/issues/39
+    # fast-forward validation has to be re-designed.
+    return True
+    #for line in repo.call_git_items_(["log", "--pretty=%H %T"]):
+    #    commit_hash, treeish = line.split()
+    #    if treeish == export_entry["treeish"]:
+    #        return True
+    #return False
 
 
 def _transfer_data(repo: AnnexRepo,
@@ -166,7 +169,7 @@ def _transfer_data(repo: AnnexRepo,
     # TODO:
     #  - check for configuration entries, e.g. what to export
 
-    lgr.debug("Exporting HEAD to a remote with exporttree == yes")
+    lgr.debug(f"Exporting HEAD of {ds} to remote {remote_info}")
 
     if ds.config.getbool('remote.{}'.format(target), 'annex-ignore', False):
         lgr.debug(
