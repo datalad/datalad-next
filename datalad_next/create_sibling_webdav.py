@@ -429,11 +429,12 @@ def _create_sibling_webdav(
     # simplify downstream logic, export yes or no
     export_storage = 'export' in storage_sibling
 
-    existing_siblings = [r[1] for r in
-                         _yield_ds_w_matching_siblings(ds,
-                                                       (name, storage_name),
-                                                       recursive=False)
-                         ]
+    existing_siblings = [
+        r[1] for r in _yield_ds_w_matching_siblings(
+            ds,
+            (name, storage_name),
+            recursive=False)
+    ]
 
     if storage_sibling != 'no':
         if storage_name in existing_siblings:
