@@ -470,9 +470,17 @@ def _create_git_sibling(
         # e.g., it is not uncommon for credentials to be named after URLs
         remote_url += f'&dlacredential={urlquote(credential_name)}'
 
+    # announce the sibling to not have an annex (we have a dedicated
+    # storage sibling for that) to avoid needless annex-related processing
+    # and speculative whining by `siblings()`
+    ds.config.set(f'remote.{name}.annex-ignore', 'true', scope='local')
+
     yield from ds.siblings(
-        # TODO set vs add, consider `existing`
-        action="add",
+        # action must always be 'configure' (not 'add'), because above we just
+        # made a remote {name} known, which is detected by `sibling()`. Any
+        # conflict detection must have taken place separately before this call
+        # https://github.com/datalad/datalad/issues/6649
+        action="configure",
         name=name,
         url=remote_url,
         # TODO probably needed when reconfiguring, but needs credential patch
