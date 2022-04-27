@@ -301,6 +301,9 @@ class CreateSiblingWebDAV(Interface):
                     message=(
                         "a sibling %r is already configured in dataset %r",
                         sname, dpath),
+                    type='sibling',
+                    name=sname,
+                    ds=ds,
                     **res_kwargs,
                 )
                 failed = True
@@ -472,11 +475,14 @@ def _create_sibling_webdav(
 
 def _get_skip_sibling_result(name, ds, type_):
     return get_status_dict(
-        action='create_sibling_webdav',
+        action='create_sibling_webdav{}'.format(
+            '.storage' if type_ == 'storage' else ''),
         ds=ds,
         status='notneeded',
         message=("skipped creating %r sibling %r, already exists",
                  type_, name),
+        name=name,
+        type='sibling',
     )
 
 
@@ -577,6 +583,9 @@ def _create_storage_sibling(
         ds=ds,
         status='ok',
         action='create_sibling_webdav.storage',
+        name=name,
+        type='sibling',
+        url=url,
     )
 
 

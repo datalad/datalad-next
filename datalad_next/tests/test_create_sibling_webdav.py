@@ -90,8 +90,14 @@ def check_common_workflow(
         res,
         action='create_sibling_webdav.storage',
         status='ok',
-        type='dataset',
+        type='sibling',
         path=ds.path,
+        url=url,
+        name='127.0.0.1-storage',
+        # TODO: name=???
+        #  Parse url for host or depend on serve_path always
+        #  delivering 127.0.0.1? (Think IPv6 or a literal `localhost` or
+        #  anything like that) Same applies to hardcoded `dlaurl`.
     )
     # where it should be accessible
     # needs to be quoted
@@ -110,6 +116,7 @@ def check_common_workflow(
         path=ds.path,
         name='127.0.0.1',
         url=dlaurl,
+        type='sibling',
     )
     ok_(targetdir.exists())
     # add some annex payload
@@ -402,7 +409,7 @@ def test_existing_switch(localpath, remotepath, url):
     sub2.create_sibling_webdav(f'{url}/sub2', mode='annex-only', **ca)
     sub.create_sibling_webdav(f'{url}/3f7', mode='git-only', **ca)
 
-    res = ds.create_sibling_webdav(f'{url}', mode='annex',
+    res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='skip',
                                    recursive=True, **ca)
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
@@ -414,8 +421,10 @@ def test_existing_switch(localpath, remotepath, url):
         res,
         action='create_sibling_webdav.storage',
         status='ok',
-        type='dataset',
-        path=ds.path
+        type='sibling',
+        name='127.0.0.1-storage',
+        path=ds.path,
+        url=url,
     )
     assert_in_results(
         res,
@@ -431,22 +440,26 @@ def test_existing_switch(localpath, remotepath, url):
         res,
         action='create_sibling_webdav.storage',
         status='ok',
-        type='dataset',
-        path=sub.path
+        type='sibling',
+        name='127.0.0.1-storage',
+        path=sub.path,
+        url=f'{url}/3f7',
     )
     assert_in_results(
         res,
         action='create_sibling_webdav',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1',
         path=sub.path,
     )
     # sub2
     assert_in_results(
         res,
-        action='create_sibling_webdav',
+        action='create_sibling_webdav.storage',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1-storage',
         path=sub2.path
     )
     assert_in_results(
@@ -456,21 +469,23 @@ def test_existing_switch(localpath, remotepath, url):
         type='sibling',
         path=sub2.path,
         name='127.0.0.1',
-        url=dlaurl + 'sub2'
+        url=f'{dlaurl}sub2',
     )
     # subsub
     assert_in_results(
         res,
-        action='create_sibling_webdav',
+        action='create_sibling_webdav.storage',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1-storage',
         path=subsub.path
     )
     assert_in_results(
         res,
         action='create_sibling_webdav',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1',
         path=subsub.path,
     )
 
@@ -478,11 +493,10 @@ def test_existing_switch(localpath, remotepath, url):
     res = ds.create_sibling_webdav(
         url, mode='annex', existing='error', recursive=True,
         on_failure='ignore', **ca)
-    assert_in_results(
-        res,
-        action='create_sibling_webdav',
-        status='error',
-    )
+    assert_result_count(res, 8, status='error', type='sibling')
+    # Note: 'message' is expected to be a tuple (and always present).
+    assert all("is already configured" in r['message'][0] for r in res)
+    assert all(r['action'].startswith('create_sibling_webdav') for r in res)
 
     srv_rt = Path(remotepath)
     (srv_rt / '3f7').rmdir()
@@ -490,7 +504,7 @@ def test_existing_switch(localpath, remotepath, url):
     (srv_rt / 'sub2').rmdir()
 
     # existing=skip actually doesn't do anything (other than yielding notneeded)
-    res = ds.create_sibling_webdav(f'{url}', mode='annex',
+    res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='skip',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='notneeded')
@@ -501,7 +515,7 @@ def test_existing_switch(localpath, remotepath, url):
     dlaurl += 'reconfigure'
     url += '/reconfigure'
     new_root = srv_rt / 'reconfigure'
-    res = ds.create_sibling_webdav(f'{url}', mode='annex',
+    res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='reconfigure',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='ok')
