@@ -294,14 +294,12 @@ def test_unused_storage_name_warning():
         eq_(lgr_mock.warning.call_count, len(storage_sibling_values))
 
 
-def test_check_existing_siblings():
+@with_tempfile
+def test_check_existing_siblings(path):
     # Ensure that constraints are checked internally
     url = "http://localhost:22334/abc"
 
-    ds = require_dataset(
-        None,
-        check_installed=True,
-        purpose='create WebDAV sibling(s)')
+    ds = Dataset(path).create()
 
     with patch("datalad_next.create_sibling_webdav."
                "_yield_ds_w_matching_siblings") as ms_mock:
@@ -310,24 +308,22 @@ def test_check_existing_siblings():
             ("some_path", "some_name1"),
             ("some_path", "some_name2")]
         try:
-            create_sibling_webdav(
+            ds.create_sibling_webdav(
                 url=url,
                 name="some_name",
                 existing="error")
         except IncompleteResultsError as ire:
             for existing_name in ("some_name1", "some_name2"):
-                assert_in(
-                    {
-                        'action': 'create_sibling_webdav',
-                        'refds': ds.path,
-                        'status': 'error',
-                        'message': (
+                assert_in_results(
+                    ire.failed,
+                    action='create_sibling_webdav',
+                    refds=ds.path,
+                    status='error',
+                    message=(
                             'a sibling %r is already configured in dataset %r',
                             existing_name,
-                            'some_path'
-                        )
-                    },
-                    ire.failed)
+                            'some_path')
+                    )
         else:
             raise ValueError(
                 "expected exception not raised: IncompleteResultsError")
