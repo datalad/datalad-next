@@ -386,7 +386,7 @@ def test_existing_switch(localpath, remotepath, url):
     sub = ds.create('sub', force=True, **ca)
     sub2 = ds.create('sub2', force=True, **ca)
     subsub = sub2.create('subsub', force=True, **ca)
-    ds.save(recursive=True)
+    ds.save(recursive=True, **ca)
 
     # need to amend the test credential, can only do after we know the URL
     ds.credentials(
