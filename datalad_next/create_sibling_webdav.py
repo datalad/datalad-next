@@ -330,7 +330,7 @@ class CreateSiblingWebDAV(Interface):
             else:
                 dsurl = url
 
-            yield from _create_sibling_webdav(
+            return _create_sibling_webdav(
                 ds,
                 dsurl,
                 # we pass the given, not the discovered, credential name!
@@ -442,7 +442,7 @@ def _create_sibling_webdav(
                                           storage_name, storage_sibling,
                                           url, 'storage')
         else:
-            yield _create_storage_sibling(
+            yield from _create_storage_sibling(
                     ds,
                     url,
                     storage_name,
@@ -458,7 +458,7 @@ def _create_sibling_webdav(
                                           storage_name, storage_sibling,
                                           url, 'git')
         else:
-            yield _create_git_sibling(
+            yield from _create_git_sibling(
                     ds,
                     url,
                     name,
@@ -489,7 +489,7 @@ def maybe_skip_sibling(credential, credential_name, ds, existing,
                     f"{name if sibling_type == 'git' else storage_name}")
     elif existing == 'reconfigure':
         if sibling_type == 'git':
-            yield _create_git_sibling(
+            yield from _create_git_sibling(
                 ds,
                 url,
                 name,
@@ -501,7 +501,7 @@ def maybe_skip_sibling(credential, credential_name, ds, existing,
                                 if storage_sibling != 'no' else None
             )
         elif sibling_type == 'storage':
-            yield _create_storage_sibling(
+            yield from _create_storage_sibling(
                 ds,
                 url,
                 storage_name,
@@ -557,7 +557,7 @@ def _create_git_sibling(
         name=name,
         url=remote_url,
         publish_depends=publish_depends,
-        return_type='item-or-list',
+        return_type='generator',
         result_renderer='disabled')
 
 
@@ -591,7 +591,7 @@ def _create_storage_sibling(ds, url, name, credential, export, reconfigure):
             'WEBDAV_PASSWORD': credential[1],
     }):
         ds.repo.call_annex(cmd_args)
-    return get_status_dict(
+    yield get_status_dict(
         ds=ds,
         status='ok',
         action='create_sibling_webdav.storage',
