@@ -104,7 +104,7 @@ def check_common_workflow(
 
     assert_in_results(
         res,
-        action='add-sibling',
+        action='configure-sibling',
         status='ok',
         path=ds.path,
         name='127.0.0.1',
