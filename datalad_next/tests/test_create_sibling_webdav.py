@@ -28,7 +28,6 @@ from datalad.distribution.dataset import (
     Dataset,
     require_dataset,
 )
-from datalad.support.exceptions import IncompleteResultsError
 from datalad.tests.utils import (
     with_tempfile,
     with_tree
@@ -307,26 +306,22 @@ def test_check_existing_siblings(path):
         ms_mock.return_value = [
             ("some_path", "some_name1"),
             ("some_path", "some_name2")]
-        try:
-            ds.create_sibling_webdav(
-                url=url,
-                name="some_name",
-                existing="error")
-        except IncompleteResultsError as ire:
-            for existing_name in ("some_name1", "some_name2"):
-                assert_in_results(
-                    ire.failed,
-                    action='create_sibling_webdav',
-                    refds=ds.path,
-                    status='error',
-                    message=(
-                            'a sibling %r is already configured in dataset %r',
-                            existing_name,
-                            'some_path')
-                    )
-        else:
-            raise ValueError(
-                "expected exception not raised: IncompleteResultsError")
+        res = ds.create_sibling_webdav(
+            url=url,
+            name="some_name",
+            existing="error",
+            on_failure='ignore')
+        for existing_name in ("some_name1", "some_name2"):
+            assert_in_results(
+                res,
+                action='create_sibling_webdav',
+                refds=ds.path,
+                status='error',
+                message=(
+                        'a sibling %r is already configured in dataset %r',
+                        existing_name,
+                        'some_path')
+                )
 
 
 def test_get_url_credential():
@@ -479,8 +474,14 @@ def test_existing_switch(localpath, remotepath, url):
     )
 
     # should fail upfront with first discovered remote that already exist
-    assert_raises(IncompleteResultsError, ds.create_sibling_webdav, f'{url}',
-                  storage_sibling='yes', existing='error', recursive=True, **ca)
+    res = ds.create_sibling_webdav(
+        url, storage_sibling='yes', existing='error', recursive=True,
+        on_failure='ignore', **ca)
+    assert_in_results(
+        res,
+        action='create_sibling_webdav',
+        status='error',
+    )
 
     srv_rt = Path(remotepath)
     (srv_rt / 'sub').rmdir()
