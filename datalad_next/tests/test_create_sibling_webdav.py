@@ -111,7 +111,7 @@ def check_common_workflow(
 
     assert_in_results(
         res,
-        action='configure-sibling',
+        action='create_sibling_webdav',
         status='ok',
         path=ds.path,
         name='127.0.0.1',
@@ -428,7 +428,7 @@ def test_existing_switch(localpath, remotepath, url):
     )
     assert_in_results(
         res,
-        action='configure-sibling',
+        action='create_sibling_webdav',
         status='ok',
         type='sibling',
         path=ds.path,
@@ -464,7 +464,7 @@ def test_existing_switch(localpath, remotepath, url):
     )
     assert_in_results(
         res,
-        action='configure-sibling',
+        action='create_sibling_webdav',
         status='ok',
         type='sibling',
         path=sub2.path,
@@ -519,6 +519,8 @@ def test_existing_switch(localpath, remotepath, url):
                                    existing='reconfigure',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='ok')
+    assert all(r['action'].startswith('reconfigure_sibling_webdav')
+               for r in res)
     remote_content = list(new_root.glob('**'))
     assert_in(new_root / '3f7', remote_content)
     assert_in(new_root / 'sub2', remote_content)

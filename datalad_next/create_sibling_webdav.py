@@ -525,19 +525,24 @@ def _create_git_sibling(
     # and speculative whining by `siblings()`
     ds.config.set(f'remote.{name}.annex-ignore', 'true', scope='local')
 
-    yield from ds.siblings(
-        # action must always be 'configure' (not 'add'), because above we just
-        # made a remote {name} known, which is detected by `sibling()`. Any
-        # conflict detection must have taken place separately before this call
-        # https://github.com/datalad/datalad/issues/6649
-        action="configure",
-        name=name,
-        url=remote_url,
-        # this is presently the default, but it may change
-        fetch=False,
-        publish_depends=publish_depends,
-        return_type='generator',
-        result_renderer='disabled')
+    for r in ds.siblings(
+            # action must always be 'configure' (not 'add'), because above we just
+            # made a remote {name} known, which is detected by `sibling()`. Any
+            # conflict detection must have taken place separately before this call
+            # https://github.com/datalad/datalad/issues/6649
+            action="configure",
+            name=name,
+            url=remote_url,
+            # this is presently the default, but it may change
+            fetch=False,
+            publish_depends=publish_depends,
+            return_type='generator',
+            result_renderer='disabled'):
+        if r.get('action') == 'configure-sibling':
+            r['action'] = 'reconfigure_sibling_webdav' \
+                if known and existing == 'reconfigure' \
+                else 'create_sibling_webdav'
+        yield r
 
 
 def _create_storage_sibling(
@@ -582,7 +587,9 @@ def _create_storage_sibling(
     yield get_status_dict(
         ds=ds,
         status='ok',
-        action='create_sibling_webdav.storage',
+        action='reconfigure_sibling_webdav.storage'
+               if known and existing == 'reconfigure' else
+        'create_sibling_webdav.storage',
         name=name,
         type='sibling',
         url=url,
