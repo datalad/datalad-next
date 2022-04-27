@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Generator
 from unittest.mock import (
     MagicMock,
@@ -72,7 +73,7 @@ def _call_transfer(target: str,
         data="",
         force=None,
         jobs=None,
-        res_kwargs={"path": "/root"},
+        res_kwargs={"path": str(Path("/root"))},
         got_path_arg=False)
 
 
@@ -106,7 +107,7 @@ def test_patch_execute_export():
         eq_(pd_mock.call_count, 0)
         assert_in(
             {
-                "path": "/root/file.txt",
+                "path": str(Path("/root/file.txt")),
                 "target": "yes-target",
                 "action": "copy",
                 "status": "ok",
@@ -138,7 +139,7 @@ def test_patch_check_envpatch():
         eq_(pd_mock.call_count, 0)
         assert_in(
             {
-                "path": "/root/file.txt",
+                "path": str(Path("/root/file.txt")),
                 "target": "yes-target",
                 "action": "copy",
                 "status": "ok",
