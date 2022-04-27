@@ -170,29 +170,37 @@ class CreateSiblingWebDAV(Interface):
             command be instructed to fail ('error').""", ),
         recursive=recursion_flag,
         recursion_limit=recursion_limit,
-        storage_sibling=Parameter(
-            args=("--storage-sibling",),
-            dest='storage_sibling',
+        mode=Parameter(
+            args=("--mode",),
             constraints=EnsureChoice(
-                'yes', 'export', 'only', 'only-export', 'no'),
-            doc="""Both Git history and file content can be hosted on WebDAV.
-            With 'yes', a storage sibling and a Git repository
-            sibling are created ('yes').
-            Alternatively, creation of the storage sibling can be disabled
-            ('no'),
-            or a storage sibling can be created only and no Git sibling
-            ('only').
-            The storage sibling can be set up as a standard git-annex special
-            remote that is capable of storage any number of file versions,
-            using a content hash based file tree ('yes'|'only'), or
-            as an export-type special remote, that can only store a single
-            file version corresponding to one unique state of the dataset,
-            but using a human-readable data data organization on the WebDAV
-            remote that matches the file tree of the dataset
-            ('export'|'only-export').
-            When a storage sibling and a regular sibling are created, a
-            publication dependency on the storage sibling is configured
-            for the regular sibling in the local dataset clone."""),
+                'annex', 'filetree', 'annex-only', 'filetree-only',
+                'git-only'),
+            doc="""Siblings can be created in various modes:
+            full-featured sibling tandem, one for a dataset's Git history
+            and one storage sibling to host any number of file versions
+            ('annex').
+            A single sibling for the Git history only ('git-only').
+            A single annex sibling for multi-version file storage only
+            ('annex-only').
+            is an alternative to the standard (annex) storage sibling setup
+            that is capable of storing any number of historical file versions
+            using a content hash layout ('annex'|'annex-only'), the 'filetree'
+            mode can used.
+            This mode offers a human-readable data organization on the WebDAV
+            remote that matches the file tree of a dataset (branch).
+            However, it can, consequently, only store a single version of each
+            file in the file tree.
+            This mode is useful for depositing a single dataset
+            snapshot for consumption without DataLad. The 'filetree' mode
+            nevertheless allows for cloning such a single-version dataset,
+            because the full dataset history can still be pushed to the WebDAV
+            server.
+            Git history hosting can also be turned off for this setup
+            ('filetree-only').
+            When both a storage sibling and a regular sibling are created
+            together, a publication dependency on the storage sibling is
+            configured for the regular sibling in the local dataset clone.
+            """),
     )
 
     @staticmethod
@@ -204,7 +212,7 @@ class CreateSiblingWebDAV(Interface):
             dataset: Optional[Union[str, Dataset]] = None,
             name: Optional[str] = None,
             storage_name: Optional[str] = None,
-            storage_sibling: str = 'yes',
+            mode: str = 'annex',
             credential: Optional[str] = None,
             existing: str = 'error',
             recursive: bool = False,
@@ -235,9 +243,9 @@ class CreateSiblingWebDAV(Interface):
 
         # ensure values of critical switches. this duplicated the CLI processing, but
         # compliance is critical in a python session too.
-        # whe cannot make it conditional to apimode == cmdline, because this command
+        # we cannot make it conditional to apimode == cmdline, because this command
         # might be called by other python code
-        for param, value in (('storage_sibling', storage_sibling),
+        for param, value in (('mode', mode),
                              ('existing', existing)):
             try:
                 CreateSiblingWebDAV._params_[param].constraints(value)
@@ -245,21 +253,21 @@ class CreateSiblingWebDAV(Interface):
                 # give message a context
                 raise ValueError(f"{param!r}: {e}") from e
 
-        if storage_sibling.startswith('only') and storage_name:
+        if mode in ('annex-only', 'filetree-only') and storage_name:
             lgr.warning(
                 "Sibling name will be used for storage sibling in "
                 "storage-sibling-only mode, but a storage sibling name "
                 "was provided"
             )
-        if storage_sibling == 'no' and storage_name:
+        if mode == 'git-only' and storage_name:
             lgr.warning(
                 "Storage sibling setup disabled, but a storage sibling name "
                 "was provided"
             )
-        if storage_sibling != 'no' and not storage_name:
+        if mode != 'git-only' and not storage_name:
             storage_name = "{}-storage".format(name)
 
-        if storage_sibling != 'no' and name == storage_name:
+        if mode != 'git-only' and name == storage_name:
             # leads to unresolvable, circular dependency with publish-depends
             raise ValueError("sibling names must not be equal")
 
@@ -339,7 +347,7 @@ class CreateSiblingWebDAV(Interface):
                 # information on, we achieve maintaining this behavior
                 credential_name=credential,
                 credential=(cred_user, cred_password),
-                storage_sibling=storage_sibling,
+                mode=mode,
                 name=name,
                 storage_name=storage_name,
                 existing=existing,
@@ -413,7 +421,7 @@ def _get_url_credential(name, url, credman):
 def _create_sibling_webdav(
         ds, url, *,
         credential_name, credential,
-        storage_sibling='no', name=None, storage_name=None, existing='error'):
+        mode='git-only', name=None, storage_name=None, existing='error'):
     """
     Parameters
     ----------
@@ -421,13 +429,13 @@ def _create_sibling_webdav(
     url: str
     credential_name: str
     credential: tuple
-    storage_sibling: str, optional
+    mode: str, optional
     name: str, optional
     storage_name: str, optional
     existing: str, optional
     """
     # simplify downstream logic, export yes or no
-    export_storage = 'export' in storage_sibling
+    export_storage = 'filetree' in mode
 
     existing_siblings = [
         r[1] for r in _yield_ds_w_matching_siblings(
@@ -436,7 +444,7 @@ def _create_sibling_webdav(
             recursive=False)
     ]
 
-    if storage_sibling != 'no':
+    if mode != 'git-only':
         yield from _create_storage_sibling(
             ds,
             url,
@@ -447,7 +455,7 @@ def _create_sibling_webdav(
             known=storage_name in existing_siblings,
         )
 
-    if 'only' not in storage_sibling:
+    if mode not in ('annex-only', 'filetree-only'):
         yield from _create_git_sibling(
             ds,
             url,
@@ -457,7 +465,7 @@ def _create_sibling_webdav(
             export=export_storage,
             existing=existing,
             known=name in existing_siblings,
-            publish_depends=storage_name if storage_sibling != 'no'
+            publish_depends=storage_name if mode != 'git-only'
             else None
         )
 
