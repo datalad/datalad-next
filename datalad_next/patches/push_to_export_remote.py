@@ -149,7 +149,18 @@ def _transfer_data(repo: AnnexRepo,
         (uuid, info) for uuid, info in repo.get_special_remotes().items()
         if info.get("name") == target] or [(None, None)])[0]
 
-    if _is_export_remote(remote_info):
+    if not _is_export_remote(remote_info):
+            yield from push._push_data(
+            ds,
+            target,
+            content,
+            data,
+            force,
+            jobs,
+            res_kwargs.copy(),
+            got_path_arg=got_path_arg,
+        )
+        return
         # TODO:
         #  - check for configuration entries, e.g. what to export
 
