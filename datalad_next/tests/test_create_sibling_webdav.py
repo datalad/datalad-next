@@ -423,7 +423,7 @@ def test_existing_switch(localpath, remotepath, url):
     )
     assert_in_results(
         res,
-        action='add-sibling',
+        action='configure-sibling',
         status='ok',
         type='sibling',
         path=ds.path,
@@ -455,7 +455,7 @@ def test_existing_switch(localpath, remotepath, url):
     )
     assert_in_results(
         res,
-        action='add-sibling',
+        action='configure-sibling',
         status='ok',
         type='sibling',
         path=sub2.path,
