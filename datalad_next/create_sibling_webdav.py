@@ -437,87 +437,44 @@ def _create_sibling_webdav(
     ]
 
     if storage_sibling != 'no':
-        if storage_name in existing_siblings:
-            yield from maybe_skip_sibling(credential, credential_name, ds,
-                                          existing, export_storage, name,
-                                          storage_name, storage_sibling,
-                                          url, 'storage')
-        else:
-            yield from _create_storage_sibling(
-                    ds,
-                    url,
-                    storage_name,
-                    credential,
-                    export=export_storage,
-                    reconfigure=False,
-                )
+        yield from _create_storage_sibling(
+            ds,
+            url,
+            storage_name,
+            credential,
+            export=export_storage,
+            existing=existing,
+            known=storage_name in existing_siblings,
+        )
 
     if 'only' not in storage_sibling:
-        if name in existing_siblings:
-            yield from maybe_skip_sibling(credential, credential_name, ds,
-                                          existing, export_storage, name,
-                                          storage_name, storage_sibling,
-                                          url, 'git')
-        else:
-            yield from _create_git_sibling(
-                    ds,
-                    url,
-                    name,
-                    credential_name,
-                    credential,
-                    export=export_storage,
-                    reconfigure=False,
-                    publish_depends=storage_name if storage_sibling != 'no'
-                    else None
-            )
+        yield from _create_git_sibling(
+            ds,
+            url,
+            name,
+            credential_name,
+            credential,
+            export=export_storage,
+            existing=existing,
+            known=name in existing_siblings,
+            publish_depends=storage_name if storage_sibling != 'no'
+            else None
+        )
 
 
-def maybe_skip_sibling(credential, credential_name, ds, existing,
-                       export_storage, name, storage_name, storage_sibling,
-                       url, sibling_type):
-    """
-
-    Parameters:
-    -----------
-    sibling_type: str
-      'git' or 'storage'
-    """
-    if existing == 'skip':
-        yield get_status_dict(
-            ds=ds,
-            status='notneeded',
-            message=f"Skipped on existing sibling "
-                    f"{name if sibling_type == 'git' else storage_name}")
-    elif existing == 'reconfigure':
-        if sibling_type == 'git':
-            yield from _create_git_sibling(
-                ds,
-                url,
-                name,
-                credential_name,
-                credential,
-                export=export_storage,
-                reconfigure=True,
-                publish_depends=storage_name
-                                if storage_sibling != 'no' else None
-            )
-        elif sibling_type == 'storage':
-            yield from _create_storage_sibling(
-                ds,
-                url,
-                storage_name,
-                credential,
-                export=export_storage,
-                reconfigure=True,
-            )
-    else:
-        # Shouldn't happen, since 'error' was treated upfront
-        raise ValueError(f"Unexpected value of 'existing': {existing}")
+def _get_skip_sibling_result(name, ds, type_):
+    return get_status_dict(
+        action='create_sibling_webdav',
+        ds=ds,
+        status='notneeded',
+        message=("skipped creating %r sibling %r, already exists",
+                 type_, name),
+    )
 
 
 def _create_git_sibling(
-        ds, url, name, credential_name, credential, export, reconfigure,
-        publish_depends=None):
+        ds, url, name, credential_name, credential, export, existing,
+        known, publish_depends=None):
     """
     Parameters
     ----------
@@ -527,11 +484,16 @@ def _create_git_sibling(
     credential_name: str
     credential: tuple
     export: bool
-    reconfigure: bool
-        whether or not to replace the git remote
+    existing: {skip, error, reconfigure}
+    known: bool
+        Flag whether the sibling is a known remote (no implied
+        necessary existance of content on the remote).
     publish_depends: str or None
         publication dependency to set
     """
+    if known and existing == 'skip':
+        yield _get_skip_sibling_result(name, ds, 'git')
+        return
 
     remote_url = \
         "datalad-annex::?type=webdav&encryption=none" \
@@ -557,12 +519,15 @@ def _create_git_sibling(
         action="configure",
         name=name,
         url=remote_url,
+        # this is presently the default, but it may change
+        fetch=False,
         publish_depends=publish_depends,
         return_type='generator',
         result_renderer='disabled')
 
 
-def _create_storage_sibling(ds, url, name, credential, export, reconfigure):
+def _create_storage_sibling(
+        ds, url, name, credential, export, existing, known=False):
     """
     Parameters
     ----------
@@ -571,11 +536,19 @@ def _create_storage_sibling(ds, url, name, credential, export, reconfigure):
     name: str
     credential: tuple
     export: bool
-    reconfigure: bool
-        whether or not to call `enableremote` instead of `initremote`
+    existing: {skip, error, reconfigure}
+        (Presently unused)
+    known: bool
+        Flag whether the sibling is a known remote (no implied
+        necessary existance of content on the remote).
     """
+    if known and existing == 'skip':
+        yield _get_skip_sibling_result(name, ds, 'storage')
+        return
+
     cmd_args = [
-        'initremote' if not reconfigure else 'enableremote',
+        'enableremote' if known and existing == 'reconfigure'
+        else 'initremote',
         name,
         "type=webdav",
         f"url={url}",
