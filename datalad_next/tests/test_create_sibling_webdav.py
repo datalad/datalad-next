@@ -44,15 +44,15 @@ webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
 
 
 def test_common_workflow_implicit_cred():
-    check_common_workflow(False, 'yes')
+    check_common_workflow(False, 'annex')
 
 
 def test_common_workflow_explicit_cred():
-    check_common_workflow(True, 'yes')
+    check_common_workflow(True, 'annex')
 
 
 def test_common_workflow_export():
-    check_common_workflow(False, 'export')
+    check_common_workflow(False, 'filetree')
 
 
 @with_credential(
@@ -63,7 +63,7 @@ def test_common_workflow_export():
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
 def check_common_workflow(
-        declare_credential, storage_sibling,
+        declare_credential, mode,
         clonepath, localpath, remotepath, url):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
@@ -84,7 +84,7 @@ def check_common_workflow(
     res = ds.create_sibling_webdav(
         url,
         credential=webdav_cred[0] if declare_credential else None,
-        storage_sibling=storage_sibling,
+        mode=mode,
         **ca)
     assert_in_results(
         res,
@@ -98,7 +98,7 @@ def check_common_workflow(
     dlaurl = (
         'datalad-annex::?type=webdav&encryption=none&exporttree={exp}&'
         'url=http%3A//127.0.0.1%3A43612/tar%26get%3Dmike').format(
-        exp='yes' if 'export' in storage_sibling else 'no',
+        exp='yes' if 'filetree' in mode else 'no',
     )
     if declare_credential:
         dlaurl += f'&dlacredential={urlquote(webdav_cred[0])}'
@@ -125,7 +125,7 @@ def check_common_workflow(
     assert_in_results(res, action='publish', status='ok')
 
     cloneurl = dlaurl
-    if not declare_credential and 'export' in storage_sibling:
+    if not declare_credential and 'filetree' in mode:
         # we can use a simplified URL
         cloneurl = 'webdav://{url}'.format(
             # strip http://
@@ -209,7 +209,7 @@ def test_http_warning():
 def test_constraints_checking():
     # Ensure that constraints are checked internally
     url = "http://localhost:22334/abc"
-    for key in ("existing", "storage_sibling"):
+    for key in ("existing", "mode"):
         assert_raises_regexp(
             ValueError, "value is not one of",
             create_sibling_webdav,
@@ -256,14 +256,14 @@ def test_credential_handling():
 def test_name_clash_detection():
     # Ensure that constraints are checked internally
     url = "http://localhost:22334/abc"
-    for storage_sibling in ("yes", 'export', 'only', 'only-export'):
+    for mode in ("annex", 'filetree', 'annex-only', 'filetree-only'):
         assert_raises_regexp(
             ValueError, "sibling names must not be equal",
             create_sibling_webdav,
             url=url,
             name="abc",
             storage_name="abc",
-            storage_sibling=storage_sibling)
+            mode=mode)
 
 
 def test_unused_storage_name_warning():
@@ -278,8 +278,8 @@ def test_unused_storage_name_warning():
         csw_mock.return_value = iter([])
         gur_mock.return_value = None
 
-        storage_sibling_values = ("no", "only", "only-export")
-        for storage_sibling in storage_sibling_values:
+        mode_values = ("git-only", "annex-only", "filetree-only")
+        for mode in mode_values:
             # We set up the mocks to generate the following exception. This allows
             # us to limit the test to the logic in 'create_sibling_wabdav'.
             assert_raises(
@@ -288,8 +288,8 @@ def test_unused_storage_name_warning():
                 url=url,
                 name="abc",
                 storage_name="abc",
-                storage_sibling=storage_sibling)
-        eq_(lgr_mock.warning.call_count, len(storage_sibling_values))
+                mode=mode)
+        eq_(lgr_mock.warning.call_count, len(mode_values))
 
 
 @with_tempfile
@@ -397,12 +397,12 @@ def test_existing_switch(localpath, remotepath, url):
         spec=dict(realm=url + '/'),
         **ca)
 
-    subsub.create_sibling_webdav(f'{url}/sub2/subsub', storage_sibling='yes',
+    subsub.create_sibling_webdav(f'{url}/sub2/subsub', mode='annex',
                                  **ca)
-    sub2.create_sibling_webdav(f'{url}/sub2', storage_sibling='only', **ca)
-    sub.create_sibling_webdav(f'{url}/3f7', storage_sibling='no', **ca)
+    sub2.create_sibling_webdav(f'{url}/sub2', mode='annex-only', **ca)
+    sub.create_sibling_webdav(f'{url}/3f7', mode='git-only', **ca)
 
-    res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
+    res = ds.create_sibling_webdav(f'{url}', mode='annex',
                                    existing='skip',
                                    recursive=True, **ca)
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
@@ -476,7 +476,7 @@ def test_existing_switch(localpath, remotepath, url):
 
     # should fail upfront with first discovered remote that already exist
     res = ds.create_sibling_webdav(
-        url, storage_sibling='yes', existing='error', recursive=True,
+        url, mode='annex', existing='error', recursive=True,
         on_failure='ignore', **ca)
     assert_in_results(
         res,
@@ -490,7 +490,7 @@ def test_existing_switch(localpath, remotepath, url):
     (srv_rt / 'sub2').rmdir()
 
     # existing=skip actually doesn't do anything (other than yielding notneeded)
-    res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
+    res = ds.create_sibling_webdav(f'{url}', mode='annex',
                                    existing='skip',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='notneeded')
@@ -501,7 +501,7 @@ def test_existing_switch(localpath, remotepath, url):
     dlaurl += 'reconfigure'
     url += '/reconfigure'
     new_root = srv_rt / 'reconfigure'
-    res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
+    res = ds.create_sibling_webdav(f'{url}', mode='annex',
                                    existing='reconfigure',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='ok')
