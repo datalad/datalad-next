@@ -196,6 +196,9 @@ def test_get_export_log_entry():
                 for i in (3, 4, 1, 5, 2)
             ]
 
+        def get_export_records(self):
+            yield from get_export_records(self)
+
     result = _get_export_log_entry(ManyExportsRepo(), "to")
     eq_(
         result,

@@ -67,8 +67,6 @@ def _get_credentials(ds: Dataset,
     return credentials
 
 
-# TODO: create a function similar to AnnexRepo.get_special_remote() and put it
-#  into core.
 def get_export_records(repo: AnnexRepo) -> Generator:
     """Read exports that git-annex recorded in its 'export.log'-file
 
@@ -98,7 +96,8 @@ def get_export_records(repo: AnnexRepo) -> Generator:
                     "destination-annex-uuid",
                     "treeish"
                 ],
-                line.replace(":", " ").split()))
+                line.replace(":", " ").split()
+            ))
             result_dict["timestamp"] = float(result_dict["timestamp"][:-1])
             yield result_dict
     except CommandError as command_error:
@@ -116,7 +115,7 @@ def _get_export_log_entry(repo: AnnexRepo,
                           ) -> Optional[Dict]:
     target_entries = [
         entry
-        for entry in get_export_records(repo)
+        for entry in repo.get_export_records()
         if entry["destination-annex-uuid"] == target_uuid]
 
     if not target_entries:
@@ -240,6 +239,9 @@ def _transfer_data(repo: AnnexRepo,
 
 lgr.debug("Patching datalad.core.distributed.push._transfer_data")
 push._transfer_data = _transfer_data
+
+
+lgr.debug("Patching datalad.core.distributed.push.Push docstring and parameters")
 push.Push.__doc__ += """\
 
 
@@ -256,3 +258,7 @@ push.Push._params_["force"] = Parameter(
     combine all force modes ('all').""",
     constraints=EnsureChoice(
         'all', 'gitpush', 'checkdatapresent', 'export', None))
+
+
+lgr.debug("Patching datalad.support.AnnexRepo.get_export_records (new method)")
+AnnexRepo.get_export_records = get_export_records
