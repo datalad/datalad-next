@@ -34,7 +34,10 @@ from datalad.interface.common_opts import (
     recursion_limit
 )
 from datalad.interface.results import get_status_dict
-from datalad.interface.utils import eval_results
+from datalad.interface.utils import (
+    generic_result_renderer,
+    eval_results,
+)
 from datalad.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
@@ -386,6 +389,31 @@ class CreateSiblingWebDAV(Interface):
                 f' with a `realm={credprops["realm"]}` property'
                 if 'realm' in credprops else ''),
         )
+
+    @staticmethod
+    def custom_result_renderer(res, **kwargs):
+        from datalad.ui import ui
+        from os.path import relpath
+        import datalad.support.ansi_colors as ac
+
+        if res['status'] != 'ok' or 'sibling_webdav' not in res['action'] or \
+                res['type'] != 'sibling':
+            # It's either 'notneeded' (not rendered), an `error`/`impossible` or
+            # something unspecific to this command. No special rendering
+            # needed.
+            generic_result_renderer(res)
+            return
+
+        ui.message('{action}({status}) {path}: {name}{annex}{url}'.format(
+                action=res['action'],
+                path=relpath(res['path'], res['refds'])
+                if 'refds' in res else res['path'],
+                name=res.get('name', ''),
+                annex='[{}]'.format('+' if '.storage' in res['action'] else
+                                    '-'),
+                url=f"({res['url']})" if 'url' in res else '',
+                status=ac.color_status(res['status']),
+        ))
 
 
 def _get_url_credential(name, url, credman):
