@@ -36,6 +36,7 @@ from datalad.interface.common_opts import (
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.log import log_progress
+from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
 from datalad.support.constraints import (
     EnsureChoice,
@@ -69,6 +70,9 @@ class CreateSiblingWebDAV(Interface):
     server needs to be specified for creating a sibling. However, the sibling
     setup can be flexibly customized (no storage sibling, or only a storage
     sibling, multi-version storage, or human-browsable single-version storage).
+
+    This command does not check for conflicting content on the WebDAV
+    server!
 
     When creating siblings recursively for a dataset hierarchy, subdatasets
     exports are placed at their corresponding relative paths underneath the
@@ -160,11 +164,10 @@ class CreateSiblingWebDAV(Interface):
             args=("--existing",),
             constraints=EnsureChoice('skip', 'error', 'reconfigure'),
             doc="""action to perform, if a (storage) sibling is already
-            configured under the given name and/or a target already exists.
-            In this case, a dataset can be skipped ('skip'), an existing target
-            repository be forcefully re-initialized, and the sibling
-            (re-)configured ('reconfigure'), or the command be instructed to
-            fail ('error').""", ),
+            configured under the given name.
+            In this case, sibling creation can be skipped ('skip') or the
+            sibling (re-)configured ('reconfigure') in the dataset, or the
+            command be instructed to fail ('error').""", ),
         recursive=recursion_flag,
         recursion_limit=recursion_limit,
         storage_sibling=Parameter(
@@ -344,14 +347,18 @@ class CreateSiblingWebDAV(Interface):
 
         # Generate a sibling for dataset "ds", and for sub-datasets if recursive
         # is True.
-        for res in ds.foreach_dataset(_dummy,
-                                      return_type='generator',
-                                      result_renderer='disabled',
-                                      recursive=recursive,
-                                      recursion_limit=recursion_limit):
+        for res in ds.foreach_dataset(
+                _dummy,
+                return_type='generator',
+                result_renderer='disabled',
+                recursive=recursive,
+                # recursive False is not enough to disable recursion
+                # https://github.com/datalad/datalad/issues/6659
+                recursion_limit=0 if not recursive else recursion_limit,
+        ):
             # unwind result generator
-            if 'result' in res:
-                yield from res['result']
+            for partial_result in res.get('result', []):
+                yield dict(res_kwargs, **partial_result)
 
         # this went well, update the credential
         credname, credprops = cred
@@ -422,42 +429,71 @@ def _create_sibling_webdav(
     # simplify downstream logic, export yes or no
     export_storage = 'export' in storage_sibling
 
+    existing_siblings = [
+        r[1] for r in _yield_ds_w_matching_siblings(
+            ds,
+            (name, storage_name),
+            recursive=False)
+    ]
+
     if storage_sibling != 'no':
         yield from _create_storage_sibling(
             ds,
             url,
             storage_name,
-            existing,
             credential,
             export=export_storage,
+            existing=existing,
+            known=storage_name in existing_siblings,
         )
+
     if 'only' not in storage_sibling:
         yield from _create_git_sibling(
             ds,
             url,
             name,
-            existing,
             credential_name,
             credential,
             export=export_storage,
-            dependency=None if storage_sibling == 'no' else storage_name,
+            existing=existing,
+            known=name in existing_siblings,
+            publish_depends=storage_name if storage_sibling != 'no'
+            else None
         )
 
 
+def _get_skip_sibling_result(name, ds, type_):
+    return get_status_dict(
+        action='create_sibling_webdav',
+        ds=ds,
+        status='notneeded',
+        message=("skipped creating %r sibling %r, already exists",
+                 type_, name),
+    )
+
+
 def _create_git_sibling(
-        ds, url, name, existing, credential_name, credential, export,
-        dependency=None):
+        ds, url, name, credential_name, credential, export, existing,
+        known, publish_depends=None):
     """
     Parameters
     ----------
     ds: Dataset
     url: str
     name: str
-    existing: {skip, error, reconfigure}
     credential_name: str
     credential: tuple
     export: bool
+    existing: {skip, error, reconfigure}
+    known: bool
+        Flag whether the sibling is a known remote (no implied
+        necessary existance of content on the remote).
+    publish_depends: str or None
+        publication dependency to set
     """
+    if known and existing == 'skip':
+        yield _get_skip_sibling_result(name, ds, 'git')
+        return
 
     remote_url = \
         "datalad-annex::?type=webdav&encryption=none" \
@@ -483,27 +519,36 @@ def _create_git_sibling(
         action="configure",
         name=name,
         url=remote_url,
-        # TODO probably needed when reconfiguring, but needs credential patch
+        # this is presently the default, but it may change
         fetch=False,
-        publish_depends=dependency,
+        publish_depends=publish_depends,
         return_type='generator',
         result_renderer='disabled')
 
 
-def _create_storage_sibling(ds, url, name, existing, credential, export):
+def _create_storage_sibling(
+        ds, url, name, credential, export, existing, known=False):
     """
     Parameters
     ----------
     ds: Dataset
     url: str
     name: str
-    existing: {skip, error, reconfigure}
     credential: tuple
     export: bool
+    existing: {skip, error, reconfigure}
+        (Presently unused)
+    known: bool
+        Flag whether the sibling is a known remote (no implied
+        necessary existance of content on the remote).
     """
+    if known and existing == 'skip':
+        yield _get_skip_sibling_result(name, ds, 'storage')
+        return
+
     cmd_args = [
-        # TODO not always init, consider existing
-        'initremote',
+        'enableremote' if known and existing == 'reconfigure'
+        else 'initremote',
         name,
         "type=webdav",
         f"url={url}",
@@ -548,38 +593,62 @@ def _yield_ds_w_matching_siblings(
       Path to the dataset with a matching sibling, and name of the matching
       sibling in that dataset.
     """
+
+    def _discover_all_remotes(ds, refds, **kwargs):
+        """Helper to be run on all relevant datasets via foreach
+        """
+        # Note, that `siblings` doesn't tell us about not enabled special
+        # remotes. There could still be conflicting names we need to know
+        # about in order to properly deal with the `existing` switch.
+
+        repo = ds.repo
+        # list of known git remotes
+        if isinstance(repo, AnnexRepo):
+            remotes = repo.get_remotes(exclude_special_remotes=True)
+            remotes.extend([v['name']
+                            for k, v in repo.get_special_remotes().items()]
+                           )
+        else:
+            remotes = repo.get_remotes()
+        return remotes
+
+    if not recursive:
+        for name in _discover_all_remotes(ds, ds):
+            if name in names:
+                yield ds.path, name
+        return
+
     # in recursive mode this check could take a substantial amount of
     # time: employ a progress bar (or rather a counter, because we don't
     # know the total in advance
     pbar_id = 'check-siblings-{}'.format(id(ds))
-    if recursive:
-        log_progress(
-            lgr.info, pbar_id,
-            'Start checking pre-existing sibling configuration %s', ds,
-            label='Query siblings',
-            unit=' Siblings',
-        )
-    for r in ds.siblings(result_renderer='disabled',
-                         return_type='generator',
-                         recursive=recursive,
-                         recursion_limit=recursion_limit):
-        if recursive:
-            log_progress(
-                lgr.info, pbar_id,
-                'Discovered sibling %s in dataset at %s',
-                r['name'], r['path'],
-                update=1,
-                increment=True)
-        if not r['type'] == 'sibling' or r['status'] != 'ok':
-            # this is an internal status query that has not consequence
-            # for the outside world. Be silent unless something useful
-            # can be said
-            #yield r
-            continue
-        if r['name'] in names:
-            yield r['path'], r['name']
-    if recursive:
-        log_progress(
-            lgr.info, pbar_id,
-            'Finished checking pre-existing sibling configuration %s', ds,
-        )
+    log_progress(
+        lgr.info, pbar_id,
+        'Start checking pre-existing sibling configuration %s', ds,
+        label='Query siblings',
+        unit=' Siblings',
+    )
+
+    for res in ds.foreach_dataset(
+            _discover_all_remotes,
+            recursive=recursive,
+            recursion_limit=recursion_limit,
+            return_type='generator',
+            result_renderer='disabled',
+    ):
+        # unwind result generator
+        if 'result' in res:
+            for name in res['result']:
+                log_progress(
+                    lgr.info, pbar_id,
+                    'Discovered sibling %s in dataset at %s',
+                    name, res['path'],
+                    update=1,
+                    increment=True)
+                if name in names:
+                    yield res['path'], name
+
+    log_progress(
+        lgr.info, pbar_id,
+        'Finished checking pre-existing sibling configuration %s', ds,
+    )

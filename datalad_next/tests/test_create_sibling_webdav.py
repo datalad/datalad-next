@@ -6,9 +6,11 @@ from unittest.mock import (
 from urllib.parse import quote as urlquote
 
 from datalad.tests.utils import (
+    assert_equal,
     assert_in,
     assert_in_results,
     assert_raises,
+    assert_result_count,
     assert_status,
     eq_,
     ok_,
@@ -26,9 +28,9 @@ from datalad.distribution.dataset import (
     Dataset,
     require_dataset,
 )
-from datalad.support.exceptions import IncompleteResultsError
 from datalad.tests.utils import (
     with_tempfile,
+    with_tree
 )
 from datalad_next.tests.utils import (
     serve_path_via_webdav,
@@ -291,14 +293,12 @@ def test_unused_storage_name_warning():
         eq_(lgr_mock.warning.call_count, len(storage_sibling_values))
 
 
-def test_check_existing_siblings():
+@with_tempfile
+def test_check_existing_siblings(path):
     # Ensure that constraints are checked internally
     url = "http://localhost:22334/abc"
 
-    ds = require_dataset(
-        None,
-        check_installed=True,
-        purpose='create WebDAV sibling(s)')
+    ds = Dataset(path).create()
 
     with patch("datalad_next.create_sibling_webdav."
                "_yield_ds_w_matching_siblings") as ms_mock:
@@ -306,28 +306,22 @@ def test_check_existing_siblings():
         ms_mock.return_value = [
             ("some_path", "some_name1"),
             ("some_path", "some_name2")]
-        try:
-            create_sibling_webdav(
-                url=url,
-                name="some_name",
-                existing="error")
-        except IncompleteResultsError as ire:
-            for existing_name in ("some_name1", "some_name2"):
-                assert_in(
-                    {
-                        'action': 'create_sibling_webdav',
-                        'refds': ds.path,
-                        'status': 'error',
-                        'message': (
-                            'a sibling %r is already configured in dataset %r',
-                            existing_name,
-                            'some_path'
-                        )
-                    },
-                    ire.failed)
-        else:
-            raise ValueError(
-                "expected exception not raised: IncompleteResultsError")
+        res = ds.create_sibling_webdav(
+            url=url,
+            name="some_name",
+            existing="error",
+            on_failure='ignore')
+        for existing_name in ("some_name1", "some_name2"):
+            assert_in_results(
+                res,
+                action='create_sibling_webdav',
+                refds=ds.path,
+                status='error',
+                message=(
+                        'a sibling %r is already configured in dataset %r',
+                        existing_name,
+                        'some_path')
+                )
 
 
 def test_get_url_credential():
@@ -375,3 +369,144 @@ def test_get_url_credential():
             credman=MockCredentialManager("u", "v"))
         eq_(result[0], None)
         eq_(result[1][0][1]["realm"], None)
+
+
+@with_credential(
+    'dltest-mywebdav', user=webdav_cred[1], secret=webdav_cred[2],
+    type='user_password')
+@with_tree(tree={'sub': {'f0': '0'},
+                 'sub2': {'subsub': {'f1': '1'},
+                          'f2': '2'},
+                 'f3': '3'})
+@with_tempfile
+@serve_path_via_webdav(auth=webdav_cred[1:])
+def test_existing_switch(localpath, remotepath, url):
+    ca = dict(result_renderer='disabled')
+    ds = Dataset(localpath).create(force=True, **ca)
+    # use a tricky name: '3f7' will be the hashdir of the XDLRA
+    # key containing the superdataset's datalad-annex archive after a push
+    sub = ds.create('3f7', force=True, **ca)
+    sub2 = ds.create('sub2', force=True, **ca)
+    subsub = sub2.create('subsub', force=True, **ca)
+    ds.save(recursive=True, **ca)
+
+    # need to amend the test credential, can only do after we know the URL
+    ds.credentials(
+        'set',
+        name='dltest-mywebdav',
+        # the test webdav webserver uses a realm label '/'
+        spec=dict(realm=url + '/'),
+        **ca)
+
+    subsub.create_sibling_webdav(f'{url}/sub2/subsub', storage_sibling='yes',
+                                 **ca)
+    sub2.create_sibling_webdav(f'{url}/sub2', storage_sibling='only', **ca)
+    sub.create_sibling_webdav(f'{url}/3f7', storage_sibling='no', **ca)
+
+    res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
+                                   existing='skip',
+                                   recursive=True, **ca)
+    dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
+           'url=http%3A//127.0.0.1%3A43612/'
+
+    # results per dataset:
+    # super:
+    assert_in_results(
+        res,
+        action='create_sibling_webdav.storage',
+        status='ok',
+        type='dataset',
+        path=ds.path
+    )
+    assert_in_results(
+        res,
+        action='configure-sibling',
+        status='ok',
+        type='sibling',
+        path=ds.path,
+        name='127.0.0.1',
+        url=dlaurl[:-1],
+    )
+    # sub
+    assert_in_results(
+        res,
+        action='create_sibling_webdav.storage',
+        status='ok',
+        type='dataset',
+        path=sub.path
+    )
+    assert_in_results(
+        res,
+        action='create_sibling_webdav',
+        status='notneeded',
+        type='dataset',
+        path=sub.path,
+    )
+    # sub2
+    assert_in_results(
+        res,
+        action='create_sibling_webdav',
+        status='notneeded',
+        type='dataset',
+        path=sub2.path
+    )
+    assert_in_results(
+        res,
+        action='configure-sibling',
+        status='ok',
+        type='sibling',
+        path=sub2.path,
+        name='127.0.0.1',
+        url=dlaurl + 'sub2'
+    )
+    # subsub
+    assert_in_results(
+        res,
+        action='create_sibling_webdav',
+        status='notneeded',
+        type='dataset',
+        path=subsub.path
+    )
+    assert_in_results(
+        res,
+        action='create_sibling_webdav',
+        status='notneeded',
+        type='dataset',
+        path=subsub.path,
+    )
+
+    # should fail upfront with first discovered remote that already exist
+    res = ds.create_sibling_webdav(
+        url, storage_sibling='yes', existing='error', recursive=True,
+        on_failure='ignore', **ca)
+    assert_in_results(
+        res,
+        action='create_sibling_webdav',
+        status='error',
+    )
+
+    srv_rt = Path(remotepath)
+    (srv_rt / '3f7').rmdir()
+    (srv_rt / 'sub2' / 'subsub').rmdir()
+    (srv_rt / 'sub2').rmdir()
+
+    # existing=skip actually doesn't do anything (other than yielding notneeded)
+    res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
+                                   existing='skip',
+                                   recursive=True, **ca)
+    assert_result_count(res, 8, status='notneeded')
+    remote_content = list(srv_rt.glob('**'))
+    assert_equal(len(remote_content), 1)  # nothing but root dir
+
+    # reconfigure to move target one directory level:
+    dlaurl += 'reconfigure'
+    url += '/reconfigure'
+    new_root = srv_rt / 'reconfigure'
+    res = ds.create_sibling_webdav(f'{url}', storage_sibling='yes',
+                                   existing='reconfigure',
+                                   recursive=True, **ca)
+    assert_result_count(res, 8, status='ok')
+    remote_content = list(new_root.glob('**'))
+    assert_in(new_root / '3f7', remote_content)
+    assert_in(new_root / 'sub2', remote_content)
+    assert_in(new_root / 'sub2' / 'subsub', remote_content)
