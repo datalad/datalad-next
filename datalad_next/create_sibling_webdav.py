@@ -616,39 +616,39 @@ def _yield_ds_w_matching_siblings(
         for name in _discover_all_remotes(ds, ds):
             if name in names:
                 yield ds.path, name
+        return
 
-    else:
-        # in recursive mode this check could take a substantial amount of
-        # time: employ a progress bar (or rather a counter, because we don't
-        # know the total in advance
-        pbar_id = 'check-siblings-{}'.format(id(ds))
-        log_progress(
-            lgr.info, pbar_id,
-            'Start checking pre-existing sibling configuration %s', ds,
-            label='Query siblings',
-            unit=' Siblings',
-        )
+    # in recursive mode this check could take a substantial amount of
+    # time: employ a progress bar (or rather a counter, because we don't
+    # know the total in advance
+    pbar_id = 'check-siblings-{}'.format(id(ds))
+    log_progress(
+        lgr.info, pbar_id,
+        'Start checking pre-existing sibling configuration %s', ds,
+        label='Query siblings',
+        unit=' Siblings',
+    )
 
-        for res in ds.foreach_dataset(
-                _discover_all_remotes,
-                recursive=recursive,
-                recursion_limit=recursion_limit,
-                return_type='generator',
-                result_renderer='disabled',
-        ):
-            # unwind result generator
-            if 'result' in res:
-                for name in res['result']:
-                    log_progress(
-                        lgr.info, pbar_id,
-                        'Discovered sibling %s in dataset at %s',
-                        name, res['path'],
-                        update=1,
-                        increment=True)
-                    if name in names:
-                        yield res['path'], name
+    for res in ds.foreach_dataset(
+            _discover_all_remotes,
+            recursive=recursive,
+            recursion_limit=recursion_limit,
+            return_type='generator',
+            result_renderer='disabled',
+    ):
+        # unwind result generator
+        if 'result' in res:
+            for name in res['result']:
+                log_progress(
+                    lgr.info, pbar_id,
+                    'Discovered sibling %s in dataset at %s',
+                    name, res['path'],
+                    update=1,
+                    increment=True)
+                if name in names:
+                    yield res['path'], name
 
-        log_progress(
-            lgr.info, pbar_id,
-            'Finished checking pre-existing sibling configuration %s', ds,
-        )
+    log_progress(
+        lgr.info, pbar_id,
+        'Finished checking pre-existing sibling configuration %s', ds,
+    )
