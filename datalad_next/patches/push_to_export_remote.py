@@ -150,88 +150,6 @@ def _transfer_data(repo: AnnexRepo,
         if info.get("name") == target] or [(None, None)])[0]
 
     if not _is_export_remote(remote_info):
-            yield from push._push_data(
-            ds,
-            target,
-            content,
-            data,
-            force,
-            jobs,
-            res_kwargs.copy(),
-            got_path_arg=got_path_arg,
-        )
-        return
-        # TODO:
-        #  - check for configuration entries, e.g. what to export
-
-        lgr.debug("Exporting HEAD to a remote with exporttree == yes")
-
-        if ds.config.getbool('remote.{}'.format(target), 'annex-ignore', False):
-            lgr.debug(
-                "Target '%s' is set to annex-ignore, exclude from data-export.",
-                target)
-            return
-
-        if force not in ("all", "export"):
-            export_entry = _get_export_log_entry(repo, target_uuid)
-            if export_entry:
-                if export_entry["source-annex-uuid"] != repo.uuid:
-                    yield dict(
-                        **res_kwargs,
-                        status="error",
-                        message=f"refuse to export to {target}, because the "
-                                f"last known export came from another repo "
-                                f"({export_entry['source-annex-uuid']}). Use "
-                                f"--force=export to enforce the export anyway.")
-                    return
-                if not _is_valid_treeish(repo, export_entry):
-                    yield dict(
-                        **res_kwargs,
-                        status="error",
-                        message=f"refuse to export to {target}, because the "
-                                f"current state is not a fast-forward of the "
-                                f"last known exported state. Use "
-                                f"--force=export to enforce the export anyway.")
-                    return
-
-        credentials = _get_credentials(ds, remote_info)
-
-        # If we have credentials, check whether we require an environment patch
-        env_patch = {}
-        remote_type = remote_info.get("type")
-        if credentials and needs_specialremote_credential_envpatch(remote_type):
-            env_patch = get_specialremote_credential_envpatch(
-                remote_type,
-                credentials)
-
-        res_kwargs['target'] = target
-
-        with patch.dict('os.environ', env_patch):
-            try:
-                for result in repo._call_annex_records_items_([
-                    "export", "HEAD",
-                    "--to", target],
-                    progress=True
-                ):
-                    yield {
-                        **res_kwargs,
-                        "action": "copy",
-                        "status": "ok",
-                        "path": str(Path(res_kwargs["path"]) / result["file"])
-                    }
-
-            except CommandError as cmd_error:
-                ce = CapturedException(cmd_error)
-                yield {
-                    **res_kwargs,
-                    "action": "copy",
-                    "status": "error",
-                    "message": str(ce),
-                    "exception": ce
-                }
-                return
-
-    else:
         yield from push._push_data(
             ds,
             target,
@@ -242,6 +160,78 @@ def _transfer_data(repo: AnnexRepo,
             res_kwargs.copy(),
             got_path_arg=got_path_arg,
         )
+        return
+
+    # TODO:
+    #  - check for configuration entries, e.g. what to export
+
+    lgr.debug("Exporting HEAD to a remote with exporttree == yes")
+
+    if ds.config.getbool('remote.{}'.format(target), 'annex-ignore', False):
+        lgr.debug(
+            "Target '%s' is set to annex-ignore, exclude from data-export.",
+            target)
+        return
+
+    if force not in ("all", "export"):
+        export_entry = _get_export_log_entry(repo, target_uuid)
+        if export_entry:
+            if export_entry["source-annex-uuid"] != repo.uuid:
+                yield dict(
+                    **res_kwargs,
+                    status="error",
+                    message=f"refuse to export to {target}, because the "
+                            f"last known export came from another repo "
+                            f"({export_entry['source-annex-uuid']}). Use "
+                            f"--force=export to enforce the export anyway.")
+                return
+            if not _is_valid_treeish(repo, export_entry):
+                yield dict(
+                    **res_kwargs,
+                    status="error",
+                    message=f"refuse to export to {target}, because the "
+                            f"current state is not a fast-forward of the "
+                            f"last known exported state. Use "
+                            f"--force=export to enforce the export anyway.")
+                return
+
+    credentials = _get_credentials(ds, remote_info)
+
+    # If we have credentials, check whether we require an environment patch
+    env_patch = {}
+    remote_type = remote_info.get("type")
+    if credentials and needs_specialremote_credential_envpatch(remote_type):
+        env_patch = get_specialremote_credential_envpatch(
+            remote_type,
+            credentials)
+
+    res_kwargs['target'] = target
+
+    with patch.dict('os.environ', env_patch):
+        try:
+            for result in repo._call_annex_records_items_(
+                [
+                    "export", "HEAD",
+                    "--to", target
+                ],
+                progress=True
+            ):
+                yield {
+                    **res_kwargs,
+                    "action": "copy",
+                    "status": "ok",
+                    "path": str(Path(res_kwargs["path"]) / result["file"])
+                }
+
+        except CommandError as cmd_error:
+            ce = CapturedException(cmd_error)
+            yield {
+                **res_kwargs,
+                "action": "copy",
+                "status": "error",
+                "message": str(ce),
+                "exception": ce
+            }
 
 
 lgr.debug("Patching datalad.core.distributed.push._transfer_data")
