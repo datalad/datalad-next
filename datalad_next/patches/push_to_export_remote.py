@@ -252,7 +252,7 @@ push.Push.__doc__ += """\
     remote target. This will usually result in a copy of the file tree, to which
     HEAD refers, on the remote target. A git-annex special remote with
     "exporttree" set to "yes" can, for example, be created with the datalad
-    command "create-sibling-webdav" with the option "--mode=file-tree" or 
+    command "create-sibling-webdav" with the option "--mode=filetree" or 
     "--mode=filetree-only".
 """
 push.Push._params_["force"] = Parameter(
