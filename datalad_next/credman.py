@@ -60,6 +60,10 @@ class CredentialManager(object):
     """
     valid_property_names_regex = re.compile(r'[a-z0-9]+[a-z0-9-]*$')
 
+    secret_names = {
+        'user_password': 'password',
+    }
+
     def __init__(self, cfg=None):
         """
 
@@ -328,7 +332,8 @@ class CredentialManager(object):
             # typically we would end up here with an explicit attempt
             # to set a credential in a context that is known to an
             # interactive user, hence the messaging here can be simple
-            cred['secret'] = self._ask_secret(type_hint=type_hint or 'secret')
+            cred['secret'] = self._ask_secret(
+                CredentialManager.secret_names.get(type_hint, 'secret'))
         # at this point we will have a secret. it could be from ENV
         # or provided, or entered. we always want to put it in the
         # store
