@@ -245,9 +245,15 @@ lgr.debug("Patching datalad.core.distributed.push.Push docstring and parameters"
 push.Push.__doc__ += """\
 
 
-Features added by the datalad-next extension
+    The following feature is added by the datalad-next extension:
 
-Transparently transfer data to git-annex special remotes in export-mode (`exporttree=yes`), whenever ...
+    If a target is a git-annex special remote that has "exporttree" set to
+    "yes", push will call 'git-annex export' to export the current HEAD to the
+    remote target. This will usually result in a copy of the file tree, to which
+    HEAD refers, on the remote target. A git-annex special remote with
+    "exporttree" set to "yes" can, for example, be created with the datalad
+    command "create-sibling-webdav" with the option "--mode=file-tree" or 
+    "--mode=filetree-only".
 """
 push.Push._params_["force"] = Parameter(
     args=("-f", "--force",),
