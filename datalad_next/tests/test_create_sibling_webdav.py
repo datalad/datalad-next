@@ -374,7 +374,6 @@ def test_get_url_credential():
             url=url,
             credman=MockCredentialManager("u", "v"))
         eq_(result[0], None)
-        eq_(result[1][0][1]["realm"], None)
 
 
 @with_credential(
