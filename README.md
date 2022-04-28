@@ -36,9 +36,9 @@ the extension has to be enabled for auto-loading by executing:
 Doing so will enable the extension to also alter the behavior the core DataLad
 package and its commands.
 
-## Summary of functionality
+## Summary of functionality provided by this extension
 
-- A new sub-system for credential handling that is able to handle arbitrary
+- A replacement sub-system for credential handling that is able to handle arbitrary
   properties for annotating a secret, and facilitates determining suitable
   credentials while minimizing avoidable user interaction, without compromising
   configurability.
@@ -47,8 +47,34 @@ package and its commands.
   are equipped with improved credential handling that, for example, only stores
   entered credentials after they were confirmed working, or auto-selects the
   most recently used, matching credentials, when none are specified.
+- A `create-sibling-webdav` command for hosting datasets on a WebDAV server via
+  a sibling tandem for Git history and file storage. Datasets hosted on WebDAV
+  in this fashion are cloneable with `datalad-clone`. A full annex setup
+  for storing complete datasets with historical file content version, and an
+  additional mode for depositing single-version dataset snapshot are supported.
+  The latter enables convenient collaboration with audiences that are not using
+  DataLad, because all files are browsable via a WebDAV server's point-and-click
+  user interface.
+- Enhance `datalad-push` to automatically export files to git-annex special
+  remotes configured with `exporttree=yes`.
+- Enhance `datalad-siblings enable` (`AnnexRepo.enable_remote()` to automatically
+  deploy credentials for git-annex special remotes that require them.
 - `git-remote-datalad-annex` is a Git remote helper to push/fetch to any
   location accessible by any git-annex special remote.
 - `git-annex-backend-XDLRA` (originally available from the `mihextras` extension)
   is a custom external git-annex backend used by git-remote-datalad-annex. A base
   class to facilitate development of external backends in Python is also provided.
+
+## Summary of additional features for DataLad extension development
+
+- `serve_path_via_webdav` test decorator that automatically deploys a local WebDAV
+  server.
+- `with_credential` test decorator that temporarily deploy a credential to the
+  local credential system.
+- Utilities for special remote credential management:
+  - `get_specialremote_credential_properties()` inspects a special remote and return
+    properties for querying a credential store for matching credentials
+  - `update_specialremote_credential()` updates a credential in a store after
+    successful use
+  - `get_specialremote_credential_envpatch()` returns a suitable environment "patch"
+    from a credential for a particular special remote type
