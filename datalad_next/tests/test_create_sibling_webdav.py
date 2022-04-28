@@ -154,9 +154,11 @@ def check_common_workflow(
     eq_('dummy', (dsclone.pathobj / 'testfile.dat').read_text())
 
 
-def test_bad_url_catching():
+@with_tempfile
+def test_bad_url_catching(path):
     # Ensure that bad URLs are detected and handled
 
+    ds = Dataset(path).create()
     check_pairs = [
         (
             "http://localhost:33322/abc?a",
@@ -181,12 +183,16 @@ def test_bad_url_catching():
             ValueError,
             expected_message.format(url=bad_url),
             create_sibling_webdav,
+            dataset=ds,
             url=bad_url
         )
 
 
-def test_http_warning():
+@with_tempfile
+def test_http_warning(path):
     # Check that usage of http: triggers a warning.
+
+    ds = Dataset(path).create()
     url = "http://localhost:33322/abc"
 
     with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
@@ -202,6 +208,7 @@ def test_http_warning():
             ValueError,
             f"No suitable credential for {url} found or specified",
             create_sibling_webdav,
+            dataset=ds,
             url=url)
 
         eq_(lgr_mock.warning.call_count, 1)
@@ -213,18 +220,25 @@ def test_http_warning():
             lgr_mock.warning.mock_calls)
 
 
-def test_constraints_checking():
+@with_tempfile
+def test_constraints_checking(path):
     # Ensure that constraints are checked internally
+
+    ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for key in ("existing", "mode"):
         assert_raises_regexp(
             ValueError, "value is not one of",
             create_sibling_webdav,
+            dataset=ds,
             url=url,
             **{key: "illegal-value"})
 
 
-def test_credential_handling():
+@with_tempfile
+def test_credential_handling(path):
+
+    ds = Dataset(path).create()
     url = "https://localhost:22334/abc"
     with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
          patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
@@ -237,6 +251,7 @@ def test_credential_handling():
             ValueError,
             f"No suitable credential for {url} found or specified",
             create_sibling_webdav,
+            dataset=ds,
             url=url,
             name="some_name",
             existing="error")
@@ -247,6 +262,7 @@ def test_credential_handling():
             ValueError,
             f"No suitable credential for {url} found or specified",
             create_sibling_webdav,
+            dataset=ds,
             url=url,
             name="some_name",
             existing="error")
@@ -255,27 +271,34 @@ def test_credential_handling():
         gur_mock.reset_mock()
         gur_mock.return_value = [None, {"user": "u", "secret": "s"}]
         create_sibling_webdav(
+            dataset=ds,
             url=url,
             name="some_name",
             existing="error")
 
 
-def test_name_clash_detection():
+@with_tempfile
+def test_name_clash_detection(path):
     # Ensure that constraints are checked internally
+
+    ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for mode in ("annex", 'filetree', 'annex-only', 'filetree-only'):
         assert_raises_regexp(
             ValueError, "sibling names must not be equal",
             create_sibling_webdav,
+            dataset=ds,
             url=url,
             name="abc",
             storage_name="abc",
             mode=mode)
 
 
-def test_unused_storage_name_warning():
+@with_tempfile
+def test_unused_storage_name_warning(path):
     # Ensure that constraints are checked internally
 
+    ds = Dataset(path).create()
     url = "https://localhost:22334/abc"
 
     with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
@@ -292,42 +315,12 @@ def test_unused_storage_name_warning():
             assert_raises(
                 ValueError,
                 create_sibling_webdav,
+                dataset=ds,
                 url=url,
                 name="abc",
                 storage_name="abc",
                 mode=mode)
         eq_(lgr_mock.warning.call_count, len(mode_values))
-
-
-@with_tempfile
-def test_check_existing_siblings(path):
-    # Ensure that constraints are checked internally
-    url = "http://localhost:22334/abc"
-
-    ds = Dataset(path).create()
-
-    with patch("datalad_next.create_sibling_webdav."
-               "_yield_ds_w_matching_siblings") as ms_mock:
-
-        ms_mock.return_value = [
-            ("some_path", "some_name1"),
-            ("some_path", "some_name2")]
-        res = ds.create_sibling_webdav(
-            url=url,
-            name="some_name",
-            existing="error",
-            on_failure='ignore')
-        for existing_name in ("some_name1", "some_name2"):
-            assert_in_results(
-                res,
-                action='create_sibling_webdav',
-                refds=ds.path,
-                status='error',
-                message=(
-                        'a sibling %r is already configured in dataset %r',
-                        existing_name,
-                        'some_path')
-                )
 
 
 def test_get_url_credential():
