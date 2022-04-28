@@ -71,6 +71,11 @@ package and its commands.
   server.
 - `with_credential` test decorator that temporarily deploy a credential to the
   local credential system.
+- Utilities for HTTP handling
+  - `probe_url()` to discover redirects and authentication requirements for an HTTP
+    URL
+  - `get_auth_realm()` return a label for an authentication realm that can be used
+    to query for matching credentials
 - Utilities for special remote credential management:
   - `get_specialremote_credential_properties()` inspects a special remote and return
     properties for querying a credential store for matching credentials
