@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Generator
 from unittest.mock import (
     MagicMock,
+    call,
     patch,
 )
 
@@ -119,8 +120,13 @@ def test_patch_execute_export():
 def test_patch_skip_ignore_targets_export():
     with patch(f"{module_name}.lgr") as lgr_mock:
         tuple(_call_transfer("yes-target", True))
-        eq_(lgr_mock.debug.call_count, 2)
-        assert_true(lgr_mock.mock_calls[1].args[0].startswith("Target"))
+        assert_in(
+            call.debug(
+                "Target '%s' is set to annex-ignore, exclude from data-export.",
+                'yes-target'
+            ),
+            lgr_mock.mock_calls
+        )
 
 
 def test_patch_check_envpatch():
