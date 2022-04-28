@@ -12,7 +12,6 @@ __docformat__ = 'restructuredtext'
 
 import json
 import logging
-import re
 
 from datalad import (
     cfg as dlcfg,
