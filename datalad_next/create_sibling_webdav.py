@@ -84,11 +84,11 @@ class CreateSiblingWebDAV(Interface):
 
     Git-annex implementation details
 
-    Storage siblings are presently always configured to be enabled
+    Storage siblings are presently configured to NOT be enabled
     automatically on cloning a dataset. Due to a limitation of git-annex, this
-    will initially fails (missing credentials), but a command to properly
-    enable the storage sibling will be displayed.
-    See https://github.com/datalad/datalad/issues/6634 for details.
+    would initially fail (missing credentials). Instead, after cloning
+    an explicit ``datalad siblings enable --name <storage-sibling-name>``
+    command must be executed. If necessary, it will prompt for credentials.
 
     This command does not (and likely will not) support embedding credentials
     in the repository (see ``embedcreds`` option of the git-annex ``webdav``
@@ -118,6 +118,20 @@ class CreateSiblingWebDAV(Interface):
                  "determined, or a user is prompted to enter them",
             code_py="clone('datalad-annex::?type=webdav&encryption=none&url=https://webdav.example.com/myds')",
             code_cmd='datalad clone "datalad-annex::?type=webdav&encryption=none&url=https://webdav.example.com/myds"'),
+       dict(
+           text="A sibling can also be created with a human-readable file "
+                 "tree, suitable for data exchange with non-DataLad users, "
+                 "but only able to host a single version of each file",
+           code_py="create_sibling_webdav(url='https://example.com/browseable', mode='filetree')",
+           code_cmd='datalad create-sibling-webdav --mode filetree "https://example.com/browseable"'),
+       dict(text="Cloning such dataset siblings is possible via a convenience "
+                 "URL",
+            code_py="clone('webdavs://example.com/browseable')",
+            code_cmd='datalad clone "webdavs://example.com/browseable"'),
+       dict(text="In all cases, the storage sibling needs to explicitly "
+                 "enabled prior file content retrieval",
+            code_py="siblings('enable', name='example.com-storage')",
+            code_cmd='datalad siblings enable --name example.com-storage'),
     ]
 
     _params_ = dict(
@@ -599,7 +613,10 @@ def _create_storage_sibling(
         f"url={url}",
         f"exporttree={'yes' if export else 'no'}",
         "encryption=none",
-        "autoenable=true"
+        # for now, no autoenable. It would result in unconditional
+        # error messages on clone
+        #https://github.com/datalad/datalad/issues/6634
+        #"autoenable=true"
     ]
     # delayed heavy-ish import
     from unittest.mock import patch
