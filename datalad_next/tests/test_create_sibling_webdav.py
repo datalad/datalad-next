@@ -323,37 +323,6 @@ def test_unused_storage_name_warning(path):
         eq_(lgr_mock.warning.call_count, len(mode_values))
 
 
-@with_tempfile
-def test_check_existing_siblings(path):
-    # Ensure that constraints are checked internally
-    url = "http://localhost:22334/abc"
-
-    ds = Dataset(path).create()
-
-    with patch("datalad_next.create_sibling_webdav."
-               "_yield_ds_w_matching_siblings") as ms_mock:
-
-        ms_mock.return_value = [
-            ("some_path", "some_name1"),
-            ("some_path", "some_name2")]
-        res = ds.create_sibling_webdav(
-            url=url,
-            name="some_name",
-            existing="error",
-            on_failure='ignore')
-        for existing_name in ("some_name1", "some_name2"):
-            assert_in_results(
-                res,
-                action='create_sibling_webdav',
-                refds=ds.path,
-                status='error',
-                message=(
-                        'a sibling %r is already configured in dataset %r',
-                        existing_name,
-                        'some_path')
-                )
-
-
 def test_get_url_credential():
     url = "https://localhost:22334/abc"
 
