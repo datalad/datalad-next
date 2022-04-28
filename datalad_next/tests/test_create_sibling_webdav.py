@@ -5,6 +5,7 @@ from unittest.mock import (
 )
 from urllib.parse import quote as urlquote
 
+from datalad.cli.tests.test_main import run_main
 from datalad.tests.utils import (
     assert_equal,
     assert_in,
@@ -26,7 +27,6 @@ from datalad.api import (
 )
 from datalad.distribution.dataset import (
     Dataset,
-    require_dataset,
 )
 from datalad.tests.utils import (
     with_tempfile,
@@ -90,8 +90,14 @@ def check_common_workflow(
         res,
         action='create_sibling_webdav.storage',
         status='ok',
-        type='dataset',
+        type='sibling',
         path=ds.path,
+        url=url,
+        name='127.0.0.1-storage',
+        # TODO: name=???
+        #  Parse url for host or depend on serve_path always
+        #  delivering 127.0.0.1? (Think IPv6 or a literal `localhost` or
+        #  anything like that) Same applies to hardcoded `dlaurl`.
     )
     # where it should be accessible
     # needs to be quoted
@@ -105,11 +111,12 @@ def check_common_workflow(
 
     assert_in_results(
         res,
-        action='configure-sibling',
+        action='create_sibling_webdav',
         status='ok',
         path=ds.path,
         name='127.0.0.1',
         url=dlaurl,
+        type='sibling',
     )
     ok_(targetdir.exists())
     # add some annex payload
@@ -402,7 +409,7 @@ def test_existing_switch(localpath, remotepath, url):
     sub2.create_sibling_webdav(f'{url}/sub2', mode='annex-only', **ca)
     sub.create_sibling_webdav(f'{url}/3f7', mode='git-only', **ca)
 
-    res = ds.create_sibling_webdav(f'{url}', mode='annex',
+    res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='skip',
                                    recursive=True, **ca)
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
@@ -414,12 +421,14 @@ def test_existing_switch(localpath, remotepath, url):
         res,
         action='create_sibling_webdav.storage',
         status='ok',
-        type='dataset',
-        path=ds.path
+        type='sibling',
+        name='127.0.0.1-storage',
+        path=ds.path,
+        url=url,
     )
     assert_in_results(
         res,
-        action='configure-sibling',
+        action='create_sibling_webdav',
         status='ok',
         type='sibling',
         path=ds.path,
@@ -431,46 +440,52 @@ def test_existing_switch(localpath, remotepath, url):
         res,
         action='create_sibling_webdav.storage',
         status='ok',
-        type='dataset',
-        path=sub.path
+        type='sibling',
+        name='127.0.0.1-storage',
+        path=sub.path,
+        url=f'{url}/3f7',
     )
     assert_in_results(
         res,
         action='create_sibling_webdav',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1',
         path=sub.path,
     )
     # sub2
     assert_in_results(
         res,
-        action='create_sibling_webdav',
+        action='create_sibling_webdav.storage',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1-storage',
         path=sub2.path
     )
     assert_in_results(
         res,
-        action='configure-sibling',
+        action='create_sibling_webdav',
         status='ok',
         type='sibling',
         path=sub2.path,
         name='127.0.0.1',
-        url=dlaurl + 'sub2'
+        url=f'{dlaurl}sub2',
     )
     # subsub
     assert_in_results(
         res,
-        action='create_sibling_webdav',
+        action='create_sibling_webdav.storage',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1-storage',
         path=subsub.path
     )
     assert_in_results(
         res,
         action='create_sibling_webdav',
         status='notneeded',
-        type='dataset',
+        type='sibling',
+        name='127.0.0.1',
         path=subsub.path,
     )
 
@@ -478,11 +493,10 @@ def test_existing_switch(localpath, remotepath, url):
     res = ds.create_sibling_webdav(
         url, mode='annex', existing='error', recursive=True,
         on_failure='ignore', **ca)
-    assert_in_results(
-        res,
-        action='create_sibling_webdav',
-        status='error',
-    )
+    assert_result_count(res, 8, status='error', type='sibling')
+    # Note: 'message' is expected to be a tuple (and always present).
+    assert all("is already configured" in r['message'][0] for r in res)
+    assert all(r['action'].startswith('create_sibling_webdav') for r in res)
 
     srv_rt = Path(remotepath)
     (srv_rt / '3f7').rmdir()
@@ -490,7 +504,7 @@ def test_existing_switch(localpath, remotepath, url):
     (srv_rt / 'sub2').rmdir()
 
     # existing=skip actually doesn't do anything (other than yielding notneeded)
-    res = ds.create_sibling_webdav(f'{url}', mode='annex',
+    res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='skip',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='notneeded')
@@ -501,11 +515,38 @@ def test_existing_switch(localpath, remotepath, url):
     dlaurl += 'reconfigure'
     url += '/reconfigure'
     new_root = srv_rt / 'reconfigure'
-    res = ds.create_sibling_webdav(f'{url}', mode='annex',
+    res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='reconfigure',
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='ok')
+    assert all(r['action'].startswith('reconfigure_sibling_webdav')
+               for r in res)
     remote_content = list(new_root.glob('**'))
     assert_in(new_root / '3f7', remote_content)
     assert_in(new_root / 'sub2', remote_content)
     assert_in(new_root / 'sub2' / 'subsub', remote_content)
+
+
+@with_credential(
+    webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
+    type='user_password')
+@with_tempfile
+@with_tempfile
+@serve_path_via_webdav(auth=webdav_cred[1:])
+def test_result_renderer(localpath, remotepath, url):
+    ca = dict(result_renderer='disabled')
+    ds = Dataset(localpath).create(**ca)
+    # need to amend the test credential, can only do after we know the URL
+    ds.credentials(
+        'set',
+        name=webdav_cred[0],
+        # the test webdav webserver uses a realm label '/'
+        spec=dict(realm=url + '/'),
+        **ca)
+
+    out, err = run_main(['create-sibling-webdav', '-d', localpath, url])
+    # url is somehow reported
+    assert_in('datalad-annex::?type=webdav', out)
+    # and the two custom result renderings
+    assert_in('create_sibling_webdav(ok)', out)
+    assert_in('create_sibling_webdav.storage(ok)', out)

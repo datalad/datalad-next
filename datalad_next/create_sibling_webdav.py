@@ -34,7 +34,10 @@ from datalad.interface.common_opts import (
     recursion_limit
 )
 from datalad.interface.results import get_status_dict
-from datalad.interface.utils import eval_results
+from datalad.interface.utils import (
+    generic_result_renderer,
+    eval_results,
+)
 from datalad.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
@@ -301,6 +304,9 @@ class CreateSiblingWebDAV(Interface):
                     message=(
                         "a sibling %r is already configured in dataset %r",
                         sname, dpath),
+                    type='sibling',
+                    name=sname,
+                    ds=ds,
                     **res_kwargs,
                 )
                 failed = True
@@ -383,6 +389,29 @@ class CreateSiblingWebDAV(Interface):
                 f' with a `realm={credprops["realm"]}` property'
                 if 'realm' in credprops else ''),
         )
+
+    @staticmethod
+    def custom_result_renderer(res, **kwargs):
+        from datalad.ui import ui
+        from os.path import relpath
+        import datalad.support.ansi_colors as ac
+
+        if res['status'] != 'ok' or 'sibling_webdav' not in res['action'] or \
+                res['type'] != 'sibling':
+            # It's either 'notneeded' (not rendered), an `error`/`impossible` or
+            # something unspecific to this command. No special rendering
+            # needed.
+            generic_result_renderer(res)
+            return
+
+        ui.message('{action}({status}): {path} [{name}{url}]'.format(
+            action=ac.color_word(res['action'], ac.BOLD),
+            path=relpath(res['path'], res['refds'])
+            if 'refds' in res else res['path'],
+            name=ac.color_word(res.get('name', ''), ac.MAGENTA),
+            url=f": {res['url']}" if 'url' in res else '',
+            status=ac.color_status(res['status']),
+        ))
 
 
 def _get_url_credential(name, url, credman):
@@ -472,11 +501,14 @@ def _create_sibling_webdav(
 
 def _get_skip_sibling_result(name, ds, type_):
     return get_status_dict(
-        action='create_sibling_webdav',
+        action='create_sibling_webdav{}'.format(
+            '.storage' if type_ == 'storage' else ''),
         ds=ds,
         status='notneeded',
         message=("skipped creating %r sibling %r, already exists",
                  type_, name),
+        name=name,
+        type='sibling',
     )
 
 
@@ -519,19 +551,24 @@ def _create_git_sibling(
     # and speculative whining by `siblings()`
     ds.config.set(f'remote.{name}.annex-ignore', 'true', scope='local')
 
-    yield from ds.siblings(
-        # action must always be 'configure' (not 'add'), because above we just
-        # made a remote {name} known, which is detected by `sibling()`. Any
-        # conflict detection must have taken place separately before this call
-        # https://github.com/datalad/datalad/issues/6649
-        action="configure",
-        name=name,
-        url=remote_url,
-        # this is presently the default, but it may change
-        fetch=False,
-        publish_depends=publish_depends,
-        return_type='generator',
-        result_renderer='disabled')
+    for r in ds.siblings(
+            # action must always be 'configure' (not 'add'), because above we just
+            # made a remote {name} known, which is detected by `sibling()`. Any
+            # conflict detection must have taken place separately before this call
+            # https://github.com/datalad/datalad/issues/6649
+            action="configure",
+            name=name,
+            url=remote_url,
+            # this is presently the default, but it may change
+            fetch=False,
+            publish_depends=publish_depends,
+            return_type='generator',
+            result_renderer='disabled'):
+        if r.get('action') == 'configure-sibling':
+            r['action'] = 'reconfigure_sibling_webdav' \
+                if known and existing == 'reconfigure' \
+                else 'create_sibling_webdav'
+        yield r
 
 
 def _create_storage_sibling(
@@ -576,7 +613,12 @@ def _create_storage_sibling(
     yield get_status_dict(
         ds=ds,
         status='ok',
-        action='create_sibling_webdav.storage',
+        action='reconfigure_sibling_webdav.storage'
+               if known and existing == 'reconfigure' else
+        'create_sibling_webdav.storage',
+        name=name,
+        type='sibling',
+        url=url,
     )
 
 
