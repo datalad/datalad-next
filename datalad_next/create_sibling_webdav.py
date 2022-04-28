@@ -404,13 +404,11 @@ class CreateSiblingWebDAV(Interface):
             generic_result_renderer(res)
             return
 
-        ui.message('{action}({status}) {path}: {name}{annex}{url}'.format(
+        ui.message('{action}({status}) {path}: {name}{url}'.format(
                 action=res['action'],
                 path=relpath(res['path'], res['refds'])
                 if 'refds' in res else res['path'],
                 name=res.get('name', ''),
-                annex='[{}]'.format('+' if '.storage' in res['action'] else
-                                    '-'),
                 url=f"({res['url']})" if 'url' in res else '',
                 status=ac.color_status(res['status']),
         ))
