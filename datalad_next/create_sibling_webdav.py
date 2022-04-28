@@ -433,14 +433,22 @@ def _get_url_credential(name, url, credman):
                 name, cred = creds[0]
 
     if not cred:
+        kwargs = dict(
+            # name could be none
+            name=name,
+            _prompt='User name and password are required for WebDAV access '
+                    f'at {url}',
+            type='user_password',
+        )
+        # check if we know the realm, if so include in the credential, if not
+        # avoid asking for it interactively (it is a server-specified property
+        # users would generally not know, if they do, they can use the
+        # `credentials` command upfront.
+        realm = credprops.get('realm')
+        if realm:
+            kwargs['realm'] = realm
         try:
-            cred = credman.get(
-                # name could be none
-                name=name,
-                _prompt=f'User name and password are required for WebDAV access at {url}',
-                type='user_password',
-                realm=credprops.get('realm'),
-            )
+            cred = credman.get(**kwargs)
         except Exception as e:
             lgr.debug('Credential retrieval failed: %s', e)
 
