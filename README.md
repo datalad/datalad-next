@@ -83,3 +83,10 @@ package and its commands.
     successful use
   - `get_specialremote_credential_envpatch()` returns a suitable environment "patch"
     from a credential for a particular special remote type
+
+
+## Acknowledgements
+
+This DataLad extension was developed with funding from the Deutsche
+Forschungsgemeinschaft (DFG, German Research Foundation) under grant SFB 1451
+([431549029](https://gepris.dfg.de/gepris/projekt/431549029), INF project).
