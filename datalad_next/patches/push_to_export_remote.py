@@ -266,5 +266,8 @@ push.Push._params_["force"] = Parameter(
         'all', 'gitpush', 'checkdatapresent', 'export', None))
 
 
+from datalad.interface.base import build_doc
+push.Push = build_doc(push.Push)
+
 lgr.debug("Patching datalad.support.AnnexRepo.get_export_records (new method)")
 AnnexRepo.get_export_records = get_export_records
