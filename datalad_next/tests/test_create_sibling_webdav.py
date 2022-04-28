@@ -5,6 +5,7 @@ from unittest.mock import (
 )
 from urllib.parse import quote as urlquote
 
+from datalad.cli.tests.test_main import run_main
 from datalad.tests.utils import (
     assert_equal,
     assert_in,
@@ -26,7 +27,6 @@ from datalad.api import (
 )
 from datalad.distribution.dataset import (
     Dataset,
-    require_dataset,
 )
 from datalad.tests.utils import (
     with_tempfile,
@@ -525,3 +525,28 @@ def test_existing_switch(localpath, remotepath, url):
     assert_in(new_root / '3f7', remote_content)
     assert_in(new_root / 'sub2', remote_content)
     assert_in(new_root / 'sub2' / 'subsub', remote_content)
+
+
+@with_credential(
+    webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
+    type='user_password')
+@with_tempfile
+@with_tempfile
+@serve_path_via_webdav(auth=webdav_cred[1:])
+def test_result_renderer(localpath, remotepath, url):
+    ca = dict(result_renderer='disabled')
+    ds = Dataset(localpath).create(**ca)
+    # need to amend the test credential, can only do after we know the URL
+    ds.credentials(
+        'set',
+        name=webdav_cred[0],
+        # the test webdav webserver uses a realm label '/'
+        spec=dict(realm=url + '/'),
+        **ca)
+
+    out, err = run_main(['create-sibling-webdav', '-d', localpath, url])
+    # url is somehow reported
+    assert_in('datalad-annex::?type=webdav', out)
+    # and the two custom result renderings
+    assert_in('create_sibling_webdav(ok)', out)
+    assert_in('create_sibling_webdav.storage(ok)', out)
