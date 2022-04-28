@@ -24,6 +24,9 @@ command_suite = (
             'datalad_next.create_sibling_webdav',
             # name of the command class implementation in above module
             'CreateSiblingWebDAV',
+            # we gotta make this explicit, or the build_support code will
+            # not pick it up, due to the dashes in the name
+            'create-sibling-webdav',
         ),
     ]
 )

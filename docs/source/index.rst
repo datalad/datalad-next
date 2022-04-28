@@ -15,6 +15,7 @@ High-level API commands
 .. autosummary::
    :toctree: generated
 
+   create_sibling_webdav
    credentials
 
 
@@ -24,6 +25,7 @@ Command line reference
 .. toctree::
    :maxdepth: 1
 
+   generated/man/datalad-create-sibling-webdav
    generated/man/datalad-credentials
 
 
