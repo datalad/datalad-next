@@ -82,6 +82,16 @@ class CreateSiblingWebDAV(Interface):
     root location on the WebDAV server.
 
 
+    Collaboration on WebDAV siblings
+
+    The primary use case for WebDAV siblings is dataset deposition, where
+    only one site is uploading dataset and file content updates.
+    For collaborative workflows with multiple contributors, please make sure
+    to consult the documentation on the underlying ``datalad-annex::``
+    Git remote helper for advice on appropriate setups:
+    http://docs.datalad.org/projects/next/
+
+
     Git-annex implementation details
 
     Storage siblings are presently configured to NOT be enabled

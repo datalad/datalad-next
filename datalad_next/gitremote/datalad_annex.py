@@ -7,9 +7,9 @@
 #   copyright and license terms.
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-"""git-remote-datalad-annex that fetches/pushes via a git-annex special remote
+"""git-remote-datalad-annex to fetche/push via any git-annex special remote
 
-In essence, this git remote helper bootstraps a utility repository in order
+In essence, this Git remote helper bootstraps a utility repository in order
 to push/fetch the state of a repository to any location accessible by any
 git-annex special remote implementation. All information necessary for this
 bootstrapping is taken from the remote URL specification. The internal utility
@@ -55,6 +55,23 @@ specifications are support.
    which would initialize a ``type=directory`` special remote pointing
    at ``/tmp/example``.
 
+
+Caution with collaborative workflows
+
+There is no protection against simultaneous, conflicting repository state
+uploads from two different locations! Similar to git-annex's "export"
+feature, this feature is most appropriately used as a dataset deposition
+mechanism, where uploads are conducted from a single site only -- deposited
+for consumption by any number of parties.
+
+If this Git remote helper is to be used for multi-way collaboration, with two
+or more parties contributing updates, it is advisable to employ a separate
+``datalad-annex::`` target site for each contributor, such that only one site
+is pushing to any given location. Updates are exchanged by the remaining
+contributors adding the respective other ``datalad-annex::`` sites as
+additional Git remotes, analog to forks of a repository.
+
+
 Special remote type support
 
 In addition to the regular list of special remotes, plain http(s) access
@@ -68,6 +85,7 @@ string, the parameters ``type=web`` and ``exporttree=yes`` are added
 automatically by default. This means that this remote helper can clone
 from any remote deposit accessible via ``http(s)`` that matches the layout
 depicted in the next section.
+
 
 Remote layout
 
