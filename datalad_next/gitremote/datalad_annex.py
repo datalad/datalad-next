@@ -7,7 +7,7 @@
 #   copyright and license terms.
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-"""git-remote-datalad-annex to fetche/push via any git-annex special remote
+"""git-remote-datalad-annex to fetch/push via any git-annex special remote
 
 In essence, this Git remote helper bootstraps a utility repository in order
 to push/fetch the state of a repository to any location accessible by any

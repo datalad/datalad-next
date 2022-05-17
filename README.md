@@ -12,7 +12,7 @@
 This DataLad extension can be thought of as a staging area for additional
 functionality, or for improved performance and user experience. Unlike other
 topical or more experimental extensions, the focus here is on functionality
-with broad applicability. This is extension is a suitable dependency for other
+with broad applicability. This extension is a suitable dependency for other
 software packages that intend to build on this improved set of functionality.
 
 ## Installation
@@ -45,7 +45,7 @@ package and its commands.
 - A user-facing `credentials` command to set, remove, and query credentials.
 - The `create-sibling-...` commands for the platforms GitHub, GIN, GOGS, Gitea
   are equipped with improved credential handling that, for example, only stores
-  entered credentials after they were confirmed working, or auto-selects the
+  entered credentials after they were confirmed to work, or auto-selects the
   most recently used, matching credentials, when none are specified.
 - A `create-sibling-webdav` command for hosting datasets on a WebDAV server via
   a sibling tandem for Git history and file storage. Datasets hosted on WebDAV
@@ -62,22 +62,22 @@ package and its commands.
 - `git-remote-datalad-annex` is a Git remote helper to push/fetch to any
   location accessible by any git-annex special remote.
 - `git-annex-backend-XDLRA` (originally available from the `mihextras` extension)
-  is a custom external git-annex backend used by git-remote-datalad-annex. A base
+  is a custom external git-annex backend used by `git-remote-datalad-annex`. A base
   class to facilitate development of external backends in Python is also provided.
 
 ## Summary of additional features for DataLad extension development
 
 - `serve_path_via_webdav` test decorator that automatically deploys a local WebDAV
   server.
-- `with_credential` test decorator that temporarily deploy a credential to the
+- `with_credential` test decorator that temporarily deploys a credential to the
   local credential system.
 - Utilities for HTTP handling
-  - `probe_url()` to discover redirects and authentication requirements for an HTTP
+  - `probe_url()` discovers redirects and authentication requirements for an HTTP
     URL
-  - `get_auth_realm()` return a label for an authentication realm that can be used
+  - `get_auth_realm()` returns a label for an authentication realm that can be used
     to query for matching credentials
 - Utilities for special remote credential management:
-  - `get_specialremote_credential_properties()` inspects a special remote and return
+  - `get_specialremote_credential_properties()` inspects a special remote and returns
     properties for querying a credential store for matching credentials
   - `update_specialremote_credential()` updates a credential in a store after
     successful use
