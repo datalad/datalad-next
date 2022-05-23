@@ -102,8 +102,10 @@ def get_export_records(repo: AnnexRepo) -> Generator:
             yield result_dict
     except CommandError as command_error:
         # Some errors indicate that there was no export yet.
+        # May depend on Git version
         expected_errors = (
             "fatal: Not a valid object name git-annex:export.log",
+            "fatal: path 'export.log' does not exist in 'git-annex'", # v2.36
         )
         if command_error.stderr.strip() in expected_errors:
             return
