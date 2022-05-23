@@ -57,6 +57,8 @@ package and its commands.
   user interface.
 - Enhance `datalad-push` to automatically export files to git-annex special
   remotes configured with `exporttree=yes`.
+- Speed-up `datalad-push` when processing non-git special remotes. This particularly
+  benefits less efficient hosting scenarios like WebDAV.
 - Enhance `datalad-siblings enable` (`AnnexRepo.enable_remote()` to automatically
   deploy credentials for git-annex special remotes that require them.
 - `git-remote-datalad-annex` is a Git remote helper to push/fetch to any

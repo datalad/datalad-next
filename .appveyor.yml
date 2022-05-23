@@ -50,7 +50,8 @@ shallow_clone: false
 
 
 environment:
-  DATALAD_TESTS_SSH: 1
+  # we do not have an adequate setup for SSH-based tests right now
+  #DATALAD_TESTS_SSH: 1
 
   # Do not use `image` as a matrix dimension, to have fine-grained control over
   # what tests run on which platform
