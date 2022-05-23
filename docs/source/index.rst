@@ -1,8 +1,13 @@
-DataLad extension template
-**************************
+DataLad NEXT extension
+**********************
 
-This is a template for creating a `DataLad <http://datalad.org>`__ extension
-that equips DataLad with additional functionality.
+This `DataLad <http://datalad.org>`__ extension can be thought of as a
+staging area for additional functionality, or for improved performance
+and user experience. Unlike other topical or more experimental
+extensions, the focus here is on functionality with broad
+applicability. This extension is a suitable dependency for other
+software packages that intend to build on this improved set of
+functionality.
 
 
 API

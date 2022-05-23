@@ -63,7 +63,7 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 class CreateSiblingWebDAV(Interface):
     """Create a sibling(-tandem) on a WebDAV server
 
-    WebDAV is standard HTTP protocol extension for placing files on a server
+    WebDAV is a standard HTTP protocol extension for placing files on a server
     that is supported by a number of commercial storage services (e.g.
     4shared.com, box.com), but also instances of cloud-storage solutions like
     Nextcloud or ownCloud. These software packages are also the basis for
@@ -77,7 +77,7 @@ class CreateSiblingWebDAV(Interface):
     This command does not check for conflicting content on the WebDAV
     server!
 
-    When creating siblings recursively for a dataset hierarchy, subdatasets
+    When creating siblings recursively for a dataset hierarchy, subdataset
     exports are placed at their corresponding relative paths underneath the
     root location on the WebDAV server.
 
@@ -96,9 +96,9 @@ class CreateSiblingWebDAV(Interface):
 
     Storage siblings are presently configured to NOT be enabled
     automatically on cloning a dataset. Due to a limitation of git-annex, this
-    would initially fail (missing credentials). Instead, after cloning
-    an explicit ``datalad siblings enable --name <storage-sibling-name>``
-    command must be executed. If necessary, it will prompt for credentials.
+    would initially fail (missing credentials). Instead, an explicit
+    ``datalad siblings enable --name <storage-sibling-name>`` command must be
+    executed after cloning. If necessary, it will prompt for credentials.
 
     This command does not (and likely will not) support embedding credentials
     in the repository (see ``embedcreds`` option of the git-annex ``webdav``
@@ -111,16 +111,15 @@ class CreateSiblingWebDAV(Interface):
     This command does not support setting up encrypted remotes (yet). Neither
     for the storage sibling, nor for the regular Git-remote. However, adding
     support for it is primarily a matter of extending the API of this command,
-    and to pass the respective options on to the underlying git-annex
-    setup.
+    and passing the respective options on to the underlying git-annex setup.
 
     This command does not support setting up chunking for webdav storage
     siblings (https://git-annex.branchable.com/chunking).
     """
     _examples_ = [
-       dict(text="Create a WebDAV sibling tandem for storage a dataset's file "
-                 "content and revision history. A user will be prompted for "
-                 "any required credentials, if they are not yet known.",
+       dict(text="Create a WebDAV sibling tandem for storage of a dataset's "
+                 "file content and revision history. A user will be prompted "
+                 "for any required credentials, if they are not yet known.",
              code_py="create_sibling_webdav(url='https://webdav.example.com/myds')",
              code_cmd='datalad create-sibling-webdav "https://webdav.example.com/myds"'),
        dict(text="Such a dataset can be cloned by DataLad via a specially "
@@ -139,7 +138,7 @@ class CreateSiblingWebDAV(Interface):
             code_py="clone('webdavs://example.com/browseable')",
             code_cmd='datalad clone "webdavs://example.com/browseable"'),
        dict(text="In all cases, the storage sibling needs to explicitly "
-                 "enabled prior file content retrieval",
+                 "enabled prior to file content retrieval",
             code_py="siblings('enable', name='example.com-storage')",
             code_cmd='datalad siblings enable --name example.com-storage'),
     ]
@@ -209,7 +208,7 @@ class CreateSiblingWebDAV(Interface):
             A single sibling for the Git history only ('git-only').
             A single annex sibling for multi-version file storage only
             ('annex-only').
-            is an alternative to the standard (annex) storage sibling setup
+            As an alternative to the standard (annex) storage sibling setup
             that is capable of storing any number of historical file versions
             using a content hash layout ('annex'|'annex-only'), the 'filetree'
             mode can used.
