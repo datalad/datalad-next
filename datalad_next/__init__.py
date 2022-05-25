@@ -39,6 +39,12 @@ import datalad_next.patches
 from datalad.support.extensions import register_config
 from datalad.support.constraints import EnsureBool
 register_config(
+    'datalad.annex.init.private',
+    "Set up new dataset(s) to operate in git-annex' private mode?",
+    type=EnsureBool(),
+    default=False,
+    dialog='yesno')
+register_config(
     'datalad.credentials.repeat-secret-entry',
     'Require entering secrets twice for interactive specification?',
     type=EnsureBool(),

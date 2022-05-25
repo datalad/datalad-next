@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from functools import wraps
 
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.exceptions import (
@@ -99,3 +100,26 @@ def annexRepo__enable_remote(self, name, options=None, env=None):
 
 lgr.debug('Apply datalad-next patch to annexrepo.py:AnnexRepo.enable_remote')
 AnnexRepo.enable_remote = annexRepo__enable_remote
+
+
+def patch_init(func):
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        private = self.config.obtain("datalad.annex.init.private")
+        if private:
+            lgr.debug("Set up annex repo {} for private mode", self)
+            # Set the config for annex:
+            self.config.set("annex.private", "true", scope="local")
+            # And set the datalad config locally for auto-reuse by get/clone
+            # on subdatasets. This would lead to subdatasets automatically
+            # operating in the same mode just like passing a `--reckless`
+            # switch to clone/get.
+            self.config.set("datalad.annex.init.private", "true", scope="local")
+
+        return func(*args, **kwargs)
+    return wrapper
+
+
+lgr.debug('Apply datalad-next patch to annexrepo.py:AnnexRepo._init')
+AnnexRepo._init = patch_init(AnnexRepo._init)
