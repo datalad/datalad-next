@@ -269,6 +269,7 @@ push.Push._params_["force"] = Parameter(
 
 
 from datalad.interface.base import build_doc
+push.Push.__call__.__doc__ = None
 push.Push = build_doc(push.Push)
 
 lgr.debug("Patching datalad.support.AnnexRepo.get_export_records (new method)")
