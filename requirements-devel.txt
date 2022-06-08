@@ -1,5 +1,7 @@
 # requirements for a development environment
 # (also) to get the docs built properly by RTD
 -e .[devel]
+# we need datalad from the future with pytest foo for now
+git+https://github.com/datalad/datalad
 sphinx
 sphinx_rtd_theme
