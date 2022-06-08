@@ -53,7 +53,7 @@ jobs:
         echo "== mount >>"
         mount
         echo "<< mount =="
-        PATH=$PWD/../tools/coverage-bin:$PATH python -m nose -s -v --with-doctest --with-coverage --cover-package datalad_next datalad_next
+        PATH=$PWD/../tools/coverage-bin:$PATH python -m pytest -s -v --doctest-modules --cov=datalad_next --pyargs datalad_next
     - name: Report coverage
       run: |
         python -m coverage combine -a /tmp/.coverage-entrypoints-*;

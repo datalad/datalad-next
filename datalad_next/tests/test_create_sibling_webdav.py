@@ -6,7 +6,7 @@ from unittest.mock import (
 from urllib.parse import quote as urlquote
 
 from datalad.cli.tests.test_main import run_main
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     assert_equal,
     assert_in,
     assert_in_results,
@@ -16,10 +16,7 @@ from datalad.tests.utils import (
     eq_,
     ok_,
 )
-# TODO find a replacement for this in anticipation of nose->pytest
-from nose.tools import (
-    assert_raises_regexp,
-)
+import pytest
 
 from datalad.api import (
     clone,
@@ -28,7 +25,7 @@ from datalad.api import (
 from datalad.distribution.dataset import (
     Dataset,
 )
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     with_tempfile,
     with_tree
 )
@@ -155,7 +152,7 @@ def check_common_workflow(
 
 
 @with_tempfile
-def test_bad_url_catching(path):
+def test_bad_url_catching(path=None):
     # Ensure that bad URLs are detected and handled
 
     ds = Dataset(path).create()
@@ -179,17 +176,13 @@ def test_bad_url_catching(path):
     ]
 
     for bad_url, expected_message in check_pairs:
-        assert_raises_regexp(
-            ValueError,
-            expected_message.format(url=bad_url),
-            create_sibling_webdav,
-            dataset=ds,
-            url=bad_url
-        )
+        with pytest.raises(ValueError,
+                           match=expected_message.format(url=bad_url)):
+            create_sibling_webdav(dataset=ds, url=bad_url)
 
 
 @with_tempfile
-def test_http_warning(path):
+def test_http_warning(path=None):
     # Check that usage of http: triggers a warning.
 
     ds = Dataset(path).create()
@@ -204,12 +197,10 @@ def test_http_warning(path):
 
         # We set up the mocks to generate the following exception. This allows
         # us to limit the test to the logic in 'create_sibling_wabdav'.
-        assert_raises_regexp(
-            ValueError,
-            f"No suitable credential for {url} found or specified",
-            create_sibling_webdav,
-            dataset=ds,
-            url=url)
+        with pytest.raises(
+                ValueError,
+                match=f"No suitable credential for {url} found or specified"):
+            create_sibling_webdav(dataset=ds, url=url)
 
         eq_(lgr_mock.warning.call_count, 1)
         assert_in(
@@ -221,22 +212,19 @@ def test_http_warning(path):
 
 
 @with_tempfile
-def test_constraints_checking(path):
+def test_constraints_checking(path=None):
     # Ensure that constraints are checked internally
 
     ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for key in ("existing", "mode"):
-        assert_raises_regexp(
-            ValueError, "value is not one of",
-            create_sibling_webdav,
-            dataset=ds,
-            url=url,
-            **{key: "illegal-value"})
+        with pytest.raises(ValueError, match="value is not one of"):
+            create_sibling_webdav(
+                dataset=ds, url=url, **{key: "illegal-value"})
 
 
 @with_tempfile
-def test_credential_handling(path):
+def test_credential_handling(path=None):
 
     ds = Dataset(path).create()
     url = "https://localhost:22334/abc"
@@ -247,25 +235,19 @@ def test_credential_handling(path):
         csw_mock.return_value = iter([])
 
         gur_mock.return_value = None
-        assert_raises_regexp(
-            ValueError,
-            f"No suitable credential for {url} found or specified",
-            create_sibling_webdav,
-            dataset=ds,
-            url=url,
-            name="some_name",
-            existing="error")
+        with pytest.raises(
+                ValueError,
+                match=f"No suitable credential for {url} found or specified"):
+            create_sibling_webdav(
+                dataset=ds, url=url, name="some_name", existing="error")
 
         gur_mock.reset_mock()
         gur_mock.return_value = [None, {"some_key": "some_value"}]
-        assert_raises_regexp(
-            ValueError,
-            f"No suitable credential for {url} found or specified",
-            create_sibling_webdav,
-            dataset=ds,
-            url=url,
-            name="some_name",
-            existing="error")
+        with pytest.raises(
+                ValueError,
+                match=f"No suitable credential for {url} found or specified"):
+            create_sibling_webdav(
+                dataset=ds, url=url, name="some_name", existing="error")
 
         # Ensure that failed credential storing is handled and logged
         gur_mock.reset_mock()
@@ -278,24 +260,19 @@ def test_credential_handling(path):
 
 
 @with_tempfile
-def test_name_clash_detection(path):
+def test_name_clash_detection(path=None):
     # Ensure that constraints are checked internally
 
     ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for mode in ("annex", 'filetree', 'annex-only', 'filetree-only'):
-        assert_raises_regexp(
-            ValueError, "sibling names must not be equal",
-            create_sibling_webdav,
-            dataset=ds,
-            url=url,
-            name="abc",
-            storage_name="abc",
-            mode=mode)
+        with pytest.raises(ValueError, match="sibling names must not be equal"):
+            create_sibling_webdav(
+                dataset=ds, url=url, name="abc", storage_name="abc", mode=mode)
 
 
 @with_tempfile
-def test_unused_storage_name_warning(path):
+def test_unused_storage_name_warning(path=None):
     # Ensure that constraints are checked internally
 
     ds = Dataset(path).create()
@@ -378,7 +355,7 @@ def test_get_url_credential():
                  'f3': '3'})
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
-def test_existing_switch(localpath, remotepath, url):
+def test_existing_switch(localpath=None, remotepath=None, url=None):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(force=True, **ca)
     # use a tricky name: '3f7' will be the hashdir of the XDLRA
@@ -525,7 +502,7 @@ def test_existing_switch(localpath, remotepath, url):
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
-def test_result_renderer(localpath, remotepath, url):
+def test_result_renderer(localpath=None, remotepath=None, url=None):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
     # need to amend the test credential, can only do after we know the URL

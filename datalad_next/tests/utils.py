@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from datalad.utils import optional_args
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     SkipTest,
     attr,
 )
