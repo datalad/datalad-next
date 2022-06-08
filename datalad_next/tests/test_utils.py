@@ -1,7 +1,7 @@
 from pathlib import Path
 from webdav3.client import Client as DAVClient
 
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     ok_,
     with_tempfile,
 )
@@ -13,7 +13,7 @@ webdav_cred = ('datalad', 'secure')
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred)
-def test_serve_webdav(localpath, remotepath, url):
+def test_serve_webdav(localpath=None, remotepath=None, url=None):
     webdav_cfg = dict(
         webdav_hostname=url,
         webdav_login=webdav_cred[0],
@@ -30,7 +30,7 @@ def test_serve_webdav(localpath, remotepath, url):
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav
-def test_serve_webdav_noauth(localpath, remotepath, url):
+def test_serve_webdav_noauth(localpath=None, remotepath=None, url=None):
     webdav_cfg = dict(
         webdav_hostname=url,
         webdav_root='/',

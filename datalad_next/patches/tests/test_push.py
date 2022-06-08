@@ -1,4 +1,4 @@
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     DEFAULT_REMOTE,
     assert_result_count,
     with_tempfile,
@@ -14,7 +14,7 @@ from datalad.core.distributed.tests.test_push import *
 # value, because our implementation behaves "better"
 @with_tempfile()
 @with_tempfile()
-def test_gh1811(srcpath, clonepath):
+def test_gh1811(srcpath=None, clonepath=None):
     # `annex=false` is the only change from the -core implementation
     # of the test. For normal datasets with an annex, the problem underlying
     # gh1811 is no longer valid, because of more comprehensive analysis of

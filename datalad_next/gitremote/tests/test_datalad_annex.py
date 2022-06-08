@@ -19,7 +19,7 @@ from datalad.api import (
     clone,
 )
 from datalad.runner import CommandError
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
     assert_raises,
@@ -60,7 +60,7 @@ def eq_dla_branch_state(state, path, branch=DEFAULT_BRANCH):
 
 @with_tempfile
 @with_tempfile(mkdir=True)
-def test_annex_remote(dspath, remotepath):
+def test_annex_remote(dspath=None, remotepath=None):
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
@@ -72,7 +72,7 @@ def test_annex_remote(dspath, remotepath):
 
 @with_tempfile
 @with_tempfile(mkdir=True)
-def test_export_remote(dspath, remotepath):
+def test_export_remote(dspath=None, remotepath=None):
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
@@ -190,7 +190,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
 
 @with_tempfile
 @with_tempfile(mkdir=True)
-def test_annex_remote_autorepush(dspath, remotepath):
+def test_annex_remote_autorepush(dspath=None, remotepath=None):
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
@@ -202,7 +202,7 @@ def test_annex_remote_autorepush(dspath, remotepath):
 
 @with_tempfile
 @with_tempfile(mkdir=True)
-def test_export_remote_autorepush(dspath, remotepath):
+def test_export_remote_autorepush(dspath=None, remotepath=None):
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
@@ -315,7 +315,7 @@ def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
 @with_tempfile(mkdir=True)
 @serve_path_via_http
 @with_tempfile
-def test_submodule_url(servepath, url, workdir):
+def test_submodule_url(servepath=None, url=None, workdir=None):
     workdir = Path(workdir)
     # a future subdataset that we want to register under a complex URL
     tobesubds = Dataset(workdir / 'subdsprep').create(annex=False, result_renderer='disabled')
@@ -357,7 +357,7 @@ def test_submodule_url(servepath, url, workdir):
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred)
-def test_webdav_auth(preppath, clnpath, remotepath, webdavurl):
+def test_webdav_auth(preppath=None, clnpath=None, remotepath=None, webdavurl=None):
     # this is the dataset we want to roundtrip through webdav
     ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
 

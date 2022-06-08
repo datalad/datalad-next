@@ -18,7 +18,7 @@ from ..credman import (
     _get_cred_cfg_var,
 )
 from datalad.support.keyring_ import MemoryKeyring
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     assert_in,
     assert_not_in,
     assert_raises,
@@ -105,7 +105,7 @@ def check_credmanager():
 
 
 @with_tempfile
-def test_credman_local(path):
+def test_credman_local(path=None):
     ds = Dataset(path).create(result_renderer='disabled')
     credman = CredentialManager(ds.config)
 
