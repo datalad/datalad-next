@@ -891,39 +891,26 @@ class RepoAnnexGitRemote(object):
 
         self.log("Get refs from remote")
         ra = self.repoannex
+
         # in case of the 'web' special remote, we have no actual special
         # remote, but URLs for the two individual keys
         sremotes = ra.get_special_remotes()
+        # if we do not have a special remote reported, fall back on
+        # possibly recorded URLs for the XDLRA--refs key
+        sremote_id = sremotes.popitem()[0] if sremotes else 'web'
 
-        # disable the useless download prevention due to
-        # https://github.com/datalad/datalad-next/issues/72
-        #if len(sremotes) == 1 and not call_annex_success(ra, [
-        #        'fsck', '-f', 'origin', '--fast',
-        #        '--key', self.refs_key]):
-        #    # the remote reports nothing, we can exit
-        #    # we use `fsck`, rather than `whereis` to bypass
-        #    # the local state tracking
-        #    return
-        #
-        # instead pretend that the remote has this key and let things
-        # fail-on-get below if that is not the case
-        if len(sremotes) == 1:
-            # in case of the 'web' special remote, we have no actual special
-            # remote, but URLs for the two individual keys
-            ra.call_annex(['setpresentkey', self.refs_key,
-                           sremotes.popitem()[0], '1'])
-
-        # we have to get the key, and report its content
-        # force redownload, by dropping the local content first
+        # we want to get the latest refs from the remote under all
+        # circumstances, and transferkey will not attempt a download for
+        # a key that is already present locally -> drop first
         ra.call_annex([
             'drop', '--force', '--key', self.refs_key])
-        # try download -- try, because we fakes availability above -- without
-        # which the `get` would not be attempted
+        # now get the key from the determined remote
         try:
-            ra.call_annex(['get', '--key', self.refs_key])
+            ra.call_annex([
+                'transferkey', self.refs_key, f'--from={sremote_id}'])
         except CommandError as e:
             CapturedException(e)
-            self.log("Remote reports no refs")
+            self.log("Remote appears to have no refs")
             # download failed, we have no refs
             return
 
