@@ -28,8 +28,6 @@ from datalad.tests.utils import (
     neq_,
     rmtree,
     serve_path_via_http,
-    skip_if_on_windows,
-    SkipTest,
     with_tempfile,
 )
 from datalad.utils import on_windows
@@ -60,8 +58,6 @@ def eq_dla_branch_state(state, path, branch=DEFAULT_BRANCH):
     assert None, f'Could not find state for branch {branch} at {path}'
 
 
-# https://git-annex.branchable.com/bugs/Fails_to_drop_key_on_windows___40__Access_denied__41__/?updated
-@skip_if_on_windows
 @with_tempfile
 @with_tempfile(mkdir=True)
 def test_annex_remote(dspath, remotepath):
