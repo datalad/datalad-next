@@ -208,7 +208,10 @@ from datalad.support.exceptions import CapturedException
 from datalad.support.gitrepo import GitRepo
 from datalad.support.constraints import EnsureInt
 from datalad.ui import ui
-from datalad.utils import rmtree
+from datalad.utils import (
+    on_windows,
+    rmtree,
+)
 
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
@@ -744,7 +747,20 @@ class RepoAnnexGitRemote(object):
         # update the repo state keys
         # it is critical to drop the local keys first, otherwise
         # `setkey` below will not replace them with new content
-        self.log(repoannex.call_annex(['drop', '--force', '--all']))
+        # however, git-annex fails to do so in some edge cases
+        # https://git-annex.branchable.com/bugs/Fails_to_drop_key_on_windows___40__Access_denied__41__/?updated
+        # no regular `drop` works, nor does `dropkeys`
+        #self.log(repoannex.call_annex(['drop', '--force', '--all']))
+        # nuclear option remains, luckily possible in this utility repo
+        if on_windows:
+            objdir = self.repoannex.dot_git / 'annex' / 'objects'
+            if objdir.exists():
+                rmtree(str(objdir), ignore_errors=True)
+                objdir.mkdir()
+        else:
+            # more surgical for the rest
+            self.log(repoannex.call_annex([
+                'dropkey', '--force', self.refs_key, self.repo_export_key]))
 
         # use our zipfile wrapper to get an LZMA compressed archive
         # via the shutil convenience layer
@@ -763,7 +779,7 @@ class RepoAnnexGitRemote(object):
             # hand over archive to annex
             repoannex.call_annex([
                 'setkey',
-                'XDLRA--repo-export',
+                self.repo_export_key,
                 archive_file
             ])
         # generate a list of refs
