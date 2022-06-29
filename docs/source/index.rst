@@ -22,6 +22,7 @@ High-level API commands
 
    create_sibling_webdav
    credentials
+   tree
 
 
 Command line reference
@@ -32,6 +33,7 @@ Command line reference
 
    generated/man/datalad-create-sibling-webdav
    generated/man/datalad-credentials
+   generated/man/datalad-tree
 
 
 Python utilities
