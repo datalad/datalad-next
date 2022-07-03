@@ -145,6 +145,7 @@ class Walk(object):
         # directory depth can be safely inferred from the number of
         # path separators in path, since pathsep characters are illegal
         # in file or directory names.
+        # TODO: sanitize / normalize root path in Walk constructor
         return path.count(os.path.sep) - self.root.rstrip(os.path.sep).count(os.path.sep)
 
     def _is_last_child(self, path):
@@ -156,18 +157,20 @@ class Walk(object):
         If max depth is reached, it means we will not traverse
         any further directories in the next iteration.
         However, we will still list any directories or files
-        below the current level.
-        Therefore, we 'reach' when we get 1 level before max_depth.
+        right below the current level.
+        Therefore, we 'reach' when we get 1 level *before* max_depth.
         """
         return self._current_depth(path) == self.max_depth - 1
 
     def stats(self):
-        """Equivalent of tree command's 'report line'.
-        TODO: add dataset count"""
+        """
+        Equivalent of tree command's report line.
+        TODO: add dataset count
+        """
         return f"{self._stats}\n"
 
     def generate_tree_items(self):
-        """Generator of directories/files, traversed in depth-first order."""
+        """Generator of directories/files using depth-first traversal"""
         for path, dirs, files in os.walk(self.root):
 
             # exclude hidden files/directories unless specified by arg.
