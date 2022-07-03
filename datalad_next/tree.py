@@ -103,7 +103,7 @@ class Tree(Interface):
     @staticmethod
     @datasetmethod(name='tree')
     @eval_results
-    def __call__(path='.', *, depth=None, depth_mode='directory',
+    def __call__(path='.', *, depth=1, depth_mode='directory',
                  datasets_only=False, include_files=False, include_hidden=False, full_paths=False):
 
         # print tree output
@@ -125,6 +125,7 @@ class Walk(object):
     def __init__(self, root: str, max_depth: int,
                  datasets_only=False, include_files=False,
                  include_hidden=False, full_paths=False):
+        # TODO: validate parameters
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
         self.root = root
