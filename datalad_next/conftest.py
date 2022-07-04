@@ -14,3 +14,7 @@ except ImportError:
         yield
         _teardown_package()
 
+
+# pytest hooks for pretty-formatting of parameter IDs
+def pytest_make_parametrize_id(config, val, argname):
+    return f"{argname}={val}"
