@@ -81,10 +81,6 @@ class Tree(Interface):
             args=("-a", "--include-hidden",),
             doc="""whether to include hidden files/directories in output display""",
             action='store_true'),
-        full_paths=Parameter(
-            args=("--full-paths",),
-            doc="""whether to display full paths""",
-            action='store_true'),
     )
 
     _examples_ = [
@@ -94,17 +90,17 @@ class Tree(Interface):
             code_py="tree(depth=3, include_files=True)",
             code_cmd="datalad tree -L 3 --include-files"),
         dict(text="List all first- and second-level subdatasets "
-                  "of datasets located anywhere under /tmp (regardless "
-                  "of directory depth), displaying their full paths",
-             code_py="tree('/tmp', depth=2, depth_mode='dataset', datasets_only=True, full_paths=True)",
-             code_cmd="datalad tree /tmp -L 2 --depth-mode dataset --datasets-only --full-paths"),
+                  "of datasets located anywhere under /tmp, "
+                  "regardless of directory depth",
+             code_py="tree('/tmp', depth=2, depth_mode='dataset', datasets_only=Truec)",
+             code_cmd="datalad tree /tmp -L 2 --depth-mode dataset --datasets-only"),
     ]
 
     @staticmethod
     @datasetmethod(name='tree')
     @eval_results
     def __call__(path='.', *, depth=1, depth_mode='directory',
-                 datasets_only=False, include_files=False, include_hidden=False, full_paths=False):
+                 datasets_only=False, include_files=False, include_hidden=False):
 
         # print tree output
         walk = Walk(path, depth, datasets_only=datasets_only, include_files=include_files)
@@ -124,7 +120,7 @@ class Walk(object):
 
     def __init__(self, root: str, max_depth: int,
                  datasets_only=False, include_files=False,
-                 include_hidden=False, full_paths=False):
+                 include_hidden=False):
         # TODO: validate parameters
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
@@ -133,7 +129,6 @@ class Walk(object):
         self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
-        self.full_paths = full_paths
         self._output = ""
         self._last_children = []
         self._stats = {'dir_count': 0, 'file_count': 0, 'dataset_count': 0}
