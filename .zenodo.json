@@ -1,4 +1,5 @@
 {
+    "title": "DataLad-next extension",
     "creators": [
         {
             "affiliation": "Dartmouth College, Hanover, NH, United States",
@@ -11,8 +12,8 @@
             "orcid": "0000-0001-6398-6370"
         },
         {
-            "affiliation": "Institute of Neuroscience and Medicine, Brain & Behavior (INM-7), Research Center Jülich, Germany",
-            "name": "Stephan Heunis",
+            "affiliation": "Institute of Neuroscience and Medicine, Brain & Behaviour (INM-7), Research Centre Jülich, Jülich, Germany",
+            "name": "Heunis, Stephan",
             "orcid": "0000-0003-3503-9872"
         },
         {
@@ -41,7 +42,7 @@
             "orcid": "0000-0003-2917-3450"
         },
         {
-            "name": "Wodder, John T., II"
+            "name": "Wodder II, John T."
         }
     ],
     "keywords": [
