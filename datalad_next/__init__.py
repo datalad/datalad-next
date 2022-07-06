@@ -32,7 +32,7 @@ command_suite = (
             # importable module that contains the command implementation
             'datalad_next.tree',
             # name of the command class implementation in above module
-            'Tree',
+            'TreeCommand',
         )
     ]
 )
