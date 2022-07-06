@@ -6,13 +6,46 @@
 #   copyright and license terms.
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-"""'tree'-like command for visualization of dataset hierarchies"""
+"""
+'tree'-like command for visualization of dataset hierarchies.
+
+This command covers 2 main use cases:
+
+(1) Glorified `tree` command:
+    ---
+    As a datalad user, I want to list the contents of a directory tree and
+    see which directories are datalad datasets, so that I can locate my
+    datasets in the context of the whole directory layout.
+    ---
+    This is basically what is implemented by the `tree-datalad` utility --
+    just `tree` with visual markers for datasets.
+    In addition to it, `datalad-tree` provides the following:
+    1.  The subdataset hierarchy level information
+        (included in the dataset marker, e.g. [DS~0]).
+        This is the absolute level, meaning it may take into account
+        superdatasets that are not included in the display.
+    2.  The option to list only directories that are datasets
+    3.  The count of displayed datasets in the "report line"
+        (where `tree` only reports count of directories and files)
+
+(2) Descriptor of nested subdataset hierarchies:
+    ---
+    As a datalad user, I want to visualize the structure of multiple datasets
+    and their hierarchies at once based on the subdataset nesting level,
+    regardless of their actual depth in the directory tree. This helps me
+    understand and communicate the layout of my datasets.
+    ---
+    This is the more datalad-specific case. Here we redefine 'depth' as the
+    level in the subdataset hierarchy instead of the filesystem hierarchy.
+
+"""
 
 __docformat__ = 'restructuredtext'
 
 import json
 import logging
 import os
+from functools import wraps
 
 from datalad.interface.base import (
     Interface,
@@ -42,7 +75,7 @@ lgr = logging.getLogger('datalad.local.tree')
 
 
 @build_doc
-class Tree(Interface):
+class TreeCommand(Interface):
     """Visualize directory and dataset hierarchies
 
     This command mimics the UNIX/MSDOS 'tree' command to display a
@@ -59,16 +92,13 @@ class Tree(Interface):
             Defaults to the current directory.""",
             constraints=EnsureStr() | EnsureNone()),
         depth=Parameter(
-            args=("-L", "--depth",),
-            doc="""maximum tree depth to display. Can refer to either
-            directory depth or dataset hierarchy depth, depending on
-            the value of [CMD: --depth-mode CMD][PY: `depth_mode` PY].""",
-            constraints=EnsureInt() & EnsureRange(min=1) | EnsureNone()),
-        depth_mode=Parameter(
-            args=("--depth-mode",),
-            doc="""interpret [CMD: --depth CMD][PY: `depth` PY] parameter to mean either
-                directory depth or subdataset hierarchy depth.""",
-            constraints=EnsureChoice("directory", "dataset")),
+            args=("-L", "--directory-depth",),
+            doc="""maximum depth of directory tree to display""",
+            constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
+        dataset_depth=Parameter(
+            args=("-R", "--dataset-depth",),
+            doc="""maximum depth of nested subdatasets to display""",
+            constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         datasets_only=Parameter(
             args=("--datasets-only",),
             doc="""whether to only list directories that are datasets""",
@@ -99,14 +129,13 @@ class Tree(Interface):
     @staticmethod
     @datasetmethod(name='tree')
     @eval_results
-    def __call__(path='.', *, depth=1, depth_mode='directory',
+    def __call__(path='.', *, depth=1, dataset_depth=None,
                  datasets_only=False, include_files=False, include_hidden=False):
 
         # print tree output
-        walk = Walk(path, depth, datasets_only=datasets_only, include_files=include_files)
-        walk.build_tree()
-        print(walk.get_tree())
-        print(walk.stats())
+        tree = Tree(path, depth, datasets_only=datasets_only, include_files=include_files)
+        print(tree)
+        print(tree.stats())
 
         # return a generic OK status
         yield get_status_dict(
@@ -116,32 +145,70 @@ class Tree(Interface):
         )
 
 
-class Walk(object):
+def increment_node_count(node_generator_func):
+    """
+    Decorator for incrementing the node count whenever a _TreeNode is yielded.
+    """
+    @wraps(node_generator_func)
+    def _wrapper(*args, **kwargs):
+        self = args[0]   # 'self' is a Tree instance
+        for node in node_generator_func(*args, **kwargs):
+            node_type = node.__class__.__name__
+            if node_type not in self._stats:
+                raise ValueError(f"No stats collected for unknown node type '{node_type}'")
+            if node.depth > 0:  # we do not count the root directory
+                self._stats[node_type] += 1
 
-    def __init__(self, root: str, max_depth: int,
+            yield node  # yield what the generator yielded
+
+    return _wrapper
+
+
+def is_path_child_of_parent(child, parent):
+    parent_abs = os.path.abspath(parent)
+    child_abs = os.path.abspath(child)
+    return os.path.commonpath([parent_abs]) == \
+           os.path.commonpath([parent_abs, child_abs])
+
+
+class Tree(object):
+    """
+    Does not store _TreeNode objects, only the string representation
+    of the whole tree and the statistics (counts of different node types).
+    """
+
+    def __init__(self, root: str, max_depth: int, dataset_max_depth=None,
                  datasets_only=False, include_files=False,
                  include_hidden=False):
         # TODO: validate parameters
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
+        # TODO: sanitize / normalize root path
         self.root = root
         self.max_depth = max_depth
+        self.dataset_max_depth = dataset_max_depth
         self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
-        self._output = ""
+        self._current_dataset_depth = -1
+        self._string_repr = ""  # holds the serialized representation
         self._last_children = []
-        self._stats = {'dir_count': 0, 'file_count': 0, 'dataset_count': 0}
+        # TODO: stats should automatically register all concrete _TreeNode classes
+        self._stats = {"DirectoryNode": 0, "DatasetNode": 0, "FileNode": 0}
 
-    def get_tree(self):
-        return self._output
+    def __str__(self):
+        """Return serialized Tree representation"""
+        if self._string_repr != "":
+            # tree has already been serialized
+            return self._string_repr
+        return self._build_string()
 
     def _current_depth(self, path: str):
         """Directory depth of current path relative to root of the walk"""
         # directory depth can be safely inferred from the number of
         # path separators in path, since pathsep characters are illegal
         # in file or directory names.
-        # TODO: sanitize / normalize root path in Walk constructor
+        # TODO: sanitize / normalize root path in Tree constructor
         return path.count(os.path.sep) - self.root.rstrip(os.path.sep).count(os.path.sep)
 
     def _is_last_child(self, path):
@@ -154,33 +221,53 @@ class Walk(object):
         any further directories in the next iteration.
         However, we will still list any directories or files
         right below the current level.
-        Therefore, we 'reach' when we get 1 level *before* max_depth.
+        Therefore, we 'reach' when we get to 1 level *before* max_depth.
         """
         return self._current_depth(path) == self.max_depth - 1
 
+    def _is_max_dataset_depth_reached(self, path):
+        pass
+
     def stats(self):
         """
-        Equivalent of tree command's report line.
-        TODO: add dataset count
+        Equivalent of tree command's 'report line'.
         """
-        return f"{self._stats}\n"
+        return f"{self._stats['DirectoryNode']} directories, " \
+            f"{self._stats['DatasetNode']} datasets, " \
+            f"{self._stats['FileNode']} files" \
+            "\n"
 
-    def generate_tree_items(self):
-        """Generator of directories/files using depth-first traversal"""
+    def build(self):
+        """Public API for constructing tree.
+        Returns the instance."""
+        self._build_string()
+        return self
+
+    @increment_node_count
+    def _generate_nodes(self):
+        """
+        Yields _TreeNode objects, each representing a directory, dataset
+        or file. Nodes are traversed in depth-first order.
+        """
+
+        # os.walk() does depth-first traversal
         for path, dirs, files in os.walk(self.root):
 
-            # exclude hidden files/directories unless specified by arg.
-            # we modify os.walk's output in-place.
+            # modify os.walk()'s output in-place to prevent
+            # traversal into those directories
             if not self.include_hidden:
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
                 files[:] = [f for f in files if not f.startswith(".")]
 
-            # sort directories and files alphabetically in-place
+            # sort directories and files alphabetically in-place.
+            # note that directories and files are sorted separately.
+            # files are all listed before the directories
+            # (just by convention, no particular reason).
             dirs.sort()
             files.sort()
 
-            # check if item is the last child within its subtree
-            # (needed for applying special formatting)
+            # check if node is the last child within its subtree
+            # (needed for displaying special end-of-subtree prefix)
             if dirs or files:  # if there is a next level
                 # files are listed first, directories come last.
                 # so we take the last subdirectory if it exists,
@@ -190,162 +277,179 @@ class Walk(object):
                 )
 
             current_depth = self._current_depth(path)
-            item = DirectoryItem(path, current_depth, self._is_last_child(path))
 
-            if not self.datasets_only or self.datasets_only and item.is_dataset():
-                yield item
-                if current_depth > 0:
-                    self._stats['dir_count'] += 1  # do not count root directory
+            # handle directories/datasets
+            dir_or_ds = DirectoryOrDatasetNode(path, current_depth,
+                                                   self._is_last_child(path))
+            if not self.datasets_only or \
+                    self.datasets_only and isinstance(dir_or_ds, DatasetNode):
+                yield dir_or_ds
 
+            # handle files
             if self.include_files:
                 for file in files:
                     file_path = os.path.join(path, file)
-                    yield FileItem(file_path, current_depth + 1,
+                    yield FileNode(file_path, current_depth + 1,
                                    self._is_last_child(file_path))
-                    self._stats['file_count'] += 1
 
             if self._is_max_depth_reached(path):
                 # generate any remaining directory items, which
                 # will not be traversed
                 for child_dir in dirs:
                     dir_path = os.path.join(path, child_dir)
-                    yield DirectoryItem(dir_path, current_depth + 1,
+                    yield DirectoryNode(dir_path, current_depth + 1,
                                         self._is_last_child(dir_path))
-                    self._stats['dir_count'] += 1
 
-                # empty in-place the list of next directories
-                # to traverse. this effectively stops os.walk's walking.
+                # empty in-place the list of next directories to
+                # traverse, which effectively stops os.walk's walking
                 dirs[:] = []
 
-    def build_tree(self):
+    def _build_string(self):
         """
-        Structure of tree output line (express in BNF?):
-                [padding]?[prefix]?[path]
+        Return tree as string, where each line represents a node
+        (directory or dataset or file).
+        Each line follows the structure:
+            `[<indentation>] [<branch_tip_symbol>] <path>`
         Example:
-                `|   |   |– mydir`
+            |   |   ├── path_dir_level3
         """
+
         # keep track of levels where subtree is exhaused,
         # i.e. we have reached the last child of the subtree.
-        # this is needed to build the padding string for each item,
+        # this is needed to build the indentation string for each item,
         # which takes into account whether any parent
-        # is the last item of its own subtree.
+        # is the last node of its own subtree.
         levels_with_exhausted_subtree = set([])
 
-        for item in self.generate_tree_items():
-            lgr.debug(item)
+        for node in self._generate_nodes():
+            lgr.debug(node)
 
-            if item.is_last_child:  # last child of its subtree
-                levels_with_exhausted_subtree.add(item.depth)
+            if node.is_last_child:  # last child of its subtree
+                levels_with_exhausted_subtree.add(node.depth)
             else:
                 # 'discard' does not raise exception
                 # if value does not exist in set
-                levels_with_exhausted_subtree.discard(item.depth)
+                levels_with_exhausted_subtree.discard(node.depth)
 
-            path = item.path  # display of item path
-            padding = ""  # vertical lines for continuing the parent subtrees
-            prefix = ""  # single indentation symbol for the given item
+            path = node.path
+            indentation = ""  # vertical continuation lines
+            branch_tip = ""  # prefix symbol for the given node
 
-            if item.depth > 0:
+            if node.depth > 0:
                 # for non-root items, display the basename
-                path = os.path.basename(item.path)
+                path = os.path.basename(node.path)
 
-                # build padding string
-                padding_symbols_for_levels = [
-                    "|   "
-                    if level not in levels_with_exhausted_subtree
-                    else "    "
-                    for level in range(1, item.depth)
+                # build indentation string
+                indentation_symbols_for_levels = [
+                    "    "
+                    if level in levels_with_exhausted_subtree
+                    else "|   "
+                    for level in range(1, node.depth)
                 ]
-                padding = ''.join(padding_symbols_for_levels)
+                indentation = "".join(indentation_symbols_for_levels)
 
-                # set prefix
-                if item.is_last_child:
-                    prefix = "└── "
+                # prepend prefix to path
+                if node.is_last_child:
+                    branch_tip = "└── "
                 else:
-                    prefix = "├── "
+                    branch_tip = "├── "
 
-            self._output += (padding + prefix + path + "\n")
+            self._string_repr += (indentation + branch_tip + path + "\n")
+
+        return self._string_repr
 
 
-class DirectoryWalk(Walk):
+class _TreeNode(object):
     """
-    Traverse a hierarchy of directories.
-    In this context, 'depth' means directory depth.
-    """
-    pass
-
-
-class DatasetWalk(Walk):
-    """
-    Traverse a hierarchy of DataLad datasets and subdatasets.
-    In this context, 'depth' means level of subdataset nesting
-    (only for datasets installed as subdatasets).
-    Considers only proper DataLad datasets (with a dataset ID),
-    not regular git/git-annex repos.
-    """
-
-    @staticmethod
-    def _current_subdataset_depth(path):
-        """Subdataset level relative to the root path.
-        For example, if building the tree starting from a direct
-        subdataset of a top-level parent dataset, will return
-        depth 0 for the subdataset root, depth 1 for the
-        sub-subdataset, etc."""
-
-        # TODO: make sure we consider datasets only strictly datalad
-        # datasets, not any git repo (may be confusing for users)
-        return 0
-
-    def _is_max_depth_reached(self, path):
-        return self._current_subdataset_depth(path) > self.max_depth
-
-
-class _TreeItem(object):
-    """
-    Base class for a directory or file represented in a single
-    line of the 'tree' output.
+    Base class for a directory or file represented as a single
+    tree node and printed as single line of the 'tree' output.
     """
 
     def __init__(self, path: str, depth: int, is_last_child):
         self.path = path
-        self.depth = depth  # directory depth
+        self.depth = depth  # depth in the directory tree
         self.is_last_child = is_last_child  # if it is last item of its subtree
 
     def __str__(self):
         return self.path
 
-    def format(self):
-        raise NotImplementedError("implemented by subclasses")
+    def _get_tree_root(self):
+        """Calculate tree root path from node path and depth"""
+        root = self.path
+        for _ in range(self.depth):
+            root = os.path.dirname(root)
+        return root
 
 
-class DirectoryItem(_TreeItem):
-    def is_dataset(self):
-        try:
-            ds = require_dataset(self.path, check_installed=True)
-            return ds.id is not None
-        except (NoDatasetFound, AttributeError):
-            return False
-
-
-class FileItem(_TreeItem):
+class DirectoryNode(_TreeNode):
     pass
 
 
-class DatasetItem(_TreeItem):
-    def __init__(self, *args, abs_subds_depth=None, **kwargs):
-        # absolute subdataset depth:
-        # if None, it is not a dataset (or it is a .
-        # if 0, it is a top-level dataset.
-        self.abs_subds_depth = abs_subds_depth
+class FileNode(_TreeNode):
+    pass
+
+
+class DirectoryOrDatasetNode(_TreeNode):
+    """
+    Factory class for creating either a DirectoryNode or DatasetNode,
+    based on whether the current path is a dataset or not.
+    """
+    def __new__(cls, path, *args, **kwargs):
+        if cls.is_dataset(path):
+            ds_node = DatasetNode(path, *args, **kwargs)
+            ds_node.calculate_dataset_depth()
+            return ds_node
+        else:
+            return DirectoryNode(path, *args, **kwargs)
+
+    @staticmethod
+    def is_dataset(path):
+        """
+        We infer that a directory is a dataset if it is either:
+        (A) installed, or
+        (B) not installed, but it has an installed superdatset.
+        """
+        ds = require_dataset(path, check_installed=False)
+        superds = ds.get_superdataset(datalad_only=True, topmost=False,
+                                      registered_only=True)
+        return superds is not None
+
+
+class DatasetNode(_TreeNode):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _absolute_subdataset_depth(self, path):
-        """Subdataset level in the context of the full dataset
-        hierarchy.
-        For example, if building the tree starting from a direct
-        subdataset of a top-level parent dataset, will return depth 1
-        for the subdataset, depth 2 for the sub-subdataset, etc."""
+        self.ds = require_dataset(self.path, check_installed=False)
+        self.is_installed = self.ds.is_installed()
+        self._ds_depth = None
+        self._absolute_ds_depth = None
 
-        # TODO: check how recursion levels are handled e.g. in datalad status
-        pass
+    def calculate_dataset_depth(self):
+        """
+        Calculate 2 measures of a dataset's nesting depth/level:
+        1. subdataset depth relative to the tree root
+        2. absolute subdataset depth in the full hierarchy
+        """
+        self._ds_depth = 0
+        self._absolute_ds_depth = 0
 
+        ds = self.ds
+
+        while ds:
+            superds = ds.get_superdataset(
+                datalad_only=True, topmost=False, registered_only=True)
+
+            if superds is None:
+                # it is not a dataset, do nothing
+                break
+            else:
+                if superds == ds:
+                    # it is a top-level dataset, we are done
+                    break
+                self._absolute_ds_depth += 1
+                if is_path_child_of_parent(superds.path, self._get_tree_root()):
+                    # if the parent dataset is underneath the tree
+                    # root, we increment the relative depth
+                    self._ds_depth += 1
+
+            ds = superds
