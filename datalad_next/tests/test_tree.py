@@ -97,9 +97,9 @@ param_combinations = [
         "include_hidden": False,
         "expected_stats_str": "3 directories, 0 datasets, 0 files",
         "expected_str": """
-├── dir0
-├── dir1
-└── dir2
+├── dir0/
+├── dir1/
+└── dir2/
 """
     },
     {
@@ -108,12 +108,12 @@ param_combinations = [
         "include_hidden": False,
         "expected_stats_str": "6 directories, 0 datasets, 0 files",
         "expected_str": """
-├── dir0
-├── dir1
-└── dir2
-    ├── dir2_dir0
-    ├── dir2_dir1
-    └── dir2_dir2
+├── dir0/
+├── dir1/
+└── dir2/
+    ├── dir2_dir0/
+    ├── dir2_dir1/
+    └── dir2_dir2/
 """
     },
     {
@@ -124,9 +124,9 @@ param_combinations = [
         "expected_str": """
 ├── file0
 ├── file1
-├── dir0
-├── dir1
-└── dir2
+├── dir0/
+├── dir1/
+└── dir2/
 """
     },
     {
@@ -137,16 +137,16 @@ param_combinations = [
         "expected_str": """
 ├── file0
 ├── file1
-├── dir0
-├── dir1
+├── dir0/
+├── dir1/
 |   └── dir1_file0
-└── dir2
+└── dir2/
     ├── dir2_file0
     ├── dir2_file1
-    ├── dir2_dir0
-    ├── dir2_dir1
+    ├── dir2_dir0/
+    ├── dir2_dir1/
     |   └── dir2_dir1_file0
-    └── dir2_dir2
+    └── dir2_dir2/
         ├── dir2_dir2_file0
         └── dir2_dir2_file1
 """
@@ -160,10 +160,10 @@ param_combinations = [
 ├── .file2
 ├── file0
 ├── file1
-├── .dir3
-├── dir0
-├── dir1
-└── dir2
+├── .dir3/
+├── dir0/
+├── dir1/
+└── dir2/
 """
     },
     {
@@ -175,19 +175,19 @@ param_combinations = [
 ├── .file2
 ├── file0
 ├── file1
-├── .dir3
+├── .dir3/
 |   ├── .dir3_file1
 |   └── dir3_file0
-├── dir0
-├── dir1
+├── dir0/
+├── dir1/
 |   └── dir1_file0
-└── dir2
+└── dir2/
     ├── dir2_file0
     ├── dir2_file1
-    ├── dir2_dir0
-    ├── dir2_dir1
+    ├── dir2_dir0/
+    ├── dir2_dir1/
     |   └── dir2_dir1_file0
-    └── dir2_dir2
+    └── dir2_dir2/
         ├── dir2_dir2_file0
         └── dir2_dir2_file1
 """
@@ -198,10 +198,10 @@ param_combinations = [
         "include_hidden": True,
         "expected_stats_str": "4 directories, 0 datasets, 0 files",
         "expected_str": """
-├── .dir3
-├── dir0
-├── dir1
-└── dir2
+├── .dir3/
+├── dir0/
+├── dir1/
+└── dir2/
 """
     },
     {
@@ -210,13 +210,13 @@ param_combinations = [
         "include_hidden": True,
         "expected_stats_str": "7 directories, 0 datasets, 0 files",
         "expected_str": """
-├── .dir3
-├── dir0
-├── dir1
-└── dir2
-    ├── dir2_dir0
-    ├── dir2_dir1
-    └── dir2_dir2
+├── .dir3/
+├── dir0/
+├── dir1/
+└── dir2/
+    ├── dir2_dir0/
+    ├── dir2_dir1/
+    └── dir2_dir2/
 """
     },
 ]

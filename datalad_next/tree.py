@@ -331,15 +331,9 @@ class Tree(object):
                 # if value does not exist in set
                 levels_with_exhausted_subtree.discard(node.depth)
 
-            path = node.path
-            indentation = ""  # vertical continuation lines
-            branch_tip = ""  # prefix symbol for the given node
-
+            # build indentation string
+            indentation = ""
             if node.depth > 0:
-                # for non-root items, display the basename
-                path = os.path.basename(node.path)
-
-                # build indentation string
                 indentation_symbols_for_levels = [
                     "    "
                     if level in levels_with_exhausted_subtree
@@ -348,13 +342,7 @@ class Tree(object):
                 ]
                 indentation = "".join(indentation_symbols_for_levels)
 
-                # prepend prefix to path
-                if node.is_last_child:
-                    branch_tip = "└── "
-                else:
-                    branch_tip = "├── "
-
-            self._string_repr += (indentation + branch_tip + path + "\n")
+            self._string_repr += (indentation + str(node) + "\n")
 
         return self._string_repr
 
@@ -371,7 +359,12 @@ class _TreeNode(object):
         self.is_last_child = is_last_child  # if it is last item of its subtree
 
     def __str__(self):
-        return self.path
+        path = os.path.basename(self.path) if self.depth > 0 else self.path
+        prefix = ""
+        if self.depth > 0:
+            prefix = "└── " if self.is_last_child else "├── "
+
+        return prefix + path
 
     def _get_tree_root(self):
         """Calculate tree root path from node path and depth"""
@@ -382,7 +375,11 @@ class _TreeNode(object):
 
 
 class DirectoryNode(_TreeNode):
-    pass
+    def __str__(self):
+        string = super().__str__()
+        if self.depth > 0:
+            return string + "/"
+        return string
 
 
 class FileNode(_TreeNode):
@@ -423,6 +420,11 @@ class DatasetNode(_TreeNode):
         self.is_installed = self.ds.is_installed()
         self._ds_depth = None
         self._absolute_ds_depth = None
+
+    def __str__(self):
+        installed_flag = " not_installed" if not self.is_installed else ""
+        suffix = f"  [DS~{self._absolute_ds_depth}{installed_flag}]"
+        return super().__str__() + suffix
 
     def calculate_dataset_depth(self):
         """
