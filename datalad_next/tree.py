@@ -92,12 +92,12 @@ class TreeCommand(Interface):
             Defaults to the current directory.""",
             constraints=EnsureStr() | EnsureNone()),
         depth=Parameter(
-            args=("-L", "--directory-depth",),
-            doc="""maximum depth of directory tree to display""",
+            args=("-L", "--depth",),
+            doc="""maximum level of directory tree to display""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
             args=("-R", "--dataset-depth",),
-            doc="""maximum depth of nested subdatasets to display""",
+            doc="""maximum level of nested subdatasets to display""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         datasets_only=Parameter(
             args=("--datasets-only",),
@@ -115,15 +115,19 @@ class TreeCommand(Interface):
 
     _examples_ = [
         dict(
-            text="Display up to 3 levels of subdirectories and their "
-                 "contents starting from the current directory",
+            text="Display up to 3 levels of subdirectories and their contents "
+                 "including files, starting from the current directory",
             code_py="tree(depth=3, include_files=True)",
             code_cmd="datalad tree -L 3 --include-files"),
         dict(text="List all first- and second-level subdatasets "
-                  "of datasets located anywhere under /tmp, "
+                  "of parent datasets located anywhere under /tmp, "
                   "regardless of directory depth",
-             code_py="tree('/tmp', depth=2, depth_mode='dataset', datasets_only=Truec)",
-             code_cmd="datalad tree /tmp -L 2 --depth-mode dataset --datasets-only"),
+             code_py="tree('/tmp', dataset_depth=2, datasets_only=Truec)",
+             code_cmd="datalad tree /tmp -R 2 --datasets-only"),
+        dict(text="Display first- and second-level subdatasets and their"
+                  "contents up to 3 directories deep (within each subdataset)",
+             code_py="tree('.', dataset_depth=2, directory_depth=1)",
+             code_cmd="datalad tree -R 2 -L 3"),
     ]
 
     @staticmethod
