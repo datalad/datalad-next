@@ -12,11 +12,11 @@
 This command covers 2 main use cases:
 
 (1) Glorified `tree` command:
-    ---
+    ----
     As a datalad user, I want to list the contents of a directory tree and
     see which directories are datalad datasets, so that I can locate my
     datasets in the context of the whole directory layout.
-    ---
+    ----
     This is basically what is implemented by the `tree-datalad` utility --
     just `tree` with visual markers for datasets.
     In addition to it, `datalad-tree` provides the following:
@@ -151,7 +151,7 @@ class TreeCommand(Interface):
 
 def increment_node_count(node_generator_func):
     """
-    Decorator for incrementing the node count whenever a _TreeNode is yielded.
+    Decorator for incrementing the node count whenever a ``_TreeNode`` is yielded.
     """
     @wraps(node_generator_func)
     def _wrapper(*args, **kwargs):
@@ -177,24 +177,25 @@ def is_path_child_of_parent(child, parent):
 
 class Tree(object):
     """
-    Does not store _TreeNode objects, only the string representation
+    Main class for building and serializing a directory tree.
+    Does not store ``_TreeNode`` objects, only the string representation
     of the whole tree and the statistics (counts of different node types).
     """
 
     def __init__(self, root: str, max_depth: int, dataset_max_depth=None,
                  datasets_only=False, include_files=False,
                  include_hidden=False):
+
         # TODO: validate parameters
+        # TODO: sanitize / normalize root path
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
-        # TODO: sanitize / normalize root path
         self.root = root
         self.max_depth = max_depth
         self.dataset_max_depth = dataset_max_depth
         self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
-        self._current_dataset_depth = -1
         self._string_repr = ""  # holds the serialized representation
         self._last_children = []
         # TODO: stats should automatically register all concrete _TreeNode classes
@@ -208,7 +209,7 @@ class Tree(object):
         return self._build_string()
 
     def _current_depth(self, path: str):
-        """Directory depth of current path relative to root of the walk"""
+        """Directory depth of current path relative to root of the tree"""
         # directory depth can be safely inferred from the number of
         # path separators in path, since pathsep characters are illegal
         # in file or directory names.
@@ -234,7 +235,8 @@ class Tree(object):
 
     def stats(self):
         """
-        Equivalent of tree command's 'report line'.
+        Equivalent of tree command's 'report line' at the end of the
+        tree output.
         """
         return f"{self._stats['DirectoryNode']} directories, " \
             f"{self._stats['DatasetNode']} datasets, " \
@@ -284,7 +286,7 @@ class Tree(object):
 
             # handle directories/datasets
             dir_or_ds = DirectoryOrDatasetNode(path, current_depth,
-                                                   self._is_last_child(path))
+                                               self._is_last_child(path))
             if not self.datasets_only or \
                     self.datasets_only and isinstance(dir_or_ds, DatasetNode):
                 yield dir_or_ds
@@ -313,15 +315,15 @@ class Tree(object):
         Return tree as string, where each line represents a node
         (directory or dataset or file).
         Each line follows the structure:
-            `[<indentation>] [<branch_tip_symbol>] <path>`
-        Example:
-            |   |   ├── path_dir_level3
+            ``[<indentation>] [<branch_tip_symbol>] <path>``
+        Example line:
+            ``|   |   ├── path_dir_level3``
         """
 
-        # keep track of levels where subtree is exhaused,
-        # i.e. we have reached the last child of the subtree.
-        # this is needed to build the indentation string for each item,
-        # which takes into account whether any parent
+        # keep track of levels where subtree is exhaused, i.e.
+        # we have reached the last child of the subtree.
+        # this is needed to build the indentation string for each
+        # node, which takes into account whether any parent
         # is the last node of its own subtree.
         levels_with_exhausted_subtree = set([])
 
@@ -392,7 +394,7 @@ class FileNode(_TreeNode):
 
 class DirectoryOrDatasetNode(_TreeNode):
     """
-    Factory class for creating either a DirectoryNode or DatasetNode,
+    Factory class for creating either a ``DirectoryNode`` or ``DatasetNode``,
     based on whether the current path is a dataset or not.
     """
     def __new__(cls, path, *args, **kwargs):
