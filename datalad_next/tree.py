@@ -42,7 +42,6 @@ This command covers 2 main use cases:
 
 __docformat__ = 'restructuredtext'
 
-import json
 import logging
 import os
 from functools import wraps
@@ -51,11 +50,9 @@ from datalad.interface.base import (
     Interface,
     build_doc,
 )
-from datalad.support.exceptions import CapturedException, NoDatasetFound
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
     datasetmethod,
-    EnsureDataset,
     require_dataset,
 )
 from datalad.interface.results import (
@@ -63,12 +60,10 @@ from datalad.interface.results import (
 )
 from datalad.interface.utils import (
     eval_results,
-    generic_result_renderer,
 )
 from datalad.support.constraints import (
-    EnsureChoice,
     EnsureNone,
-    EnsureStr, EnsureInt, EnsureBool, EnsureRange, Constraints,
+    EnsureStr, EnsureInt, EnsureRange,
 )
 from datalad.support import ansi_colors
 
@@ -149,7 +144,6 @@ class TreeCommand(Interface):
             include_hidden=False,
             full_paths=False,
     ):
-        # print tree output
         tree = Tree(
             path,
             max_depth=depth,
@@ -161,7 +155,7 @@ class TreeCommand(Interface):
         )
 
         for line in tree.print_line():
-            # print one line at a time to improve perceived speed
+            # print one line at a time to improve UX / perceived speed
             print(line)
         print("\n" + tree.stats() + "\n")
 
@@ -175,7 +169,8 @@ class TreeCommand(Interface):
 
 def increment_node_count(node_generator_func):
     """
-    Decorator for incrementing the node count whenever a ``_TreeNode`` is yielded.
+    Decorator for incrementing the node count whenever
+    a ``_TreeNode`` is generated.
     """
     @wraps(node_generator_func)
     def _wrapper(*args, **kwargs):
@@ -183,7 +178,9 @@ def increment_node_count(node_generator_func):
         for node in node_generator_func(*args, **kwargs):
             node_type = node.__class__.__name__
             if node_type not in self._stats:
-                raise ValueError(f"No stats collected for unknown node type '{node_type}'")
+                raise ValueError(
+                    f"No stats collected for unknown node type '{node_type}'"
+                )
             if node.depth > 0:  # we do not count the root directory
                 self._stats[node_type] += 1
 
@@ -210,7 +207,6 @@ class Tree(object):
                  datasets_only=False, include_files=False,
                  include_hidden=False, full_paths=False):
 
-        # TODO: validate parameters
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
         self.root = os.path.normpath(root)
@@ -225,8 +221,8 @@ class Tree(object):
         self.include_hidden = include_hidden
         self.full_paths = full_paths
 
-        self._lines = []  # holds the list of lines of output string
-        self._last_children = []
+        self._lines = []  # list of lines of output string
+        self._last_children = []  # last child of each subtree
         # TODO: stats should automatically register all concrete _TreeNode classes
         self._stats = {"DirectoryNode": 0, "DatasetNode": 0, "FileNode": 0}
 
