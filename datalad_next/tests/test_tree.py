@@ -251,6 +251,22 @@ def test_print_tree_with_params(
     assert_str_equal(expected_res, actual_res)
 
 
+@pytest.mark.parametrize("root_dir_name", [
+    "root/", "root/.", "root/./", "root/../root"
+])
+def test_root_path_is_normalized(path, root_dir_name):
+    """
+    Test that root path in the first line of string output
+    is normalized path
+    """
+    root = os.path.join(path, root_dir_name)
+    tree = Tree(root, max_depth=0)
+    root_path = next(tree.print_line())  # first line of tree output
+    expected = os.path.join(path, "root")
+    actual = root_path
+    assert_str_equal(expected, actual)
+
+
 def test_print_tree_for_nonexistent_directory():
     """Obtain nonexistent directory by creating a temp dir
     and deleting it (may be safest method)"""
