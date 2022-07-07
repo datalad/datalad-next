@@ -7,7 +7,7 @@ from datalad.distribution.dataset import Dataset
 from datalad.tests.utils_pytest import (
     assert_raises,
     assert_str_equal,
-    with_tree
+    with_tree, assert_re_in
 )
 from datalad.utils import rmtemp
 
@@ -352,8 +352,9 @@ def test_print_tree_with_params_no_ds(
         include_files=include_files, include_hidden=include_hidden)
     # skip the first line with the root directory
     # as we will test it separately
-    lines = (l for i, l in enumerate(tree.print_line()) if i > 0)
-    actual_res = "\n".join(lines) + "\n"
+    lines = tree.print_line()
+    next(lines)  # skip the first line (root dir)
+    actual_res = "\n".join(l for l in lines) + "\n"
     expected_res = expected_str.lstrip("\n")  # strip first newline
     assert_str_equal(expected_res, actual_res)
 
@@ -422,7 +423,18 @@ def test_print_tree_with_params_with_ds(
     tree = Tree(root, max_depth=depth, datasets_only=datasets_only)
     # skip the first line with the root directory
     # as we will test it separately
-    lines = (l for i, l in enumerate(tree.print_line()) if i > 0)
-    actual_res = "\n".join(lines) + "\n"
+    lines = tree.print_line()
+    next(lines)  # skip the first line (root dir)
+    actual_res = "\n".join(l for l in lines) + "\n"
     expected_res = expected_str.lstrip("\n")  # strip first newline
     assert_str_equal(expected_res, actual_res)
+
+
+def test_print_tree_full_paths():
+    # run in the cwd so detecting full paths is easier
+    tree = Tree('.', max_depth=1, full_paths=True)
+    # get the second line (first child, hopefully exists)
+    lines = tree.print_line()
+    next(lines)  # skip the first line (root dir)
+    first_child = next(lines)
+    assert_re_in(r"(?:└──|├──) \./", first_child)

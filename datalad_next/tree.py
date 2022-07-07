@@ -101,15 +101,19 @@ class TreeCommand(Interface):
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         datasets_only=Parameter(
             args=("--datasets-only",),
-            doc="""whether to only list directories that are datasets""",
+            doc="""only list directories that are datasets""",
             action='store_true'),
         include_files=Parameter(
             args=("--include-files",),
-            doc="""whether to include files in output display""",
+            doc="""include files in output display""",
             action='store_true'),
         include_hidden=Parameter(
             args=("-a", "--include-hidden",),
-            doc="""whether to include hidden files/directories in output display""",
+            doc="""include hidden files/directories in output""",
+            action='store_true'),
+        full_paths=Parameter(
+            args=("--full-paths",),
+            doc="""display the full path for files/directories""",
             action='store_true'),
     )
 
@@ -122,8 +126,8 @@ class TreeCommand(Interface):
         dict(text="List all first- and second-level subdatasets "
                   "of parent datasets located anywhere under /tmp, "
                   "regardless of directory depth",
-             code_py="tree('/tmp', dataset_depth=2, datasets_only=Truec)",
-             code_cmd="datalad tree /tmp -R 2 --datasets-only"),
+             code_py="tree('/tmp', dataset_depth=2, datasets_only=True, full_paths=True)",
+             code_cmd="datalad tree /tmp -R 2 --datasets-only --full-paths"),
         dict(text="Display first- and second-level subdatasets and their"
                   "contents up to 3 directories deep (within each subdataset)",
              code_py="tree('.', dataset_depth=2, directory_depth=1)",
@@ -133,14 +137,26 @@ class TreeCommand(Interface):
     @staticmethod
     @datasetmethod(name='tree')
     @eval_results
-    def __call__(path='.', *, depth=1, dataset_depth=None,
-                 datasets_only=False, include_files=False, include_hidden=False):
-
+    def __call__(
+            path='.',
+            *,
+            depth=1,
+            dataset_depth=None,
+            datasets_only=False,
+            include_files=False,
+            include_hidden=False,
+            full_paths=False,
+    ):
         # print tree output
         tree = Tree(
-            path, depth, dataset_max_depth=dataset_depth,
+            path,
+            depth,
+            dataset_max_depth=dataset_depth,
             datasets_only=datasets_only,
-            include_files=include_files, include_hidden=include_hidden)
+            include_files=include_files,
+            include_hidden=include_hidden,
+            full_paths=full_paths
+        )
 
         for line in tree.print_line():
             # print one line at a time to improve perceived speed
@@ -190,7 +206,7 @@ class Tree(object):
 
     def __init__(self, root: str, max_depth: int, dataset_max_depth=None,
                  datasets_only=False, include_files=False,
-                 include_hidden=False):
+                 include_hidden=False, full_paths=False):
 
         # TODO: validate parameters
         if not os.path.isdir(root):
@@ -201,6 +217,7 @@ class Tree(object):
         self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
+        self.full_paths = full_paths
         self._lines = []  # holds the list of lines of output string
         self._last_children = []
         # TODO: stats should automatically register all concrete _TreeNode classes
@@ -234,6 +251,8 @@ class Tree(object):
         """
         Equivalent of tree command's 'report line' at the end of the
         tree output.
+        The 3 node types (directory, dataset, file) are mutually exclusive,
+        so their total is the total count of nodes.
         Only counts contents below the root directory, does not count
         the root itself.
         """
@@ -287,8 +306,9 @@ class Tree(object):
             current_depth = self._current_depth(path)
 
             # handle directories/datasets
-            dir_or_ds = DirectoryOrDatasetNode(path, current_depth,
-                                               self._is_last_child(path))
+            dir_or_ds = DirectoryOrDatasetNode(
+                path, current_depth, self._is_last_child(path), self.full_paths
+            )
             if current_depth == 0 or \
                     not self.datasets_only or \
                     self.datasets_only and isinstance(dir_or_ds, DatasetNode):
@@ -298,8 +318,10 @@ class Tree(object):
             if self.include_files:
                 for file in files:
                     file_path = os.path.join(path, file)
-                    yield FileNode(file_path, current_depth + 1,
-                                   self._is_last_child(file_path))
+                    yield FileNode(
+                        file_path, current_depth + 1,
+                        self._is_last_child(file_path), self.full_paths
+                    )
 
             if self._is_max_depth_reached(path):
                 # generate any remaining directory/dataset nodes,
@@ -309,7 +331,8 @@ class Tree(object):
 
                     dir_or_ds = DirectoryOrDatasetNode(
                         dir_path, current_depth + 1,
-                        self._is_last_child(dir_path))
+                        self._is_last_child(dir_path), self.full_paths
+                    )
 
                     if not self.datasets_only or \
                             self.datasets_only and isinstance(dir_or_ds,
@@ -387,13 +410,19 @@ class _TreeNode(object):
     tree node and printed as single line of the 'tree' output.
     """
 
-    def __init__(self, path: str, depth: int, is_last_child):
+    def __init__(self, path: str, depth: int, is_last_child: bool,
+                 use_full_paths=False):
         self.path = path
         self.depth = depth  # depth in the directory tree
         self.is_last_child = is_last_child  # if it is last item of its subtree
+        self.use_full_paths = use_full_paths
 
     def __str__(self):
-        path = os.path.basename(self.path) if self.depth > 0 else self.path
+        if self.depth == 0 or self.use_full_paths:
+            path = self.path
+        else:
+            path = os.path.basename(self.path)
+
         prefix = ""
         if self.depth > 0:
             prefix = "└── " if self.is_last_child else "├── "
