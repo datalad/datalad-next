@@ -137,9 +137,15 @@ class TreeCommand(Interface):
                  datasets_only=False, include_files=False, include_hidden=False):
 
         # print tree output
-        tree = Tree(path, depth, datasets_only=datasets_only, include_files=include_files)
-        print(tree)
-        print(tree.stats())
+        tree = Tree(
+            path, depth, dataset_max_depth=dataset_depth,
+            datasets_only=datasets_only,
+            include_files=include_files, include_hidden=include_hidden)
+
+        for line in tree.print_line():
+            # print one line at a time to improve perceived speed
+            print(line)
+        print("\n" + tree.stats() + "\n")
 
         # return a generic OK status
         yield get_status_dict(
@@ -187,34 +193,25 @@ class Tree(object):
                  include_hidden=False):
 
         # TODO: validate parameters
-        # TODO: sanitize / normalize root path
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
-        self.root = root
+        self.root = os.path.normpath(root)
         self.max_depth = max_depth
         self.dataset_max_depth = dataset_max_depth
         self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
-        self._string_repr = ""  # holds the serialized representation
+        self._lines = []  # holds the list of lines of output string
         self._last_children = []
         # TODO: stats should automatically register all concrete _TreeNode classes
         self._stats = {"DirectoryNode": 0, "DatasetNode": 0, "FileNode": 0}
-
-    def __str__(self):
-        """Return serialized Tree representation"""
-        if self._string_repr != "":
-            # tree has already been serialized
-            return self._string_repr
-        return self._build_string()
 
     def _current_depth(self, path: str):
         """Directory depth of current path relative to root of the tree"""
         # directory depth can be safely inferred from the number of
         # path separators in path, since pathsep characters are illegal
         # in file or directory names.
-        # TODO: sanitize / normalize root path in Tree constructor
-        return path.count(os.path.sep) - self.root.rstrip(os.path.sep).count(os.path.sep)
+        return path.count(os.path.sep) - self.root.count(os.path.sep)
 
     def _is_last_child(self, path):
         """Whether an item is the last child within its subtree"""
@@ -237,16 +234,21 @@ class Tree(object):
         """
         Equivalent of tree command's 'report line' at the end of the
         tree output.
+        Only counts contents below the root directory, does not count
+        the root itself.
         """
         return f"{self._stats['DirectoryNode']} directories, " \
             f"{self._stats['DatasetNode']} datasets, " \
-            f"{self._stats['FileNode']} files" \
-            "\n"
+            f"{self._stats['FileNode']} files"
+
+    def _total_nodes(self):
+        return sum(c for c in self._stats.values())
 
     def build(self):
-        """Public API for constructing tree.
-        Returns the instance."""
-        self._build_string()
+        """
+        Construct the tree string representation and return back the instance.
+        """
+        self.to_string()
         return self
 
     @increment_node_count
@@ -287,7 +289,8 @@ class Tree(object):
             # handle directories/datasets
             dir_or_ds = DirectoryOrDatasetNode(path, current_depth,
                                                self._is_last_child(path))
-            if not self.datasets_only or \
+            if current_depth == 0 or \
+                    not self.datasets_only or \
                     self.datasets_only and isinstance(dir_or_ds, DatasetNode):
                 yield dir_or_ds
 
@@ -299,22 +302,48 @@ class Tree(object):
                                    self._is_last_child(file_path))
 
             if self._is_max_depth_reached(path):
-                # generate any remaining directory items, which
-                # will not be traversed
+                # generate any remaining directory/dataset nodes,
+                # which will not be traversed in the next iteration
                 for child_dir in dirs:
                     dir_path = os.path.join(path, child_dir)
-                    yield DirectoryNode(dir_path, current_depth + 1,
-                                        self._is_last_child(dir_path))
+
+                    dir_or_ds = DirectoryOrDatasetNode(
+                        dir_path, current_depth + 1,
+                        self._is_last_child(dir_path))
+
+                    if not self.datasets_only or \
+                            self.datasets_only and isinstance(dir_or_ds,
+                                                              DatasetNode):
+                        yield dir_or_ds
 
                 # empty in-place the list of next directories to
                 # traverse, which effectively stops os.walk's walking
                 dirs[:] = []
 
-    def _build_string(self):
+    def to_string(self):
+        """Return complete tree as string"""
+        if not self._lines:
+            return "\n".join(list(self.print_line()))
+        return self._lines
+
+    def print_line(self):
+        """Generator for tree output lines"""
+        if not self._lines:
+            # string output has not been generated yet
+            for line in self._yield_lines():
+                self._lines.append(line)
+                yield line
+        else:
+            # string output is already generated
+            for line in self._lines:
+                yield line
+                yield "\n"  # newline at the very end
+
+    def _yield_lines(self):
         """
-        Return tree as string, where each line represents a node
-        (directory or dataset or file).
-        Each line follows the structure:
+        Generator of lines of the tree string representation.
+        Each line represents a node (directory or dataset or file).
+        A line follows the structure:
             ``[<indentation>] [<branch_tip_symbol>] <path>``
         Example line:
             ``|   |   ├── path_dir_level3``
@@ -348,9 +377,8 @@ class Tree(object):
                 ]
                 indentation = "".join(indentation_symbols_for_levels)
 
-            self._string_repr += (indentation + str(node) + "\n")
-
-        return self._string_repr
+            line = indentation + str(node)
+            yield line
 
 
 class _TreeNode(object):
@@ -413,12 +441,16 @@ class DirectoryOrDatasetNode(_TreeNode):
         (B) not installed, but it has an installed superdatset.
         """
         ds = require_dataset(path, check_installed=False)
+        if ds.is_installed():
+            return True
+
+        # check if it has an installed superdataset
         superds = ds.get_superdataset(datalad_only=True, topmost=False,
                                       registered_only=True)
         return superds is not None
 
 
-class DatasetNode(_TreeNode):
+class DatasetNode(DirectoryNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -428,8 +460,8 @@ class DatasetNode(_TreeNode):
         self._absolute_ds_depth = None
 
     def __str__(self):
-        installed_flag = " not_installed" if not self.is_installed else ""
-        suffix = f"  [DS~{self._absolute_ds_depth}{installed_flag}]"
+        install_flag = ", not installed" if not self.is_installed else ""
+        suffix = f"  [DS~{self._absolute_ds_depth}{install_flag}]"
         return super().__str__() + suffix
 
     def calculate_dataset_depth(self):
@@ -454,6 +486,7 @@ class DatasetNode(_TreeNode):
                 if superds == ds:
                     # it is a top-level dataset, we are done
                     break
+
                 self._absolute_ds_depth += 1
                 if is_path_child_of_parent(superds.path, self._get_tree_root()):
                     # if the parent dataset is underneath the tree

@@ -1,5 +1,5 @@
 import os
-from random import random
+from datetime import datetime
 
 import pytest
 from datalad.tests.utils_pytest import (
@@ -48,28 +48,28 @@ def path():
     dir_tree = {
         "root": {
             ".dir3": {
-                "dir3_file0": 'tempfile',
-                ".dir3_file1": 'tempfile',
+                "dir3_file0": '',
+                ".dir3_file1": '',
             },
             "dir0": {},  # empty dir
             "dir1": {
-                "dir1_file0": 'tempfile',
+                "dir1_file0": '',
             },
             "dir2": {
                 "dir2_dir0": {},
                 "dir2_dir1": {
-                    "dir2_dir1_file0": 'tempfile',
+                    "dir2_dir1_file0": '',
                 },
                 "dir2_dir2": {
-                    "dir2_dir2_file0": 'tempfile',
-                    "dir2_dir2_file1": 'tempfile',
+                    "dir2_dir2_file0": '',
+                    "dir2_dir2_file1": '',
                 },
-                "dir2_file0": 'tempfile',
-                "dir2_file1": 'tempfile',
+                "dir2_file0": '',
+                "dir2_file1": '',
             },
-            ".file2": 'tempfile',
-            "file0": 'tempfile',
-            "file1": 'tempfile',
+            ".file2": '',
+            "file0": '',
+            "file1": '',
         }
     }
 
@@ -239,19 +239,23 @@ def build_param_matrix(param_names):
 def test_print_tree_with_params(
     path, depth, include_files, include_hidden, expected_str
 ):
-    root = os.path.join(path, 'root')
+    root = os.path.join(path, "root")
     tree = Tree(
         root, max_depth=depth,
         include_files=include_files, include_hidden=include_hidden)
-    actual_res = str(tree)
-    expected_res = root + expected_str
+    # skip the first line with the root directory
+    # as we will test it separately
+    lines = (l for i, l in enumerate(tree.print_line()) if i > 0)
+    actual_res = "\n".join(lines) + "\n"
+    expected_res = expected_str.lstrip("\n")  # strip first newline
     assert_str_equal(expected_res, actual_res)
 
 
 def test_print_tree_for_nonexistent_directory():
     """Obtain nonexistent directory by creating a temp dir
     and deleting it (may be safest method)"""
-    nonexistent_dir = with_tree({"to_be_deleted": []})(lambda f: f)()
+    dir_name = f"to_be_deleted_{datetime.now().timestamp()}"
+    nonexistent_dir = with_tree({dir_name: []})(lambda f: f)()
     with assert_raises(ValueError):
         Tree(nonexistent_dir, max_depth=1)
 
@@ -268,5 +272,5 @@ def test_tree_stats(
         root, max_depth=depth,
         include_files=include_files, include_hidden=include_hidden).build()
     actual_res = tree.stats()
-    expected_res = expected_stats_str + "\n"
+    expected_res = expected_stats_str
     assert_str_equal(expected_res, actual_res)
