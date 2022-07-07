@@ -70,6 +70,7 @@ from datalad.support.constraints import (
     EnsureNone,
     EnsureStr, EnsureInt, EnsureBool, EnsureRange, Constraints,
 )
+from datalad.support import ansi_colors
 
 lgr = logging.getLogger('datalad.local.tree')
 
@@ -409,6 +410,7 @@ class _TreeNode(object):
     Base class for a directory or file represented as a single
     tree node and printed as single line of the 'tree' output.
     """
+    COLOR = None  # ANSI color for the path, if terminal color are enabled
 
     def __init__(self, path: str, depth: int, is_last_child: bool,
                  use_full_paths=False):
@@ -422,6 +424,9 @@ class _TreeNode(object):
             path = self.path
         else:
             path = os.path.basename(self.path)
+
+        if self.COLOR is not None:
+            path = ansi_colors.color_word(path, self.COLOR)
 
         prefix = ""
         if self.depth > 0:
@@ -438,6 +443,8 @@ class _TreeNode(object):
 
 
 class DirectoryNode(_TreeNode):
+    COLOR = ansi_colors.BLUE
+
     def __str__(self):
         string = super().__str__()
         if self.depth > 0:
@@ -480,6 +487,8 @@ class DirectoryOrDatasetNode(_TreeNode):
 
 
 class DatasetNode(DirectoryNode):
+    COLOR = ansi_colors.MAGENTA
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
