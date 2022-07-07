@@ -438,3 +438,12 @@ def test_print_tree_full_paths():
     next(lines)  # skip the first line (root dir)
     first_child = next(lines)
     assert_re_in(r"(?:└──|├──) \./", first_child)
+
+
+def test_print_tree_depth_zero(path):
+    root = os.path.join(path, "root")
+    tree = Tree(root, max_depth=0,
+                include_files=True)  # should have no effect
+    actual = tree.to_string()
+    expected = root
+    assert_str_equal(expected, actual)

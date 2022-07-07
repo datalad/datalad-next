@@ -94,7 +94,8 @@ class TreeCommand(Interface):
             constraints=EnsureStr() | EnsureNone()),
         depth=Parameter(
             args=("-L", "--depth",),
-            doc="""maximum level of directory tree to display""",
+            doc="""maximum level of directory tree to display.
+            If not specified, will display all levels.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
             args=("-R", "--dataset-depth",),
@@ -141,7 +142,7 @@ class TreeCommand(Interface):
     def __call__(
             path='.',
             *,
-            depth=1,
+            depth=None,
             dataset_depth=None,
             datasets_only=False,
             include_files=False,
@@ -151,7 +152,7 @@ class TreeCommand(Interface):
         # print tree output
         tree = Tree(
             path,
-            depth,
+            max_depth=depth,
             dataset_max_depth=dataset_depth,
             datasets_only=datasets_only,
             include_files=include_files,
@@ -205,7 +206,7 @@ class Tree(object):
     of the whole tree and the statistics (counts of different node types).
     """
 
-    def __init__(self, root: str, max_depth: int, dataset_max_depth=None,
+    def __init__(self, root: str, max_depth=None, dataset_max_depth=None,
                  datasets_only=False, include_files=False,
                  include_hidden=False, full_paths=False):
 
@@ -213,12 +214,17 @@ class Tree(object):
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
         self.root = os.path.normpath(root)
+
         self.max_depth = max_depth
+        if max_depth is not None and max_depth < 0:
+            raise ValueError("max_depth must be >= 0")
+
         self.dataset_max_depth = dataset_max_depth
         self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
         self.full_paths = full_paths
+
         self._lines = []  # holds the list of lines of output string
         self._last_children = []
         # TODO: stats should automatically register all concrete _TreeNode classes
@@ -243,7 +249,9 @@ class Tree(object):
         right below the current level.
         Therefore, we 'reach' when we get to 1 level *before* max_depth.
         """
-        return self._current_depth(path) == self.max_depth - 1
+        if self.max_depth is not None:
+            return self._current_depth(path) == self.max_depth - 1
+        return False  # unlimited depth
 
     def _is_max_dataset_depth_reached(self, path):
         pass
@@ -314,6 +322,9 @@ class Tree(object):
                     not self.datasets_only or \
                     self.datasets_only and isinstance(dir_or_ds, DatasetNode):
                 yield dir_or_ds
+
+            if self.max_depth == 0:
+                break  # just yield the root dir and exit
 
             # handle files
             if self.include_files:
