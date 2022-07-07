@@ -324,7 +324,7 @@ class Tree(object):
         """Return complete tree as string"""
         if not self._lines:
             return "\n".join(list(self.print_line()))
-        return self._lines
+        return "\n".join(self._lines)
 
     def print_line(self):
         """Generator for tree output lines"""
