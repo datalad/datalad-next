@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 from datalad.distribution.dataset import Dataset
+from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
     assert_raises,
     assert_str_equal,
@@ -95,14 +96,19 @@ def path_ds():
             "superds1": {
                 "sd1_file0": "",
                 "sd1_dir0": {
-                    "sd1_d0_dir0": {},
+                    "sd1_d0_repo0": {
+                        "INFO.txt": "",
+                        "test.dat": ""
+                    },
                     "sd1_d0_subds0": {},
                 },
                 "sd1_ds0": {},  # not registered as subdataset
                 "sd1_subds0": {},  # not installed (drop all)
             },
-            "dir0": {
-                "d0_file0": ""
+            # plain git repo (contents are defined in BasicGitTestRepo)
+            "repo0": {
+                "INFO.txt": "",
+                "test.dat": ""
             },
             "file0": "",
         }
@@ -110,14 +116,18 @@ def path_ds():
 
     temp_dir_root = create_temp_dir_tree(ds_tree)
 
-    # create datasets
+    # create datasets / repos
     root = opj(temp_dir_root, "root")
+    BasicGitTestRepo(path=opj(root, "repo0"), puke_if_exists=False)
     superds0 = Dataset(opj(root, "superds0")).create(force=True)
     sd0_subds0 = superds0.create("sd0_subds0", force=True)
     sd0_subds0.create("sd0_sub0_subds0", force=True)
     superds1 = Dataset(opj(root, "superds1")).create(force=True)
     superds1.create(opj("sd1_dir0", "sd1_d0_subds0"), force=True)
     Dataset(opj(root, "superds1", "sd1_ds0")).create(force=True)
+    BasicGitTestRepo(
+        path=opj(root, "superds1", "sd1_dir0", "sd1_d0_repo0"),
+        puke_if_exists=False)
     sd1_subds0 = superds1.create("sd1_subds0", force=True)
     sd1_subds0.drop(what='all', reckless='kill', recursive=True)
 
@@ -277,7 +287,7 @@ matrix_ds = [
         "datasets_only": False,
         "expected_stats_str": "1 directories, 2 datasets, 0 files",
         "expected_str": """
-├── dir0/
+├── repo0/
 ├── superds0/  [DS~0]
 └── superds1/  [DS~0]
 """,
@@ -287,13 +297,13 @@ matrix_ds = [
         "datasets_only": False,
         "expected_stats_str": "3 directories, 7 datasets, 0 files",
         "expected_str": """
-├── dir0/
+├── repo0/
 ├── superds0/  [DS~0]
 |   └── sd0_subds0/  [DS~1]
 |       └── sd0_sub0_subds0/  [DS~2]
 └── superds1/  [DS~0]
     ├── sd1_dir0/
-    |   ├── sd1_d0_dir0/
+    |   ├── sd1_d0_repo0/
     |   └── sd1_d0_subds0/  [DS~1]
     ├── sd1_ds0/  [DS~0]
     └── sd1_subds0/  [DS~1, not installed]

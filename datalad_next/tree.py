@@ -482,15 +482,24 @@ class DirectoryOrDatasetNode(_TreeNode):
         We infer that a directory is a dataset if it is either:
         (A) installed, or
         (B) not installed, but it has an installed superdatset.
+        Only consider datalad datasets, not plain git/git-annex repos.
         """
         ds = require_dataset(path, check_installed=False)
-        if ds.is_installed():
+
+        if ds.id is not None:
             return True
 
         # check if it has an installed superdataset
         superds = ds.get_superdataset(datalad_only=True, topmost=False,
                                       registered_only=True)
-        return superds is not None
+        if superds is not None:
+            return True
+
+        # if it has no dataset ID, it's just a plain repo
+        # (or, it is a datalad dataset that is not installed
+        # and has no parent dataset -- we have no way to detect
+        # these, or?)
+        return False
 
 
 class DatasetNode(DirectoryNode):
