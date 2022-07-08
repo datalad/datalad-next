@@ -1,3 +1,46 @@
+# 0.4.0 (2022-07-08) --  datalad-annex:: for all
+
+#### 💫 Enhancements and new features
+
+- `datalad-annex::` Git remote helper now uses `git annex transferkey` instead
+  of `fsck` to "probe" for `XDLRA` repository keys. This avoid problems due to
+  a behavior change in git-annex 10.20220525, and can also speed-up operation for
+  slow special remotes, by avoiding a dedicated probe-request.
+  [#76](https://github.com/datalad/datalad-next/pull/76) (by @mih)
+- `datalad-annex::` Git remote helper now fully compatible with the Windows
+  platform, by working around [a git-annex
+  issue](https://git-annex.branchable.com/bugs/Fails_to_drop_key_on_windows___40__Access_denied__41__)
+  [#77](https://github.com/datalad/datalad-next/pull/77) (by @mih)
+
+#### 🐛 Bug Fixes
+
+- Prevent docstring duplication in patched `push` command
+  [#71](https://github.com/datalad/datalad-next/pull/71) (by @mih)
+
+#### 📝 Documentation
+
+- Bibliographic information on authorship was added
+  [#80](https://github.com/datalad/datalad-next/pull/80) (by @mslw)
+
+#### 🛡 Tests
+
+- The test battery is now using `pytest`. This change required bumping the
+  dependency on DataLad to version 0.17.0.
+  [#73](https://github.com/datalad/datalad-next/pull/73) (by @mih)
+
+#### 🏠 Internal
+
+- Reduced code duplication by consolidating on a common helper for sibling
+  identification, now available from DataLad 0.17.0
+  [#82](https://github.com/datalad/datalad-next/pull/82) (by @adswa)
+
+#### Authors: 3
+
+- Michael Hanke (@mih)
+- Michał Szczepanik (@mslw)
+- Adina Wagner (@adswa)
+
+
 # 0.3.0 (2022-05-25) --  Optimized push
 
 #### 💫 Enhancements and new features
