@@ -299,29 +299,6 @@ matrix_ds = [
     └── sd1_subds0/  [DS~1, not installed]
 """,
     },
-    {
-        "depth": 1,
-        "datasets_only": True,
-        "expected_stats_str": "0 directories, 2 datasets, 0 files",
-        "expected_str": """
-├── superds0/  [DS~0]
-└── superds1/  [DS~0]
-""",
-    },
-    {
-        "depth": 4,
-        "datasets_only": True,
-        "expected_stats_str": "0 directories, 7 datasets, 0 files",
-        "expected_str": """
-├── superds0/  [DS~0]
-|   └── sd0_subds0/  [DS~1]
-|       └── sd0_sub0_subds0/  [DS~2]
-└── superds1/  [DS~0]
-        └── sd1_d0_subds0/  [DS~1]
-    ├── sd1_ds0/  [DS~0]
-    └── sd1_subds0/  [DS~1, not installed]
-""",
-    },
 ]
 
 
