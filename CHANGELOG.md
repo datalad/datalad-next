@@ -1,9 +1,107 @@
+# 0.3.0 (2022-05-25) --  Optimized push
+
+#### 💫 Enhancements and new features
+
+- Make push avoid refspec handling for special remote push targets. See PR
+  https://github.com/datalad/datalad-next/pull/64 for details on the associated
+  behavior changes that are introduced with this new patch.
+
+# 0.2.2 (2022-04-29) --  More docs!
+
+#### 📝 Documentation
+
+- Adjusted documentation of patched datalad-core commands now also shows
+  properly in Python sessions.
+- Extended the documentation on collaborative workflows with
+  ``datalad-annex::``Git remotes and WebDAV siblings.
+
+# 0.2.1 (2022-04-28) --  User experience
+
+#### 💫 Enhancements and new features
+
+- Disable auto-enabling of webdav storage remotes on clone. Datalad does not
+  yet support the needed inspection to determine the necessary credentials
+  automatically. Instead an explicit `datalad sibling enable` call is required.
+  This is now also added to the documentation.
+- Make sure that `create-sibling-webdav` does not ask users to input the
+  internal `realm` property, when prompting for credentials.
+- `CredentialManager` now displays more appropriate labels when prompting for a
+  secret, e.g. `password` instead of `user_password`.
+
+# 0.2.0 (2022-04-28) --  WebDAV
+
+This release primarly brings the ability to store DataLad datasets on a WebDAV
+server. This is done in a way that allows for cloning such dataset with
+`datalad clone` from such a WebDAV server too. This feature enables
+full-featured DataLad-based collaborative workflows on widely available cloud
+storage systems, such as owncloud/next/cloud -- which are also the basis for
+several institutional services like the European Open Science Cloud's (EOSC)
+B2DROP service.
+
+#### 💫 Enhancements and new features
+
+- A `create-sibling-webdav` command for hosting datasets on a WebDAV server via
+  a sibling tandem for Git history and file storage. Datasets hosted on WebDAV
+  in this fashion are cloneable with `datalad-clone`. A full annex setup  for
+  storing complete datasets with historical file content version, and an
+  additional mode for depositing single-version dataset snapshot are supported.
+  The latter enables convenient collaboration with audiences that are not using
+  DataLad, because all files are browsable via a WebDAV server's point-and-click
+  user interface.
+- Enhance `datalad-push` to automatically export files to git-annex special
+  remotes configured with `exporttree=yes`.
+- Enhance `datalad-siblings enable` (`AnnexRepo.enable_remote()` to
+  automatically  deploy credentials for git-annex special remotes that require
+  them.
+- `git-remote-datalad-annex` is a Git remote helper to push/fetch to any
+  location accessible by any git-annex special remote.
+- `git-annex-backend-XDLRA` (originally available from the `mihextras`
+  extension) is a custom external git-annex backend used by
+  git-remote-datalad-annex. A base class to facilitate development of external
+  backends in Python is also provided.
+- `serve_path_via_webdav` test decorator that automatically deploys a local
+  WebDAV server.
+- `with_credential` test decorator that temporarily deploy a credential to the
+  local credential system.
+- Utilities for HTTP handling
+  - `probe_url()` to discover redirects and authentication requirements for an
+    HTTP  URL
+  - `get_auth_realm()` return a label for an authentication realm that can be
+    used  to query for matching credentials
+
+
+- Utilities for special remote credential management:
+  - `get_specialremote_credential_properties()` inspects a special remote and
+    return  properties for querying a credential store for matching credentials
+  - `update_specialremote_credential()` updates a credential in a store after
+    successful use
+  - `get_specialremote_credential_envpatch()` returns a suitable environment
+    "patch" from a credential for a particular special remote type
+
 # 0.1.0 (2022-03-31) --  Credentials, please!
 
 #### 💫 Enhancements and new features
-- A new credential management system is introduced that enables storage and query of credentials with any number of properties associated with a secret. These properties are stored as regular configuration items, following the scheme `datalad.credential.<name>.<property>`. The special property `secret` lives in a keystore, but can be overriden using the normal configuration mechanisms. The new system continues to support the previous credential storage setup. Fixes [#6519](https://github.com/datalad/datalad/issues/6519) ([@mih](https://github.com/mih))
-- A new `credentials` command enables query, modification and storage of credentials. Legacy credentials are also supported, but may require the specification of a `type`, such as (`token`, or `user_password`) to be discoverable. Fixes [#396](https://github.com/datalad/datalad/issues/396) ([@mih](https://github.com/mih))
-- Two new configuration settings enable controlling how the interactive entry of credential secrets is conducted for the new credential manager: `datalad.credentials.repeat-secret-entry` can be used to turn off the default double-entry of secrets, and `datalad.credentials.hidden-secret-entry` can turn off the default hidden entry of secrets. Fixes [#2721](https://github.com/datalad/datalad/issues/2721) ([@mih](https://github.com/mih))
+
+- A new credential management system is introduced that enables storage and
+  query of credentials with any number of properties associated with a secret.
+  These properties are stored as regular configuration items, following the
+  scheme `datalad.credential.<name>.<property>`. The special property `secret`
+  lives in a keystore, but can be overriden using the normal configuration
+  mechanisms. The new system continues to support the previous credential storage
+  setup. Fixes [#6519](https://github.com/datalad/datalad/issues/6519)
+  ([@mih](https://github.com/mih))
+- A new `credentials` command enables query, modification and storage of
+  credentials. Legacy credentials are also supported, but may require the
+  specification of a `type`, such as (`token`, or `user_password`) to be
+  discoverable. Fixes [#396](https://github.com/datalad/datalad/issues/396)
+  ([@mih](https://github.com/mih))
+- Two new configuration settings enable controlling how the interactive entry
+  of credential secrets is conducted for the new credential manager:
+  `datalad.credentials.repeat-secret-entry` can be used to turn off the default
+  double-entry of secrets, and `datalad.credentials.hidden-secret-entry` can turn
+  off the default hidden entry of secrets. Fixes
+  [#2721](https://github.com/datalad/datalad/issues/2721)
+  ([@mih](https://github.com/mih))
 
 
 #### Authors: 1
