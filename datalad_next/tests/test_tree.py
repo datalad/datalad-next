@@ -39,7 +39,7 @@ def create_temp_dir_tree(tree_dict):
 
 
 @pytest.fixture(scope="module")
-def path():
+def path_no_ds():
     """
     Fixture for temporary directory tree including nested
     directories, without datasets
@@ -275,7 +275,7 @@ matrix_ds = [
     {
         "depth": 1,
         "datasets_only": False,
-        "expected_stats_str": "",
+        "expected_stats_str": "1 directories, 2 datasets, 0 files",
         "expected_str": """
 ├── dir0/
 ├── superds0/  [DS~0]
@@ -285,7 +285,7 @@ matrix_ds = [
     {
         "depth": 4,
         "datasets_only": False,
-        "expected_stats_str": "",
+        "expected_stats_str": "3 directories, 7 datasets, 0 files",
         "expected_str": """
 ├── dir0/
 ├── superds0/  [DS~0]
@@ -302,7 +302,7 @@ matrix_ds = [
     {
         "depth": 1,
         "datasets_only": True,
-        "expected_stats_str": "",
+        "expected_stats_str": "0 directories, 2 datasets, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 └── superds1/  [DS~0]
@@ -311,7 +311,7 @@ matrix_ds = [
     {
         "depth": 4,
         "datasets_only": True,
-        "expected_stats_str": "",
+        "expected_stats_str": "0 directories, 7 datasets, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 |   └── sd0_subds0/  [DS~1]
@@ -336,6 +336,8 @@ def build_param_matrix(matrix, params):
     return matrix_out
 
 
+# ================== Test directory tree without datasets ==================
+
 param_names = ["depth", "include_files", "include_hidden", "expected_str"]
 
 
@@ -344,9 +346,9 @@ param_names = ["depth", "include_files", "include_hidden", "expected_str"]
     ids=format_param_ids
 )
 def test_print_tree_with_params_no_ds(
-    path, depth, include_files, include_hidden, expected_str
+        path_no_ds, depth, include_files, include_hidden, expected_str
 ):
-    root = os.path.join(path, "root")
+    root = os.path.join(path_no_ds, "root")
     tree = Tree(
         root, max_depth=depth,
         include_files=include_files, include_hidden=include_hidden)
@@ -362,15 +364,15 @@ def test_print_tree_with_params_no_ds(
 @pytest.mark.parametrize(
     "root_dir_name", ["root/", "root/.", "root/./", "root/../root"]
 )
-def test_root_path_is_normalized(path, root_dir_name):
+def test_root_path_is_normalized(path_no_ds, root_dir_name):
     """
     Test that root path in the first line of string output
     is normalized path
     """
-    root = os.path.join(path, root_dir_name)
+    root = os.path.join(path_no_ds, root_dir_name)
     tree = Tree(root, max_depth=0)
     root_path = next(tree.print_line())  # first line of tree output
-    expected = os.path.join(path, "root")
+    expected = os.path.join(path_no_ds, "root")
     actual = root_path
     assert_str_equal(expected, actual)
 
@@ -389,25 +391,28 @@ param_names = ["depth", "include_files", "include_hidden", "expected_stats_str"]
 @pytest.mark.parametrize(
     param_names, build_param_matrix(matrix_no_ds, param_names)
 )
-def test_print_stats(
-        path, depth, include_files, include_hidden, expected_stats_str
+def test_print_stats_no_ds(
+        path_no_ds, depth, include_files, include_hidden, expected_stats_str
 ):
-    root = os.path.join(path, 'root')
+    root = os.path.join(path_no_ds, 'root')
     tree = Tree(
         root, max_depth=depth,
-        include_files=include_files, include_hidden=include_hidden).build()
+        include_files=include_files, include_hidden=include_hidden
+    ).build()
     actual_res = tree.stats()
     expected_res = expected_stats_str
     assert_str_equal(expected_res, actual_res)
 
 
-def test_tree_to_string(path):
-    root = os.path.join(path, 'root')
+def test_tree_to_string(path_no_ds):
+    root = os.path.join(path_no_ds, 'root')
     tree = Tree(root, 3)
     actual = tree.to_string()
     expected = "\n".join(tree._lines)
     assert_str_equal(expected, actual)
 
+
+# ================== Test directory tree with datasets ==================
 
 param_names = ["depth", "datasets_only", "expected_str"]
 
@@ -430,6 +435,24 @@ def test_print_tree_with_params_with_ds(
     assert_str_equal(expected_res, actual_res)
 
 
+param_names = ["depth", "datasets_only", "expected_stats_str"]
+
+
+@pytest.mark.parametrize(
+    param_names, build_param_matrix(matrix_ds, param_names)
+)
+def test_print_stats_with_ds(
+        path_ds, depth, datasets_only, expected_stats_str
+):
+    root = os.path.join(path_ds, 'root')
+    tree = Tree(
+        root, max_depth=depth, datasets_only=datasets_only
+    ).build()
+    actual_res = tree.stats()
+    expected_res = expected_stats_str
+    assert_str_equal(expected_res, actual_res)
+
+
 def test_print_tree_full_paths():
     # run in the cwd so detecting full paths is easier
     tree = Tree('.', max_depth=1, full_paths=True)
@@ -440,8 +463,8 @@ def test_print_tree_full_paths():
     assert_re_in(r"(?:└──|├──) \./", first_child)
 
 
-def test_print_tree_depth_zero(path):
-    root = os.path.join(path, "root")
+def test_print_tree_depth_zero(path_no_ds):
+    root = os.path.join(path_no_ds, "root")
     tree = Tree(root, max_depth=0,
                 include_files=True)  # should have no effect
     actual = tree.to_string()
