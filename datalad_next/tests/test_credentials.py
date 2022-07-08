@@ -18,7 +18,7 @@ from ..credentials import (
     normalize_specs,
 )
 from datalad.support.keyring_ import MemoryKeyring
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     assert_in,
     assert_in_results,
     assert_raises,

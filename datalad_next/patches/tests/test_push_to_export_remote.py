@@ -7,7 +7,7 @@ from unittest.mock import (
 )
 
 from datalad.runner.exception import CommandError
-from datalad.tests.utils import (
+from datalad.tests.utils_pytest import (
     SkipTest,
     assert_false,
     assert_in,

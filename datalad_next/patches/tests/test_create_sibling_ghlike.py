@@ -17,7 +17,7 @@ from datalad.distributed.tests.test_create_sibling_gogs import *
 # we overwrite this one from core, because it assumed the old credential
 # system to be used
 @with_tempfile
-def test_invalid_call(path):
+def test_invalid_call(path=None):
     # no dataset
     assert_raises(ValueError, create_sibling_gin, 'bogus', dataset=path)
     ds = Dataset(path).create()
