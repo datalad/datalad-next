@@ -486,19 +486,31 @@ class DirectoryOrDatasetNode(_TreeNode):
         """
         ds = require_dataset(path, check_installed=False)
 
-        if ds.id is not None:
+        # detect if it is an installed datalad-proper dataset
+        # (as opposed to git/git-annex repo).
+        # could also query `ds.id`, but checking just for existence
+        # of config file is quicker.
+        if os.path.isfile(os.path.join(ds.path, ".datalad", "config")):
             return True
 
-        # check if it has an installed superdataset
-        superds = ds.get_superdataset(datalad_only=True, topmost=False,
-                                      registered_only=True)
-        if superds is not None:
+        # if it is not installed, check if it has an installed superdataset.
+        # instead of querying ds.is_installed() (which checks if the
+        # directory has the .git folder), we check if the directory
+        # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
+        def is_empty_dir():
+            with os.scandir(path) as contents:
+                if any(contents):
+                    return False
             return True
 
-        # if it has no dataset ID, it's just a plain repo
-        # (or, it is a datalad dataset that is not installed
-        # and has no parent dataset -- we have no way to detect
-        # these, or?)
+        if is_empty_dir():
+            superds = ds.get_superdataset(datalad_only=True, topmost=False,
+                                          registered_only=True)
+            if superds is not None:
+                return True
+
+        # TODO: do we have a way to detect a datalad dataset if it
+        # is not installed and it is not a subdataset?
         return False
 
 
