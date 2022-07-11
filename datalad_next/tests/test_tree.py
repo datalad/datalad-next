@@ -284,7 +284,6 @@ matrix_no_ds = [
 matrix_ds = [
     {
         "depth": 1,
-        "datasets_only": False,
         "expected_stats_str": "1 directories, 2 datasets, 0 files",
         "expected_str": """
 ├── repo0/
@@ -294,7 +293,6 @@ matrix_ds = [
     },
     {
         "depth": 4,
-        "datasets_only": False,
         "expected_stats_str": "3 directories, 7 datasets, 0 files",
         "expected_str": """
 ├── repo0/
@@ -401,7 +399,7 @@ def test_tree_to_string(path_no_ds):
 
 # ================== Test directory tree with datasets ==================
 
-param_names = ["depth", "datasets_only", "expected_str"]
+param_names = ["depth", "expected_str"]
 
 
 @pytest.mark.parametrize(
@@ -409,32 +407,30 @@ param_names = ["depth", "datasets_only", "expected_str"]
     ids=format_param_ids
 )
 def test_print_tree_with_params_with_ds(
-        path_ds, depth, datasets_only, expected_str
+        path_ds, depth, expected_str
 ):
     root = os.path.join(path_ds, "root")
-    tree = Tree(root, max_depth=depth, datasets_only=datasets_only)
-    # skip the first line with the root directory
-    # as we will test it separately
+    tree = Tree(
+        root, max_depth=depth,
+        skip_root=True  # skip the first line with the root directory
+    )
     lines = tree.print_line()
-    next(lines)  # skip the first line (root dir)
     actual_res = "\n".join(l for l in lines) + "\n"
     expected_res = expected_str.lstrip("\n")  # strip first newline
     assert_str_equal(expected_res, actual_res)
 
 
-param_names = ["depth", "datasets_only", "expected_stats_str"]
+param_names = ["depth", "expected_stats_str"]
 
 
 @pytest.mark.parametrize(
     param_names, build_param_matrix(matrix_ds, param_names)
 )
 def test_print_stats_with_ds(
-        path_ds, depth, datasets_only, expected_stats_str
+        path_ds, depth, expected_stats_str
 ):
     root = os.path.join(path_ds, 'root')
-    tree = Tree(
-        root, max_depth=depth, datasets_only=datasets_only
-    ).build()
+    tree = Tree(root, max_depth=depth).build()
     actual_res = tree.stats()
     expected_res = expected_stats_str
     assert_str_equal(expected_res, actual_res)

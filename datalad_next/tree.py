@@ -96,10 +96,6 @@ class TreeCommand(Interface):
             args=("-R", "--dataset-depth",),
             doc="""maximum level of nested subdatasets to display""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
-        datasets_only=Parameter(
-            args=("--datasets-only",),
-            doc="""only list directories that are datasets""",
-            action='store_true'),
         include_files=Parameter(
             args=("--include-files",),
             doc="""include files in output display""",
@@ -123,8 +119,8 @@ class TreeCommand(Interface):
         dict(text="List all first- and second-level subdatasets "
                   "of parent datasets located anywhere under /tmp, "
                   "regardless of directory depth",
-             code_py="tree('/tmp', dataset_depth=2, datasets_only=True, full_paths=True)",
-             code_cmd="datalad tree /tmp -R 2 --datasets-only --full-paths"),
+             code_py="tree('/tmp', dataset_depth=2, depth=0, full_paths=True)",
+             code_cmd="datalad tree /tmp -R 2 -L 0 --full-paths"),
         dict(text="Display first- and second-level subdatasets and their"
                   "contents up to 3 directories deep (within each subdataset)",
              code_py="tree('.', dataset_depth=2, directory_depth=1)",
@@ -139,7 +135,6 @@ class TreeCommand(Interface):
             *,
             depth=None,
             dataset_depth=None,
-            datasets_only=False,
             include_files=False,
             include_hidden=False,
             full_paths=False,
@@ -203,9 +198,9 @@ class Tree(object):
     of the whole tree and the statistics (counts of different node types).
     """
 
-    def __init__(self, root: str, max_depth=None, dataset_max_depth=None,
-                 datasets_only=False, include_files=False,
-                 include_hidden=False, full_paths=False):
+    def __init__(self, root: str, max_depth=None,
+                 include_files=False, include_hidden=False,
+                 full_paths=False, skip_root=False):
 
         if not os.path.isdir(root):
             raise ValueError(f"directory '{root}' not found")
@@ -216,7 +211,6 @@ class Tree(object):
             raise ValueError("max_depth must be >= 0")
 
         self.dataset_max_depth = dataset_max_depth
-        self.datasets_only = datasets_only
         self.include_files = include_files
         self.include_hidden = include_hidden
         self.full_paths = full_paths
@@ -312,14 +306,11 @@ class Tree(object):
 
             # handle directories/datasets
             dir_or_ds = DirectoryOrDatasetNode(
-                path, current_depth, self._is_last_child(path), self.full_paths
-            )
-            if current_depth == 0 or \
-                    not self.datasets_only or \
-                    self.datasets_only and isinstance(dir_or_ds, DatasetNode):
-                yield dir_or_ds
+                path, current_depth, self._is_last_child(path),
+                use_full_paths=self.full_paths)
+            yield dir_or_ds
 
-            if self.max_depth == 0:
+            if self.max_depth == 0 and current_depth == 0:
                 break  # just yield the root dir and exit
 
             # handle files
@@ -337,15 +328,11 @@ class Tree(object):
                 for child_dir in dirs:
                     dir_path = os.path.join(path, child_dir)
 
-                    dir_or_ds = DirectoryOrDatasetNode(
+                    yield DirectoryOrDatasetNode(
                         dir_path, current_depth + 1,
-                        self._is_last_child(dir_path), self.full_paths
+                        self._is_last_child(dir_path),
+                        use_full_paths=self.full_paths
                     )
-
-                    if not self.datasets_only or \
-                            self.datasets_only and isinstance(dir_or_ds,
-                                                              DatasetNode):
-                        yield dir_or_ds
 
                 # empty in-place the list of next directories to
                 # traverse, which effectively stops os.walk's walking
