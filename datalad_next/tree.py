@@ -232,19 +232,9 @@ class Tree(object):
         return path in self._last_children
 
     def _is_max_depth_reached(self, path):
-        """
-        If max depth is reached, it means we will not traverse
-        any further directories in the next iteration.
-        However, we will still list any directories or files
-        right below the current level.
-        Therefore, we 'reach' when we get to 1 level *before* max_depth.
-        """
         if self.max_depth is not None:
-            return self._current_depth(path) == self.max_depth - 1
+            return self._current_depth(path) == self.max_depth
         return False  # unlimited depth
-
-    def _is_max_dataset_depth_reached(self, path):
-        pass
 
     def stats(self):
         """
@@ -272,18 +262,28 @@ class Tree(object):
     @increment_node_count
     def _generate_nodes(self):
         """
-        Yields _TreeNode objects, each representing a directory, dataset
-        or file. Nodes are traversed in depth-first order.
+        Yields ``_TreeNode`` objects, each representing a directory or
+        dataset or file. Nodes are traversed in depth-first order.
         """
 
         # os.walk() does depth-first traversal
         for path, dirs, files in os.walk(self.root):
 
+            if self._is_max_depth_reached(path):
+                # empty in-place the list of next directories to
+                # traverse, which effectively stops os.walk's walking
+                dirs[:] = []
+                files[:] = []
+
             # modify os.walk()'s output in-place to prevent
-            # traversal into those directories
+            # traversal into selected directories
             if not self.include_hidden:
                 dirs[:] = [d for d in dirs if not d.startswith(".")]
                 files[:] = [f for f in files if not f.startswith(".")]
+
+            if self.exclude_datasets:
+                dirs[:] = [d for d in dirs
+                           if not is_dataset(os.path.join(path, d))]
 
             # sort directories and files alphabetically in-place.
             # note that directories and files are sorted separately.
@@ -319,24 +319,9 @@ class Tree(object):
                     file_path = os.path.join(path, file)
                     yield FileNode(
                         file_path, current_depth + 1,
-                        self._is_last_child(file_path), self.full_paths
-                    )
-
-            if self._is_max_depth_reached(path):
-                # generate any remaining directory/dataset nodes,
-                # which will not be traversed in the next iteration
-                for child_dir in dirs:
-                    dir_path = os.path.join(path, child_dir)
-
-                    yield DirectoryOrDatasetNode(
-                        dir_path, current_depth + 1,
-                        self._is_last_child(dir_path),
+                        self._is_last_child(file_path),
                         use_full_paths=self.full_paths
                     )
-
-                # empty in-place the list of next directories to
-                # traverse, which effectively stops os.walk's walking
-                dirs[:] = []
 
     def to_string(self):
         """Return complete tree as string"""
