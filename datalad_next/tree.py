@@ -216,7 +216,7 @@ class Tree(object):
         self.full_paths = full_paths
 
         self._lines = []  # list of lines of output string
-        self._last_children = []  # last child of each subtree
+        self._last_children = set([])  # last child of each subtree
         # TODO: stats should automatically register all concrete _TreeNode classes
         self._stats = {"DirectoryNode": 0, "DatasetNode": 0, "FileNode": 0}
 
@@ -298,10 +298,9 @@ class Tree(object):
                 # files are listed first, directories come last.
                 # so we take the last subdirectory if it exists,
                 # otherwise the last file.
-                self._last_children.append(
+                self._last_children.add(
                     os.path.join(path, dirs[-1] if dirs else files[-1])
                 )
-
             current_depth = self._current_depth(path)
 
             # handle directories/datasets
