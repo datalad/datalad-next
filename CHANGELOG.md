@@ -1,3 +1,11 @@
+# 0.4.1 (2022-07-14) 
+
+## 🐛 Bug Fixes
+
+- Fix a missing import in the credential retrieval for GitHub-like sibling
+  creation, which made it impossible to discover credentials without
+  providing an explicit credential name.
+
 # 0.4.0 (2022-07-08) --  datalad-annex:: for all
 
 #### 💫 Enhancements and new features
