@@ -283,7 +283,6 @@ class _TreeNode(object):
         return root
 
 
-
 class Tree(object):
     """
     Main class for building and serializing a directory tree.
@@ -346,25 +345,8 @@ class Tree(object):
         self.to_string()
         return self
 
-    def _new_node(self, node: _TreeNode):
-        """A helper to instantiate TreeNode and increment node count"""
-        node_type = node.__class__.__name__
-        if node_type not in self._stats:
-            raise ValueError(
-                f"No stats collected for unknown node type '{node_type}'"
-            )
-        if node.depth > 0:  # we do not count the root directory
-            self._stats[node_type] += 1
-        return node
-
-    def _generate_dataset_tree_nodes(self, dir_path: Path, is_last_child=True):
-        pass
-
-    def _generate_nodes(self, dir_path: Path, is_last_child=True):
-        """
-        Yields ``_TreeNode`` objects, each representing a directory or
-        dataset or file. Nodes are traversed in depth-first order.
-        """
+    def _generate_tree_nodes(self, dir_path: Path, is_last_child=True):
+        """Recursively yield directory tree starting from ```dir_path``"""
         def is_excluded(path):
             exclusion_criteria = []
             if not self.include_files:
@@ -373,9 +355,9 @@ class Tree(object):
                 exclusion_criteria.append(path.name.startswith("."))
             return any(exclusion_criteria)
 
-        yield self._new_node(DirectoryOrDatasetNode(
+        yield DirectoryOrDatasetNode(
             dir_path, self._get_depth(dir_path), is_last_child
-        ))
+        )
 
         if self._get_depth(dir_path) < self.max_depth:
             # apply exclusion filter
@@ -393,13 +375,21 @@ class Tree(object):
                 is_last_child = (child == children[-1])
 
                 if child.is_file():
-                    yield self._new_node(
-                        FileNode(child, self._get_depth(child), is_last_child)
-                    )
+                    yield FileNode(child, self._get_depth(child), is_last_child)
                 elif child.is_dir():
                     # recurse into subdirectories
-                    for node in self._generate_nodes(child, is_last_child):
+                    for node in self._generate_tree_nodes(child, is_last_child):
                         yield node
+
+    @increment_node_count
+    def generate_nodes(self):
+        """
+        Traverse a directory tree starting from the root path.
+        Yields ``_TreeNode`` objects, each representing a directory or
+        dataset or file. Nodes are traversed in depth-first order.
+        """
+        for node in self._generate_tree_nodes(self.root):
+            yield node
 
     def to_string(self):
         """Return complete tree as string"""
@@ -437,7 +427,7 @@ class Tree(object):
         # is the last node of its own subtree.
         levels_with_exhausted_subtree = set([])
 
-        for node in self._generate_nodes(self.root):
+        for node in self.generate_nodes():
 
             if self.skip_root and node.depth == 0:
                 continue
