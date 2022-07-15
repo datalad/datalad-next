@@ -1,6 +1,7 @@
 import os
 from os.path import join as opj
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from datalad.distribution.dataset import Dataset
@@ -12,7 +13,7 @@ from datalad.tests.utils_pytest import (
 )
 from datalad.utils import rmtemp
 
-from ..tree import Tree
+from ..tree import Tree, DatasetTree
 
 """
 Tests for datalad tree.
@@ -74,7 +75,7 @@ def path_no_ds():
     }
 
     temp_dir_root = create_temp_dir_tree(dir_tree)
-    yield temp_dir_root
+    yield Path(temp_dir_root).resolve()
     rmtemp(temp_dir_root)
     assert not os.path.exists(temp_dir_root)
 
@@ -96,20 +97,14 @@ def path_ds():
             "superds1": {
                 "sd1_file0": "",
                 "sd1_dir0": {
-                    "sd1_d0_repo0": {
-                        "INFO.txt": "",
-                        "test.dat": ""
-                    },
+                    "sd1_d0_repo0": {},
                     "sd1_d0_subds0": {},
                 },
                 "sd1_ds0": {},  # not registered as subdataset
                 "sd1_subds0": {},  # not installed (drop all)
             },
             # plain git repo (contents are defined in BasicGitTestRepo)
-            "repo0": {
-                "INFO.txt": "",
-                "test.dat": ""
-            },
+            "repo0": {},
             "file0": "",
         }
     }
@@ -131,7 +126,7 @@ def path_ds():
     sd1_subds0 = superds1.create("sd1_subds0", force=True)
     sd1_subds0.drop(what='all', reckless='kill', recursive=True)
 
-    yield temp_dir_root
+    yield Path(temp_dir_root).resolve()
 
     # delete temp dir
     rmtemp(temp_dir_root)
@@ -154,7 +149,7 @@ matrix_no_ds = [
         "depth": 1,
         "include_files": False,
         "include_hidden": False,
-        "expected_stats_str": "3 directories, 0 datasets, 0 files",
+        "expected_stats_str": "0 datasets, 3 directories, 0 files",
         "expected_str": """
 ├── dir0/
 ├── dir1/
@@ -165,7 +160,7 @@ matrix_no_ds = [
         "depth": 3,
         "include_files": False,
         "include_hidden": False,
-        "expected_stats_str": "6 directories, 0 datasets, 0 files",
+        "expected_stats_str": "0 datasets, 6 directories, 0 files",
         "expected_str": """
 ├── dir0/
 ├── dir1/
@@ -179,83 +174,83 @@ matrix_no_ds = [
         "depth": 1,
         "include_files": True,
         "include_hidden": False,
-        "expected_stats_str": "3 directories, 0 datasets, 2 files",
+        "expected_stats_str": "0 datasets, 3 directories, 2 files",
         "expected_str": """
-├── file0
-├── file1
 ├── dir0/
 ├── dir1/
-└── dir2/
+├── dir2/
+├── file0
+└── file1
 """
     },
     {
         "depth": 3,
         "include_files": True,
         "include_hidden": False,
-        "expected_stats_str": "6 directories, 0 datasets, 8 files",
+        "expected_stats_str": "0 datasets, 6 directories, 8 files",
         "expected_str": """
-├── file0
-├── file1
 ├── dir0/
 ├── dir1/
 |   └── dir1_file0
-└── dir2/
-    ├── dir2_file0
-    ├── dir2_file1
-    ├── dir2_dir0/
-    ├── dir2_dir1/
-    |   └── dir2_dir1_file0
-    └── dir2_dir2/
-        ├── dir2_dir2_file0
-        └── dir2_dir2_file1
+├── dir2/
+|   ├── dir2_dir0/
+|   ├── dir2_dir1/
+|   |   └── dir2_dir1_file0
+|   ├── dir2_dir2/
+|   |   ├── dir2_dir2_file0
+|   |   └── dir2_dir2_file1
+|   ├── dir2_file0
+|   └── dir2_file1
+├── file0
+└── file1
 """
     },
     {
         "depth": 1,
         "include_files": True,
         "include_hidden": True,
-        "expected_stats_str": "4 directories, 0 datasets, 3 files",
+        "expected_stats_str": "0 datasets, 4 directories, 3 files",
         "expected_str": """
-├── .file2
-├── file0
-├── file1
 ├── .dir3/
+├── .file2
 ├── dir0/
 ├── dir1/
-└── dir2/
+├── dir2/
+├── file0
+└── file1
 """
     },
     {
         "depth": 3,
         "include_files": True,
         "include_hidden": True,
-        "expected_stats_str": "7 directories, 0 datasets, 11 files",
+        "expected_stats_str": "0 datasets, 7 directories, 11 files",
         "expected_str": """
-├── .file2
-├── file0
-├── file1
 ├── .dir3/
 |   ├── .dir3_file1
 |   └── dir3_file0
+├── .file2
 ├── dir0/
 ├── dir1/
 |   └── dir1_file0
-└── dir2/
-    ├── dir2_file0
-    ├── dir2_file1
-    ├── dir2_dir0/
-    ├── dir2_dir1/
-    |   └── dir2_dir1_file0
-    └── dir2_dir2/
-        ├── dir2_dir2_file0
-        └── dir2_dir2_file1
+├── dir2/
+|   ├── dir2_dir0/
+|   ├── dir2_dir1/
+|   |   └── dir2_dir1_file0
+|   ├── dir2_dir2/
+|   |   ├── dir2_dir2_file0
+|   |   └── dir2_dir2_file1
+|   ├── dir2_file0
+|   └── dir2_file1
+├── file0
+└── file1
 """
     },
     {
         "depth": 1,
         "include_files": False,
         "include_hidden": True,
-        "expected_stats_str": "4 directories, 0 datasets, 0 files",
+        "expected_stats_str": "0 datasets, 4 directories, 0 files",
         "expected_str": """
 ├── .dir3/
 ├── dir0/
@@ -267,7 +262,7 @@ matrix_no_ds = [
         "depth": 3,
         "include_files": False,
         "include_hidden": True,
-        "expected_stats_str": "7 directories, 0 datasets, 0 files",
+        "expected_stats_str": "0 datasets, 7 directories, 0 files",
         "expected_str": """
 ├── .dir3/
 ├── dir0/
@@ -284,7 +279,7 @@ matrix_no_ds = [
 matrix_ds = [
     {
         "depth": 1,
-        "expected_stats_str": "1 directories, 2 datasets, 0 files",
+        "expected_stats_str": "2 datasets, 1 directories, 0 files",
         "expected_str": """
 ├── repo0/
 ├── superds0/  [DS~0]
@@ -293,7 +288,7 @@ matrix_ds = [
     },
     {
         "depth": 4,
-        "expected_stats_str": "3 directories, 7 datasets, 0 files",
+        "expected_stats_str": "7 datasets, 3 directories, 0 files",
         "expected_str": """
 ├── repo0/
 ├── superds0/  [DS~0]
@@ -306,6 +301,55 @@ matrix_ds = [
     ├── sd1_ds0/  [DS~0]
     └── sd1_subds0/  [DS~1, not installed]
 """,
+    },
+]
+
+matrix_max_ds_depth = [
+    {
+        "dataset_depth": 0,
+        "depth": 0,
+        "expected_str": """
+├── superds0/  [DS~0]
+└── superds1/  [DS~0]
+    └── sd1_ds0/  [DS~0]
+"""
+    },
+    {
+        "dataset_depth": 0,
+        "depth": 1,
+        "expected_str": """
+├── superds0/  [DS~0]
+└── superds1/  [DS~0]
+    ├── sd1_dir0/
+    └── sd1_ds0/  [DS~0]
+"""
+    },
+    {
+        "dataset_depth": 1,
+        "depth": 0,
+        "expected_str": """
+├── superds0/  [DS~0]
+|   └── sd0_subds0/  [DS~1]
+└── superds1/  [DS~0]
+    ├── sd1_dir0/
+    |   └── sd1_d0_subds0/  [DS~1]
+    ├── sd1_ds0/  [DS~0]
+    └── sd1_subds0/  [DS~1, not installed]
+"""
+    },
+    {
+        "dataset_depth": 1,
+        "depth": 2,
+        "expected_str": """
+├── superds0/  [DS~0]
+|   └── sd0_subds0/  [DS~1]
+└── superds1/  [DS~0]
+    ├── sd1_dir0/
+    |   ├── sd1_d0_repo0/
+    |   └── sd1_d0_subds0/  [DS~1]
+    ├── sd1_ds0/  [DS~0]
+    └── sd1_subds0/  [DS~1, not installed]
+"""
     },
 ]
 
@@ -336,13 +380,16 @@ def test_print_tree_with_params_no_ds(
     root = os.path.join(path_no_ds, "root")
     tree = Tree(
         root, max_depth=depth,
-        include_files=include_files, include_hidden=include_hidden)
-    # skip the first line with the root directory
-    # as we will test it separately
+        include_files=include_files, include_hidden=include_hidden,
+        skip_root=True  # skip the first line with the root directory
+    )
     lines = tree.print_line()
-    next(lines)  # skip the first line (root dir)
     actual_res = "\n".join(l for l in lines) + "\n"
     expected_res = expected_str.lstrip("\n")  # strip first newline
+    print("expecte:")
+    print(expected_res)
+    print("actual:")
+    print(actual_res)
     assert_str_equal(expected_res, actual_res)
 
 
@@ -354,11 +401,10 @@ def test_root_path_is_normalized(path_no_ds, root_dir_name):
     Test that root path in the first line of string output
     is normalized path
     """
-    root = os.path.join(path_no_ds, root_dir_name)
+    root = path_no_ds / root_dir_name
     tree = Tree(root, max_depth=0)
-    root_path = next(tree.print_line())  # first line of tree output
-    expected = os.path.join(path_no_ds, "root")
-    actual = root_path
+    expected = str(path_no_ds / "root")
+    actual = next(tree.print_line())  # first line of tree output
     assert_str_equal(expected, actual)
 
 
@@ -379,7 +425,7 @@ param_names = ["depth", "include_files", "include_hidden", "expected_stats_str"]
 def test_print_stats_no_ds(
         path_no_ds, depth, include_files, include_hidden, expected_stats_str
 ):
-    root = os.path.join(path_no_ds, 'root')
+    root = path_no_ds / 'root'
     tree = Tree(
         root, max_depth=depth,
         include_files=include_files, include_hidden=include_hidden
@@ -390,7 +436,7 @@ def test_print_stats_no_ds(
 
 
 def test_tree_to_string(path_no_ds):
-    root = os.path.join(path_no_ds, 'root')
+    root = path_no_ds / 'root'
     tree = Tree(root, 3)
     actual = tree.to_string()
     expected = "\n".join(tree._lines)
@@ -409,7 +455,7 @@ param_names = ["depth", "expected_str"]
 def test_print_tree_with_params_with_ds(
         path_ds, depth, expected_str
 ):
-    root = os.path.join(path_ds, "root")
+    root = path_ds / "root"
     tree = Tree(
         root, max_depth=depth,
         skip_root=True  # skip the first line with the root directory
@@ -429,27 +475,38 @@ param_names = ["depth", "expected_stats_str"]
 def test_print_stats_with_ds(
         path_ds, depth, expected_stats_str
 ):
-    root = os.path.join(path_ds, 'root')
+    root = path_ds / 'root'
     tree = Tree(root, max_depth=depth).build()
     actual_res = tree.stats()
     expected_res = expected_stats_str
     assert_str_equal(expected_res, actual_res)
 
 
-def test_print_tree_full_paths():
-    # run in the cwd so detecting full paths is easier
-    tree = Tree('.', max_depth=1, full_paths=True)
-    # get the second line (first child, hopefully exists)
-    lines = tree.print_line()
-    next(lines)  # skip the first line (root dir)
-    first_child = next(lines)
-    assert_re_in(r"(?:└──|├──) \./", first_child)
-
-
 def test_print_tree_depth_zero(path_no_ds):
-    root = os.path.join(path_no_ds, "root")
+    root = path_no_ds / "root"
     tree = Tree(root, max_depth=0,
                 include_files=True)  # should have no effect
     actual = tree.to_string()
-    expected = root
+    expected = str(root)
     assert_str_equal(expected, actual)
+
+
+param_names = ["dataset_depth", "depth", "expected_str"]
+
+
+@pytest.mark.parametrize(
+    param_names, build_param_matrix(matrix_max_ds_depth, param_names),
+    ids=format_param_ids
+)
+def test_print_tree_with_max_dataset_depth(
+        path_ds, dataset_depth, depth, expected_str
+):
+    root = path_ds / "root"
+    tree = DatasetTree(
+        root, max_depth=depth, max_dataset_depth=dataset_depth,
+        skip_root=True)
+    lines = tree.print_line()
+    actual_res = "\n".join(l for l in lines) + "\n"
+    expected_res = expected_str.lstrip("\n")  # strip first newline
+    assert_str_equal(expected_res, actual_res)
+
