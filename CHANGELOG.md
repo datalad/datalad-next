@@ -1,4 +1,13 @@
-# 0.4.1 (2022-07-14) 
+# 0.5.0 (2022-07-19)
+
+## 💫 Enhancements and new features
+
+- The `configuration` command no longer requires a datasets to be present
+  for a `get` operation to retrieve a configuration item from scope `global`.
+  Fixes [#6864](https://github.com/datalad/datalad/issues/6854) via
+  [#86](https://github.com/datalad/datalad-next/pull/86) (by @mih)
+
+# 0.4.1 (2022-07-14)
 
 ## 🐛 Bug Fixes
 

@@ -66,6 +66,8 @@ package and its commands.
 - `git-annex-backend-XDLRA` (originally available from the `mihextras` extension)
   is a custom external git-annex backend used by `git-remote-datalad-annex`. A base
   class to facilitate development of external backends in Python is also provided.
+- Enhance `datalad-configuration` to support getting configuration from "global"
+  scope without a dataset being present.
 
 ## Summary of additional features for DataLad extension development
 
