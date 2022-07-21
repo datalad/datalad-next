@@ -156,6 +156,22 @@ def configuration(action, scope, specs, res_kwargs, ds=None):
         #    res = _add(cfg, scope, spec)
         if action == 'get':
             res = _get(cfg, scope, spec[0])
+            # `None` is a value that cannot be set in the config.
+            # if it is returned, it indicates that no value was set
+            # we need to communicate that back, because a None value
+            # cannot be reported as such by the CLI
+            # (only via, e.g. JSON, encoding).
+            # It makes sense to communicate that getting this specific
+            # configuration item is "impossible" (because it is not set).
+            # if a caller wants to tollerate this scenario, they can
+            # set on_failure='ignore'
+            if res.get('value') is None:
+                res['status'] = 'impossible'
+                res['message'] = (
+                    'key %r not set in configuration%s',
+                    res['name'],
+                    f" scope '{scope}'" if scope else '',
+                )
         elif action == 'dump':
             res = _dump(cfg, spec[0])
         # TODO this should be there, if we want to be comprehensive
