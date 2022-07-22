@@ -1,0 +1,12 @@
+# The release team (RT) is responsible for all code (reviews), unless
+# a more precise, additional specification further down matches a particular
+# changeset.
+#
+# It is the responsibility of any RT member to act on code review
+# requests in a timely manner.
+#
+# RT member approval is required for any merge request.
+#
+# Merge requests are accepted (automatically) when all (relevant)
+# status checks have passed, and RT approval was given.
+*   michael.hanke@gmail.com
