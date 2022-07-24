@@ -1,4 +1,5 @@
 from . import (
+    gitrepo,
     annexrepo,
     configuration,
     create_sibling_ghlike,
