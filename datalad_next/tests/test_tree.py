@@ -308,6 +308,7 @@ matrix_max_ds_depth = [
     {
         "dataset_depth": 0,
         "depth": 0,
+        "expected_stats_str": "3 datasets, 0 directories, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 └── superds1/  [DS~0]
@@ -317,6 +318,7 @@ matrix_max_ds_depth = [
     {
         "dataset_depth": 0,
         "depth": 1,
+        "expected_stats_str": "3 datasets, 1 directories, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 └── superds1/  [DS~0]
@@ -327,6 +329,7 @@ matrix_max_ds_depth = [
     {
         "dataset_depth": 1,
         "depth": 0,
+        "expected_stats_str": "6 datasets, 1 directories, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 |   └── sd0_subds0/  [DS~1]
@@ -340,6 +343,7 @@ matrix_max_ds_depth = [
     {
         "dataset_depth": 1,
         "depth": 2,
+        "expected_stats_str": "6 datasets, 2 directories, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 |   └── sd0_subds0/  [DS~1]
@@ -386,7 +390,7 @@ def test_print_tree_with_params_no_ds(
     lines = tree.print_line()
     actual_res = "\n".join(l for l in lines) + "\n"
     expected_res = expected_str.lstrip("\n")  # strip first newline
-    print("expecte:")
+    print("expected:")
     print(expected_res)
     print("actual:")
     print(actual_res)
@@ -508,5 +512,26 @@ def test_print_tree_with_max_dataset_depth(
     lines = tree.print_line()
     actual_res = "\n".join(l for l in lines) + "\n"
     expected_res = expected_str.lstrip("\n")  # strip first newline
+    print("expected:")
+    print(expected_res)
+    print("actual:")
+    print(actual_res)
     assert_str_equal(expected_res, actual_res)
+
+
+param_names = ["dataset_depth", "depth", "expected_stats_str"]
+
+
+@pytest.mark.parametrize(
+    param_names, build_param_matrix(matrix_max_ds_depth, param_names)
+)
+def test_print_stats_with_max_dataset_depth(
+        path_ds, dataset_depth, depth, expected_stats_str
+):
+    root = path_ds / 'root'
+    tree = DatasetTree(root, max_depth=depth, max_dataset_depth=dataset_depth).build()
+    actual_res = tree.stats()
+    expected_res = expected_stats_str
+    assert_str_equal(expected_res, actual_res)
+
 
