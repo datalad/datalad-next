@@ -7,11 +7,11 @@ from datalad.support.gitrepo import GitRepo
 from datalad.support.annexrepo import AnnexRepo
 
 from datalad.tests.utils_pytest import (
+    SkipTest,
     assert_in_results,
     assert_repo_status,
     eq_,
     get_convoluted_situation,
-    known_failure_windows,
     slow,
     with_tempfile,
 )
@@ -38,6 +38,11 @@ def _test_save_all(path, repocls):
         len([f for f, p in orig_status.items()
              if not f.match('*_deleted')]),
         len(saved_status))
+
+    if ds.repo.is_managed_branch():
+        raise SkipTest(
+            '#5462: subdatasets handling on adjusted branches still broken')
+
     # everything but subdataset entries that contain untracked content,
     # or modified subsubdatasets is now clean, a repo simply doesn touch
     # other repos' private parts
@@ -48,14 +53,12 @@ def _test_save_all(path, repocls):
 
 
 @slow  # 11sec on travis
-@known_failure_windows  # see gh-5462
 @with_tempfile
 def test_gitrepo_save_all(path=None):
     _test_save_all(path, GitRepo)
 
 
 @slow  # 11sec on travis
-@known_failure_windows  # see gh-5462
 @with_tempfile
 def test_annexrepo_save_all(path=None):
     _test_save_all(path, AnnexRepo)
