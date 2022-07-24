@@ -3,15 +3,62 @@ import shutil
 from datalad.api import create
 from datalad.distribution.dataset import Dataset
 from datalad.utils import rmtree
+from datalad.support.gitrepo import GitRepo
+from datalad.support.annexrepo import AnnexRepo
 
 from datalad.tests.utils_pytest import (
     assert_in_results,
     assert_repo_status,
+    eq_,
+    get_convoluted_situation,
+    known_failure_windows,
+    slow,
     with_tempfile,
 )
 
 # run assorted -core tests, because with diffstatus() we patched a central piece
 from datalad.support.tests.test_repo_save import *
+
+
+def _test_save_all(path, repocls):
+    ds = get_convoluted_situation(path, GitRepo)
+    orig_status = ds.repo.status(untracked='all')
+    # TODO test the results when the are crafted
+    res = ds.repo.save()
+    # make sure we get a 'delete' result for each deleted file
+    eq_(
+        set(r['path'] for r in res if r['action'] == 'delete'),
+        {k for k, v in orig_status.items()
+         if k.name in ('file_deleted', 'file_staged_deleted')}
+    )
+    saved_status = ds.repo.status(untracked='all')
+    # we still have an entry for everything that did not get deleted
+    # intentionally
+    eq_(
+        len([f for f, p in orig_status.items()
+             if not f.match('*_deleted')]),
+        len(saved_status))
+    # everything but subdataset entries that contain untracked content,
+    # or modified subsubdatasets is now clean, a repo simply doesn touch
+    # other repos' private parts
+    for f, p in saved_status.items():
+        if p.get('state', None) != 'clean':
+            assert f.match('subds_modified'), f
+    return ds
+
+
+@slow  # 11sec on travis
+@known_failure_windows  # see gh-5462
+@with_tempfile
+def test_gitrepo_save_all(path=None):
+    _test_save_all(path, GitRepo)
+
+
+@slow  # 11sec on travis
+@known_failure_windows  # see gh-5462
+@with_tempfile
+def test_annexrepo_save_all(path=None):
+    _test_save_all(path, AnnexRepo)
 
 
 @with_tempfile
