@@ -1,8 +1,16 @@
+from itertools import chain
 import logging
 
+from datalad.config import (
+    write_config_section,
+)
 from datalad.core.local.repo import repo_from_path
-from datalad.support.gitrepo import GitRepo
+from datalad.support.gitrepo import (
+    GitRepo,
+    _prune_deeper_repos,
+)
 import datalad.utils as ut
+from datalad.utils import path_is_subpath
 
 
 # reuse logger from -core, despite the unconventional name
@@ -405,13 +413,378 @@ def gitRepo___diffstatus_get_state(
             else None
 
 
-lgr.debug('Apply datalad-next patch to gitrepo.py:GitRepo.enable_remote')
+# This function is only here in order to apply this small patch
+# https://github.com/datalad/datalad/commit/990bc16d42295ebbef496e8135d45ac95949d80a
+def gitRepo__save_(self, message=None, paths=None, _status=None, **kwargs):
+    """Like `save()` but working as a generator."""
+    from datalad.interface.results import get_status_dict
+
+    status_state = _get_save_status_state(
+        self._save_pre(paths, _status, **kwargs) or {}
+    )
+    amend = kwargs.get('amend', False)
+
+    # TODO: check on those None's -- may be those are also "nothing to worry about"
+    # and we could just return?
+    if not any(status_state.values()) and not (message and amend):
+        # all clean, nothing todo
+        lgr.debug('Nothing to save in %r, exiting early', self)
+        return
+
+    # three things are to be done:
+    # - remove (deleted if not already staged)
+    # - add (modified/untracked)
+    # - commit (with all paths that have been touched, to bypass
+    #   potential pre-staged bits)
+
+    staged_paths = self.get_staged_paths()
+    need_partial_commit = bool(staged_paths)
+    if need_partial_commit and hasattr(self, "call_annex"):
+        # so we have some staged content. let's check which ones
+        # are symlinks -- those could be annex key links that
+        # are broken after a `git-mv` operation
+        # https://github.com/datalad/datalad/issues/4967
+        # call `git-annex pre-commit` on them to rectify this before
+        # saving the wrong symlinks
+        added = status_state['added']
+        tofix = [
+            sp for sp in staged_paths
+            if added.get(self.pathobj / sp, {}).get("type") == "symlink"
+        ]
+        if tofix:
+            self.call_annex(['pre-commit'], files=tofix)
+
+    submodule_change = False
+
+    if status_state['deleted']:
+        vanished_subds = [
+            str(f.relative_to(self.pathobj))
+            for f, props in status_state['deleted'].items()
+            if props.get('type') == 'dataset'
+        ]
+        if vanished_subds:
+            # we submodule removal we use `git-rm`, because the clean-up
+            # is more complex than just an index update -- make no
+            # sense to have a duplicate implementation.
+            # we do not yield here, but only altogether below -- we are just
+            # processing gone components, should always be quick.
+            self._call_git(['rm', '-q'], files=vanished_subds)
+            submodule_change = True
+        # remove anything from the index that was found to be gone
+        self._call_git(
+            ['update-index', '--remove'],
+            files=[
+                str(f.relative_to(self.pathobj))
+                for f, props in status_state['deleted'].items()
+                # do not update the index, if there is already
+                # something staged for this path (e.g.,
+                # a directory was removed and a file staged
+                # in its place)
+                if not props.get('gitshasum')
+                # we already did the submodules
+                and props.get('type') != 'dataset'
+                # update-index only works for files.
+                # a directory could end up here, when a previously
+                # committed file was replaced by a directory and
+                # a new file in it was added. this would automatically
+                # stage a deletion for the previous file object
+                and not f.is_dir()
+            ]
+        )
+        # now yield all deletions
+        for p, props in status_state['deleted'].items():
+            yield get_status_dict(
+                action='delete',
+                refds=self.pathobj,
+                type=props.get('type'),
+                path=p,
+                status='ok',
+                logger=lgr)
+
+    # TODO this additional query should not be, based on status as given
+    # if anyhow possible, however, when paths are given, status may
+    # not contain all required information. In case of path=None AND
+    # _status=None, we should be able to avoid this, because
+    # status should have the full info already
+    # looks for contained repositories
+    untracked_dirs = [
+        f.relative_to(self.pathobj)
+        for f, props in status_state['untracked'].items()
+        if props.get('type', None) == 'directory']
+    to_add_submodules = []
+    if untracked_dirs:
+        to_add_submodules = [
+            sm for sm, sm_props in
+            self.get_content_info(
+                untracked_dirs,
+                ref=None,
+                # request exhaustive list, so that everything that is
+                # still reported as a directory must be its own repository
+                untracked='all').items()
+            if sm_props.get('type', None) == 'directory']
+        to_add_submodules = _prune_deeper_repos(to_add_submodules)
+        if to_add_submodules:
+            for r in self._save_add_submodules(to_add_submodules):
+                if r.get('status', None) == 'ok':
+                    submodule_change = True
+                yield r
+    to_stage_submodules = {
+        f: props
+        for f, props in status_state['modified_or_untracked'].items()
+        if props.get('type', None) == 'dataset'}
+    if to_stage_submodules:
+        lgr.debug(
+            '%i submodule path(s) to stage in %r %s',
+            len(to_stage_submodules), self,
+            to_stage_submodules
+            if len(to_stage_submodules) < 10 else '')
+        for r in self._save_add_submodules(to_stage_submodules):
+            if r.get('status', None) == 'ok':
+                submodule_change = True
+            yield r
+
+    if submodule_change:
+        # this will alter the config, reload
+        self.config.reload()
+        # need to include .gitmodules in what needs committing
+        f = self.pathobj.joinpath('.gitmodules')
+        status_state['modified_or_untracked'][f] = \
+            status_state['modified'][f] = \
+            dict(type='file', state='modified')
+        # now stage .gitmodules
+        self._call_git(['update-index', '--add'], files=['.gitmodules'])
+        # and report on it
+        yield get_status_dict(
+            action='add',
+            refds=self.pathobj,
+            type='file',
+            path=f,
+            status='ok',
+            logger=lgr)
+
+    to_add = {
+        # TODO remove pathobj stringification when add() can
+        # handle it
+        str(f.relative_to(self.pathobj)): props
+        for f, props in status_state['modified_or_untracked'].items()
+        if not (f in to_add_submodules or f in to_stage_submodules)}
+    if to_add:
+        compat_config = \
+            self.config.obtain("datalad.save.windows-compat-warning")
+        to_add, problems = self._check_for_win_compat(to_add, compat_config)
+        lgr.debug(
+            '%i path(s) to add to %s %s',
+            len(to_add), self, to_add if len(to_add) < 10 else '')
+
+        if to_add:
+            yield from self._save_add(
+                to_add,
+                git_opts=None,
+                **{k: kwargs[k] for k in kwargs
+                   if k in (('git',) if hasattr(self, 'uuid')
+                            else tuple())})
+        if problems:
+            from datalad.interface.results import get_status_dict
+            msg = \
+                'Incompatible name for Windows systems; disable with ' \
+                'datalad.save.windows-compat-warning.',
+            for path in problems:
+                yield get_status_dict(
+                    action='save',
+                    refds=self.pathobj,
+                    type='file',
+                    path=(self.pathobj / ut.PurePosixPath(path)),
+                    status='impossible',
+                    message=msg,
+                    logger=lgr)
+
+
+    # https://github.com/datalad/datalad/issues/6558
+    # file could have become a directory. Unfortunately git
+    # would then mistakenly refuse to commit if that old path is also
+    # given to commit, so we better filter it out
+    if status_state['deleted'] and status_state['added']:
+        # check if any "deleted" is a directory now. Then for those
+        # there should be some other path under that directory in 'added'
+        for f in [_ for _ in status_state['deleted'] if _.is_dir()]:
+            # this could potentially be expensive if lots of files become
+            # directories, but it is unlikely to happen often
+            # Note: PurePath.is_relative_to was added in 3.9 and seems slowish
+            # path_is_subpath faster, also if comparing to "in f.parents"
+            f_str = str(f)
+            if any(path_is_subpath(str(f2), f_str)
+                   for f2 in status_state['added']):
+                # do not bother giving it to commit below in _save_post
+                status_state['deleted'].pop(f)
+
+    # Note, that allow_empty is always ok when we amend. Required when we
+    # amend an empty commit while the amendment is empty, too (though
+    # possibly different message). If an empty commit was okay before, it's
+    # okay now.
+    status_state.pop('modified_or_untracked')  # pop the hybrid state
+    self._save_post(
+        message,
+        chain(*status_state.values()),
+        need_partial_commit, amend=amend,
+        allow_empty=amend,
+    )
+    # TODO yield result for commit, prev helper checked hexsha pre
+    # and post...
+
+
+def gitRepo___save_add_submodules(self, paths):
+    """Add new submodules, or updates records of existing ones
+
+    This method does not use `git submodule add`, but aims to be more
+    efficient by limiting the scope to mere in-place registration of
+    multiple already present repositories.
+
+    Parameters
+    ----------
+    paths : list(Path)
+
+    Yields
+    ------
+    dict
+      Result records
+    """
+    from datalad.interface.results import get_status_dict
+
+    # first gather info from all datasets in read-only fashion, and then
+    # update index, .gitmodules and .git/config at once
+    info = []
+    for path in paths:
+        rpath = str(path.relative_to(self.pathobj).as_posix())
+        subm = repo_from_path(path)
+        # if there is a corresponding branch, we want to record it's state.
+        # we rely on the corresponding branch being synced already.
+        # `save` should do that each time it runs.
+        subm_commit = subm.get_hexsha(subm.get_corresponding_branch())
+        if not subm_commit:
+            yield get_status_dict(
+                action='add_submodule',
+                ds=self,
+                path=path,
+                status='error',
+                message=('cannot add subdataset %s with no commits', subm),
+                logger=lgr)
+            continue
+        # make an attempt to configure a submodule source URL based on the
+        # discovered remote configuration
+        remote, branch = subm.get_tracking_branch()
+        url = subm.get_remote_url(remote) if remote else None
+        if url is None:
+            url = './{}'.format(rpath)
+        subm_id = subm.config.get('datalad.dataset.id', None)
+        info.append(
+            dict(
+                 # if we have additional information on this path, pass it on.
+                 # if not, treat it as an untracked directory
+                 paths[path] if isinstance(paths, dict)
+                 else dict(type='directory', state='untracked'),
+                 path=path, rpath=rpath, commit=subm_commit, id=subm_id,
+                 url=url))
+
+    # bypass any convenience or safe-manipulator for speed reasons
+    # use case: saving many new subdatasets in a single run
+    with (self.pathobj / '.gitmodules').open('a') as gmf, \
+         (self.pathobj / '.git' / 'config').open('a') as gcf:
+        for i in info:
+            # we update the subproject commit unconditionally
+            self.call_git([
+                'update-index', '--add', '--replace', '--cacheinfo', '160000',
+                i['commit'], i['rpath']
+            ])
+            # only write the .gitmodules/.config changes when this is not yet
+            # a subdataset
+            # TODO: we could update the URL, and branch info at this point,
+            # even for previously registered subdatasets
+            if i['type'] != 'dataset' or (
+                    i['type'] == 'dataset' and i['state'] == 'untracked'):
+                gmprops = dict(path=i['rpath'], url=i['url'])
+                if i['id']:
+                    gmprops['datalad-id'] = i['id']
+                write_config_section(
+                    gmf, 'submodule', i['rpath'], gmprops)
+                write_config_section(
+                    gcf, 'submodule', i['rpath'], dict(active='true', url=i['url']))
+
+            # This mirrors the result structure yielded for
+            # to_stage_submodules below.
+            yield get_status_dict(
+                action='add',
+                refds=self.pathobj,
+                type='dataset',
+                key=None,
+                path=i['path'],
+                status='ok',
+                logger=lgr)
+
+
+# Imported from core's datalad/support.gitrepo.py
+# It has not yet made it into a release
+def _get_save_status_state(status):
+    """
+    Returns
+    -------
+    dict
+      By status category by file path, mapped to status properties.
+    """
+    # Sort status into status by state with explicit list of states
+    # (excluding clean we do not care about) we expect to be present
+    # and which we know of (unless None), and modified_or_untracked hybrid
+    # since it is used below
+    status_state = {
+        k: {}
+        for k in (None,  # not cared of explicitly here
+                  'added',  # not cared of explicitly here
+                  # 'clean'  # not even wanted since nothing to do about those
+                  'deleted',
+                  'modified',
+                  'untracked',
+                  'modified_or_untracked',  # hybrid group created here
+                  )}
+    for f, props in status.items():
+        state = props.get('state', None)
+        if state == 'clean':
+            # we don't care about clean
+            continue
+        if state == 'modified' and props.get('gitshasum') \
+                and props.get('gitshasum') == props.get('prev_gitshasum'):
+            # reported as modified, but with identical shasums -> typechange
+            # a subdataset maybe? do increasingly expensive tests for
+            # speed reasons
+            if props.get('type') != 'dataset' and f.is_dir() \
+                    and GitRepo.is_valid_repo(f):
+                # it was not a dataset, but now there is one.
+                # we declare it untracked to engage the discovery tooling.
+                state = 'untracked'
+                props = dict(type='dataset', state='untracked')
+        status_state[state][f] = props
+        # The hybrid one to retain the same order as in original status
+        if state in ('modified', 'untracked'):
+            status_state['modified_or_untracked'][f] = props
+    return status_state
+
+
+lgr.debug('Apply datalad-next patch to gitrepo.py:GitRepo.diffstatus')
 GitRepo.diffstatus = gitRepo__diffstatus
 lgr.debug(
     'Apply datalad-next patch to gitrepo.py:'
     'GitRepo._get_worktree_modifications')
 GitRepo._get_worktree_modifications = gitRepo___get_worktree_modifications
-lgr.debug('Apply datalad-next patch to gitrepo.py:GitRepo.enable_remote')
+lgr.debug(
+    'Apply datalad-next patch to gitrepo.py:'
+    'GitRepo._diffstatus_get_state_props')
 GitRepo._diffstatus_get_state_props = gitRepo___diffstatus_get_state_props
-lgr.debug('Apply datalad-next patch to gitrepo.py:GitRepo.enable_remote')
+lgr.debug(
+    'Apply datalad-next patch to gitrepo.py:'
+    'GitRepo._diffstatus_get_state')
 GitRepo._diffstatus_get_state = gitRepo___diffstatus_get_state
+lgr.debug(
+    'Apply datalad-next patch to gitrepo.py:GitRepo.save_')
+GitRepo.save_ = gitRepo__save_
+lgr.debug(
+    'Apply datalad-next patch to gitrepo.py:'
+    'GitRepo._save_add_submodules')
+GitRepo._save_add_submodules = gitRepo___save_add_submodules

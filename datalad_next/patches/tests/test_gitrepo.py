@@ -1,5 +1,6 @@
 import shutil
 
+from datalad.api import create
 from datalad.distribution.dataset import Dataset
 from datalad.utils import rmtree
 
@@ -135,3 +136,34 @@ def test_save_typechange(path=None):
     )
     ds.save(**ckwa)
     assert_repo_status(ds.repo)
+
+
+@with_tempfile
+def test_save_subds_change(path=None):
+    ckwa = dict(result_renderer='disabled')
+    ds = Dataset(path).create(**ckwa)
+    subds = ds.create('sub', **ckwa)
+    assert_repo_status(ds.repo)
+    rmtree(subds.path)
+    res = ds.save(**ckwa)
+    assert_repo_status(ds.repo)
+    # updated .gitmodules, deleted subds, saved superds
+    assert len(res) == 3
+    assert_in_results(
+        res, type='dataset', path=ds.path, action='save')
+    assert_in_results(
+        res, type='dataset', path=subds.path, action='delete')
+    assert_in_results(
+        res, type='file', path=str(ds.pathobj / '.gitmodules'), action='add')
+    # now add one via save
+    subds2 = create(ds.pathobj / 'sub2', **ckwa)
+    res = ds.save(**ckwa)
+    # updated .gitmodules, added subds, saved superds
+    assert len(res) == 3
+    assert_repo_status(ds.repo)
+    assert_in_results(
+        res, type='dataset', path=ds.path, action='save')
+    assert_in_results(
+        res, type='dataset', path=subds2.path, action='add')
+    assert_in_results(
+        res, type='file', path=str(ds.pathobj / '.gitmodules'), action='add')
