@@ -210,7 +210,7 @@ def is_dataset(path):
     # (as opposed to git/git-annex repo).
     # could also query `ds.id`, but checking just for existence
     # of config file is quicker.
-    if os.path.isfile(os.path.join(ds.path, ".datalad", "config")):
+    if Path(Path(ds.path) / ".datalad" / "config").is_file():
         return True
 
     # if it is not installed, check if it has an installed superdataset.
@@ -218,10 +218,7 @@ def is_dataset(path):
     # directory has the .git folder), we check if the directory
     # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
     def is_empty_dir():
-        with os.scandir(path) as contents:
-            if any(contents):
-                return False
-        return True
+        return not any(Path(ds.path).iterdir())
 
     if is_empty_dir():
         superds = ds.get_superdataset(datalad_only=True, topmost=False,
@@ -233,12 +230,6 @@ def is_dataset(path):
     # is not installed and it is not a subdataset?
     return False
 
-
-def is_path_child_of_parent(child, parent):
-    parent_abs = os.path.abspath(parent)
-    child_abs = os.path.abspath(child)
-    return os.path.commonpath([parent_abs]) == \
-        os.path.commonpath([parent_abs, child_abs])
 
 class _TreeNode(object):
     """
@@ -258,7 +249,7 @@ class _TreeNode(object):
         return self.path == other.path
 
     def __hash__(self):
-        return hash(self.path)
+        return hash(str(self.path))
 
     def __str__(self):
         if self.depth == 0 or self.use_full_paths:
@@ -275,12 +266,24 @@ class _TreeNode(object):
 
         return prefix + str(path)
 
-    def _get_tree_root(self):
+    @property
+    def tree_root(self):
         """Calculate tree root path from node path and depth"""
-        root = self.path
-        for _ in range(self.depth):
-            root = os.path.dirname(root)
-        return root
+        return self.parents[0]
+
+    @property
+    def parents(self):
+        """
+        List of parent paths (beginning from the tree root)
+        in top-down order.
+        """
+        parents_from_tree_root = []
+        for depth, path in enumerate(Path(self.path).parents):
+            if depth >= self.depth:
+                break
+            parents_from_tree_root.append(path)
+
+        return parents_from_tree_root[::-1]  # top-down order
 
 
 class Tree(object):
@@ -290,9 +293,10 @@ class Tree(object):
     of the whole tree and the statistics (counts of different node types).
     """
 
-    def __init__(self, root: Path, max_depth=None,
+    def __init__(self,
+                 root: Path, max_depth=None,
                  include_files=False, include_hidden=False,
-                 full_paths=False, exclude_datasets=False,
+                 full_paths=False, traverse_datasets=True,
                  skip_root=False):
 
         # TODO: root should already be given as Path object
@@ -307,7 +311,7 @@ class Tree(object):
         self.include_files = include_files
         self.include_hidden = include_hidden
         self.full_paths = full_paths
-        self.exclude_datasets = exclude_datasets
+        self.traverse_datasets = traverse_datasets
         self.skip_root = skip_root  # do not print first line with root path
 
         self._lines = []  # list of lines of output string
@@ -318,10 +322,10 @@ class Tree(object):
         """Directory depth of current path relative to root of the tree"""
         return len(path.relative_to(self.root).parts)
 
-    def _is_max_depth_reached(self, path):
-        if self.max_depth is not None:
-            return self._get_depth(path) == self.max_depth
-        return False  # unlimited depth
+    def _max_depth_reached(self, path):
+        if self.max_depth is None:
+            return False  # unlimited depth
+        return self._get_depth(path) >= self.max_depth
 
     def stats(self):
         """
@@ -355,11 +359,23 @@ class Tree(object):
                 exclusion_criteria.append(path.name.startswith("."))
             return any(exclusion_criteria)
 
-        yield DirectoryOrDatasetNode(
-            dir_path, self._get_depth(dir_path), is_last_child
-        )
+        if not self.skip_root or \
+                self.skip_root and self._get_depth(dir_path) > 0:
+            yield DirectoryOrDatasetNode(
+                dir_path, self._get_depth(dir_path), is_last_child
+            )
 
-        if self._get_depth(dir_path) < self.max_depth:
+        condition = (self.traverse_datasets or
+                 not self.traverse_datasets and (not is_dataset(dir_path) or self._get_depth(dir_path) == 0))
+        # if not self.traverse_datasets:
+        #     print(f"dir_path = {dir_path}")
+        #     print(f"self.traverse_datasets = {self.traverse_datasets}")
+        #     print(f" self._get_depth(dir_path) = {self._get_depth(dir_path)}")
+        #     print(f"is_dataset(dir_path) = {is_dataset(dir_path)}")
+        #     print(f"condition = {condition}")
+
+        if not self._max_depth_reached(dir_path) and condition:
+
             # apply exclusion filter
             selected_children = (
                 p for p in Path(dir_path).iterdir()
@@ -429,9 +445,6 @@ class Tree(object):
 
         for node in self.generate_nodes():
 
-            if self.skip_root and node.depth == 0:
-                continue
-
             if node.is_last_child:  # last child of its subtree
                 levels_with_exhausted_subtree.add(node.depth)
             else:
@@ -458,7 +471,7 @@ class DatasetTree(Tree):
     def __init__(self, *args, max_dataset_depth=0, **kwargs):
         super().__init__(*args, **kwargs)
         # by default, do not recurse into datasets' subdirectories
-        # (that are not datasets themselves)
+        # (other than paths to nested subdatasets)
         if self.max_depth is None:
             self.max_depth = 0
 
@@ -470,81 +483,105 @@ class DatasetTree(Tree):
         self._current_dataset_depth = -1  # -1 means no datasets encountered
 
     def _is_max_dataset_depth_reached(self):
-        if self.max_dataset_depth is not None:
-            return self._current_dataset_depth > self.max_dataset_depth
-        return False  # unlimited depth
+        return self._current_dataset_depth > self.max_dataset_depth
 
-    def _generate_nodes(self):
+    def _find_all_datasets(self):
+        """Precalculate the set of all datasets under tree root"""
+        datasets = set([])
+        ds_generator = (
+            p
+            for p in Path(self.root).glob("**/*")
+            if p.is_dir() and
+            not p.name == ".git" and  # won't find datasets inside .git folder
+            is_dataset(p)
+        )
+        for path in ds_generator:
+            ds = DatasetNode(path, self._get_depth(path), is_last_child=False)
+            self._current_dataset_depth = ds.ds_depth
+            if not self._is_max_dataset_depth_reached():
+                datasets.add(Path(ds.path))
+        return datasets
+
+    def _is_last_ds_child(self, path, datasets):
+        """Takes output of _find_all_datasets()"""
+        path = Path(path)
+        parent = path.parent
+        siblings = sorted([ds for ds in datasets if ds.parent == parent])
+        # print(f"path {path.name}: siblings: {[s.name for s in siblings]}")
+        if not siblings:  # means the current path is not a dataset
+            return True
+        return siblings[-1] == path
+
+    def _generate_ds_with_parents(self):
         # keep track of datasets' parent directories that have already
         # been yielded, so we do not yield them twice
-        visited_parents = set([])
-        for path, dirs, files in os.walk(self.root):
+        self._visited_parents = set([])
 
-            # optimization: do not traverse the .git folder
-            # (we're not going to find datasets in there)
-            dirs[:] = [d for d in dirs if d != ".git"]
+        # precalculate datasets up to max_dataset_depth
+        all_datasets = self._find_all_datasets()
 
-            # sort directories alphabetically in-place
-            dirs.sort()
+        ds_tree = Tree(
+            self.root,
+            max_depth=None,  # unlimited traversal
+            include_files=False,
+            include_hidden=True,
+            skip_root=self.skip_root,
+            full_paths=self.full_paths
+        )
 
-            # update the last child nodes
-            if dirs:  # if there is a next level
-                self._last_children.add(
-                    os.path.join(path, dirs[-1])
-                )
-
-            if is_dataset(path):
-                current_depth = self._get_depth(path)
-
-                ds = DatasetNode(
-                    path, current_depth, self._is_last_child(path),
-                    use_full_paths=self.full_paths)
+        for node in ds_tree.generate_nodes():
+            ds = node
+            if isinstance(node, DatasetNode):
                 self._current_dataset_depth = ds.ds_depth
 
-                if self._is_max_dataset_depth_reached():
-                    # we do not prune the walk (empty the list of
-                    # directories to traverse next), but just skip to
-                    # to the next node. this is because datasets
-                    # of a given depth *could* be located at any
-                    # directory depth, even below datasets at the same
-                    # or deeper level.
-                    continue
+                if not self._is_max_dataset_depth_reached():
+                    # yield parent directories if not already done
+                    for depth, parent in enumerate(ds.parents):
+                        if depth == 0 and self.skip_root:
+                            continue
+                        if parent not in self._visited_parents:
+                            self._visited_parents.add(parent)
 
-                # yield intermediate directories
-                for parent, parent_depth in ds.parent_nodes():
-                    if parent not in visited_parents:
-                        visited_parents.add(parent)
-                        yield DirectoryOrDatasetNode(
-                            parent,
-                            parent_depth,
-                            self._is_last_child(parent),
-                            use_full_paths=self.full_paths
-                        )
-                visited_parents.add(ds.path)
-                yield ds
+                            yield DirectoryOrDatasetNode(
+                                parent,
+                                depth,
+                                self._is_last_ds_child(parent, all_datasets),
+                                use_full_paths=self.full_paths
+                            )
 
-                if self.max_depth > 0:
-                    # yield directories/files underneath dataset.
-                    # here, the `max_depth` parameter refers to the
-                    # directory depth of each dataset's subtree.
-                    subtree = Tree(
-                        ds.path, max_depth=self.max_depth,
-                        full_paths=self.full_paths,
-                        include_files=self.include_files,
-                        include_hidden=self.include_hidden,
-                        exclude_datasets=True
-                    )
-                    for subtree_node in subtree._generate_nodes():
-                        # skip root node and dataset nodes
-                        # (will be yielded in main loop)
-                        if subtree_node.depth > 0 and \
-                                not isinstance(subtree_node, DatasetNode):
-                            # increment depth by offset of root
-                            subtree_node.depth += ds.depth
-                            if isinstance(subtree_node, DirectoryNode):
-                                visited_parents.add(subtree_node.path)
+                    self._visited_parents.add(ds.path)
+                    ds.is_last_child = self._is_last_ds_child(ds.path,
+                                                              all_datasets)
+                    yield ds
 
-                            yield subtree_node
+    def _generate_dataset_nodes(self):
+        ds_node_generator = self._generate_ds_with_parents()
+
+        for node in ds_node_generator:
+            if isinstance(node, DatasetNode):
+                ds = node
+                # yield dataset contents up to `max_depth` levels
+                subtree = Tree(
+                    ds.path,
+                    max_depth=self.max_depth,
+                    include_files=self.include_files,
+                    include_hidden=self.include_hidden,
+                    skip_root=True,  # dataset root has already been yielded
+                    traverse_datasets=False
+                )
+                for sub_node in subtree.generate_nodes():
+                    if isinstance(sub_node, DatasetNode):
+                        self._visited_parents.update(sub_node.parents)
+                        yield from ds_node_generator
+                    else:
+                        # offset sub-node depth by the parent's depth
+                        sub_node.depth += ds.depth
+                        yield sub_node
+
+    @increment_node_count
+    def generate_nodes(self):
+        for node in self._generate_dataset_nodes():
+            yield node
 
 
 class DirectoryNode(_TreeNode):
@@ -558,31 +595,6 @@ class DirectoryNode(_TreeNode):
         if self.depth > 0:
             return string + "/"
         return string
-
-    def parent_nodes(self):
-        """
-        Generate parent nodes of the current node, excluding the tree root
-        """
-        if self.depth > 0:
-            parent = self.path
-            parent_paths = []
-            for _ in range(self.depth):
-                parent = os.path.dirname(parent)
-                parent_paths.append(parent)
-            parent_paths = parent_paths[::-1]  # sort from root to current node
-            # print(f"path: {self.path}")
-            # print(f"parents: {parent_paths}")
-            for depth, path in enumerate(parent_paths):
-                # print(depth_offset, p)
-                yield path, depth
-            #
-            # for ix, parent_path in enumerate(parent_paths, start=1):
-            #     yield DirectoryOrDatasetNode(
-            #         path=os.path.join(root, parent_path),
-            #         depth=self.depth - ix,
-            #         is_last_child=True,  # temporary
-            #         use_full_paths=self.use_full_paths
-            #     )
 
 
 class FileNode(_TreeNode):
@@ -644,9 +656,7 @@ class DatasetNode(DirectoryNode):
                     break
 
                 self.ds_absolute_depth += 1
-                # TODO: Path.is_relative_to()
-                # TODO: rglob() relative glob
-                if is_path_child_of_parent(superds.path, self._get_tree_root()):
+                if Path(superds.path).is_relative_to(self.tree_root):
                     # if the parent dataset is underneath the tree
                     # root, we increment the relative depth
                     self.ds_depth += 1
