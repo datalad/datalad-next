@@ -13,7 +13,7 @@ from datalad.tests.utils_pytest import (
 )
 from datalad.utils import rmtemp
 
-from ..tree import Tree, DatasetTree
+from ..tree import Tree, DatasetTree, build_excluded_node_func
 
 """
 Tests for datalad tree.
@@ -384,7 +384,9 @@ def test_print_tree_with_params_no_ds(
     root = os.path.join(path_no_ds, "root")
     tree = Tree(
         root, max_depth=depth,
-        include_files=include_files, include_hidden=include_hidden,
+        exclude_node_func=build_excluded_node_func(
+            include_hidden=include_hidden, include_files=include_files
+        ),
         skip_root=True  # skip the first line with the root directory
     )
     lines = tree.print_line()
@@ -432,7 +434,9 @@ def test_print_stats_no_ds(
     root = path_no_ds / 'root'
     tree = Tree(
         root, max_depth=depth,
-        include_files=include_files, include_hidden=include_hidden
+        exclude_node_func=build_excluded_node_func(
+            include_hidden=include_hidden, include_files=include_files
+        ),
     ).build()
     actual_res = tree.stats()
     expected_res = expected_stats_str
@@ -488,8 +492,12 @@ def test_print_stats_with_ds(
 
 def test_print_tree_depth_zero(path_no_ds):
     root = path_no_ds / "root"
-    tree = Tree(root, max_depth=0,
-                include_files=True)  # should have no effect
+    tree = Tree(
+        root,
+        max_depth=0,
+        # including files should have no effect
+        exclude_node_func=build_excluded_node_func(include_files=True)
+    )
     actual = tree.to_string()
     expected = str(root)
     assert_str_equal(expected, actual)
