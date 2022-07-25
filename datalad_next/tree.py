@@ -183,7 +183,7 @@ def build_excluded_node_func(include_hidden=False, include_files=False):
 
     def is_excluded(path):
         return any((
-            path.is_file() if not include_files else False,
+            not path.is_dir() if not include_files else False,
             path.name.startswith(".") if not include_hidden else False
         ))
 
@@ -345,7 +345,7 @@ class Tree(object):
         """
         By default, only include non-hidden directories.
         """
-        return any((path.is_file(), path.name.startswith(".")))
+        return any((not path.is_dir(), path.name.startswith(".")))
 
     def _get_depth(self, path: Path):
         """Directory depth of current path relative to root of the tree"""
@@ -379,7 +379,8 @@ class Tree(object):
         return self
 
     def _generate_tree_nodes(self, dir_path: Path, is_last_child=True):
-        """Recursively yield directory tree starting from ```dir_path``"""
+        """Recursively yield directory tree nodes starting from ``dir_path``"""
+
         if not self.skip_root or \
                 self.skip_root and self._get_depth(dir_path) > 0:
             yield DirectoryOrDatasetNode(
@@ -402,11 +403,12 @@ class Tree(object):
                 # (needed for displaying special end-of-subtree prefix)
                 is_last_child = (child == children[-1])
 
-                if child.is_file():
-                    yield FileNode(child, self._get_depth(child), is_last_child)
-                elif child.is_dir():
+                if child.is_dir():
                     # recurse into subdirectories
                     yield from self._generate_tree_nodes(child, is_last_child)
+                else:
+                    yield FileNode(child, self._get_depth(child), is_last_child)
+
 
     @increment_node_count
     def generate_nodes(self):
@@ -496,81 +498,83 @@ class DatasetTree(Tree):
             self.max_depth = 0
 
         self.max_dataset_depth = max_dataset_depth
-        # meaning of 'dataset depth':
-        #   -1 means no datasets encountered,
-        #   0 means top-level superdatasets (relative to the tree root),
-        #   1 means first-level subdatasets (relative to the tree root).
-        self._current_dataset_depth = -1  # -1 means no datasets encountered
-
-        # keep track of datasets' parent directories that have already
-        # been yielded, so we do not yield them twice
-        self._visited_parents = set([])
-
-    def _is_max_dataset_depth_reached(self):
-        return self._current_dataset_depth > self.max_dataset_depth
 
     @increment_node_count
     def generate_nodes(self):
 
+        def is_git_folder(path: Path):
+            """Do not traverse the .git folder (we will not find
+            datasets underneath it)"""
+            return path.is_dir() and path.name == ".git"
+
+        def ds_exceeds_max_ds_depth(path: Path):
+            """Exclude datasets with ds_depth > max_ds_depth"""
+            if path.is_dir() and is_dataset(path):
+                ds = DatasetNode(path, self._get_depth(path), False)
+                return ds.ds_depth > self.max_dataset_depth
+            return False
+
+        def ds_child_exceeds_max_depth(path: Path):
+            """Exclude files or directories underneath a dataset,
+            if they have depth (relative to dataset root) > max_depth"""
+            if not path.is_dir() or not is_dataset(path):
+                node = _TreeNode(path, self._get_depth(path), False)
+                ds_parents = [p for p in node.parents if is_dataset(p)]
+                if ds_parents:
+                    parent = ds_parents[-1]  # closest parent
+                    relative_depth = node.depth - self._get_depth(parent)
+                    return relative_depth > self.max_depth
+            return True
+
+        def is_ds_parent_with_depth(path: Path):
+            """Exclude directory if it is a parent of a dataset with
+            ds_depth > max_ds_depth"""
+
+            def exclude(p: Path):
+                is_parent_or_child = path.is_relative_to(p) or p.is_relative_to(path)
+                return not is_parent_or_child or is_git_folder(path)
+
+            if path.is_dir() and not is_dataset(path):
+                # search in the subtree that includes the current path
+                subtree = Tree(
+                    self.root,
+                    max_depth=None,
+                    exclude_node_func=exclude,
+                    skip_root=True
+                )
+                first_ds_child = next((
+                    node
+                    for node in subtree.generate_nodes()
+                    if isinstance(node, DatasetNode) and path in node.parents
+                ), None)
+
+                return first_ds_child is not None and \
+                    first_ds_child.ds_depth <= self.max_dataset_depth
+            return False
+
         def exclude_func(path: Path):
-            """
-            Do not traverse the .git folder (we will not find
-            datasets underneath it)
-            """
-            return self.exclude_node_func(path) or \
-                path.is_dir() and path.name == ".git"
+            criteria = self.exclude_node_func(path)
+
+            if path.is_dir() and is_dataset(path):
+                criteria |= ds_exceeds_max_ds_depth(path)
+            else:
+                criteria |= is_git_folder(path)
+
+                if not path.is_dir() or \
+                        not is_ds_parent_with_depth(path):
+                    criteria |= ds_child_exceeds_max_depth(path)
+
+            return criteria
 
         ds_tree = Tree(
             self.root,
-            max_depth=None,  # unlimited traversal
+            max_depth=None,  # unlimited traversal (datasets could be anywhere)
             exclude_node_func=exclude_func,
             skip_root=self.skip_root,
             full_paths=self.full_paths
         )
 
-        for node in ds_tree.generate_nodes():
-            if isinstance(node, DatasetNode):
-                self._current_dataset_depth = node.ds_depth
-
-                if not self._is_max_dataset_depth_reached():
-                    # yield parent directories if not already done
-                    for depth, parent in enumerate(node.parents):
-                        if depth == 0 and self.skip_root:
-                            continue
-                        if parent not in self._visited_parents:
-                            self._visited_parents.add(parent)
-
-                            yield DirectoryOrDatasetNode(
-                                parent,
-                                depth,
-                                False,
-                                use_full_paths=self.full_paths
-                            )
-
-                    self._visited_parents.add(node.path)
-                    yield node
-
-            else:
-                # yield contents of dataset up to `max_depth` levels
-                if node.path not in self._visited_parents:
-                    # check that the current node is a child of a dataset
-                    parents = [
-                        parent_depth
-                        for parent_depth, parent in enumerate(node.parents)
-                        if is_dataset(parent)
-                    ]
-                    if parents:
-                        parent_depth = parents[-1]  # closest parent
-                        relative_node_depth = node.depth - parent_depth
-                        if relative_node_depth <= self.max_depth:
-                            if isinstance(node, DirectoryNode):
-                                # the current directory is potentially
-                                # a parent of a nested dataset. instead
-                                # of verifying this (would imply advancing
-                                # the generator or retrieving children twice),
-                                # we just add the node to the 'history'.
-                                self._visited_parents.add(node.path)
-                            yield node
+        yield from ds_tree.generate_nodes()
 
 
 class DirectoryNode(_TreeNode):
