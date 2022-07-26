@@ -191,16 +191,16 @@ matrix_no_ds = [
         "expected_str": """
 ├── dir0/
 ├── dir1/
-|   └── dir1_file0
+│   └── dir1_file0
 ├── dir2/
-|   ├── dir2_dir0/
-|   ├── dir2_dir1/
-|   |   └── dir2_dir1_file0
-|   ├── dir2_dir2/
-|   |   ├── dir2_dir2_file0
-|   |   └── dir2_dir2_file1
-|   ├── dir2_file0
-|   └── dir2_file1
+│   ├── dir2_dir0/
+│   ├── dir2_dir1/
+│   │   └── dir2_dir1_file0
+│   ├── dir2_dir2/
+│   │   ├── dir2_dir2_file0
+│   │   └── dir2_dir2_file1
+│   ├── dir2_file0
+│   └── dir2_file1
 ├── file0
 └── file1
 """
@@ -227,21 +227,21 @@ matrix_no_ds = [
         "expected_stats_str": "0 datasets, 7 directories, 11 files",
         "expected_str": """
 ├── .dir3/
-|   ├── .dir3_file1
-|   └── dir3_file0
+│   ├── .dir3_file1
+│   └── dir3_file0
 ├── .file2
 ├── dir0/
 ├── dir1/
-|   └── dir1_file0
+│   └── dir1_file0
 ├── dir2/
-|   ├── dir2_dir0/
-|   ├── dir2_dir1/
-|   |   └── dir2_dir1_file0
-|   ├── dir2_dir2/
-|   |   ├── dir2_dir2_file0
-|   |   └── dir2_dir2_file1
-|   ├── dir2_file0
-|   └── dir2_file1
+│   ├── dir2_dir0/
+│   ├── dir2_dir1/
+│   │   └── dir2_dir1_file0
+│   ├── dir2_dir2/
+│   │   ├── dir2_dir2_file0
+│   │   └── dir2_dir2_file1
+│   ├── dir2_file0
+│   └── dir2_file1
 ├── file0
 └── file1
 """
@@ -292,12 +292,12 @@ matrix_ds = [
         "expected_str": """
 ├── repo0/
 ├── superds0/  [DS~0]
-|   └── sd0_subds0/  [DS~1]
-|       └── sd0_sub0_subds0/  [DS~2]
+│   └── sd0_subds0/  [DS~1]
+│       └── sd0_sub0_subds0/  [DS~2]
 └── superds1/  [DS~0]
     ├── sd1_dir0/
-    |   ├── sd1_d0_repo0/
-    |   └── sd1_d0_subds0/  [DS~1]
+    │   ├── sd1_d0_repo0/
+    │   └── sd1_d0_subds0/  [DS~1]
     ├── sd1_ds0/  [DS~0]
     └── sd1_subds0/  [DS~1, not installed]
 """,
@@ -332,10 +332,10 @@ matrix_max_ds_depth = [
         "expected_stats_str": "6 datasets, 1 directory, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
-|   └── sd0_subds0/  [DS~1]
+│   └── sd0_subds0/  [DS~1]
 └── superds1/  [DS~0]
     ├── sd1_dir0/
-    |   └── sd1_d0_subds0/  [DS~1]
+    │   └── sd1_d0_subds0/  [DS~1]
     ├── sd1_ds0/  [DS~0]
     └── sd1_subds0/  [DS~1, not installed]
 """
@@ -346,11 +346,11 @@ matrix_max_ds_depth = [
         "expected_stats_str": "6 datasets, 2 directories, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
-|   └── sd0_subds0/  [DS~1]
+│   └── sd0_subds0/  [DS~1]
 └── superds1/  [DS~0]
     ├── sd1_dir0/
-    |   ├── sd1_d0_repo0/
-    |   └── sd1_d0_subds0/  [DS~1]
+    │   ├── sd1_d0_repo0/
+    │   └── sd1_d0_subds0/  [DS~1]
     ├── sd1_ds0/  [DS~0]
     └── sd1_subds0/  [DS~1, not installed]
 """

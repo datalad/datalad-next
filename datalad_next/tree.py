@@ -253,8 +253,14 @@ class _TreeNode:
     tree node and printed as single line of the 'tree' output.
     """
     COLOR = None  # ANSI color for the path, if terminal color are enabled
-    PREFIX_MIDDLE_CHILD = "├── "  # symbol for tip of the 'tree branch'
+    # symbols for the tip of the 'tree branch', depending on
+    # whether a node is the last in it subtree or not
+    PREFIX_MIDDLE_CHILD = "├── "
     PREFIX_LAST_CHILD = "└── "
+    # symbol for representing the continuation of a 'tree branch'
+    INDENTATION_SYMBOL = "│"
+    # space between the indentation symbol of one level and the next
+    INDENTATION_SPACING = "   "
 
     def __init__(self, path: str, depth: int, is_last_child: bool):
         self.path = path
@@ -418,7 +424,6 @@ class Tree:
                 else:
                     yield FileNode(child, self._get_depth(child), is_last_child)
 
-
     @increment_node_count
     def generate_nodes(self):
         """
@@ -481,11 +486,12 @@ class Tree:
 
             # build indentation string
             indentation = ""
+            spacing = node.INDENTATION_SPACING
             if node.depth > 0:
                 indentation_symbols_for_levels = [
-                    "    "
-                    if level in levels_with_exhausted_subtree
-                    else "|   "
+                    (node.INDENTATION_SYMBOL
+                        if level not in levels_with_exhausted_subtree
+                        else " ") + spacing
                     for level in range(1, node.depth)
                 ]
                 indentation = "".join(indentation_symbols_for_levels)
