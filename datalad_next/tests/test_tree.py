@@ -279,7 +279,7 @@ matrix_no_ds = [
 matrix_ds = [
     {
         "depth": 1,
-        "expected_stats_str": "2 datasets, 1 directories, 0 files",
+        "expected_stats_str": "2 datasets, 1 directory, 0 files",
         "expected_str": """
 ├── repo0/
 ├── superds0/  [DS~0]
@@ -318,7 +318,7 @@ matrix_max_ds_depth = [
     {
         "dataset_depth": 0,
         "depth": 1,
-        "expected_stats_str": "3 datasets, 1 directories, 0 files",
+        "expected_stats_str": "3 datasets, 1 directory, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 └── superds1/  [DS~0]
@@ -329,7 +329,7 @@ matrix_max_ds_depth = [
     {
         "dataset_depth": 1,
         "depth": 0,
-        "expected_stats_str": "6 datasets, 1 directories, 0 files",
+        "expected_stats_str": "6 datasets, 1 directory, 0 files",
         "expected_str": """
 ├── superds0/  [DS~0]
 |   └── sd0_subds0/  [DS~1]
