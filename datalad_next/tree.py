@@ -91,7 +91,10 @@ class TreeCommand(Interface):
         depth=Parameter(
             args=("-L", "--depth",),
             doc="""maximum level of directory tree to display.
-            If not specified, will display all levels.""",
+            If not specified, will display all levels.
+            If paired with [CMD: --dataset-depth CMD][PY: dataset_depth PY],
+            refers to the maximum directory level to display underneath each
+            dataset.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
             args=("-R", "--dataset-depth",),
@@ -119,13 +122,14 @@ class TreeCommand(Interface):
             code_cmd="datalad tree -L 3 --include-files"),
         dict(text="List all first- and second-level subdatasets "
                   "of parent datasets located anywhere under /tmp, "
-                  "regardless of directory depth",
-             code_py="tree('/tmp', dataset_depth=2, depth=0, full_paths=True)",
-             code_cmd="datalad tree /tmp -R 2 -L 0 --full-paths"),
-        dict(text="Display first- and second-level subdatasets and their"
-                  "contents up to 3 directories deep (within each subdataset)",
-             code_py="tree('.', dataset_depth=2, directory_depth=1)",
-             code_cmd="datalad tree -R 2 -L 3"),
+                  "regardless of directory depth, "
+                  "including in hidden directories",
+             code_py="tree('/tmp', dataset_depth=2, include_hidden=True)",
+             code_cmd="datalad tree /tmp -R 2 --include-hidden"),
+        dict(text="Display first- and second-level subdatasets and their "
+                  "contents, up to 1 directory deep within each dataset",
+             code_py="tree(dataset_depth=2, depth=1)",
+             code_cmd="datalad tree -R 2 -L 1"),
     ]
 
     @staticmethod
