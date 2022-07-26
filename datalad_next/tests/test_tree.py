@@ -1,5 +1,3 @@
-import os
-from os.path import join as opj
 from datetime import datetime
 from pathlib import Path
 
@@ -9,7 +7,7 @@ from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
     assert_raises,
     assert_str_equal,
-    with_tree, assert_re_in
+    with_tree
 )
 from datalad.utils import rmtemp
 
@@ -20,11 +18,12 @@ Tests for datalad tree.
 """
 
 
-def create_temp_dir_tree(tree_dict):
+def create_temp_dir_tree(tree_dict: dict) -> Path:
     """
     Create a temporary directory tree.
     This is a shim for the 'with_tree' decorator so it can be used
     in a module-scoped pytest fixture.
+    Returns the Path object of the root directory.
     """
     # function to be decorated by 'with_tree'
     # just return the argument (will be the created temp path)
@@ -37,7 +36,7 @@ def create_temp_dir_tree(tree_dict):
     # call the 'with_tree' decorator to return the path
     # of the created temp dir root, without deleting it
     temp_dir_root = with_tree(tree_dict, delete=False)(identity_func)()
-    return temp_dir_root
+    return Path(temp_dir_root).resolve()
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +51,7 @@ def path_no_ds():
                 "dir3_file0": '',
                 ".dir3_file1": '',
             },
-            "dir0": {},  # empty dir
+            "dir0": {},
             "dir1": {
                 "dir1_file0": '',
             },
@@ -75,9 +74,9 @@ def path_no_ds():
     }
 
     temp_dir_root = create_temp_dir_tree(dir_tree)
-    yield Path(temp_dir_root).resolve()
+    yield temp_dir_root
     rmtemp(temp_dir_root)
-    assert not os.path.exists(temp_dir_root)
+    assert not temp_dir_root.exists()
 
 
 @pytest.fixture(scope="module")
@@ -112,25 +111,25 @@ def path_ds():
     temp_dir_root = create_temp_dir_tree(ds_tree)
 
     # create datasets / repos
-    root = opj(temp_dir_root, "root")
-    BasicGitTestRepo(path=opj(root, "repo0"), puke_if_exists=False)
-    superds0 = Dataset(opj(root, "superds0")).create(force=True)
+    root = temp_dir_root / "root"
+    BasicGitTestRepo(path=root / "repo0", puke_if_exists=False)
+    superds0 = Dataset(root / "superds0").create(force=True)
     sd0_subds0 = superds0.create("sd0_subds0", force=True)
     sd0_subds0.create("sd0_sub0_subds0", force=True)
-    superds1 = Dataset(opj(root, "superds1")).create(force=True)
-    superds1.create(opj("sd1_dir0", "sd1_d0_subds0"), force=True)
-    Dataset(opj(root, "superds1", "sd1_ds0")).create(force=True)
+    superds1 = Dataset(root / "superds1").create(force=True)
+    superds1.create(Path("sd1_dir0") / "sd1_d0_subds0", force=True)
+    Dataset(root / "superds1" / "sd1_ds0").create(force=True)
     BasicGitTestRepo(
-        path=opj(root, "superds1", "sd1_dir0", "sd1_d0_repo0"),
+        path=root / "superds1" / "sd1_dir0" / "sd1_d0_repo0",
         puke_if_exists=False)
     sd1_subds0 = superds1.create("sd1_subds0", force=True)
     sd1_subds0.drop(what='all', reckless='kill', recursive=True)
 
-    yield Path(temp_dir_root).resolve()
+    yield temp_dir_root
 
     # delete temp dir
     rmtemp(temp_dir_root)
-    assert not os.path.exists(temp_dir_root)
+    assert not temp_dir_root.exists()
 
 
 def format_param_ids(val):
@@ -381,7 +380,7 @@ param_names = ["depth", "include_files", "include_hidden", "expected_str"]
 def test_print_tree_with_params_no_ds(
         path_no_ds, depth, include_files, include_hidden, expected_str
 ):
-    root = os.path.join(path_no_ds, "root")
+    root = Path(path_no_ds) / "root"
     tree = Tree(
         root, max_depth=depth,
         exclude_node_func=build_excluded_node_func(
@@ -541,5 +540,3 @@ def test_print_stats_with_max_dataset_depth(
     actual_res = tree.stats()
     expected_res = expected_stats_str
     assert_str_equal(expected_res, actual_res)
-
-

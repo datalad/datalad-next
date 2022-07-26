@@ -43,7 +43,6 @@ This command covers 2 main use cases:
 __docformat__ = 'restructuredtext'
 
 import logging
-import os
 from functools import wraps, lru_cache
 from pathlib import Path
 
@@ -142,7 +141,7 @@ class TreeCommand(Interface):
 
         if dataset_depth is not None:
             tree = DatasetTree(
-                path,
+                Path(path),
                 max_depth=depth,
                 max_dataset_depth=dataset_depth,
                 exclude_node_func=build_excluded_node_func(
@@ -151,7 +150,7 @@ class TreeCommand(Interface):
             )
         else:
             tree = Tree(
-                path,
+                Path(path),
                 max_depth=depth,
                 exclude_node_func=build_excluded_node_func(
                     include_hidden=include_hidden, include_files=include_files
@@ -262,7 +261,7 @@ class _TreeNode:
     # space between the indentation symbol of one level and the next
     INDENTATION_SPACING = "   "
 
-    def __init__(self, path: str, depth: int, is_last_child: bool):
+    def __init__(self, path: Path, depth: int, is_last_child: bool):
         self.path = path
         self.depth = depth  # depth in the Tree
         self.is_last_child = is_last_child  # if is last sibling in its subtree
@@ -277,7 +276,7 @@ class _TreeNode:
         if self.depth == 0:
             path = self.path
         else:
-            path = os.path.basename(self.path)
+            path = self.path.name
 
         if self.COLOR is not None:
             path = ansi_colors.color_word(path, self.COLOR)
