@@ -237,14 +237,20 @@ def is_dataset(path):
         return not any(ds_path.iterdir())
 
     if is_empty_dir():
-        superds = ds.get_superdataset(datalad_only=True, topmost=False,
-                                      registered_only=True)
-        if superds is not None:
+        if get_superdataset(ds) is not None:
             return True
 
     # TODO: is there a way to detect a datalad dataset if it
     # is not installed and it is not a subdataset? For now, we don't
     return False
+
+
+# cache this since we will re-run it
+# on same dataset multiple times
+@lru_cache
+def get_superdataset(ds):
+    return ds.get_superdataset(
+        datalad_only=True, topmost=False, registered_only=True)
 
 
 class Tree:
@@ -664,8 +670,7 @@ class DatasetNode(_TreeNode):
         ds = self.ds
 
         while ds:
-            superds = ds.get_superdataset(
-                datalad_only=True, topmost=False, registered_only=True)
+            superds = get_superdataset(ds)
 
             if superds is None:
                 # it is not a dataset, do nothing
