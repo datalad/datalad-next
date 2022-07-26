@@ -220,12 +220,13 @@ def is_dataset(path):
     Only consider datalad datasets, not plain git/git-annex repos.
     """
     ds = require_dataset(path, check_installed=False)
+    ds_path = Path(ds.path)
 
     # detect if it is an installed datalad-proper dataset
     # (as opposed to git/git-annex repo).
     # could also query `ds.id`, but checking just for existence
     # of config file is quicker.
-    if Path(Path(ds.path) / ".datalad" / "config").is_file():
+    if Path(ds_path / ".datalad" / "config").is_file():
         return True
 
     # if it is not installed, check if it has an installed superdataset.
@@ -233,7 +234,7 @@ def is_dataset(path):
     # directory has the .git folder), we check if the directory
     # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
     def is_empty_dir():
-        return not any(Path(ds.path).iterdir())
+        return not any(ds_path.iterdir())
 
     if is_empty_dir():
         superds = ds.get_superdataset(datalad_only=True, topmost=False,
@@ -259,8 +260,7 @@ class Tree:
                  skip_root=False,
                  exclude_node_func=None):
 
-        # TODO: root should already be given as Path object
-        self.root = Path(root).resolve()
+        self.root = root.resolve()
         if not self.root.is_dir():
             raise ValueError(f"directory '{root}' not found")
 
@@ -325,7 +325,7 @@ class Tree:
 
             # apply exclusion filter
             selected_children = (
-                p for p in Path(dir_path).iterdir()
+                p for p in dir_path.iterdir()
                 if not self.exclude_node_func(p)
             )
             # sort directory contents alphabetically
@@ -598,7 +598,7 @@ class _TreeNode:
         in top-down order.
         """
         parents_from_tree_root = []
-        for depth, path in enumerate(Path(self.path).parents):
+        for depth, path in enumerate(self.path.parents):
             if depth >= self.depth:
                 break
             parents_from_tree_root.append(path)
