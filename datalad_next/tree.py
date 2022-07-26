@@ -343,7 +343,7 @@ class Tree:
         self.skip_root = skip_root
 
         # set custom or default filter criteria
-        self.exclude_node_func = exclude_node_func or self._default_exclude_func
+        self.exclude_node_func = exclude_node_func or self.default_exclude_func
 
         # store list of lines of output string
         self._lines = []
@@ -353,18 +353,13 @@ class Tree:
                        for node_type in _TreeNode.__subclasses__()}
 
     @staticmethod
-    def _default_exclude_func(path: Path):
-        """By default, only include non-hidden directories"""
+    def default_exclude_func(path: Path):
+        """By default, only include non-hidden directories, no files"""
         return any((not path.is_dir(), path.name.startswith(".")))
 
-    def _get_depth(self, path: Path):
-        """Get directory depth of current path relative to root of the tree"""
+    def path_depth(self, path: Path):
+        """Get directory depth of a given path relative to root of the tree"""
         return len(path.relative_to(self.root).parts)
-
-    def _max_depth_reached(self, path):
-        if self.max_depth is None:
-            return False  # unlimited depth
-        return self._get_depth(path) >= self.max_depth
 
     def stats(self):
         """
@@ -385,23 +380,19 @@ class Tree:
             for node_type in node_types
         )
 
-    def build(self):
-        """
-        Construct the tree string representation and return back the instance.
-        """
-        self.to_string()
-        return self
-
     def _generate_tree_nodes(self, dir_path: Path, is_last_child=True):
         """Recursively yield directory tree nodes starting from ``dir_path``"""
 
         if not self.skip_root or \
-                self.skip_root and self._get_depth(dir_path) > 0:
+                self.skip_root and self.path_depth(dir_path) > 0:
             yield DirectoryOrDatasetNode(
-                dir_path, self._get_depth(dir_path), is_last_child
+                dir_path, self.path_depth(dir_path), is_last_child
             )
 
-        if not self._max_depth_reached(dir_path):
+        # check that we are within max_depth levels
+        # (None means unlimited depth)
+        if self.max_depth is None or \
+                self.path_depth(dir_path) < self.max_depth:
 
             # apply exclusion filter
             selected_children = (
@@ -421,7 +412,7 @@ class Tree:
                     # recurse into subdirectories
                     yield from self._generate_tree_nodes(child, is_last_child)
                 else:
-                    yield FileNode(child, self._get_depth(child), is_last_child)
+                    yield FileNode(child, self.path_depth(child), is_last_child)
 
     @increment_node_count
     def generate_nodes(self):
@@ -437,6 +428,13 @@ class Tree:
         # from the underlying decorator.
         for node in self._generate_tree_nodes(self.root):
             yield node
+
+    def build(self):
+        """
+        Construct the tree string representation and return back the instance.
+        """
+        self.to_string()
+        return self
 
     def to_string(self):
         """Return complete tree as string"""
@@ -517,23 +515,24 @@ class DatasetTree(Tree):
 
     @increment_node_count
     def generate_nodes(self):
+        """
+        A ``DatasetTree`` is just an unlimited-depth ``Tree`` with more
+        complex rules for excluding nodes. Each exclusion rule is encoded
+        in a function. The rules are then combined in a final
+        ``exclusion_func`` which is supplied to the ``Tree`` constructor.
+        """
 
         def is_git_folder(path: Path):
-            """Do not traverse the .git folder (we will not find
-            datasets underneath it)"""
             return path.is_dir() and path.name == ".git"
 
         def ds_exceeds_max_ds_depth(path: Path):
-            """Exclude datasets with ds_depth > max_ds_depth"""
             if path.is_dir() and is_dataset(path):
-                ds = DatasetNode(path, self._get_depth(path), False)
+                ds = DatasetNode(path, self.path_depth(path), False)
                 return ds.ds_depth > self.max_dataset_depth
             return False
 
-        def ds_child_exceeds_max_depth(path: Path):
-            """Exclude files or directories underneath a dataset,
-            if they have depth (relative to dataset root) > max_depth"""
-            if not path.is_dir() or not is_dataset(path):
+        def ds_child_node_exceeds_max_depth(path: Path):
+            if not (path.is_dir() and is_dataset(path)):
                 ds_parents = [
                     p for p in path.parents
                     if p.is_relative_to(self.root) and
@@ -541,14 +540,11 @@ class DatasetTree(Tree):
                 ]
                 if ds_parents:
                     parent = ds_parents[-1]  # closest parent
-                    relative_depth = self._get_depth(path) - self._get_depth(parent)
+                    relative_depth = self.path_depth(path) - self.path_depth(parent)
                     return relative_depth > self.max_depth
             return True
 
-        def is_ds_parent_with_depth(path: Path):
-            """Exclude directory if it is a parent of a dataset with
-            ds_depth > max_ds_depth"""
-
+        def is_parent_of_included_ds(path: Path):
             def exclude(p: Path):
                 return not p.is_dir() or is_git_folder(p)
 
@@ -562,10 +558,11 @@ class DatasetTree(Tree):
                 )
 
                 def child_datasets():
+                    """Generator of dataset nodes"""
                     for node in subtree.generate_nodes():
                         if isinstance(node, DatasetNode):
                             # offset depth by depth of current path
-                            node.depth += self._get_depth(path)
+                            node.depth += self.path_depth(path)
                             # need to recalculate dataset depth after
                             # updating directory depth
                             node.ds_depth, _ = node.calculate_dataset_depth()
@@ -579,17 +576,23 @@ class DatasetTree(Tree):
             return False
 
         def exclude_func(path: Path):
+            """Combine exclusion criteria from different functions"""
             criteria = self.exclude_node_func(path)
 
             if path.is_dir() and is_dataset(path):
+                # check if maximum dataset depth is exceeded
                 criteria |= ds_exceeds_max_ds_depth(path)
             else:
+                # do not traverse the .git folder (we will not find
+                # datasets underneath it)
                 criteria |= is_git_folder(path)
 
-                if not path.is_dir() or \
-                        not is_ds_parent_with_depth(path):
-                    pass
-                    criteria |= ds_child_exceeds_max_depth(path)
+                # exclude files or directories underneath a dataset,
+                # if they have depth (relative to dataset root) > max_depth,
+                # unless they are themselves parents of a dataset with
+                # dataset depth within the valid ds_depth range
+                if not (path.is_dir() and is_parent_of_included_ds(path)):
+                    criteria |= ds_child_node_exceeds_max_depth(path)
 
             return criteria
 
