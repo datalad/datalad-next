@@ -246,77 +246,6 @@ def is_dataset(path):
     return False
 
 
-class _TreeNode:
-    """
-    Base class for a directory or file represented as a single
-    tree node and printed as single line of the 'tree' output.
-    """
-    COLOR = None  # ANSI color for the path, if terminal color are enabled
-    # symbols for the tip of the 'tree branch', depending on
-    # whether a node is the last in it subtree or not
-    PREFIX_MIDDLE_CHILD = "├── "
-    PREFIX_LAST_CHILD = "└── "
-    # symbol for representing the continuation of a 'tree branch'
-    INDENTATION_SYMBOL = "│"
-    # space between the indentation symbol of one level and the next
-    INDENTATION_SPACING = "   "
-
-    def __init__(self, path: Path, depth: int, is_last_child: bool):
-        self.path = path
-        self.depth = depth  # depth in the Tree
-        self.is_last_child = is_last_child  # if is last sibling in its subtree
-
-    def __eq__(self, other):
-        return self.path == other.path
-
-    def __hash__(self):
-        return hash(str(self.path))
-
-    def __str__(self):
-        if self.depth == 0:
-            path = self.path
-        else:
-            path = self.path.name
-
-        if self.COLOR is not None:
-            path = ansi_colors.color_word(path, self.COLOR)
-
-        prefix = ""
-        if self.depth > 0:
-            prefix = self.PREFIX_LAST_CHILD if self.is_last_child \
-                else self.PREFIX_MIDDLE_CHILD
-
-        return prefix + str(path)
-
-    @staticmethod
-    def stats_description(count):
-        """String describing the node count that will be
-        included in the tree's report line"""
-        raise NotImplementedError
-        # return str(count) + (" node" if int(count) == 1 else " nodes")
-
-    @property
-    def tree_root(self):
-        """Calculate tree root path from node path and depth"""
-        parents = self.parents
-        return parents[0] if parents \
-            else self.path  # we are the root
-
-    @property
-    def parents(self):
-        """
-        List of parent paths (beginning from the tree root)
-        in top-down order.
-        """
-        parents_from_tree_root = []
-        for depth, path in enumerate(Path(self.path).parents):
-            if depth >= self.depth:
-                break
-            parents_from_tree_root.append(path)
-
-        return parents_from_tree_root[::-1]  # top-down order
-
-
 class Tree:
     """
     Main class for building and serializing a directory tree.
@@ -606,6 +535,77 @@ class DatasetTree(Tree):
         yield from ds_tree.generate_nodes()
 
 
+class _TreeNode:
+    """
+    Base class for a directory or file represented as a single
+    tree node and printed as single line of the 'tree' output.
+    """
+    COLOR = None  # ANSI color for the path, if terminal color are enabled
+    # symbols for the tip of the 'tree branch', depending on
+    # whether a node is the last in it subtree or not
+    PREFIX_MIDDLE_CHILD = "├── "
+    PREFIX_LAST_CHILD = "└── "
+    # symbol for representing the continuation of a 'tree branch'
+    INDENTATION_SYMBOL = "│"
+    # space between the indentation symbol of one level and the next
+    INDENTATION_SPACING = "   "
+
+    def __init__(self, path: Path, depth: int, is_last_child: bool):
+        self.path = path
+        self.depth = depth  # depth in the Tree
+        self.is_last_child = is_last_child  # if is last sibling in its subtree
+
+    def __eq__(self, other):
+        return self.path == other.path
+
+    def __hash__(self):
+        return hash(str(self.path))
+
+    def __str__(self):
+        if self.depth == 0:
+            path = self.path
+        else:
+            path = self.path.name
+
+        if self.COLOR is not None:
+            path = ansi_colors.color_word(path, self.COLOR)
+
+        prefix = ""
+        if self.depth > 0:
+            prefix = self.PREFIX_LAST_CHILD if self.is_last_child \
+                else self.PREFIX_MIDDLE_CHILD
+
+        return prefix + str(path)
+
+    @staticmethod
+    def stats_description(count):
+        """String describing the node count that will be
+        included in the tree's report line"""
+        raise NotImplementedError
+        # return str(count) + (" node" if int(count) == 1 else " nodes")
+
+    @property
+    def tree_root(self):
+        """Calculate tree root path from node path and depth"""
+        parents = self.parents
+        return parents[0] if parents \
+            else self.path  # we are the root
+
+    @property
+    def parents(self):
+        """
+        List of parent paths (beginning from the tree root)
+        in top-down order.
+        """
+        parents_from_tree_root = []
+        for depth, path in enumerate(Path(self.path).parents):
+            if depth >= self.depth:
+                break
+            parents_from_tree_root.append(path)
+
+        return parents_from_tree_root[::-1]  # top-down order
+
+
 class DirectoryNode(_TreeNode):
     COLOR = ansi_colors.BLUE
 
@@ -630,18 +630,6 @@ class FileNode(_TreeNode):
     @staticmethod
     def stats_description(count):
         return str(count) + (" file" if int(count) == 1 else " files")
-
-
-class DirectoryOrDatasetNode:
-    """
-    Factory class for creating either a ``DirectoryNode`` or ``DatasetNode``,
-    based on whether the current path is a dataset or not.
-    """
-    def __new__(cls, path, *args, **kwargs):
-        if is_dataset(path):
-            return DatasetNode(path, *args, **kwargs)
-        else:
-            return DirectoryNode(path, *args, **kwargs)
 
 
 class DatasetNode(_TreeNode):
@@ -696,3 +684,15 @@ class DatasetNode(_TreeNode):
             ds = superds
 
         return ds_depth, ds_absolute_depth
+
+
+class DirectoryOrDatasetNode:
+    """
+    Factory class for creating either a ``DirectoryNode`` or ``DatasetNode``,
+    based on whether the current path is a dataset or not.
+    """
+    def __new__(cls, path, *args, **kwargs):
+        if is_dataset(path):
+            return DatasetNode(path, *args, **kwargs)
+        else:
+            return DirectoryNode(path, *args, **kwargs)
