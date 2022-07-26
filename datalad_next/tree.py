@@ -289,9 +289,7 @@ class _TreeNode(object):
     def tree_root(self):
         """Calculate tree root path from node path and depth"""
         parents = self.parents
-        if parents:
-            return parents[0]
-        return self.path  # we are the root
+        return parents[0] if parents else self.path  # we are the root
 
     @property
     def parents(self):
@@ -531,25 +529,32 @@ class DatasetTree(Tree):
             ds_depth > max_ds_depth"""
 
             def exclude(p: Path):
-                is_parent_or_child = path.is_relative_to(p) or p.is_relative_to(path)
-                return not is_parent_or_child or is_git_folder(path)
+                return not p.is_dir() or is_git_folder(p)
 
             if path.is_dir() and not is_dataset(path):
-                # search in the subtree that includes the current path
+                # search in the subtree with the current path as root
                 subtree = Tree(
-                    self.root,
+                    path,
                     max_depth=None,
                     exclude_node_func=exclude,
                     skip_root=True
                 )
-                first_ds_child = next((
-                    node
-                    for node in subtree.generate_nodes()
-                    if isinstance(node, DatasetNode) and path in node.parents
-                ), None)
 
-                return first_ds_child is not None and \
-                    first_ds_child.ds_depth <= self.max_dataset_depth
+                def child_datasets():
+                    for node in subtree.generate_nodes():
+                        if isinstance(node, DatasetNode):
+                            # offset depth by depth of current path
+                            node.depth += self._get_depth(path)
+                            # need to recalculate dataset depth after
+                            # updating directory depth
+                            node.ds_depth, _ = node.calculate_dataset_depth()
+                            yield node
+
+                return any(
+                    ds.ds_depth <= self.max_dataset_depth
+                    for ds in child_datasets()
+                )
+
             return False
 
         def exclude_func(path: Path):
