@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 from datalad.distributed.create_sibling_ghlike import _GitHubLike
 from datalad.downloaders.http import DEFAULT_USER_AGENT
@@ -38,7 +39,7 @@ def _set_request_headers(self, credential_name, auth_info, require_token):
         if creds:
             # found one, also assign the name to be able to update
             # it below
-            credential_name, credential  = creds[0]
+            credential_name, credential = creds[0]
             from_query = True
     if not credential:
         # no credential yet
@@ -55,6 +56,7 @@ def _set_request_headers(self, credential_name, auth_info, require_token):
             if credential is None:
                 raise ValueError('No credential found')
         except Exception as e:
+            CapturedException(e)
             lgr.debug('Token retrieval failed: %s', e)
             lgr.warning(
                 'Cannot determine authorization token for %s', credential_name)

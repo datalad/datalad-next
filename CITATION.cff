@@ -1,0 +1,72 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: DataLad-next extension
+message: >-
+  DataLad extension for additional, broadly
+  applicable functionality
+type: software
+authors:
+  - given-names: Yaroslav O.
+    family-names: Halchenko
+    affiliation: 'Dartmouth College, Hanover, NH, United States'
+    orcid: 'https://orcid.org/0000-0003-3456-2493'
+  - given-names: Michael
+    family-names: Hanke
+    affiliation: >-
+      Institute of Neuroscience and Medicine, Brain &
+      Behaviour (INM-7), Research Centre Jülich,
+      Jülich, Germany and Institute of Systems
+      Neuroscience, Medical Faculty, Heinrich Heine
+      University Düsseldorf, Düsseldorf, Germany
+    orcid: 'https://orcid.org/0000-0001-6398-6370'
+  - given-names: Stephan
+    family-names: Heunis
+    affiliation: >-
+      Institute of Neuroscience and Medicine, Brain &
+      Behaviour (INM-7), Research Centre Jülich,
+      Jülich, Germany
+    orcid: 'https://orcid.org/0000-0003-3503-9872'
+  - given-names: Christopher J.
+    family-names: Markiewicz
+    affiliation: >-
+      Stanford University, Stanford, CA, United
+      States
+    orcid: 'https://orcid.org/0000-0002-6533-164X'
+  - given-names: Christian
+    family-names: Mönch
+    affiliation: >-
+      Institute of Neuroscience and Medicine, Brain &
+      Behaviour (INM-7), Research Centre Jülich,
+      Jülich, Germany
+    orcid: 'https://orcid.org/0000-0002-3092-0612'
+  - given-names: Benjamin
+    family-names: Poldrack
+    affiliation: >-
+      Institute of Neuroscience and Medicine, Brain &
+      Behaviour (INM-7), Research Centre Jülich,
+      Jülich, Germany
+    orcid: 'https://orcid.org/0000-0001-7628-0801'
+  - given-names: Michał
+    family-names: Szczepanik
+    affiliation: >-
+      Institute of Neuroscience and Medicine, Brain &
+      Behaviour (INM-7), Research Centre Jülich,
+      Jülich, Germany
+    orcid: 'https://orcid.org/0000-0002-4028-2087'
+  - given-names: Adina S.
+    family-names: Wagner
+    affiliation: >-
+      Institute of Neuroscience and Medicine, Brain &
+      Behaviour (INM-7), Research Centre Jülich,
+      Jülich, Germany
+    orcid: 'https://orcid.org/0000-0003-2917-3450'
+  - given-names: John T.
+    family-names: Wodder
+    name-suffix: II
+keywords:
+  - data management
+  - data distribution
+repository-code: 'https://github.com/datalad/datalad-next'
+license: MIT
