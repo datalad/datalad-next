@@ -13,9 +13,7 @@ from datalad.utils import rmtemp
 
 from ..tree import Tree, DatasetTree, build_excluded_node_func
 
-"""
-Tests for the ``datalad tree`` command.
-"""
+"""Tests for the ``datalad tree`` command."""
 
 
 # ============================ Helper functions ===============================
@@ -23,9 +21,19 @@ Tests for the ``datalad tree`` command.
 def create_temp_dir_tree(tree_dict: dict) -> Path:
     """
     Create a temporary directory tree.
-    This is a shim for the 'with_tree' decorator so it can be used
+
+    This is a shim for the ``with_tree()`` decorator so it can be used
     in a module-scoped pytest fixture.
-    Returns the Path object of the root directory.
+
+    Parameters
+    ----------
+    tree_dict: dict
+        A dict describing a directory tree (see parameter of ``with_tree``)
+
+    Returns
+    -------
+    Path
+        Root directory of the newly created tree
     """
     # function to be decorated by 'with_tree'
     # just return the argument (will be the created temp path)
@@ -43,9 +51,13 @@ def create_temp_dir_tree(tree_dict: dict) -> Path:
 
 @pytest.fixture(scope="module")
 def path_no_ds():
-    """
-    Fixture for temporary directory tree including nested
-    directories, without datasets.
+    """Fixture for creating a temporary directory tree (**without** datasets)
+    to be used in tests.
+
+    Returns
+    -------
+    Path
+        Root directory of the newly created tree
     """
     dir_tree = {
         "root": {
@@ -83,9 +95,13 @@ def path_no_ds():
 
 @pytest.fixture(scope="module")
 def path_ds():
-    """
-    Fixture for temporary directory tree including nested
-    directories and datasets.
+    """Fixture for creating a temporary directory tree (**including** datasets)
+    to be used in tests.
+
+    Returns
+    -------
+    Path
+        Root directory of the newly created tree
     """
     ds_tree = {
         "root": {
@@ -137,24 +153,34 @@ def path_ds():
 @pytest.fixture(scope="class")
 def inject_path_no_ds(request, path_no_ds):
     """
-    Set path_no_ds fixture (root path of temp directory tree) as
-    class attribute, to make it available to all tests in the class
+    Set ``path_no_ds`` fixture (root path of temp directory tree) as class
+    attribute, to make it available to all tests in the class
     """
     request.cls.path = path_no_ds
 
 
 @pytest.fixture(scope="class")
 def inject_path_ds(request, path_ds):
+    """
+    Set ``path_ds`` fixture (root path of temp directory tree) as class
+    attribute, to make it available to all tests in the class
+    """
     request.cls.path = path_ds
 
 
-def format_param_ids(val):
+def format_param_ids(val) -> str:
     """
     Helper to format pytest parameter IDs.
+
     If the parameter is a multiline string, we assume it is the
     parameter 'expected' (expected output of tree), and just
-    give it a fixed ID. Otherwise, it will be displayed in the
-    parameter list as a long unreadable string.
+    give it a fixed ID (otherwise, it would be displayed in the
+    parameter list as a long unreadable string).
+
+    Parameters
+    ----------
+    val
+        Parameter value
     """
     if isinstance(val, str) and "\n" in val:
         return "expected"
@@ -172,7 +198,13 @@ def build_param_matrix(matrix, params):
 
 
 def pytest_generate_tests(metafunc):
-    # see: https://docs.pytest.org/en/7.1.x/example/parametrize.html#parametrizing-test-methods-through-per-class-configuration
+    """Pytest helper to automatically configure parametrization.
+
+    Avoids having to duplicate definition of parameter names and values
+    across tests that use the same data.
+
+    See: https://docs.pytest.org/en/7.1.x/example/parametrize.html#parametrizing-test-methods-through-per-class-configuration
+    """
     if metafunc.cls:
         test_id = metafunc.function.__name__
         test_params_dict = metafunc.cls.params
@@ -188,8 +220,8 @@ def pytest_generate_tests(metafunc):
 # ================================= Tests =====================================
 
 def test_print_tree_fails_for_nonexistent_directory():
-    """Obtain nonexistent directory by creating a temp dir
-    and deleting it (may be safest method)"""
+    """Obtain nonexistent directory by creating a temp dir and deleting it
+    (may be safest method)"""
     dir_name = f"to_be_deleted_{datetime.now().timestamp()}"
     nonexistent_dir = Path(with_tree({dir_name: []})(lambda f: f)())
     with assert_raises(ValueError):
@@ -201,7 +233,7 @@ class TestTree:
     __test__ = False  # tells pytest to not collect tests in this class
     path = None  # will be set by the inject_* fixture to temp dir tree root
 
-    # a map specifying multiple argument sets for a test method
+    # dict specifying multiple argument sets for a test method
     params = {
         "test_print_tree": [
             "depth", "include_files", "include_hidden", "expected_str"
