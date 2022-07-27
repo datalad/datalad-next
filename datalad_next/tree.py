@@ -49,7 +49,7 @@ class TreeCommand(Interface):
 
     1. Glorified ``tree`` command:
 
-      List the contents of a directory tree and see which directories are
+      Display the contents of a directory tree and see which directories are
       datalad datasets (including subdatasets that are present but not
       installed, such as after a non-recursive clone).
 
@@ -66,11 +66,11 @@ class TreeCommand(Interface):
 
     2. Descriptor of nested subdataset hierarchies:
 
-      Visualize the structure of multiple datasets and their hierarchies at
-      once based on the subdataset nesting level, regardless of their location
-      in the directory tree.
+      Display the structure of multiple datasets and their hierarchies based
+      on subdataset nesting level, regardless of their location in the
+      directory tree.
 
-      In this case, the tree depth is determined by the subdataset depth.
+      In this case, the tree depth is determined by subdataset depth.
       There is also the option to display contents (directories/files) of
       each dataset up to max_depth levels, to provide better context around
       the datasets.
