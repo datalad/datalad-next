@@ -86,7 +86,7 @@ class TreeCommand(Interface):
             Defaults to the current directory.""",
             constraints=EnsureStr() | EnsureNone()),
         depth=Parameter(
-            args=("-L", "--depth",),
+            args=("--depth",),
             doc="""maximum level of directory tree to display.
             If not specified, will display all levels.
             If paired with [CMD: --dataset-depth CMD][PY: dataset_depth PY],
@@ -94,7 +94,7 @@ class TreeCommand(Interface):
             dataset.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
-            args=("-R", "--dataset-depth",),
+            args=("--dataset-depth",),
             doc="""maximum level of nested subdatasets to display""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         include_files=Parameter(
@@ -111,16 +111,16 @@ class TreeCommand(Interface):
         dict(text="Display up to 3 levels of the current directory's "
                   "subdirectories and their contents",
              code_py="tree(depth=3, include_files=True)",
-             code_cmd="datalad tree -L 3 --include-files"),
+             code_cmd="datalad tree --depth 3 --include-files"),
         dict(text="Display all first- and second-level subdatasets of "
                   "datasets located anywhere under /tmp (including in hidden "
                   "directories) regardless of directory depth",
              code_py="tree('/tmp', dataset_depth=2, include_hidden=True)",
-             code_cmd="datalad tree /tmp -R 2 --include-hidden"),
+             code_cmd="datalad tree /tmp --dataset-depth 2 --include-hidden"),
         dict(text="Display first- and second-level subdatasets and their "
                   "contents, up to 1 directory deep within each dataset",
              code_py="tree(dataset_depth=2, depth=1)",
-             code_cmd="datalad tree -R 2 -L 1"),
+             code_cmd="datalad tree --dataset-depth 2 --depth 1"),
     ]
 
     @staticmethod
