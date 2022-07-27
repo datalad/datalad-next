@@ -191,7 +191,7 @@ def test_print_tree_fails_for_nonexistent_directory():
     """Obtain nonexistent directory by creating a temp dir
     and deleting it (may be safest method)"""
     dir_name = f"to_be_deleted_{datetime.now().timestamp()}"
-    nonexistent_dir = with_tree({dir_name: []})(lambda f: f)()
+    nonexistent_dir = Path(with_tree({dir_name: []})(lambda f: f)())
     with assert_raises(ValueError):
         Tree(nonexistent_dir, max_depth=1)
 
