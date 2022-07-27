@@ -273,6 +273,15 @@ def get_superdataset(ds):
         datalad_only=True, topmost=False, registered_only=True)
 
 
+def is_path_relative_to(my_path: Path, other_path: Path):
+    """Copy of pathlib's ``Path.is_relative_to()`` that requires python3.9+"""
+    try:
+        my_path.relative_to(other_path)
+        return True
+    except ValueError:
+        return False
+
+
 class Tree:
     """Main class for generating and serializing a directory tree"""
 
@@ -529,7 +538,7 @@ class DatasetTree(Tree):
             if not (path.is_dir() and is_dataset(path)):
                 ds_parents = [
                     p for p in path.parents
-                    if p.is_relative_to(self.root) and
+                    if is_path_relative_to(p, self.root) and
                     is_dataset(p)
                 ]
                 if ds_parents:
@@ -763,7 +772,7 @@ class DatasetNode(_TreeNode):
                     break
 
                 ds_absolute_depth += 1
-                if Path(superds.path).is_relative_to(self.tree_root):
+                if is_path_relative_to(Path(superds.path), self.tree_root):
                     # if the parent dataset is underneath the tree
                     # root, we increment the relative depth
                     ds_depth += 1
