@@ -33,6 +33,8 @@ command_suite = (
             'datalad_next.tree',
             # name of the command class implementation in above module
             'TreeCommand',
+            # command name (differs from lowercase command class name)
+            'tree'
         )
     ]
 )
