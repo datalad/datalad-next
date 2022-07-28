@@ -463,8 +463,8 @@ class TestTreeWithDatasets(TestTree):
         "expected_stats_str": "2 datasets, 1 directory, 0 files",
         "expected_str": """
 ├── repo0/
-├── superds0/  [DS~0]
-└── superds1/  [DS~0]
+├── [DS~0] superds0/
+└── [DS~0] superds1/
 """,
     },
     {
@@ -472,15 +472,15 @@ class TestTreeWithDatasets(TestTree):
         "expected_stats_str": "7 datasets, 3 directories, 0 files",
         "expected_str": """
 ├── repo0/
-├── superds0/  [DS~0]
-│   └── sd0_subds0/  [DS~1]
-│       └── sd0_sub0_subds0/  [DS~2]
-└── superds1/  [DS~0]
+├── [DS~0] superds0/
+│   └── [DS~1] sd0_subds0/
+│       └── [DS~2] sd0_sub0_subds0/
+└── [DS~0] superds1/
     ├── sd1_dir0/
     │   ├── sd1_d0_repo0/
-    │   └── sd1_d0_subds0/  [DS~1]
-    ├── sd1_ds0/  [DS~0]
-    └── sd1_subds0/  [DS~1, not installed]
+    │   └── [DS~1] sd1_d0_subds0/
+    ├── [DS~0] sd1_ds0/
+    └── [DS~1] (not installed) sd1_subds0/
 """,
     },
     ]
@@ -529,9 +529,9 @@ class TestDatasetTree(TestTree):
         "depth": 0,
         "expected_stats_str": "3 datasets, 0 directories, 0 files",
         "expected_str": """
-├── superds0/  [DS~0]
-└── superds1/  [DS~0]
-    └── sd1_ds0/  [DS~0]
+├── [DS~0] superds0/
+└── [DS~0] superds1/
+    └── [DS~0] sd1_ds0/
 """
     },
     {
@@ -539,10 +539,10 @@ class TestDatasetTree(TestTree):
         "depth": 1,
         "expected_stats_str": "3 datasets, 1 directory, 0 files",
         "expected_str": """
-├── superds0/  [DS~0]
-└── superds1/  [DS~0]
+├── [DS~0] superds0/
+└── [DS~0] superds1/
     ├── sd1_dir0/
-    └── sd1_ds0/  [DS~0]
+    └── [DS~0] sd1_ds0/
 """
     },
     {
@@ -550,13 +550,13 @@ class TestDatasetTree(TestTree):
         "depth": 0,
         "expected_stats_str": "6 datasets, 1 directory, 0 files",
         "expected_str": """
-├── superds0/  [DS~0]
-│   └── sd0_subds0/  [DS~1]
-└── superds1/  [DS~0]
+├── [DS~0] superds0/
+│   └── [DS~1] sd0_subds0/
+└── [DS~0] superds1/
     ├── sd1_dir0/
-    │   └── sd1_d0_subds0/  [DS~1]
-    ├── sd1_ds0/  [DS~0]
-    └── sd1_subds0/  [DS~1, not installed]
+    │   └── [DS~1] sd1_d0_subds0/
+    ├── [DS~0] sd1_ds0/
+    └── [DS~1] (not installed) sd1_subds0/
 """
     },
     {
@@ -564,14 +564,14 @@ class TestDatasetTree(TestTree):
         "depth": 2,
         "expected_stats_str": "6 datasets, 2 directories, 0 files",
         "expected_str": """
-├── superds0/  [DS~0]
-│   └── sd0_subds0/  [DS~1]
-└── superds1/  [DS~0]
+├── [DS~0] superds0/
+│   └── [DS~1] sd0_subds0/
+└── [DS~0] superds1/
     ├── sd1_dir0/
     │   ├── sd1_d0_repo0/
-    │   └── sd1_d0_subds0/  [DS~1]
-    ├── sd1_ds0/  [DS~0]
-    └── sd1_subds0/  [DS~1, not installed]
+    │   └── [DS~1] sd1_d0_subds0/
+    ├── [DS~0] sd1_ds0/
+    └── [DS~1] (not installed) sd1_subds0/
 """
     },
     ]

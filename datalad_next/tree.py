@@ -617,8 +617,8 @@ class _TreeNode:
 
     # symbols for the tip of the 'tree branch', depending on
     # whether a node is the last in it subtree or not
-    PREFIX_MIDDLE_CHILD = "├── "
-    PREFIX_LAST_CHILD = "└── "
+    PREFIX_MIDDLE_CHILD = "├──"
+    PREFIX_LAST_CHILD = "└──"
 
     # symbol for representing the continuation of a 'tree branch'
     INDENTATION_SYMBOL = "│"
@@ -656,12 +656,11 @@ class _TreeNode:
         if self.COLOR is not None:
             path = ansi_colors.color_word(path, self.COLOR)
 
-        prefix = ""
         if self.depth > 0:
             prefix = self.PREFIX_LAST_CHILD if self.is_last_child \
                 else self.PREFIX_MIDDLE_CHILD
-
-        return prefix + str(path)
+            return " ".join([prefix, path])
+        return str(path)  # root directory has no prefix
 
     @staticmethod
     def stats_description(count):
@@ -732,10 +731,21 @@ class DatasetNode(_TreeNode):
         self.ds_depth, self.ds_absolute_depth = self.calculate_dataset_depth()
 
     def __str__(self):
-        install_flag = ", not installed" if not self.is_installed else ""
-        dir_suffix = "/" if self.depth > 0 else ""
-        ds_marker = f"  [DS~{self.ds_absolute_depth}{install_flag}]"
-        return super().__str__() + dir_suffix + ds_marker
+        default_str = super().__str__()
+
+        ds_marker_depth = ansi_colors.color_word(
+            f"DS~{self.ds_absolute_depth}", ansi_colors.WHITE)
+        install_flag = " (not installed)" if not self.is_installed else ""
+        ds_marker = f"[{ds_marker_depth}]{install_flag}"
+
+        if self.depth > 0:
+            prefix = self.PREFIX_LAST_CHILD if self.is_last_child else \
+                self.PREFIX_MIDDLE_CHILD
+            custom_str = default_str.replace(prefix, f"{prefix} {ds_marker}")
+        else:
+            custom_str = f"{ds_marker} {default_str}"
+
+        return custom_str + ("/" if self.depth > 0 else "")
 
     @staticmethod
     def stats_description(count):
