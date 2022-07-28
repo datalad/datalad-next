@@ -135,20 +135,21 @@ class TreeCommand(Interface):
             include_hidden=False):
 
         if dataset_depth is not None:
-            tree = DatasetTree(
-                Path(path),
-                max_depth=depth,
-                max_dataset_depth=dataset_depth,
-                exclude_node_func=build_excluded_node_func(
-                    include_hidden=include_hidden, include_files=include_files)
-            )
+            # special tree defined by subdataset nesting depth
+            tree_cls = DatasetTree
+            dataset_tree_args = {"max_dataset_depth": dataset_depth}
         else:
-            tree = Tree(
-                Path(path),
-                max_depth=depth,
-                exclude_node_func=build_excluded_node_func(
-                    include_hidden=include_hidden, include_files=include_files)
-            )
+            # simple tree defined by directory depth
+            tree_cls = Tree
+            dataset_tree_args = {}
+
+        tree = tree_cls(
+            Path(path),
+            max_depth=depth,
+            exclude_node_func=build_excluded_node_func(
+                include_hidden=include_hidden, include_files=include_files),
+            **dataset_tree_args
+        )
 
         for line in tree.print_line():
             # print one line at a time to improve UX / perceived speed
@@ -516,9 +517,10 @@ class DatasetTree(Tree):
         Yield ``_TreeNode`` objects that belong to the tree.
 
         A ``DatasetTree`` is just an unlimited-depth ``Tree`` with more
-        complex rules for excluding nodes. Each exclusion rule is encoded
-        in a function. The rules are then combined in a final
-        ``exclusion_func`` which is supplied to the ``Tree`` constructor.
+        complex rules for pruning (skipping traversal of particular nodes).
+        Each exclusion rule is encoded in a function. The rules are then
+        combined in a final ``exclusion_func`` which is supplied to the
+        ``Tree`` constructor.
 
         Returns
         -------
