@@ -27,7 +27,7 @@ from datalad.interface.results import (
     get_status_dict,
 )
 from datalad.interface.utils import (
-    eval_results,
+    eval_results, generic_result_renderer,
 )
 from datalad.support.constraints import (
     EnsureNone,
@@ -151,17 +151,29 @@ class TreeCommand(Interface):
             **dataset_tree_args
         )
 
-        for line in tree.print_line():
-            # print one line at a time to improve UX / perceived speed
-            print(line)
-        print("\n" + tree.stats() + "\n")
+        for node, line in tree.generate_nodes_with_str():
+            # yield one node at a time to improve UX / perceived speed
+            yield get_status_dict(
+                action="tree",
+                status="ok",
+                path=node.path,
+                type=node.TYPE,
+                depth=node.depth,
+                node_str=line,
+                tree_stats=tree.stats()
+            )
 
-        # return a generic OK status
-        yield get_status_dict(
-            action='tree',
-            status='ok',
-            path=path,
-        )
+    @staticmethod
+    def custom_result_renderer(res, **kwargs):
+        print(res["node_str"])
+
+    @staticmethod
+    def custom_result_summary_renderer(res, **kwargs):
+        # print the summary 'report line' with count of nodes by type
+        print("\n" + res[-1]["tree_stats"] + "\n")
+        # print "ok" status for input path (root node)
+        root_node = res[0]
+        generic_result_renderer(root_node)
 
 
 def build_excluded_node_func(include_hidden=False, include_files=False):
@@ -429,7 +441,10 @@ class Tree:
         return "\n".join(self._lines)
 
     def print_line(self):
-        """Generator for tree string output lines
+        """Generator for tree string output lines.
+
+        When yielding, also stores the output in self._lines to avoid having
+        to recompute it.
 
         Returns
         -------
@@ -437,7 +452,7 @@ class Tree:
         """
         if not self._lines:
             # string output has not been generated yet
-            for line in self._yield_lines():
+            for _, line in self.generate_nodes_with_str():
                 self._lines.append(line)
                 yield line
         else:
@@ -446,12 +461,10 @@ class Tree:
                 yield line
                 yield "\n"  # newline at the very end
 
-    def _yield_lines(self):
-        """Generator of lines of the tree string representation.
+    def generate_nodes_with_str(self):
+        """Generator of tree nodes and their string representation.
 
-        Each line represents a tree node (directory or dataset or file).
-
-        A line follows the structure:
+        Each node is printed on one line. The string uses the format:
             ``[<indentation>] [<branch_tip_symbol>] <path>``
 
         Example line:
@@ -459,11 +472,11 @@ class Tree:
 
         Returns
         -------
-        Generator[str]
+        Generator[Tuple[_TreeNode, str]]
         """
 
-        # keep track of levels where subtree is exhaused, i.e. we have
-        # reached the last child of the subtree.
+        # keep track of levels where subtree is exhausted, i.e. we have
+        # reached the last child of the current subtree.
         # this is needed to build the indentation string for each node,
         # which takes into account whether any parent is the last node of
         # its own subtree.
@@ -491,7 +504,7 @@ class Tree:
                 indentation = "".join(indentation_symbols_for_levels)
 
             line = indentation + str(node)
-            yield line
+            yield node, line
 
 
 class DatasetTree(Tree):
@@ -573,6 +586,7 @@ class DatasetTree(Tree):
                             node.ds_depth, _ = node.calculate_dataset_depth()
                             yield node
 
+                # stop at the first matching datasets
                 return any(
                     ds.ds_depth <= self.max_dataset_depth
                     for ds in child_datasets()
@@ -615,6 +629,7 @@ class _TreeNode:
     """Base class for a directory or file represented as a single tree node
     and printed as single line of the 'tree' output.
     """
+    TYPE = None  # needed for command result dict
     COLOR = None  # ANSI color for the path, if terminal color are enabled
 
     # symbols for the tip of the 'tree branch', depending on
@@ -697,6 +712,7 @@ class _TreeNode:
 
 
 class DirectoryNode(_TreeNode):
+    TYPE = "directory"
     COLOR = ansi_colors.BLUE
 
     def __init__(self, *args, **kwargs):
@@ -714,6 +730,8 @@ class DirectoryNode(_TreeNode):
 
 
 class FileNode(_TreeNode):
+    TYPE = "file"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -723,6 +741,7 @@ class FileNode(_TreeNode):
 
 
 class DatasetNode(_TreeNode):
+    TYPE = "dataset"
     COLOR = ansi_colors.MAGENTA
 
     def __init__(self, *args, **kwargs):
