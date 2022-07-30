@@ -28,6 +28,14 @@ command_suite = (
             # not pick it up, due to the dashes in the name
             'create-sibling-webdav',
         ),
+        (
+            # importable module that contains the command implementation
+            'datalad_next.tree',
+            # name of the command class implementation in above module
+            'TreeCommand',
+            # command name (differs from lowercase command class name)
+            'tree'
+        )
     ]
 )
 
