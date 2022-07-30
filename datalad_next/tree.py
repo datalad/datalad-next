@@ -21,7 +21,7 @@ from datalad.interface.base import (
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
     datasetmethod,
-    require_dataset,
+    require_dataset, Dataset,
 )
 from datalad.interface.results import (
     get_status_dict,
@@ -34,6 +34,7 @@ from datalad.support.constraints import (
     EnsureStr, EnsureInt, EnsureRange,
 )
 from datalad.support import ansi_colors
+from datalad.utils import get_dataset_root
 
 lgr = logging.getLogger('datalad.local.tree')
 
@@ -222,6 +223,23 @@ def increment_node_count(node_generator_func):
     return _wrapper
 
 
+def yield_with_last_item(generator):
+    """Takes a generator and yields for each item, the item itself and
+    whether it is the last item in the sequence.
+
+    Returns
+    -------
+    Tuple[bool, Any]
+        A tuple (is_last_item, item)
+    """
+    prev_val = next(generator, None)
+    if prev_val is not None:
+        for current_val in generator:
+            yield False, prev_val
+            prev_val = current_val
+        yield True, prev_val
+
+
 @lru_cache
 def is_dataset(path: Path):
     """Fast dataset detection.
@@ -243,14 +261,11 @@ def is_dataset(path: Path):
     path: Path
         Path to directory to be identified as dataset or non-dataset
     """
-    ds = require_dataset(path, check_installed=False)
-    ds_path = Path(ds.path)
-
     # detect if it is an installed datalad-proper dataset
     # (as opposed to git/git-annex repo).
     # could also query `ds.id`, but checking just for existence
     # of config file is quicker.
-    if Path(ds_path / ".datalad" / "config").is_file():
+    if Path(path / ".datalad" / "config").is_file():
         return True
 
     # if it is not installed, check if it has an installed superdataset.
@@ -258,36 +273,112 @@ def is_dataset(path: Path):
     # directory has the .git folder), we check if the directory
     # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
     def is_empty_dir():
-        return not any(ds_path.iterdir())
+        return not any(path.iterdir())
 
     if is_empty_dir():
-        if get_superdataset(ds) is not None:
+        if get_superdataset(path) is not None:
             return True
 
     return False
 
 
 @lru_cache
-def get_superdataset(ds):
-    """Wrapper for ``Dataset.get_superdataset()`` with predefined options.
+def get_subds_paths(ds_path: Path):
+    """Return paths of immediate subdatasets for a given dataset path.
 
-    Results are cached, as this function may be rerun on the same dataset
-    multiple times.
+    This is an expensive operation because it calls git to read the
+    submodules. Since we need to run this to (A) calculate dataset depth and
+    (B) detect non-installed datasets, we cache results, so that the list of
+    subdatasets is computed only once for each parent dataset.
+    """
+    def res_filter(res):
+        return res.get('status') == 'ok' and res.get('type') == 'dataset'
+
+    return Dataset(ds_path).subdatasets(
+        recursive=False,
+        result_filter=res_filter,
+        on_failure='ignore',
+        result_xfm='paths',
+        result_renderer='disabled',
+        return_type='list'
+    )
+
+
+def get_dataset_root_datalad_only(path: Path):
+    """Get root of dataset containing a given path (datalad datasets only,
+    not pure git/git-annex repo)
 
     Parameters
     ----------
-    ds: Dataset
+    path: Path
+        Path to file or directory
+
+    Returns
+    -------
+    Path
+    """
+    ds_root = path
+    while ds_root:
+        potential_ds_root = get_dataset_root(str(ds_root))
+
+        if potential_ds_root is None:
+            return None  # we are not inside a dataset
+
+        potential_ds_root = Path(potential_ds_root)
+        if is_dataset(potential_ds_root):
+            return potential_ds_root  # it's a match
+
+        # we go one directory higher and try again
+        ds_root = Path.resolve(potential_ds_root / '..')
+    return ds_root
+
+
+@lru_cache
+def get_superdataset(path: Path):
+    """Reimplementation of ``Dataset.get_superdataset()`` to allow caching
+    results of `ds.subdatasets()` (the most expensive operation).
+
+    Parameters
+    ----------
+    path: Path
+        Path to a dataset
 
     Returns
     -------
     Dataset or None
     """
-    return ds.get_superdataset(
-        datalad_only=True, topmost=False, registered_only=True)
+    path = str(path)
+    superds_path = None
+
+    while path:
+        # normalize the path after adding .. so we guaranteed to not
+        # follow into original directory if path itself is a symlink
+        parent_path = Path.resolve(Path(path) / '..')
+        sds_path_ = get_dataset_root_datalad_only(parent_path)
+        if sds_path_ is None:
+            # no more parents, use previous found
+            break
+
+        superds = Dataset(sds_path_)
+
+        # test if path is registered subdataset of the parent
+        if not any(is_path_relative_to(Path(p), Path(path))
+                   for p in get_subds_paths(Path(superds.path))):
+            break
+
+        # That was a good candidate
+        superds_path = sds_path_
+        path = str(parent_path)
+        break
+
+    if superds_path is None:
+        # None was found
+        return None
+    return Dataset(superds_path)
 
 
 def is_path_relative_to(my_path: Path, other_path: Path):
-    """Copy of pathlib's ``Path.is_relative_to()`` that requires python3.9+"""
+    """Port of pathlib's ``Path.is_relative_to()`` that requires python3.9+"""
     try:
         my_path.relative_to(other_path)
         return True
@@ -378,31 +469,34 @@ class Tree:
             Whether the directory ``dir_path`` is the last child of its
             parent in the ordered list of child nodes
         """
-
         if not self.skip_root or \
                 self.skip_root and self.path_depth(dir_path) > 0:
             yield DirectoryOrDatasetNode(
                 dir_path, self.path_depth(dir_path), is_last_child
             )
 
-        # check that we are within max_depth levels (None means unlimited
-        # depth)
+        # check that we are within max_depth levels
+        # (None means unlimited depth)
         if self.max_depth is None or \
                 self.path_depth(dir_path) < self.max_depth:
 
-            # apply exclusion filter
-            selected_children = (
-                p for p in dir_path.iterdir()
+            # sort child nodes alphabetically
+            # needs to be done *before* calling the exclusion function,
+            # because the function may depend on sort order
+            all_children = sorted(list(dir_path.iterdir()))
+
+            # apply exclusion filters
+            children = (
+                p for p in all_children
                 if not self.exclude_node_func(p)
             )
-            # sort directory contents alphabetically
-            children = sorted(list(selected_children))
 
-            for child in children:
-
-                # check if node is the last child within its subtree (needed
-                # for displaying special end-of-subtree prefix)
-                is_last_child = (child == children[-1])
+            # exclusion function could be expensive to compute, so we generate
+            # child nodes, but we need to be able to detect the last child
+            # within its subtree (needed for displaying special
+            # end-of-subtree prefix). so we wrap the generator in another
+            # generator to detect the last item.
+            for is_last_child, child in yield_with_last_item(children):
 
                 if child.is_dir():
                     # recurse into subdirectories
@@ -524,6 +618,15 @@ class DatasetTree(Tree):
 
         self.max_dataset_depth = max_dataset_depth
 
+        # generator that will traverse the whole tree (once) and yield
+        # only datasets and their parents directories, hand-in-hand with the
+        # main node generator
+        self._ds_generator = self._generate_datasets()
+        # current value of the generator. it will be initialized lazily,
+        # so for now we set it to the a `_TreeNode` with dummy depth just
+        # distinguish it from None (None means the generator has finished).
+        self._next_ds = _TreeNode(self.root, -1, False)
+
     @increment_node_count
     def generate_nodes(self):
         """
@@ -540,89 +643,134 @@ class DatasetTree(Tree):
         Generator[_TreeNode]
         """
 
-        def is_git_folder(path: Path):
-            return path.is_dir() and path.name == ".git"
-
-        def ds_exceeds_max_ds_depth(path: Path):
-            if path.is_dir() and is_dataset(path):
-                ds = DatasetNode(path, self.path_depth(path), False)
-                return ds.ds_depth > self.max_dataset_depth
-            return False
-
-        def ds_child_node_exceeds_max_depth(path: Path):
-            if not (path.is_dir() and is_dataset(path)):
-                ds_parents = [
-                    p for p in path.parents
-                    if is_path_relative_to(p, self.root) and
-                    is_dataset(p)
-                ]
-                if ds_parents:
-                    parent = ds_parents[-1]  # closest parent
-                    relative_depth = self.path_depth(path) - self.path_depth(parent)
-                    return relative_depth > self.max_depth
-            return True
-
-        def is_parent_of_included_ds(path: Path):
-            def exclude(p: Path):
-                return not p.is_dir() or is_git_folder(p)
-
-            if path.is_dir() and not is_dataset(path):
-                # search in the subtree with the current path as root
-                subtree = Tree(
-                    path,
-                    max_depth=None,
-                    exclude_node_func=exclude,
-                    skip_root=True
-                )
-
-                def child_datasets():
-                    """Generator of dataset nodes below the current node"""
-                    for node in subtree.generate_nodes():
-                        if isinstance(node, DatasetNode):
-                            # offset depth by depth of current path
-                            node.depth += self.path_depth(path)
-                            # need to recalculate dataset depth after
-                            # updating directory depth
-                            node.ds_depth, _ = node.calculate_dataset_depth()
-                            yield node
-
-                # stop at the first matching datasets
-                return any(
-                    ds.ds_depth <= self.max_dataset_depth
-                    for ds in child_datasets()
-                )
-
-            return False
-
         def exclude_func(path: Path):
-            """Combine exclusion criteria from different functions"""
-            criteria = self.exclude_node_func(path)
+            """Exclusion function -- here is the crux of the logic for
+            pruning the dataset tree."""
+
+            # initialize dataset(-parent) generator if not done yet
+            if self._next_ds is not None and \
+                    self._next_ds.depth == -1:  # dummy depth
+                self._advance_ds_generator()
 
             if path.is_dir() and is_dataset(path):
                 # check if maximum dataset depth is exceeded
-                criteria |= ds_exceeds_max_ds_depth(path)
-            else:
-                # do not traverse the .git folder (we will not find
-                # datasets underneath it)
-                criteria |= is_git_folder(path)
+                is_valid_ds = self._is_valid_dataset(path)
+                if is_valid_ds:
+                    self._advance_ds_generator()  # go to next dataset(-parent)
+                return not is_valid_ds
 
-                # exclude files or directories underneath a dataset,
-                # if they have depth (relative to dataset root) > max_depth,
-                # unless they are themselves parents of a dataset with
-                # dataset depth within the valid ds_depth range
-                if not (path.is_dir() and is_parent_of_included_ds(path)):
-                    criteria |= ds_child_node_exceeds_max_depth(path)
+            # exclude file or directory underneath a dataset,
+            # if it has depth (relative to dataset root) > max_depth,
+            # unless (in case of a directory) it is itself the parent of a
+            # valid dataset. if it's a parent of a dataset, we don't apply
+            # any filters -- it's just a means to get to the next dataset.
+            if not self._is_parent_of_ds(path):
+                return self.exclude_node_func(path) or \
+                       self._ds_child_node_exceeds_max_depth(path)
 
-            return criteria
+            return False  # do not exclude
 
-        ds_tree = Tree(
+        tree = Tree(
             self.root,
             max_depth=None,  # unlimited traversal (datasets could be anywhere)
             exclude_node_func=exclude_func,
             skip_root=self.skip_root,
         )
 
-        yield from ds_tree.generate_nodes()
+        yield from tree.generate_nodes()
+
+    def _advance_ds_generator(self):
+        """Go to the next dataset or parent of dataset"""
+        self._next_ds = next(self._ds_generator, None)
+
+    def _generate_datasets(self):
+        """Generator of dataset nodes and their parent directories starting
+        from the tree root and up to ``max_dataset_depth`` levels.
+
+        This second tree will be generated in parallel with the main tree
+        with an offset, such that it always points to the next dataset (or
+        dataset parent) relative to the current node in the main tree. This
+        allows us to 'look into the future' to decide whether to prune the
+        current node or not, without having to spawn new subtree generators
+        for each node (which would re-traverse the same datasets over again).
+
+        Returns
+        -------
+        Generator[DirectoryNode or DatasetNode]
+        """
+
+        def exclude(p: Path):
+            # we won't find any datasets underneath the git folder
+            return not p.is_dir() or \
+                   (p.is_dir() and p.name == ".git")
+
+        ds_tree = Tree(
+            self.root,
+            max_depth=None,
+            exclude_node_func=exclude,
+            skip_root=True,
+        )
+
+        visited_parents = set([])
+
+        for node in ds_tree.generate_nodes():
+            if isinstance(node, DatasetNode) and \
+                    node.ds_depth <= self.max_dataset_depth and \
+                    not self.exclude_node_func(node.path):
+
+                # yield parent directories if not already done
+                for depth, parent in enumerate(node.parents):
+                    if depth == 0 and ds_tree.skip_root:
+                        continue
+                    if parent not in visited_parents:
+                        visited_parents.add(parent)
+
+                        yield DirectoryOrDatasetNode(
+                            parent,
+                            depth,
+                            None  # we don't care if it's the last child or not
+                        )
+
+                visited_parents.add(node.path)
+                yield node
+
+    def _is_valid_dataset(self, path: Path):
+        return path.is_dir() and \
+               is_path_relative_to(path, self.root) and \
+               is_dataset(path) and \
+               not self.exclude_node_func(path) and \
+               not self._ds_exceeds_max_ds_depth(path)
+
+    def _ds_exceeds_max_ds_depth(self, path: Path):
+        ds = DatasetNode(path, self.path_depth(path), False)
+        return ds.ds_depth > self.max_dataset_depth
+
+    def _ds_child_node_exceeds_max_depth(self, path: Path):
+        ds_parent = get_dataset_root_datalad_only(path)
+        if ds_parent is None:
+            return True  # it's not a dataset child, we exclude it
+
+        if not self._is_valid_dataset(ds_parent):
+            return True  # also exclude
+
+        # check directory depth relative to the dataset parent
+        rel_depth = self.path_depth(path) - self.path_depth(ds_parent)
+        assert rel_depth >= 0  # sanity check
+        return rel_depth > self.max_depth
+
+    def _is_parent_of_ds(self, path: Path):
+        if not path.is_dir():
+            return False  # files can't be parents
+
+        if self._next_ds is None:
+            return False  # no more datasets, can't be a parent
+
+        if self._next_ds.path == path:
+            # we hit a dataset or the parent of a dataset
+            self._advance_ds_generator()
+            return True
+
+        return False
 
 
 class _TreeNode:
@@ -695,8 +843,7 @@ class _TreeNode:
 
     @property
     def parents(self):
-        """List of parent paths (beginning from the tree root) in top-down
-        order.
+        """List of parent paths in top-down order beginning from the tree root.
 
         Returns
         -------
@@ -772,6 +919,7 @@ class DatasetNode(_TreeNode):
     def stats_description(count):
         return str(count) + (" dataset" if int(count) == 1 else " datasets")
 
+    @lru_cache
     def calculate_dataset_depth(self):
         """
         Calculate 2 measures of a dataset's nesting depth/level:
@@ -792,7 +940,7 @@ class DatasetNode(_TreeNode):
         ds = self.ds
 
         while ds:
-            superds = get_superdataset(ds)
+            superds = get_superdataset(ds.path)
 
             if superds is None:
                 # it is not a dataset, do nothing
