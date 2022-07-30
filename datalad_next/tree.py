@@ -687,15 +687,13 @@ class DatasetTree(Tree):
         """Generator of dataset nodes and their parent directories starting
         from the tree root and up to ``max_dataset_depth`` levels.
 
-        This second 'helper' tree will be generated in parallel with the main
-        tree but with an offset, such that it always points to the next
-        dataset (or dataset parent) relative to the current node in the main
-        tree.
+        This secondary 'helper' tree will be generated in parallel with the
+        main tree but will be one step ahead, such that it always points to
+        the next dataset (or dataset parent) relative to the current node in
+        the main tree.
 
-        This allows us to 'look into the future' to decide whether to prune the
-        current node in the main tree or not, without having to spawn new
-        subtree generators for each node (which would re-traverse the same
-        nodes over again, with an exponential factor).
+        We can use it to look into downstream/future nodes and decide
+        efficiently whether to prune the current node in the main tree.
 
         Returns
         -------
