@@ -618,13 +618,13 @@ class DatasetTree(Tree):
 
         self.max_dataset_depth = max_dataset_depth
 
-        # generator that will traverse the whole tree (once) and yield
-        # only datasets and their parents directories, hand-in-hand with the
-        # main node generator
+        # secondary 'helper' generator that will traverse the whole tree
+        # (once) and yield only datasets and their parents directories
         self._ds_generator = self._generate_datasets()
-        # current value of the generator. it will be initialized lazily,
-        # so for now we set it to the a `_TreeNode` with dummy depth just
-        # distinguish it from None (None means the generator has finished).
+        # current value of the ds_generator. the generator will be initialized
+        # lazily, so for now we set the value to a dummy `_TreeNode`
+        # with an impossible depth just to distinguish it from None (None means
+        # the generator has finished).
         self._next_ds = _TreeNode(self.root, -1, False)
 
     @increment_node_count
@@ -687,12 +687,15 @@ class DatasetTree(Tree):
         """Generator of dataset nodes and their parent directories starting
         from the tree root and up to ``max_dataset_depth`` levels.
 
-        This second tree will be generated in parallel with the main tree
-        with an offset, such that it always points to the next dataset (or
-        dataset parent) relative to the current node in the main tree. This
-        allows us to 'look into the future' to decide whether to prune the
-        current node or not, without having to spawn new subtree generators
-        for each node (which would re-traverse the same datasets over again).
+        This second 'helper' tree will be generated in parallel with the main
+        tree but with an offset, such that it always points to the next
+        dataset (or dataset parent) relative to the current node in the main
+        tree.
+
+        This allows us to 'look into the future' to decide whether to prune the
+        current node in the main tree or not, without having to spawn new
+        subtree generators for each node (which would re-traverse the same
+        nodes over again, with an exponential factor).
 
         Returns
         -------
@@ -775,8 +778,7 @@ class DatasetTree(Tree):
 
 class _TreeNode:
     """Base class for a directory or file represented as a single tree node
-    and printed as single line of the 'tree' output.
-    """
+    and printed as single line of the 'tree' output."""
     TYPE = None  # needed for command result dict
     COLOR = None  # ANSI color for the path, if terminal color are enabled
 
