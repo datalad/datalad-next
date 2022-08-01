@@ -29,6 +29,7 @@ from datalad.interface.results import (
 from datalad.interface.utils import (
     eval_results, generic_result_renderer,
 )
+from datalad.local.subdatasets import Subdatasets
 from datalad.support.constraints import (
     EnsureNone,
     EnsureStr, EnsureInt, EnsureRange,
@@ -291,7 +292,10 @@ def get_subds_paths(ds_path: Path):
     def res_filter(res):
         return res.get('status') == 'ok' and res.get('type') == 'dataset'
 
-    return Dataset(ds_path).subdatasets(
+    # call subdatasets command instead of dataset method `ds.subdatasets()`
+    # to avoid potentially expensive import of full datalad API
+    return Subdatasets.__call__(
+        dataset=ds_path,
         recursive=False,
         result_filter=res_filter,
         on_failure='ignore',
