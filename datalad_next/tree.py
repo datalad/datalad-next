@@ -171,10 +171,7 @@ class TreeCommand(Interface):
     @staticmethod
     def custom_result_summary_renderer(res, **kwargs):
         # print the summary 'report line' with count of nodes by type
-        print("\n" + res[-1]["tree_stats"] + "\n")
-        # print "ok" status for input path (root node)
-        root_node = res[0]
-        generic_result_renderer(root_node)
+        print("\n" + res[-1]["tree_stats"])
 
 
 def build_excluded_node_func(include_hidden=False, include_files=False):
