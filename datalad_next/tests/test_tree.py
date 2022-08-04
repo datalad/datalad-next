@@ -11,6 +11,7 @@ from datalad.tests.utils_pytest import (
     with_tree
 )
 from datalad.utils import rmtemp
+from datalad.ui import ui
 
 from ..tree import Tree
 
@@ -428,10 +429,10 @@ class TestTreeWithoutDatasets(TestTree):
         ]
         _, actual_res, _ = get_tree_rendered_output(command)
         expected_res = expected_str.lstrip("\n")  # strip first newline
-        print("expected:")
-        print(expected_res)
-        print("actual:")
-        print(actual_res)
+        ui.message("expected:")
+        ui.message(expected_res)
+        ui.message("actual:")
+        ui.message(actual_res)
         assert_str_equal(expected_res, actual_res)
 
     def test_print_stats(
@@ -593,10 +594,10 @@ class TestDatasetTree(TestTree):
         ]
         _, actual_res, _ = get_tree_rendered_output(command)
         expected_res = expected_str.lstrip("\n")  # strip first newline
-        print("expected:")
-        print(expected_res)
-        print("actual:")
-        print(actual_res)
+        ui.message("expected:")
+        ui.message(expected_res)
+        ui.message("actual:")
+        ui.message(actual_res)
         assert_str_equal(expected_res, actual_res)
 
     def test_print_stats(
