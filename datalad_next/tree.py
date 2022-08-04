@@ -489,7 +489,6 @@ class Tree:
     def __init__(self,
                  root: Path,
                  max_depth=None,
-                 skip_root=False,
                  exclude_node_func=None):
         """
         Parameters
@@ -498,8 +497,6 @@ class Tree:
             Directory to be used as tree root
         max_depth: int or None
             Maximum directory depth for traversing the tree
-        skip_root: bool
-            If true, will not print the first line with tree root
         exclude_node_func: Callable or None
             Function to filter out tree nodes from the tree
         """
@@ -510,8 +507,6 @@ class Tree:
         self.max_depth = max_depth
         if max_depth is not None and max_depth < 0:
             raise ValueError("max_depth must be >= 0")
-
-        self.skip_root = skip_root
 
         # set custom or default filter criteria
         self.exclude_node_func = exclude_node_func or self.default_exclude_func
@@ -550,9 +545,8 @@ class Tree:
         dir_path: Path
             Directory from which to calculate the tree
         """
-        if not self.skip_root or \
-                self.skip_root and self.path_depth(dir_path) > 0:
-            yield DirectoryOrDatasetNode(dir_path, self.path_depth(dir_path))
+        # yield current node
+        yield DirectoryOrDatasetNode(dir_path, self.path_depth(dir_path))
 
         # check that we are within max_depth levels
         # (None means unlimited depth)
@@ -681,7 +675,6 @@ class DatasetTree(Tree):
             self.root,
             max_depth=None,  # unlimited traversal (datasets could be anywhere)
             exclude_node_func=exclude_func,
-            skip_root=self.skip_root,
         )
         # synchronize exhausted levels with the main tree
         self.exhausted_levels = tree.exhausted_levels
@@ -718,7 +711,6 @@ class DatasetTree(Tree):
             self.root,
             max_depth=None,
             exclude_node_func=exclude,
-            skip_root=True,
         )
 
         visited_parents = set([])
@@ -730,7 +722,7 @@ class DatasetTree(Tree):
 
                 # yield parent directories if not already done
                 for depth, parent in enumerate(node.parents):
-                    if depth == 0 and ds_tree.skip_root:
+                    if depth == 0:
                         continue
                     if parent not in visited_parents:
                         visited_parents.add(parent)
