@@ -26,15 +26,13 @@ from datalad.distribution.dataset import (
 from datalad.interface.results import (
     get_status_dict,
 )
-from datalad.interface.utils import (
-    eval_results, generic_result_renderer,
-)
+from datalad.interface.utils import eval_results
+
 from datalad.local.subdatasets import Subdatasets
 from datalad.support.constraints import (
     EnsureNone,
     EnsureStr, EnsureInt, EnsureRange,
 )
-from datalad.support import ansi_colors
 from datalad.utils import get_dataset_root
 
 lgr = logging.getLogger('datalad.local.tree')
@@ -153,26 +151,112 @@ class TreeCommand(Interface):
             **dataset_tree_args
         )
 
-        for node, line in tree.generate_nodes_with_str():
+        for node in tree.generate_nodes():
             # yield one node at a time to improve UX / perceived speed
             yield get_status_dict(
                 action="tree",
                 status="ok",
-                path=node.path,
+                path=str(node.path),
                 type=node.TYPE,
                 depth=node.depth,
-                node_str=line,
-                tree_stats=tree.stats()
+                exhausted_levels=tree.exhausted_levels,
+                count={
+                    "datasets": tree.node_count["DatasetNode"],
+                    "directories": tree.node_count["DirectoryNode"],
+                    "files": tree.node_count["FileNode"]
+                },
+                **{
+                    "dataset_depth": node.ds_depth,
+                    "dataset_abs_depth": node.ds_absolute_depth,
+                    "dataset_is_installed": node.is_installed
+                } if node.TYPE == "dataset" else {},
             )
 
     @staticmethod
     def custom_result_renderer(res, **kwargs):
-        print(res["node_str"])
+        """
+        Each node is printed on one line. The string uses the format:
+        ``[<indentation>] [<branch_tip_symbol>] <path> [<ds_marker]``
+
+        Example line:
+        ``│   │   ├── path_dir_level3``
+        """
+        from datalad.support import ansi_colors
+
+        # get values from result record
+        node_type = res["type"]
+        node_path = res["path"]
+        depth = res["depth"]
+        exhausted_levels = res["exhausted_levels"]
+
+        # build indentation string
+        indentation = ""
+        if depth > 0:
+            indentation_symbols_for_levels = [
+                ("│"
+                 if level not in exhausted_levels
+                 else " ") + "   "
+                for level in range(1, depth)
+            ]
+            indentation = "".join(indentation_symbols_for_levels)
+
+        # build prefix (tree branch tip)
+        prefix = ""
+        if depth > 0:  # root node has no prefix
+            is_last_child = depth in exhausted_levels
+            prefix = "└──" if is_last_child else "├──"
+
+        # build dataset marker if dataset
+        ds_marker = ""
+        if node_type == "dataset":
+            ds_absolute_depth = res["dataset_abs_depth"]
+            ds_is_installed = res["dataset_is_installed"]
+
+            ds_marker_depth = ansi_colors.color_word(
+                f"DS~{ds_absolute_depth}",
+                ansi_colors.WHITE)
+            install_flag = " (not installed)" if not ds_is_installed else ""
+            ds_marker = f"[{ds_marker_depth}]" + install_flag
+
+        # build path string with optional color
+        # display only root directory with full path, all other nodes
+        # with basename
+        path = node_path if depth == 0 else Path(node_path).name
+        color_for_type = {
+            "dataset": ansi_colors.MAGENTA,
+            "directory": ansi_colors.BLUE,
+            "file": None
+        }
+        # ANSI color for the path, if terminal colors are enabled
+        color = color_for_type[node_type]
+        if color is not None:
+            path = ansi_colors.color_word(path, color)
+
+        # set suffix for directories
+        dir_suffix = ""
+        if depth > 0 and node_type in ("directory", "dataset"):
+            dir_suffix = "/"
+
+        line = indentation + \
+            " ".join((s for s in (prefix, ds_marker, path) if s != "")) + \
+            dir_suffix
+        print(line)
 
     @staticmethod
     def custom_result_summary_renderer(res, **kwargs):
-        # print the summary 'report line' with count of nodes by type
-        print("\n" + res[-1]["tree_stats"])
+        """Print the summary 'report line' with count of nodes by type"""
+
+        c_ds = res[-1]['count']['datasets']
+        c_dirs = res[-1]['count']['directories']
+        c_files = res[-1]['count']['files']
+
+        descriptions = [
+            f"{c_ds} " + ("dataset" if int(c_ds) == 1 else "datasets"),
+            f"{c_dirs} " + ("directory" if int(c_dirs) == 1 else "directories"),
+            f"{c_files} " + ("file" if int(c_files) == 1 else "files")
+        ]
+
+        print("\n" + ", ".join(descriptions))
 
 
 def build_excluded_node_func(include_hidden=False, include_files=False):
@@ -209,12 +293,12 @@ def increment_node_count(node_generator_func):
         self = args[0]   # 'self' is a Tree instance
         for node in node_generator_func(*args, **kwargs):
             node_type = node.__class__.__name__
-            if node_type not in self._stats:
+            if node_type not in self.node_count:
                 raise ValueError(
-                    f"No stats collected for unknown node type '{node_type}'"
+                    f"No counts collected for unknown node type '{node_type}'"
                 )
             if node.depth > 0:  # we do not count the root directory
-                self._stats[node_type] += 1
+                self.node_count[node_type] += 1
 
             yield node  # yield what the generator yielded
 
@@ -305,6 +389,13 @@ def get_subds_paths(ds_path: Path):
     )
 
 
+def is_subds_of_parent(subds_path: Path, parent_path: Path):
+    return any(
+        is_path_relative_to(Path(p), subds_path)
+        for p in get_subds_paths(parent_path)
+    )
+
+
 def get_dataset_root_datalad_only(path: Path):
     """Get root of dataset containing a given path (datalad datasets only,
     not pure git/git-annex repo)
@@ -363,8 +454,7 @@ def get_superdataset(path: Path):
         superds = Dataset(sds_path_)
 
         # test if path is registered subdataset of the parent
-        if not any(is_path_relative_to(Path(p), Path(path))
-                   for p in get_subds_paths(Path(superds.path))):
+        if not is_subds_of_parent(Path(path), Path(superds.path)):
             break
 
         # That was a good candidate
@@ -420,12 +510,19 @@ class Tree:
         # set custom or default filter criteria
         self.exclude_node_func = exclude_node_func or self.default_exclude_func
 
-        # store list of lines of output string
-        self._lines = []
+        # keep track of levels where the subtree is exhausted,
+        # i.e. we have reached the last child of the current subtree.
+        # this is needed for the custom results renderer, to display
+        # nodes differently based on their relative position in the tree.
+        self.exhausted_levels = set([])
 
-        # store dict with count of nodes for each _TreeNode subtype
-        self._stats = {node_type.__name__: 0
-                       for node_type in _TreeNode.__subclasses__()}
+        # store dict with count of nodes for each node type, similar to the
+        # tree command's 'report line' at the end of the output.
+        # the node types (subclasses of ``_TreeNode``) are mutually exclusive,
+        # so the sum of their counts equals to the total node count.
+        # does not count the root itself, only the contents below the root.
+        self.node_count = {node_type.__name__: 0
+                           for node_type in _TreeNode.__subclasses__()}
 
     @staticmethod
     def default_exclude_func(path: Path):
@@ -437,28 +534,7 @@ class Tree:
         the tree"""
         return len(path.relative_to(self.root).parts)
 
-    def stats(self) -> str:
-        """
-        Produces a string with counts of different node types, similar
-        to the tree command's 'report line' at the end of the tree
-        output.
-
-        The node types (subclasses of ``_TreeNode``) are mutually exclusive,
-        so the sum of their counts equals to the total node count.
-
-        Does not count the root itself, only the contents below the root.
-        """
-        # sort node type names alphabetically
-        node_types = sorted(
-            _TreeNode.__subclasses__(),
-            key=lambda c: c.__name__
-        )
-        return ", ".join(
-            node_type.stats_description(self._stats[node_type.__name__])
-            for node_type in node_types
-        )
-
-    def _generate_tree_nodes(self, dir_path: Path, is_last_child=True):
+    def _generate_tree_nodes(self, dir_path: Path):
         """Recursively yield ``_TreeNode`` objects starting from
         ``dir_path``
 
@@ -466,15 +542,10 @@ class Tree:
         ----------
         dir_path: Path
             Directory from which to calculate the tree
-        is_last_child: bool
-            Whether the directory ``dir_path`` is the last child of its
-            parent in the ordered list of child nodes
         """
         if not self.skip_root or \
                 self.skip_root and self.path_depth(dir_path) > 0:
-            yield DirectoryOrDatasetNode(
-                dir_path, self.path_depth(dir_path), is_last_child
-            )
+            yield DirectoryOrDatasetNode(dir_path, self.path_depth(dir_path))
 
         # check that we are within max_depth levels
         # (None means unlimited depth)
@@ -492,18 +563,24 @@ class Tree:
                 if not self.exclude_node_func(p)
             )
 
-            # exclusion function could be expensive to compute, so we generate
-            # child nodes, but we need to be able to detect the last child
-            # within its subtree (needed for displaying special
-            # end-of-subtree prefix). so we wrap the generator in another
-            # generator to detect the last item.
+            # exclusion function could be expensive to compute, so we
+            # use a generator for child nodes. however, we need to be able
+            # to detect the last child node within each subtree (needed for
+            # displaying special end-of-subtree prefix). so we wrap the
+            # generator in another 'lookahead' generator to detect the last
+            # item.
             for is_last_child, child in yield_with_last_item(children):
+
+                if is_last_child:  # last child of its subtree
+                    self.exhausted_levels.add(self.path_depth(child))
+                else:
+                    self.exhausted_levels.discard(self.path_depth(child))
 
                 if child.is_dir():
                     # recurse into subdirectories
-                    yield from self._generate_tree_nodes(child, is_last_child)
+                    yield from self._generate_tree_nodes(child)
                 else:
-                    yield FileNode(child, self.path_depth(child), is_last_child)
+                    yield FileNode(child, self.path_depth(child))
 
     @increment_node_count
     def generate_nodes(self):
@@ -522,84 +599,6 @@ class Tree:
         # so we decorate a separate function where we just yield from the
         # underlying generator.
         yield from self._generate_tree_nodes(self.root)
-
-    def build(self):
-        """Construct the tree string representation (will be stored in
-        instance attribute) and return the instance."""
-        self.to_string()
-        return self
-
-    def to_string(self) -> str:
-        """Return complete tree as string"""
-        if not self._lines:
-            return "\n".join(list(self.print_line()))
-        return "\n".join(self._lines)
-
-    def print_line(self):
-        """Generator for tree string output lines.
-
-        When yielding, also stores the output in self._lines to avoid having
-        to recompute it.
-
-        Returns
-        -------
-        Generator[str]
-        """
-        if not self._lines:
-            # string output has not been generated yet
-            for _, line in self.generate_nodes_with_str():
-                self._lines.append(line)
-                yield line
-        else:
-            # string output is already generated
-            for line in self._lines:
-                yield line
-                yield "\n"  # newline at the very end
-
-    def generate_nodes_with_str(self):
-        """Generator of tree nodes and their string representation.
-
-        Each node is printed on one line. The string uses the format:
-            ``[<indentation>] [<branch_tip_symbol>] <path>``
-
-        Example line:
-            ``│   │   ├── path_dir_level3``
-
-        Returns
-        -------
-        Generator[Tuple[_TreeNode, str]]
-        """
-
-        # keep track of levels where subtree is exhausted, i.e. we have
-        # reached the last child of the current subtree.
-        # this is needed to build the indentation string for each node,
-        # which takes into account whether any parent is the last node of
-        # its own subtree.
-        levels_with_exhausted_subtree = set([])
-
-        for node in self.generate_nodes():
-
-            if node.is_last_child:  # last child of its subtree
-                levels_with_exhausted_subtree.add(node.depth)
-            else:
-                # 'discard' does not raise exception if value does not exist
-                # in set
-                levels_with_exhausted_subtree.discard(node.depth)
-
-            # build indentation string
-            indentation = ""
-            spacing = node.INDENTATION_SPACING
-            if node.depth > 0:
-                indentation_symbols_for_levels = [
-                    (node.INDENTATION_SYMBOL
-                        if level not in levels_with_exhausted_subtree
-                        else " ") + spacing
-                    for level in range(1, node.depth)
-                ]
-                indentation = "".join(indentation_symbols_for_levels)
-
-            line = indentation + str(node)
-            yield node, line
 
 
 class DatasetTree(Tree):
@@ -626,7 +625,7 @@ class DatasetTree(Tree):
         # lazily, so for now we set the value to a dummy `_TreeNode`
         # with an impossible depth just to distinguish it from None (None means
         # the generator has finished).
-        self._next_ds = _TreeNode(self.root, -1, False)
+        self._next_ds = _TreeNode(self.root, -1)
 
     @increment_node_count
     def generate_nodes(self):
@@ -677,6 +676,8 @@ class DatasetTree(Tree):
             exclude_node_func=exclude_func,
             skip_root=self.skip_root,
         )
+        # synchronize exhausted levels with the main tree
+        self.exhausted_levels = tree.exhausted_levels
 
         yield from tree.generate_nodes()
 
@@ -727,11 +728,7 @@ class DatasetTree(Tree):
                     if parent not in visited_parents:
                         visited_parents.add(parent)
 
-                        yield DirectoryOrDatasetNode(
-                            parent,
-                            depth,
-                            None  # we don't care if it's the last child or not
-                        )
+                        yield DirectoryOrDatasetNode(parent, depth)
 
                 visited_parents.add(node.path)
                 yield node
@@ -744,7 +741,7 @@ class DatasetTree(Tree):
                not self._ds_exceeds_max_ds_depth(path)
 
     def _ds_exceeds_max_ds_depth(self, path: Path):
-        ds = DatasetNode(path, self.path_depth(path), False)
+        ds = DatasetNode(path, self.path_depth(path))
         return ds.ds_depth > self.max_dataset_depth
 
     def _ds_child_node_exceeds_max_depth(self, path: Path):
@@ -779,19 +776,8 @@ class _TreeNode:
     """Base class for a directory or file represented as a single tree node
     and printed as single line of the 'tree' output."""
     TYPE = None  # needed for command result dict
-    COLOR = None  # ANSI color for the path, if terminal color are enabled
 
-    # symbols for the tip of the 'tree branch', depending on
-    # whether a node is the last in it subtree or not
-    PREFIX_MIDDLE_CHILD = "├──"
-    PREFIX_LAST_CHILD = "└──"
-
-    # symbol for representing the continuation of a 'tree branch'
-    INDENTATION_SYMBOL = "│"
-    # spacing between the indentation symbol of one level and the next
-    INDENTATION_SPACING = "   "
-
-    def __init__(self, path: Path, depth: int, is_last_child: bool):
+    def __init__(self, path: Path, depth: int):
         """
         Parameters
         ----------
@@ -799,41 +785,15 @@ class _TreeNode:
             Path of the tree node
         depth: int
             Directory depth of the node within its tree
-        is_last_child: bool
-            Whether the node is the last node among its parent's children
         """
         self.path = path
         self.depth = depth
-        self.is_last_child = is_last_child
 
     def __eq__(self, other):
         return self.path == other.path
 
     def __hash__(self):
         return hash(str(self.path))
-
-    def __str__(self):
-        # display root directory with full path, all other nodes with basename
-        if self.depth == 0:
-            path = self.path
-        else:
-            path = self.path.name
-
-        if self.COLOR is not None:
-            path = ansi_colors.color_word(path, self.COLOR)
-
-        if self.depth > 0:
-            prefix = self.PREFIX_LAST_CHILD if self.is_last_child \
-                else self.PREFIX_MIDDLE_CHILD
-            return " ".join([prefix, path])
-        return str(path)  # root directory has no prefix
-
-    @staticmethod
-    def stats_description(count):
-        """String describing the node count that will be included in the
-        tree's report line"""
-        # should be implemented by subclasses
-        raise NotImplementedError
 
     @property
     def tree_root(self) -> Path:
@@ -861,20 +821,9 @@ class _TreeNode:
 
 class DirectoryNode(_TreeNode):
     TYPE = "directory"
-    COLOR = ansi_colors.BLUE
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        string = super().__str__()
-        if self.depth > 0:
-            return string + "/"
-        return string
-
-    @staticmethod
-    def stats_description(count):
-        return str(count) + (" directory" if int(count) == 1 else " directories")
 
 
 class FileNode(_TreeNode):
@@ -883,14 +832,9 @@ class FileNode(_TreeNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    @staticmethod
-    def stats_description(count):
-        return str(count) + (" file" if int(count) == 1 else " files")
-
 
 class DatasetNode(_TreeNode):
     TYPE = "dataset"
-    COLOR = ansi_colors.MAGENTA
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -898,27 +842,6 @@ class DatasetNode(_TreeNode):
         self.ds = require_dataset(self.path, check_installed=False)
         self.is_installed = self.ds.is_installed()
         self.ds_depth, self.ds_absolute_depth = self.calculate_dataset_depth()
-
-    def __str__(self):
-        default_str = super().__str__()
-
-        ds_marker_depth = ansi_colors.color_word(
-            f"DS~{self.ds_absolute_depth}", ansi_colors.WHITE)
-        install_flag = " (not installed)" if not self.is_installed else ""
-        ds_marker = f"[{ds_marker_depth}]{install_flag}"
-
-        if self.depth > 0:
-            prefix = self.PREFIX_LAST_CHILD if self.is_last_child else \
-                self.PREFIX_MIDDLE_CHILD
-            custom_str = default_str.replace(prefix, f"{prefix} {ds_marker}")
-        else:
-            custom_str = f"{ds_marker} {default_str}"
-
-        return custom_str + ("/" if self.depth > 0 else "")
-
-    @staticmethod
-    def stats_description(count):
-        return str(count) + (" dataset" if int(count) == 1 else " datasets")
 
     @lru_cache
     def calculate_dataset_depth(self):

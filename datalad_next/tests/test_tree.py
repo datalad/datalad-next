@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from datalad.distribution.dataset import Dataset
+from datalad.cli.tests.test_main import run_main
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
     assert_raises,
@@ -11,7 +12,7 @@ from datalad.tests.utils_pytest import (
 )
 from datalad.utils import rmtemp
 
-from ..tree import Tree, DatasetTree, build_excluded_node_func
+from ..tree import Tree
 
 """Tests for the ``datalad tree`` command."""
 
@@ -148,6 +149,37 @@ def path_ds():
     # delete temp dir
     rmtemp(temp_dir_root)
     assert not temp_dir_root.exists()
+
+
+def get_tree_rendered_output(tree_cmd: list):
+    """
+    Run 'tree' CLI command with the given list of arguments and
+    return the output of the custom results renderer, broken down into
+    3 components (tree root, tree body, report line).
+
+    Assumes command exit code 0 and no additional logging to stdout.
+
+    Parameters
+    ----------
+    tree_cmd: list(str)
+        'tree' command given as list of strings
+
+    Returns
+    -------
+    tuple
+        3-value tuple consisting of: tree root, tree body, report line
+    """
+    # remove any empty strings from command
+    out, _ = run_main([c for c in tree_cmd if c != ''])
+
+    # remove trailing newline
+    lines = out.rstrip("\n").split("\n")
+
+    root = lines[0]  # first line of tree output
+    body = "\n".join(lines[1:-1])
+    report = lines[-1]
+
+    return root, body, report
 
 
 @pytest.fixture(scope="class")
@@ -386,16 +418,15 @@ class TestTreeWithoutDatasets(TestTree):
     def test_print_tree(
             self, depth, include_files, include_hidden, expected_str
     ):
-        root = Path(self.path) / "root"
-        tree = Tree(
-            root, max_depth=depth,
-            exclude_node_func=build_excluded_node_func(
-                include_hidden=include_hidden, include_files=include_files
-            ),
-            skip_root=True  # skip the first line with the root directory
-        )
-        lines = tree.print_line()
-        actual_res = "\n".join(line for line in lines) + "\n"
+        root = str(self.path / "root")
+        command = [
+            'tree',
+            root,
+            '--depth', str(depth),
+            '--include-hidden' if include_hidden else '',
+            '--include-files' if include_files else ''
+        ]
+        _, actual_res, _ = get_tree_rendered_output(command)
         expected_res = expected_str.lstrip("\n")  # strip first newline
         print("expected:")
         print(expected_res)
@@ -406,14 +437,15 @@ class TestTreeWithoutDatasets(TestTree):
     def test_print_stats(
             self, depth, include_files, include_hidden, expected_stats_str
     ):
-        root = self.path / 'root'
-        tree = Tree(
-            root, max_depth=depth,
-            exclude_node_func=build_excluded_node_func(
-                include_hidden=include_hidden, include_files=include_files
-            ),
-        ).build()
-        actual_res = tree.stats()
+        root = str(self.path / 'root')
+        command = [
+            'tree',
+            root,
+            '--depth', str(depth),
+            '--include-hidden' if include_hidden else '',
+            '--include-files' if include_files else ''
+        ]
+        _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
         assert_str_equal(expected_res, actual_res)
 
@@ -425,41 +457,34 @@ class TestTreeWithoutDatasets(TestTree):
         Test that root path in the first line of string output
         is normalized path
         """
-        root = self.path / root_dir_name
-        tree = Tree(root, max_depth=0)
+        root = str(self.path / root_dir_name)
+        command = ['tree', root, '--depth', '0']
+        actual, _, _ = get_tree_rendered_output(command)
         expected = str(self.path / "root")
-        actual = next(tree.print_line())  # first line of tree output
-        assert_str_equal(expected, actual)
-
-    def test_tree_to_string(self):
-        root = self.path / 'root'
-        tree = Tree(root, 3)
-        actual = tree.to_string()
-        expected = "\n".join(tree._lines)
         assert_str_equal(expected, actual)
 
     def test_print_tree_depth_zero(self):
-        root = self.path / "root"
-        tree = Tree(
-            root,
-            max_depth=0,
-            # including files should have no effect
-            exclude_node_func=build_excluded_node_func(include_files=True)
-        )
-        actual = tree.to_string()
-        expected = str(root)
+        root = str(self.path / "root")
+        # including files should # have no effect
+        command = ['tree', root, '--depth', '0', '--include-files']
+        actual, _, _ = get_tree_rendered_output(command)
+        expected = str(self.path / "root")
         assert_str_equal(expected, actual)
 
 
 @pytest.mark.usefixtures("inject_path_ds")
-class TestTreeWithDatasets(TestTree):
+class TestTreeWithDatasets(TestTreeWithoutDatasets):
     """Test directory tree with datasets"""
 
     __test__ = True
 
+    # set `include_files` and `include_hidden` to False,
+    # they should be already covered in `TestTreeWithoutDatasets`
     MATRIX = [
     {
         "depth": 1,
+        "include_files": False,
+        "include_hidden": False,
         "expected_stats_str": "2 datasets, 1 directory, 0 files",
         "expected_str": """
 ├── repo0/
@@ -469,6 +494,8 @@ class TestTreeWithDatasets(TestTree):
     },
     {
         "depth": 4,
+        "include_files": False,
+        "include_hidden": False,
         "expected_stats_str": "7 datasets, 3 directories, 0 files",
         "expected_str": """
 ├── repo0/
@@ -484,37 +511,6 @@ class TestTreeWithDatasets(TestTree):
 """,
     },
     ]
-
-    params = {
-        "test_print_tree": [
-            "depth", "expected_str"
-        ],
-        "test_print_stats": [
-            "depth", "expected_stats_str"
-        ]
-    }
-
-    def test_print_tree(
-            self, depth, expected_str
-    ):
-        root = self.path / "root"
-        tree = Tree(
-            root, max_depth=depth,
-            skip_root=True  # skip the first line with the root directory
-        )
-        lines = tree.print_line()
-        actual_res = "\n".join(l for l in lines) + "\n"
-        expected_res = expected_str.lstrip("\n")  # strip first newline
-        assert_str_equal(expected_res, actual_res)
-
-    def test_print_stats(
-            self, depth, expected_stats_str
-    ):
-        root = self.path / 'root'
-        tree = Tree(root, max_depth=depth).build()
-        actual_res = tree.stats()
-        expected_res = expected_stats_str
-        assert_str_equal(expected_res, actual_res)
 
 
 @pytest.mark.usefixtures("inject_path_ds")
@@ -588,12 +584,14 @@ class TestDatasetTree(TestTree):
     def test_print_tree(
             self, dataset_depth, depth, expected_str
     ):
-        root = self.path / "root"
-        tree = DatasetTree(
-            root, max_depth=depth, max_dataset_depth=dataset_depth,
-            skip_root=True)
-        lines = tree.print_line()
-        actual_res = "\n".join(l for l in lines) + "\n"
+        root = str(self.path / "root")
+        command = [
+            'tree',
+            root,
+            '--depth', str(depth),
+            '--dataset-depth', str(dataset_depth)
+        ]
+        _, actual_res, _ = get_tree_rendered_output(command)
         expected_res = expected_str.lstrip("\n")  # strip first newline
         print("expected:")
         print(expected_res)
@@ -604,10 +602,13 @@ class TestDatasetTree(TestTree):
     def test_print_stats(
             self, dataset_depth, depth, expected_stats_str
     ):
-        root = self.path / 'root'
-        tree = DatasetTree(
-            root, max_depth=depth, max_dataset_depth=dataset_depth
-        ).build()
-        actual_res = tree.stats()
+        root = str(self.path / "root")
+        command = [
+            'tree',
+            root,
+            '--depth', str(depth),
+            '--dataset-depth', str(dataset_depth)
+        ]
+        _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
         assert_str_equal(expected_res, actual_res)
