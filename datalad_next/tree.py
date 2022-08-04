@@ -715,7 +715,12 @@ class DatasetTree(Tree):
 
         visited_parents = set([])
 
-        for node in ds_tree.generate_nodes():
+        nodes_below_root = ds_tree.generate_nodes()
+        next(nodes_below_root)  # skip root node
+
+        for node in nodes_below_root:
+            # for each dataset node, yield its parents first, then
+            # yield the dataset itself
             if isinstance(node, DatasetNode) and \
                     node.ds_depth <= self.max_dataset_depth and \
                     not self.exclude_node_func(node.path):
