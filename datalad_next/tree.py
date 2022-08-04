@@ -366,13 +366,12 @@ def is_dataset(path: Path):
 
 @lru_cache
 def get_subds_paths(ds_path: Path):
-    """Return paths of immediate subdatasets for a given dataset path.
+    """Return paths of immediate subdatasets for a given dataset path."""
+    # This is an expensive operation because it calls git to read the
+    # submodules. Since we need to run it to (A) calculate dataset depth and
+    # (B) detect non-installed datasets, we cache results, so that the list of
+    # subdatasets is computed only once for each parent dataset.
 
-    This is an expensive operation because it calls git to read the
-    submodules. Since we need to run this to (A) calculate dataset depth and
-    (B) detect non-installed datasets, we cache results, so that the list of
-    subdatasets is computed only once for each parent dataset.
-    """
     def res_filter(res):
         return res.get('status') == 'ok' and res.get('type') == 'dataset'
 
@@ -470,7 +469,7 @@ def get_superdataset(path: Path):
 
 
 def is_path_relative_to(my_path: Path, other_path: Path):
-    """Port of pathlib's ``Path.is_relative_to()`` that requires python3.9+"""
+    """Port of pathlib's ``Path.is_relative_to()`` (requires python3.9+)"""
     try:
         my_path.relative_to(other_path)
         return True
@@ -533,6 +532,7 @@ class Tree:
     def path_depth(self, path: Path) -> int:
         """Calculate directory depth of a given path relative to the root of
         the tree"""
+        # TODO: error handling
         return len(path.relative_to(self.root).parts)
 
     def _generate_tree_nodes(self, dir_path: Path):
@@ -646,7 +646,7 @@ class DatasetTree(Tree):
 
         def exclude_func(path: Path):
             """Exclusion function -- here is the crux of the logic for
-            pruning the dataset tree."""
+            pruning the main tree."""
 
             # initialize dataset(-parent) generator if not done yet
             if self._next_ds is not None and \
