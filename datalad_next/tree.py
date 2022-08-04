@@ -163,7 +163,8 @@ class TreeCommand(Interface):
                 count={
                     "datasets": tree.node_count["DatasetNode"],
                     "directories": tree.node_count["DirectoryNode"],
-                    "files": tree.node_count["FileNode"]
+                    **({"files": tree.node_count["FileNode"]}
+                       if include_files else {})
                 },
                 **{
                     "dataset_depth": node.ds_depth,
@@ -248,13 +249,17 @@ class TreeCommand(Interface):
 
         c_ds = res[-1]['count']['datasets']
         c_dirs = res[-1]['count']['directories']
-        c_files = res[-1]['count']['files']
+        # files may not be included in results (if not using command
+        # option '--include-files')
+        c_files = res[-1]['count'].get('files')
 
         descriptions = [
             f"{c_ds} " + ("dataset" if int(c_ds) == 1 else "datasets"),
-            f"{c_dirs} " + ("directory" if int(c_dirs) == 1 else "directories"),
-            f"{c_files} " + ("file" if int(c_files) == 1 else "files")
+            f"{c_dirs} " + ("directory" if int(c_dirs) == 1 else "directories")
         ]
+        if c_files is not None:
+            descriptions.append(
+                f"{c_files} " + ("file" if int(c_files) == 1 else "files"))
 
         print("\n" + ", ".join(descriptions))
 

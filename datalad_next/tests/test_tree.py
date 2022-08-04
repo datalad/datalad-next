@@ -289,7 +289,7 @@ class TestTreeWithoutDatasets(TestTree):
         "depth": 1,
         "include_files": False,
         "include_hidden": False,
-        "expected_stats_str": "0 datasets, 3 directories, 0 files",
+        "expected_stats_str": "0 datasets, 3 directories",
         "expected_str": """
 ├── dir0/
 ├── dir1/
@@ -300,7 +300,7 @@ class TestTreeWithoutDatasets(TestTree):
         "depth": 3,
         "include_files": False,
         "include_hidden": False,
-        "expected_stats_str": "0 datasets, 6 directories, 0 files",
+        "expected_stats_str": "0 datasets, 6 directories",
         "expected_str": """
 ├── dir0/
 ├── dir1/
@@ -390,7 +390,7 @@ class TestTreeWithoutDatasets(TestTree):
         "depth": 1,
         "include_files": False,
         "include_hidden": True,
-        "expected_stats_str": "0 datasets, 4 directories, 0 files",
+        "expected_stats_str": "0 datasets, 4 directories",
         "expected_str": """
 ├── .dir3/
 ├── dir0/
@@ -402,7 +402,7 @@ class TestTreeWithoutDatasets(TestTree):
         "depth": 3,
         "include_files": False,
         "include_hidden": True,
-        "expected_stats_str": "0 datasets, 7 directories, 0 files",
+        "expected_stats_str": "0 datasets, 7 directories",
         "expected_str": """
 ├── .dir3/
 ├── dir0/
@@ -485,7 +485,7 @@ class TestTreeWithDatasets(TestTreeWithoutDatasets):
         "depth": 1,
         "include_files": False,
         "include_hidden": False,
-        "expected_stats_str": "2 datasets, 1 directory, 0 files",
+        "expected_stats_str": "2 datasets, 1 directory",
         "expected_str": """
 ├── repo0/
 ├── [DS~0] superds0/
@@ -496,7 +496,7 @@ class TestTreeWithDatasets(TestTreeWithoutDatasets):
         "depth": 4,
         "include_files": False,
         "include_hidden": False,
-        "expected_stats_str": "7 datasets, 3 directories, 0 files",
+        "expected_stats_str": "7 datasets, 3 directories",
         "expected_str": """
 ├── repo0/
 ├── [DS~0] superds0/
@@ -523,7 +523,7 @@ class TestDatasetTree(TestTree):
     {
         "dataset_depth": 0,
         "depth": 0,
-        "expected_stats_str": "3 datasets, 0 directories, 0 files",
+        "expected_stats_str": "3 datasets, 0 directories",
         "expected_str": """
 ├── [DS~0] superds0/
 └── [DS~0] superds1/
@@ -533,7 +533,7 @@ class TestDatasetTree(TestTree):
     {
         "dataset_depth": 0,
         "depth": 1,
-        "expected_stats_str": "3 datasets, 1 directory, 0 files",
+        "expected_stats_str": "3 datasets, 1 directory",
         "expected_str": """
 ├── [DS~0] superds0/
 └── [DS~0] superds1/
@@ -544,7 +544,7 @@ class TestDatasetTree(TestTree):
     {
         "dataset_depth": 1,
         "depth": 0,
-        "expected_stats_str": "6 datasets, 1 directory, 0 files",
+        "expected_stats_str": "6 datasets, 1 directory",
         "expected_str": """
 ├── [DS~0] superds0/
 │   └── [DS~1] sd0_subds0/
@@ -558,7 +558,7 @@ class TestDatasetTree(TestTree):
     {
         "dataset_depth": 1,
         "depth": 2,
-        "expected_stats_str": "6 datasets, 2 directories, 0 files",
+        "expected_stats_str": "6 datasets, 2 directories",
         "expected_str": """
 ├── [DS~0] superds0/
 │   └── [DS~1] sd0_subds0/
