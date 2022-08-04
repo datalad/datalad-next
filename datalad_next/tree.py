@@ -687,7 +687,7 @@ class DatasetTree(Tree):
 
     def _generate_datasets(self):
         """Generator of dataset nodes and their parent directories starting
-        from the tree root and up to ``max_dataset_depth`` levels.
+        from below the tree root and up to ``max_dataset_depth`` levels.
 
         This secondary 'helper' tree will be generated in parallel with the
         main tree but will be one step ahead, such that it always points to
@@ -713,7 +713,8 @@ class DatasetTree(Tree):
             exclude_node_func=exclude,
         )
 
-        visited_parents = set([])
+        # keep track of node paths that have already been yielded
+        visited = set([])
 
         nodes_below_root = ds_tree.generate_nodes()
         next(nodes_below_root)  # skip root node
@@ -726,15 +727,14 @@ class DatasetTree(Tree):
                     not self.exclude_node_func(node.path):
 
                 # yield parent directories if not already done
-                for depth, parent in enumerate(node.parents):
-                    if depth == 0:
-                        continue
-                    if parent not in visited_parents:
-                        visited_parents.add(parent)
+                parents_below_root = node.parents[1:]  # first parent is root
+                for depth, parent in enumerate(parents_below_root):
+                    if parent not in visited:
+                        visited.add(parent)
 
                         yield DirectoryOrDatasetNode(parent, depth)
 
-                visited_parents.add(node.path)
+                visited.add(node.path)
                 yield node
 
     def _is_valid_dataset(self, path: Path):
