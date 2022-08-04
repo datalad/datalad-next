@@ -160,7 +160,7 @@ class TreeCommand(Interface):
                 path=str(node.path),
                 type=node.TYPE,
                 depth=node.depth,
-                exhausted_levels=tree.exhausted_levels,
+                exhausted_levels=list(tree.exhausted_levels),
                 count={
                     "datasets": tree.node_count["DatasetNode"],
                     "directories": tree.node_count["DirectoryNode"],
