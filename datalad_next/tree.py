@@ -826,15 +826,9 @@ class _TreeNode:
 class DirectoryNode(_TreeNode):
     TYPE = "directory"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
 
 class FileNode(_TreeNode):
     TYPE = "file"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
 
 class DatasetNode(_TreeNode):
