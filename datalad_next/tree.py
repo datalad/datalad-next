@@ -381,6 +381,7 @@ def get_subds_paths(ds_path: Path):
     return Subdatasets.__call__(
         dataset=ds_path,
         recursive=False,
+        state='any',  # include not-installed subdatasets
         result_filter=res_filter,
         on_failure='ignore',
         result_xfm='paths',
