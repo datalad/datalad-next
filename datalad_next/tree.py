@@ -34,6 +34,7 @@ from datalad.support.constraints import (
     EnsureStr, EnsureInt, EnsureRange,
 )
 from datalad.utils import get_dataset_root
+from datalad.ui import ui
 
 lgr = logging.getLogger('datalad.local.tree')
 
@@ -241,7 +242,7 @@ class TreeCommand(Interface):
         line = indentation + \
             " ".join((s for s in (prefix, ds_marker, path) if s != "")) + \
             dir_suffix
-        print(line)
+        ui.message(line)
 
     @staticmethod
     def custom_result_summary_renderer(res, **kwargs):
@@ -261,7 +262,7 @@ class TreeCommand(Interface):
             descriptions.append(
                 f"{c_files} " + ("file" if int(c_files) == 1 else "files"))
 
-        print("\n" + ", ".join(descriptions))
+        ui.message("\n" + ", ".join(descriptions))
 
 
 def build_excluded_node_func(include_hidden=False, include_files=False):
