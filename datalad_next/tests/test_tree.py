@@ -10,7 +10,7 @@ from datalad.tests.utils_pytest import (
     assert_str_equal,
     with_tree
 )
-from datalad.utils import rmtemp
+from datalad.utils import rmtemp, make_tempfile
 from datalad.ui import ui
 
 from ..tree import Tree
@@ -255,10 +255,10 @@ def pytest_generate_tests(metafunc):
 def test_print_tree_fails_for_nonexistent_directory():
     """Obtain nonexistent directory by creating a temp dir and deleting it
     (may be safest method)"""
-    dir_name = f"to_be_deleted_{datetime.now().timestamp()}"
-    nonexistent_dir = Path(with_tree({dir_name: []})(lambda f: f)())
+    with make_tempfile(mkdir=True) as nonexistent_dir:
+        pass  # do nothing, just wait for it to be deleted
     with assert_raises(ValueError):
-        Tree(nonexistent_dir, max_depth=1)
+        Tree(Path(nonexistent_dir), max_depth=1)
 
 
 class TestTree:
