@@ -353,7 +353,7 @@ def is_dataset(path: Path):
     # (as opposed to git/git-annex repo).
     # could also query `ds.id`, but checking just for existence
     # of config file is quicker.
-    if Path(path / ".datalad" / "config").is_file():
+    if (path / ".datalad" / "config").is_file():
         return True
 
     # if it is not installed, check if it has an installed superdataset.
@@ -460,7 +460,7 @@ def get_superdataset(path: Path):
         superds = Dataset(sds_path_)
 
         # test if path is registered subdataset of the parent
-        if not is_subds_of_parent(Path(path), Path(superds.path)):
+        if not is_subds_of_parent(Path(path), superds.pathobj):
             break
 
         # That was a good candidate
@@ -612,6 +612,7 @@ class DatasetTree(Tree):
     """
     def __init__(self, *args, max_dataset_depth=0, **kwargs):
         super().__init__(*args, **kwargs)
+
         # by default, do not recurse into datasets' subdirectories (other
         # than paths to nested subdatasets)
         if self.max_depth is None:
@@ -622,6 +623,7 @@ class DatasetTree(Tree):
         # secondary 'helper' generator that will traverse the whole tree
         # (once) and yield only datasets and their parents directories
         self._ds_generator = self._generate_datasets()
+
         # current value of the ds_generator. the generator will be initialized
         # lazily, so for now we set the value to a dummy `_TreeNode`
         # with an impossible depth just to distinguish it from None (None means
@@ -873,7 +875,7 @@ class DatasetNode(_TreeNode):
                     break
 
                 ds_absolute_depth += 1
-                if is_path_relative_to(Path(superds.path), self.tree_root):
+                if is_path_relative_to(superds.pathobj, self.tree_root):
                     # if the parent dataset is underneath the tree
                     # root, we increment the relative depth
                     ds_depth += 1
