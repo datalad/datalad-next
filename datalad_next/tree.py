@@ -160,25 +160,44 @@ class TreeCommand(Interface):
 
         for node in tree.generate_nodes():
             # yield one node at a time to improve UX / perceived speed
-            yield get_status_dict(
-                action="tree",
-                status="ok",
-                path=str(node.path),
-                type=node.TYPE,
-                depth=node.depth,
-                exhausted_levels=list(tree.exhausted_levels),
-                count={
+            res_dict = {
+                "action": "tree",
+                "path": str(node.path),
+                "type": node.TYPE,
+                "depth": node.depth,
+                "exhausted_levels": list(tree.exhausted_levels),
+                "count": {
                     "datasets": tree.node_count["DatasetNode"],
                     "directories": tree.node_count["DirectoryNode"],
                     **({"files": tree.node_count["FileNode"]}
                        if include_files else {})
                 },
-                **{
+            }
+            if node.TYPE == "dataset":
+                res_dict.update({
                     "dataset_depth": node.ds_depth,
                     "dataset_abs_depth": node.ds_absolute_depth,
                     "dataset_is_installed": node.is_installed
-                } if node.TYPE == "dataset" else {},
-            )
+                })
+
+            if node.exception is not None:
+                # mimic error message of unix 'tree' command for
+                # permission denied error
+                message = "error opening dir" \
+                    if node.exception.name == "PermissionError" \
+                    else node.exception.message
+
+                yield get_status_dict(
+                    status="error",
+                    message=message,
+                    exception=node.exception,
+                    **res_dict
+                )
+            else:
+                yield get_status_dict(
+                    status="ok",
+                    **res_dict
+                )
 
     @staticmethod
     def custom_result_renderer(res, **kwargs):
@@ -245,9 +264,14 @@ class TreeCommand(Interface):
         if depth > 0 and node_type in ("directory", "dataset"):
             dir_suffix = "/"
 
+        # add short error message if there was exception
+        error_msg = ""
+        if "exception" in res:
+            error_msg = f" [{res['message']}]"
+
         line = indentation + \
             " ".join((s for s in (prefix, ds_marker, path) if s != "")) + \
-            dir_suffix
+            dir_suffix + error_msg
         ui.message(line)
 
     @staticmethod
@@ -334,9 +358,14 @@ def yield_with_last_item(generator):
         yield True, prev_val
 
 
+def is_empty_dir(path: Path):
+    return path.is_dir() and not any(path.iterdir())
+
+
 @lru_cache
 def is_dataset(path: Path):
     """Fast dataset detection.
+
     Infer that a directory is a dataset if it is either:
 
     - installed, or
@@ -344,8 +373,12 @@ def is_dataset(path: Path):
 
     Only consider datalad datasets, not plain git/git-annex repos.
 
-    Results are cached because the check is somewhat expensive and may be run
-    multiple times on the same path.
+    Symlinks pointing to datasets are not resolved, so will always return
+    False for symlinks. This prevents potentially detecting duplicate datasets
+    if the symlink and its target are both included in the tree.
+
+    Results are cached because the check is somewhat expensive and may
+    be run multiple times on the same path.
 
     TODO: is there a way to detect a datalad dataset if it is not installed
     and it is not a subdataset?
@@ -355,23 +388,28 @@ def is_dataset(path: Path):
     path: Path
         Path to directory to be identified as dataset or non-dataset
     """
-    # detect if it is an installed datalad-proper dataset
-    # (as opposed to git/git-annex repo).
-    # could also query `ds.id`, but checking just for existence
-    # of config file is quicker.
-    if (path / ".datalad" / "config").is_file():
-        return True
+    try:
+        if path.is_symlink():
+            return False  # ignore symlinks even if pointing to datasets
 
-    # if it is not installed, check if it has an installed superdataset.
-    # instead of querying ds.is_installed() (which checks if the
-    # directory has the .git folder), we check if the directory
-    # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
-    def is_empty_dir():
-        return not any(path.iterdir())
-
-    if is_empty_dir():
-        if get_superdataset(path) is not None:
+        if (path / ".datalad" / "config").is_file():
+            # could also query `ds.id`, but checking just for existence
+            # of config file is quicker.
             return True
+
+        # if it is not installed, check if it has an installed superdataset.
+        # instead of querying ds.is_installed() (which checks if the
+        # directory has the .git folder), we check if the directory
+        # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
+        if is_empty_dir(path):
+            if get_superdataset(path) is not None:
+                return True
+
+    except Exception as ex:
+        # if anything fails (e.g. permission denied), we raise exception
+        # instead of returning False
+        raise NoDatasetFound(f"Cannot determine if '{path.name}' is a "
+                             f"dataset") from ex
 
     return False
 
@@ -537,11 +575,62 @@ class Tree:
         """By default, exclude files and hidden directories from the tree"""
         return any((not path.is_dir(), path.name.startswith(".")))
 
-    def path_depth(self, path: Path) -> int:
+    def path_depth(self, path: Path):
         """Calculate directory depth of a given path relative to the root of
-        the tree"""
-        # TODO: error handling
-        return len(path.relative_to(self.root).parts)
+        the tree.
+
+        Can also be a negative integer if the path is a parent of the
+        tree root.
+
+        Parameters
+        ----------
+        path: Path
+
+        Returns
+        -------
+        int
+            Number of levels of the given path *below* the tree root (positive
+            integer) or *above* the tree root (negative integer)
+        """
+        if is_path_relative_to(path, self.root):
+            return len(path.relative_to(self.root).parts)
+        elif is_path_relative_to(self.root, path):
+            return - len(self.root.relative_to(path).parts)
+        else:
+            return None  # dummy value
+
+    def is_circular_symlink(self, dir_path: Path):
+        """Detect symlink pointing to a directory that could lead to
+        duplicate subtrees.
+
+        The default behaviour is to follow symlinks. However, do not follow
+        symlinks to directories that are also located under the tree root
+        or any parent of the tree root.
+
+        Otherwise, the same subtree could be yielded multiple times,
+        potentially in an infinite loop (e.g. if the symlink points to
+        its parent).
+        """
+        if not dir_path.is_symlink():
+            return False
+
+        target_dir = dir_path.resolve()
+
+        is_circular = False
+        if is_path_relative_to(target_dir, self.root):
+            # target dir is within `max_depth` levels under the current tree,
+            # so it will likely be yielded or has already been yielded (bar
+            # any exclusion filters)
+            is_circular = self.max_depth is None or \
+                self.path_depth(target_dir) <= self.max_depth
+
+        elif is_path_relative_to(self.root, target_dir):
+            # target dir is a parent of the tree root, so we may still get
+            # into a loop if we recurse more than `max_depth` levels
+            is_circular = self.max_depth is None or \
+                - self.path_depth(target_dir) > self.max_depth
+
+        return is_circular
 
     def _generate_tree_nodes(self, dir_path: Path):
         """Recursively yield ``_TreeNode`` objects starting from
@@ -560,10 +649,20 @@ class Tree:
         if self.max_depth is None or \
                 self.path_depth(dir_path) < self.max_depth:
 
-            # sort child nodes alphabetically
-            # needs to be done *before* calling the exclusion function,
-            # because the function may depend on sort order
-            all_children = sorted(list(dir_path.iterdir()))
+            if self.is_circular_symlink(dir_path):
+                # if symlink points to directory, do not recurse into it
+                return
+
+            try:
+                # sort child nodes alphabetically
+                # needs to be done *before* calling the exclusion function,
+                # because the function may depend on sort order
+                all_children = sorted(list(dir_path.iterdir()))
+            except OSError as ex:
+                # do not recurse into children.
+                # the error should have been already stored in the
+                # `exception` attribute of the current parent node.
+                return
 
             # apply exclusion filters
             children = (
@@ -657,26 +756,31 @@ class DatasetTree(Tree):
             """Exclusion function -- here is the crux of the logic for
             pruning the main tree."""
 
-            # initialize dataset(-parent) generator if not done yet
-            if self._next_ds is not None and \
-                    self._next_ds.depth == -1:  # dummy depth
-                self._advance_ds_generator()
+            try:
+                # initialize dataset(-parent) generator if not done yet
+                if self._next_ds is not None and \
+                        self._next_ds.depth == -1:  # dummy depth
+                    self._advance_ds_generator()
 
-            if path.is_dir() and is_dataset(path):
-                # check if maximum dataset depth is exceeded
-                is_valid_ds = self._is_valid_dataset(path)
-                if is_valid_ds:
-                    self._advance_ds_generator()  # go to next dataset(-parent)
-                return not is_valid_ds
+                if path.is_dir() and is_dataset(path):
+                    # check if maximum dataset depth is exceeded
+                    is_valid_ds = self._is_valid_dataset(path)
+                    if is_valid_ds:
+                        self._advance_ds_generator()  # go to next dataset(-parent)
+                    return not is_valid_ds
 
-            # exclude file or directory underneath a dataset,
-            # if it has depth (relative to dataset root) > max_depth,
-            # unless (in case of a directory) it is itself the parent of a
-            # valid dataset. if it's a parent of a dataset, we don't apply
-            # any filters -- it's just a means to get to the next dataset.
-            if not self._is_parent_of_ds(path):
-                return self.exclude_node_func(path) or \
-                       self._ds_child_node_exceeds_max_depth(path)
+                # exclude file or directory underneath a dataset,
+                # if it has depth (relative to dataset root) > max_depth,
+                # unless (in case of a directory) it is itself the parent of a
+                # valid dataset. if it's a parent of a dataset, we don't apply
+                # any filters -- it's just a means to get to the next dataset.
+                if not self._is_parent_of_ds(path):
+                    return self.exclude_node_func(path) or \
+                           self._ds_child_node_exceeds_max_depth(path)
+
+            except Exception as ex:
+                CapturedException(ex, level=10)  # DEBUG level
+                return True  # exclude by default
 
             return False  # do not exclude
 
@@ -791,7 +895,8 @@ class _TreeNode:
     and printed as single line of the 'tree' output."""
     TYPE = None  # needed for command result dict
 
-    def __init__(self, path: Path, depth: int):
+    def __init__(self, path: Path, depth: int,
+                 exception: CapturedException = None):
         """
         Parameters
         ----------
@@ -799,9 +904,13 @@ class _TreeNode:
             Path of the tree node
         depth: int
             Directory depth of the node within its tree
+        exception: CapturedException
+            Exception that may have occurred at validation/creation
         """
         self.path = path
         self.depth = depth
+        # TODO: should be error collection / list of exceptions?
+        self.exception = exception
 
     def __eq__(self, other):
         return self.path == other.path
@@ -836,6 +945,19 @@ class _TreeNode:
 class DirectoryNode(_TreeNode):
     TYPE = "directory"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        try:
+            # get first child if exists. this is a check for whether
+            # we can (potentially) recurse into the directory or
+            # if there are any filesystem issues (permissions errors, etc)
+            any(self.path.iterdir())
+        except OSError as ex:
+            # permission errors etc. are logged and stored as node
+            # attribute so they can be passed to results dict
+            self.exception = CapturedException(ex, level=10)  # DEBUG level
+
 
 class FileNode(_TreeNode):
     TYPE = "file"
@@ -845,11 +967,18 @@ class DatasetNode(_TreeNode):
     TYPE = "dataset"
 
     def __init__(self, *args, **kwargs):
+        """Does not check if valid dataset. This needs to be done before
+        creating the instance."""
         super().__init__(*args, **kwargs)
 
-        self.ds = require_dataset(self.path, check_installed=False)
-        self.is_installed = self.ds.is_installed()
-        self.ds_depth, self.ds_absolute_depth = self.calculate_dataset_depth()
+        try:
+            self.ds = require_dataset(self.path, check_installed=False)
+            self.is_installed = self.ds.is_installed()
+            self.ds_depth, self.ds_absolute_depth = self.calculate_dataset_depth()
+        except Exception as ex:
+            if self.exception is not None:
+                # only if exception has not already been passed to constructor
+                self.exception = CapturedException(ex, level=10)
 
     @lru_cache
     def calculate_dataset_depth(self):
@@ -898,7 +1027,13 @@ class DirectoryOrDatasetNode:
     ``DatasetNode``, based on whether the path is a dataset or not.
     """
     def __new__(cls, path, *args, **kwargs):
-        if is_dataset(path):
-            return DatasetNode(path, *args, **kwargs)
-        else:
-            return DirectoryNode(path, *args, **kwargs)
+        try:
+            is_ds = is_dataset(path)  # could fail because of permissions etc.
+        except Exception as ex:
+            # if dataset detection has failed, we fall back to a
+            # `DirectoryNode` with the exception stored as attribute
+            ce = CapturedException(ex, level=10)
+            return DirectoryNode(path, *args, exception=ce, **kwargs)
+
+        node_cls = DatasetNode if is_ds else DirectoryNode
+        return node_cls(path, *args, **kwargs)

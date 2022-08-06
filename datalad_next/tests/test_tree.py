@@ -1,4 +1,4 @@
-from datetime import datetime
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -8,9 +8,13 @@ from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
     assert_raises,
     assert_str_equal,
-    with_tree
+    with_tree, ok_exists, with_tempfile, assert_in,
+    get_deeply_nested_structure, skip_wo_symlink_capability
 )
-from datalad.utils import rmtemp, make_tempfile
+from datalad.utils import (
+    rmtemp,
+    make_tempfile,
+)
 from datalad.ui import ui
 
 from ..tree import Tree
@@ -19,6 +23,24 @@ from ..tree import Tree
 
 
 # ============================ Helper functions ===============================
+
+@contextmanager
+def ensure_no_permissions(path: Path):
+    """Remove all permissions for given file/directory and restore the
+    original permissions at the end"""
+
+    # modeled after 'datalad.utils.ensure_write_permission'
+    original_mode = path.stat().st_mode
+    try:
+        path.chmod(0o000)
+        yield
+    finally:
+        try:
+            path.chmod(original_mode)
+        except FileNotFoundError:
+            # ignore error if path was deleted in the context block
+            pass
+
 
 def create_temp_dir_tree(tree_dict: dict) -> Path:
     """
@@ -152,7 +174,7 @@ def path_ds():
     assert not temp_dir_root.exists()
 
 
-def get_tree_rendered_output(tree_cmd: list):
+def get_tree_rendered_output(tree_cmd: list, exit_code: int = 0):
     """
     Run 'tree' CLI command with the given list of arguments and
     return the output of the custom results renderer, broken down into
@@ -164,14 +186,16 @@ def get_tree_rendered_output(tree_cmd: list):
     ----------
     tree_cmd: list(str)
         'tree' command given as list of strings
+    exit_code: int
+        Expected exit code of command (default: 0)
 
     Returns
     -------
-    tuple
+    Tuple[str, str, str]
         3-value tuple consisting of: tree root, tree body, report line
     """
     # remove any empty strings from command
-    out, _ = run_main([c for c in tree_cmd if c != ''])
+    out, _ = run_main([c for c in tree_cmd if c != ''], exit_code=exit_code)
 
     # remove trailing newline
     lines = out.rstrip("\n").split("\n")
@@ -259,6 +283,35 @@ def test_print_tree_fails_for_nonexistent_directory():
         pass  # do nothing, just wait for it to be deleted
     with assert_raises(ValueError):
         Tree(Path(nonexistent_dir), max_depth=1)
+
+
+@skip_wo_symlink_capability
+@with_tempfile
+def test_tree_with_circular_symlinks(path=None):
+    """Test that we do not follow symlinks that point to directories
+    underneath the tree root (or its parent), to avoid duplicate subtrees"""
+    ds = get_deeply_nested_structure(path)
+    root = ds.path
+    command = ["tree", "--depth", "2", root]
+    _, actual_res, _ = get_tree_rendered_output(command)
+    expected_res = """
+├── directory_untracked/
+│   └── link2dir/
+├── link2dir/
+├── link2subdsdir/
+├── link2subdsroot/
+├── subdir/
+└── [DS~1] subds_modified/
+    ├── link2superdsdir/
+    ├── subdir/
+    └── [DS~2] subds_lvl1_modified/
+""".lstrip("\n")
+
+    ui.message("expected:")
+    ui.message(expected_res)
+    ui.message("actual:")
+    ui.message(actual_res)
+    assert_str_equal(expected_res, actual_res)
 
 
 class TestTree:
@@ -449,6 +502,17 @@ class TestTreeWithoutDatasets(TestTree):
         _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
         assert_str_equal(expected_res, actual_res)
+
+    def test_print_tree_permission_denied(self):
+        parent_dir = str(self.path)
+        with make_tempfile(mkdir=True, dir=parent_dir) as forbidden_dir:
+            # temporarily remove all permissions
+            with ensure_no_permissions(Path(forbidden_dir)):
+                # tree command should return error exit status but not crash
+                command = ['tree', parent_dir, '--depth', '2', '--include-files']
+                _, actual, _ = get_tree_rendered_output(command, exit_code=1)
+                ui.message(actual)
+                assert_in("[error opening dir]", actual)
 
     @pytest.mark.parametrize(
         "root_dir_name", ["root/", "root/.", "root/./", "root/../root"]
