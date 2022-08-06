@@ -284,7 +284,7 @@ def test_print_tree_fails_for_nonexistent_directory():
     """Obtain nonexistent directory by creating a temp dir and deleting it
     (may be safest method)"""
     with make_tempfile(mkdir=True) as nonexistent_dir:
-        pass  # do nothing, just wait for it to be deleted
+        ok_exists(nonexistent_dir)  # just wait for it to be deleted
     with assert_raises(ValueError):
         Tree(Path(nonexistent_dir), max_depth=1)
 
