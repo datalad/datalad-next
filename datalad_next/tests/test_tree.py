@@ -6,10 +6,14 @@ from datalad.distribution.dataset import Dataset
 from datalad.cli.tests.test_main import run_main
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
+    assert_in,
     assert_raises,
     assert_str_equal,
-    with_tree, ok_exists, with_tempfile, assert_in,
-    get_deeply_nested_structure, skip_wo_symlink_capability
+    with_tree,
+    ok_exists,
+    with_tempfile,
+    get_deeply_nested_structure,
+    skip_wo_symlink_capability
 )
 from datalad.utils import (
     rmtemp,
