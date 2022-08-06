@@ -18,6 +18,10 @@ from datalad.interface.base import (
     Interface,
     build_doc,
 )
+from datalad.support.exceptions import (
+    CapturedException,
+    NoDatasetFound
+)
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
     datasetmethod,
@@ -31,7 +35,9 @@ from datalad.interface.utils import eval_results
 from datalad.local.subdatasets import Subdatasets
 from datalad.support.constraints import (
     EnsureNone,
-    EnsureStr, EnsureInt, EnsureRange,
+    EnsureStr,
+    EnsureInt,
+    EnsureRange,
 )
 from datalad.utils import get_dataset_root
 from datalad.ui import ui
@@ -266,8 +272,8 @@ class TreeCommand(Interface):
 
 
 def build_excluded_node_func(include_hidden=False, include_files=False):
-    """Return a function to exclude ``_TreeNode`` objects from the tree (
-    prevents them from being yielded by the node generator).
+    """Return a function to exclude ``_TreeNode`` objects from the tree
+    (prevents them from being yielded by the node generator).
 
     Returns
     -------
@@ -502,13 +508,14 @@ class Tree:
         """
         self.root = root.resolve()
         if not self.root.is_dir():
-            raise ValueError(f"directory '{root}' not found")
+            raise ValueError(f"Directory not found: '{root}'")
 
         self.max_depth = max_depth
         if max_depth is not None and max_depth < 0:
             raise ValueError("max_depth must be >= 0")
 
-        # set custom or default filter criteria
+        # set callable to exclude nodes from the tree, meaning they
+        # will not be yielded by the node generator
         self.exclude_node_func = exclude_node_func or self.default_exclude_func
 
         # keep track of levels where the subtree is exhausted,
@@ -527,7 +534,7 @@ class Tree:
 
     @staticmethod
     def default_exclude_func(path: Path):
-        """By default, only include non-hidden directories, no files"""
+        """By default, exclude files and hidden directories from the tree"""
         return any((not path.is_dir(), path.name.startswith(".")))
 
     def path_depth(self, path: Path) -> int:
@@ -760,7 +767,8 @@ class DatasetTree(Tree):
 
         # check directory depth relative to the dataset parent
         rel_depth = self.path_depth(path) - self.path_depth(ds_parent)
-        assert rel_depth >= 0  # sanity check
+        assert rel_depth >= 0, "relative depth from parent cannot be < 0 " \
+                               f"(path: '{path}', parent: '{ds_parent}')"
         return rel_depth > self.max_depth
 
     def _is_parent_of_ds(self, path: Path):
