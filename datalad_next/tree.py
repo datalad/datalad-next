@@ -392,7 +392,11 @@ def is_dataset(path: Path):
     """
     try:
         if path.is_symlink():
-            return False  # ignore symlinks even if pointing to datasets
+            # ignore symlinks even if pointing to datasets, otherwise we may
+            # get duplicate counts of datasets
+            lgr.debug("Path is a symlink, do not consider it a DatasetNode: "
+                      f"'{path}'")
+            return False
 
         if (path / ".datalad" / "config").is_file() or \
                 (path / ".datalad" / "metadata").is_dir():
@@ -410,7 +414,8 @@ def is_dataset(path: Path):
 
     except Exception as ex:
         # if anything fails (e.g. permission denied), we raise exception
-        # instead of returning False
+        # instead of returning False. this can be caught and handled by the
+        # caller.
         raise NoDatasetFound(f"Cannot determine if '{path.name}' is a "
                              f"dataset") from ex
 
@@ -795,6 +800,9 @@ class DatasetTree(Tree):
 
             except Exception as ex:
                 CapturedException(ex, level=10)  # DEBUG level
+                lgr.debug(f"Excluding path '{path}' from tree because "
+                          "an exception occurred while applying the "
+                          "exclusion filter.")
                 return True  # exclude by default
 
             return False  # do not exclude
