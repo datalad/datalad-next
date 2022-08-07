@@ -610,12 +610,13 @@ class Tree:
                              f"'{self.root}' (or vice-versa)")
 
     def is_recursive_symlink(self, dir_path: Path):
-        """Detect symlink pointing to a directory within the same tree.
+        """Detect symlink pointing to a directory within the same tree
+        (directly or indirectly).
 
         The default behaviour is to follow symlinks. However, we do not follow
         symlinks to directories that we may visit or have visited already,
         i.e. are also located under the tree root or any parent of
-        the tree root.
+        the tree root (within a distance of ``max_depth``).
 
         Otherwise, the same subtree could be generated multiple times in
         different places, potentially in a recursive loop (e.g. if the
@@ -627,28 +628,22 @@ class Tree:
         if not dir_path.is_symlink():
             return False
 
-        try:
-            # do not check if target actually exists, because if it doesn't,
-            # it will not be detected as directory, so we won't try to
-            # recurse into it anyway
-            target_dir = dir_path.resolve(strict=False)
-        except RuntimeError:
-            # RuntimeError means symlink points to itself, so it's all the
-            # more recursive
-            return True
-        else:
-            if is_path_relative_to(target_dir, self.root):
-                # target dir is within `max_depth` levels under the current
-                # tree, so it will likely be yielded or has already been
-                # yielded (bar any exclusion filters)
-                return self.max_depth is None or \
-                    self.path_depth(target_dir) <= self.max_depth
+        if not dir_path.is_dir():
+            # we are only interested in symlinks pointing to a directory
+            raise ValueError("Path must be a directory")
 
-            elif is_path_relative_to(self.root, target_dir):
-                # target dir is a parent of the tree root, so we may still
-                # get into a loop if we recurse more than `max_depth` levels
-                return self.max_depth is None or \
-                    - self.path_depth(target_dir) > self.max_depth
+        target_dir = dir_path.resolve()
+
+        if is_path_relative_to(target_dir, self.root) or \
+                is_path_relative_to(self.root, target_dir):
+            # either:
+            # - target dir is within `max_depth` levels beneath the tree
+            #   root, so it will likely be yielded or has already been
+            #   yielded (bar any exclusion filters)
+            # - target dir is a parent of the tree root, so we may still
+            #   get into a loop if we recurse more than `max_depth` levels
+            return self.max_depth is None or \
+                abs(self.path_depth(target_dir)) <= self.max_depth
 
     def _generate_tree_nodes(self, dir_path: Path):
         """Recursively yield ``_TreeNode`` objects starting from
@@ -670,6 +665,8 @@ class Tree:
             if self.is_recursive_symlink(dir_path):
                 # if symlink points to directory that we may visit or may
                 # have visited already, do not recurse into it
+                lgr.debug(f"Symlink is potentially recursive, "
+                          f"will not traverse target directory: '{dir_path}'")
                 return
 
             try:
