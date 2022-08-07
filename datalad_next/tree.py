@@ -371,7 +371,9 @@ def is_dataset(path: Path):
     - installed, or
     - not installed, but has an installed superdatset.
 
-    Only consider datalad datasets, not plain git/git-annex repos.
+    Only consider datalad datasets, not plain git/git-annex repos. Datasets
+    used for aggregating metadatata from subdatasets are also counted as
+    datasets, although they do not have a dataset ID themselves.
 
     Symlinks pointing to datasets are not resolved, so will always return
     False for symlinks. This prevents potentially detecting duplicate datasets
@@ -392,7 +394,8 @@ def is_dataset(path: Path):
         if path.is_symlink():
             return False  # ignore symlinks even if pointing to datasets
 
-        if (path / ".datalad" / "config").is_file():
+        if (path / ".datalad" / "config").is_file() or \
+                (path / ".datalad" / "metadata").is_dir():
             # could also query `ds.id`, but checking just for existence
             # of config file is quicker.
             return True
