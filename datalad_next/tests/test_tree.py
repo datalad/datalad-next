@@ -514,11 +514,11 @@ class TestTreeWithoutDatasets(TestTree):
 
     def test_print_tree_depth_zero(self):
         root = str(self.path / "root")
-        # including files should # have no effect
+        # including files should have no effect
         command = ['tree', root, '--depth', '0', '--include-files']
-        actual, _, _ = get_tree_rendered_output(command)
-        expected = str(self.path / "root")
-        assert_str_equal(expected, actual)
+        actual = get_tree_rendered_output(command)
+        expected = (root, '', '0 datasets, 0 directories, 0 files')
+        assert expected == actual
 
 
 @pytest.mark.usefixtures("inject_path_ds")
