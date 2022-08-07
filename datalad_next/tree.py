@@ -597,7 +597,9 @@ class Tree:
         elif is_path_relative_to(self.root, path):
             return - len(self.root.relative_to(path).parts)
         else:
-            return None  # dummy value
+            raise ValueError("Could not calculate directory depth: "
+                             f"'{path}' is not relative to the tree root "
+                             f"'{self.root}' (or vice-versa)")
 
     def is_circular_symlink(self, dir_path: Path):
         """Detect symlink pointing to a directory that could lead to
