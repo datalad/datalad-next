@@ -317,6 +317,10 @@ def test_tree_with_circular_symlinks(path=None):
     ui.message(actual_res)
     assert_str_equal(expected_res, actual_res)
 
+    # Compare with output of 'tree' command
+    # import subprocess
+    # subprocess.run(["tree", "-dlL", "2", root])
+
 
 class TestTree:
     """Base class with tests that should run for all Tree configurations"""
