@@ -287,46 +287,6 @@ def pytest_generate_tests(metafunc):
 
 # ================================= Tests =====================================
 
-def test_print_tree_fails_for_nonexistent_directory():
-    """Obtain nonexistent directory by creating a temp dir and deleting it
-    (may be safest method)"""
-    with make_tempfile(mkdir=True) as nonexistent_dir:
-        ok_exists(nonexistent_dir)  # just wait for it to be deleted
-    with assert_raises(ValueError):
-        Tree(Path(nonexistent_dir), max_depth=1)
-
-
-@skip_wo_symlink_capability
-@with_tempfile
-def test_tree_with_circular_symlinks(path=None):
-    """Test that we do not follow symlinks that point to directories
-    underneath the tree root (or its parent), to avoid duplicate subtrees"""
-    ds = get_deeply_nested_structure(path)
-    root = ds.path
-    command = ["tree", "--depth", "2", root]
-    _, actual_res, _ = get_tree_rendered_output(command)
-    expected_res = """
-├── directory_untracked/
-│   └── link2dir/
-├── link2dir/
-├── link2subdsdir/
-├── link2subdsroot/
-├── subdir/
-└── [DS~1] subds_modified/
-    ├── link2superdsdir/
-    ├── subdir/
-    └── [DS~2] subds_lvl1_modified/
-""".lstrip("\n")
-
-    ui.message("expected:")
-    ui.message(expected_res)
-    ui.message("actual:")
-    ui.message(actual_res)
-    assert_str_equal(expected_res, actual_res)
-
-    # Compare with output of 'tree' command
-    # import subprocess
-    # subprocess.run(["tree", "-dlL", "2", root])
 class TestTree:
     """Base class with tests that should run for multiple Tree
     configurations.
@@ -528,17 +488,6 @@ class TestTreeWithoutDatasets(TestTree):
         expected_res = expected_stats_str
         assert_str_equal(expected_res, actual_res)
 
-    def test_print_tree_permission_denied(self):
-        parent_dir = str(self.path)
-        with make_tempfile(mkdir=True, dir=parent_dir) as forbidden_dir:
-            # temporarily remove all permissions
-            with ensure_no_permissions(Path(forbidden_dir)):
-                # tree command should return error exit status but not crash
-                command = ['tree', parent_dir, '--depth', '2', '--include-files']
-                _, actual, _ = get_tree_rendered_output(command, exit_code=1)
-                ui.message(actual)
-                assert_in("[error opening dir]", actual)
-
     @pytest.mark.parametrize(
         "root_dir_name", ["root/", "root/.", "root/./", "root/../root"]
     )
@@ -701,4 +650,158 @@ class TestDatasetTree(TestTree):
         ]
         _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
+        assert_str_equal(expected_res, actual_res)
+
+
+class TestTreeFilesystemIssues:
+    """Test tree with missing permissions, broken symlinks, etc."""
+
+    def test_print_tree_fails_for_nonexistent_directory(self):
+        """Obtain nonexistent directory by creating a temp dir and deleting it
+        (may be safest method)"""
+        with make_tempfile(mkdir=True) as nonexistent_dir:
+            ok_exists(nonexistent_dir)  # just wait for it to be deleted
+        with assert_raises(ValueError):
+            Tree(Path(nonexistent_dir), max_depth=1)
+
+    @with_tempfile
+    def test_print_tree_permission_denied(self, path=None):
+        """
+        - If the tree contains a directory for which the user has no
+          permissions (so it would not be possible to traverse it), a message
+          should be displayed next to the affected directory path
+        - The rest of the tree following the forbidden directory should
+          be printed as usual
+        - The command should return error exit status but not crash
+        """
+        (Path(path) / 'z_dir' / 'subdir').mkdir(parents=True)
+        forbidden_dir = Path(path) / 'a_forbidden_dir'
+        forbidden_dir.mkdir(parents=True)
+        # temporarily remove all permissions (octal 000)
+        # restore permissions at the end, otherwise we can't delete temp dir
+        with ensure_no_permissions(forbidden_dir):
+            command = ['tree', path, '--depth', '2']
+            # expect exit code 1
+            _, actual, _ = get_tree_rendered_output(command, exit_code=1)
+            expected = f"""
+├── {forbidden_dir.name}/ [error opening dir]
+└── z_dir/
+    └── subdir/
+""".lstrip("\n")
+            ui.message("expected:")
+            ui.message(expected)
+            ui.message("actual:")
+            ui.message(actual)
+            assert_str_equal(expected, actual)
+
+    @skip_wo_symlink_capability
+    @with_tempfile
+    def test_tree_with_broken_symlinks(self, path=None):
+        """Test that broken symlinks are reported as such"""
+        dpath = Path(path)
+        dir1 = dpath / 'real' / 'dir1'
+        file1 = dpath / 'real' / 'dir1' / 'file1'
+        dir1.mkdir(parents=True)
+        file1.touch()
+
+        # create good symlinks
+        (dpath / 'links').mkdir()
+        # 1. symlink pointing to directory
+        link_to_dir1 = dpath / 'links' / 'link_to_dir1'
+        link_to_dir1.symlink_to(dir1, target_is_directory=True)
+        ok_good_symlink(link_to_dir1)
+        # 2. symlink pointing to file
+        link_to_file1 = dpath / 'links' / 'link_to_file1'
+        link_to_file1.symlink_to(file1)
+        ok_good_symlink(link_to_file1)
+
+        # create bad symlinks
+        # 1. symlink pointing to non-existent target
+        link_to_nonexistent = dpath / 'links' / 'link_to_nonexistent'
+        link_to_nonexistent.symlink_to(dpath / 'nonexistent')
+        ok_broken_symlink(link_to_nonexistent)
+
+        # 2. symlink pointing to itself
+        link_to_self = dpath / 'links' / 'link_to_self'
+        link_to_self.symlink_to(link_to_self)
+        with assert_raises(RuntimeError):
+            link_to_self.resolve()  # fails because of infinite loop
+
+        # test results dict using python API
+        actual = TreeCommand.__call__(
+            dpath,
+            include_files=True,
+            result_renderer="disabled",
+            result_xfm="paths",
+            result_filter=lambda res: res.get("is_broken_symlink", False)
+        )
+        expected = [str(link_to_nonexistent), str(link_to_self)]
+        assert expected == actual
+
+    @skip_wo_symlink_capability
+    @with_tempfile
+    def test_print_tree_with_recursive_symlinks(self, path=None):
+        """
+        TODO: break down into separate tests
+
+        - Symlinks targets are displayed in custom renderer output
+        - We do not follow symlinks that point to directories underneath
+          the tree root or its parent (to prevent duplicate subtrees)
+        - Symlinks pointing to datasets are not considered dataset nodes
+          themselves, but regular directories (to prevent duplicate counts
+          of datasets)
+        """
+        parent = Path(path)
+        ds = get_deeply_nested_structure(str(parent / 'superds'))
+
+        # change current dir to create symlinks with relative path
+        with chpwd(ds.path):
+            # create symlink to a sibling directory of the tree
+            # (should be recursed into)
+            (parent / 'ext_dir' / 'ext_subdir').mkdir(parents=True)
+            Path('link2extdir').symlink_to(Path('..') / 'ext_dir',
+                                           target_is_directory=True)
+
+            # create symlink to grandparent of the tree root (should NOT
+            # be recursed into)
+            Path('link2parent').symlink_to(Path('..') / '..',
+                                           target_is_directory=True)
+
+            # create symlink to subdir of the tree root at depth > max_depth
+            # (should be recursed into)
+            deepdir = Path('subds_modified') / 'subdir' / 'deepdir'
+            deepdir.mkdir()
+            (deepdir / 'subdeepdir').mkdir()
+            Path('link2deepdir').symlink_to(deepdir, target_is_directory=True)
+
+        root = ds.path
+        command = ["tree", "--depth", "2", root]
+        _, actual_res, counts = get_tree_rendered_output(command)
+        expected_res = """
+├── directory_untracked/
+│   └── link2dir/ -> ../subdir
+├── link2deepdir/ -> subds_modified/subdir/deepdir
+│   └── subdeepdir/
+├── link2dir/ -> subdir
+├── link2extdir/ -> ../ext_dir
+│   └── ext_subdir/
+├── link2parent/ -> ../..
+├── link2subdsdir/ -> subds_modified/subdir
+├── link2subdsroot/ -> subds_modified
+├── subdir/
+└── [DS~1] subds_modified/
+    ├── link2superdsdir/ -> ../subdir
+    ├── subdir/
+    └── [DS~2] subds_lvl1_modified/
+""".lstrip("\n")
+
+        # Compare with output of 'tree' command
+        # ui.message(counts)
+        # import subprocess
+        # subprocess.run(["tree", "-dlL", "2", root])
+
+        ui.message("expected:")
+        ui.message(expected_res)
+        ui.message("actual:")
+        ui.message(actual_res)
         assert_str_equal(expected_res, actual_res)
