@@ -752,9 +752,9 @@ class DatasetTree(Tree):
 
         # current value of the ds_generator. the generator will be initialized
         # lazily, so for now we set the value to a dummy `_TreeNode`
-        # with an impossible depth just to distinguish it from None (None means
-        # the generator has finished).
-        self._next_ds = _TreeNode(self.root, -1)
+        # with an impossible depth just to distinguish it from None
+        # (None means the generator has finished).
+        self._next_ds = _TreeNode(self.root, None)
 
     @increment_node_count
     def generate_nodes(self):
@@ -779,7 +779,7 @@ class DatasetTree(Tree):
             try:
                 # initialize dataset(-parent) generator if not done yet
                 if self._next_ds is not None and \
-                        self._next_ds.depth == -1:  # dummy depth
+                        self._next_ds.depth is None:  # dummy depth
                     self._advance_ds_generator()
 
                 if path.is_dir() and is_dataset(path):
@@ -820,6 +820,11 @@ class DatasetTree(Tree):
     def _advance_ds_generator(self):
         """Go to the next dataset or parent of dataset"""
         self._next_ds = next(self._ds_generator, None)
+        if self._next_ds is not None:
+            lgr.debug(
+                f"Next dataset" +
+                (" parent" if isinstance(self._next_ds, DirectoryNode) else "")
+                + f": {self._next_ds.path}")
 
     def _generate_datasets(self):
         """Generator of dataset nodes and their parent directories starting
