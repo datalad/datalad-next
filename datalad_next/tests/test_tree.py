@@ -13,6 +13,7 @@ from datalad.tests.utils_pytest import (
     with_tempfile,
     get_deeply_nested_structure,
     skip_wo_symlink_capability,
+    skip_if_on_windows,
     ok_good_symlink,
     ok_broken_symlink
 )
@@ -674,6 +675,7 @@ class TestTreeFilesystemIssues:
         with assert_raises(ValueError):
             Tree(Path(nonexistent_dir), max_depth=1)
 
+    @skip_if_on_windows
     @with_tempfile
     def test_print_tree_permission_denied(self, path=None):
         """
