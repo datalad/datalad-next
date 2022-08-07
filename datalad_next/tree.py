@@ -1011,7 +1011,7 @@ class _TreeNode:
                 return False
         except FileNotFoundError:
             return True
-        except RuntimeError:
+        except (RuntimeError, OSError):  # OSError on Windows
             # if symlink loop, consider it broken symlink
             # (like UNIX 'tree' command does)
             return True
