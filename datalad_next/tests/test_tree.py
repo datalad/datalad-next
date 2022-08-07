@@ -502,6 +502,16 @@ class TestTreeWithoutDatasets(TestTree):
         expected = str(self.path / "root")
         assert_str_equal(expected, actual)
 
+    def test_no_difference_if_root_path_absolute_or_relative(self):
+        """Tree output should be identical whether the root directory
+        is given as absolute or relative path"""
+        root = str(self.path / "root")
+        output_abs_path = get_tree_rendered_output(['tree', root])
+        with chpwd(root):
+            output_rel_path = get_tree_rendered_output(['tree', '.'])
+
+        assert output_abs_path == output_rel_path
+
     def test_print_tree_depth_zero(self):
         root = str(self.path / "root")
         # including files should # have no effect
