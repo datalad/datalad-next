@@ -6,22 +6,27 @@ from datalad.distribution.dataset import Dataset
 from datalad.cli.tests.test_main import run_main
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
-    assert_in,
     assert_raises,
     assert_str_equal,
     with_tree,
     ok_exists,
     with_tempfile,
     get_deeply_nested_structure,
-    skip_wo_symlink_capability
+    skip_wo_symlink_capability,
+    ok_good_symlink,
+    ok_broken_symlink
 )
 from datalad.utils import (
     rmtemp,
     make_tempfile,
+    chpwd
 )
 from datalad.ui import ui
 
-from ..tree import Tree
+from ..tree import (
+    Tree,
+    TreeCommand
+)
 
 """Tests for the ``datalad tree`` command."""
 
@@ -266,7 +271,9 @@ def pytest_generate_tests(metafunc):
 
     See: https://docs.pytest.org/en/7.1.x/example/parametrize.html#parametrizing-test-methods-through-per-class-configuration
     """
-    if metafunc.cls:
+    if metafunc.cls and \
+            hasattr(metafunc.cls, 'params') and \
+            hasattr(metafunc.cls, 'MATRIX'):
         test_id = metafunc.function.__name__
         test_params_dict = metafunc.cls.params
         matrix = metafunc.cls.MATRIX
@@ -320,14 +327,26 @@ def test_tree_with_circular_symlinks(path=None):
     # Compare with output of 'tree' command
     # import subprocess
     # subprocess.run(["tree", "-dlL", "2", root])
-
-
 class TestTree:
-    """Base class with tests that should run for all Tree configurations"""
+    """Base class with tests that should run for multiple Tree
+    configurations.
+
+    Configurations are defined by:
+
+    - ``MATRIX``: dicts of pytest parameters and their values, where each dict
+      corresponds to a separate parametrized test instance.
+    - ``params``: a dict defining for each test method, which parameters
+      will be used in that test (from the parameter names contained in
+      ``MATRIX``).
+    """
     __test__ = False  # tells pytest to not collect tests in this class
     path = None  # will be set by the inject_* fixture to temp dir tree root
 
-    # dict specifying multiple argument sets for a test method
+    # matrix of combinations of parameters to be tested and their
+    # expected results
+    MATRIX = []
+
+    # dict specifying parameter sets for each test method
     params = {
         "test_print_tree": [
             "depth", "include_files", "include_hidden", "expected_str"
@@ -344,8 +363,6 @@ class TestTreeWithoutDatasets(TestTree):
 
     __test__ = True
 
-    # matrix holds combinations of parameters to be tested
-    # and their expected results
     MATRIX = [
     {
         "depth": 1,
