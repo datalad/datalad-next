@@ -736,8 +736,9 @@ class TestTreeFilesystemIssues:
         # 2. symlink pointing to itself
         link_to_self = dpath / 'links' / 'link_to_self'
         link_to_self.symlink_to(link_to_self)
-        with assert_raises(RuntimeError):
-            link_to_self.resolve()  # fails because of infinite loop
+        with assert_raises((RuntimeError, OSError)):  # OSError on Windows
+            # resolution fails because of infinite loop
+            link_to_self.resolve()
 
         # test results dict using python API
         actual = TreeCommand.__call__(
