@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
+from os import sep
 
 import pytest
 from datalad.distribution.dataset import Dataset
@@ -790,20 +791,21 @@ class TestTreeFilesystemIssues:
         root = ds.path
         command = ["tree", "--depth", "2", root]
         _, actual_res, counts = get_tree_rendered_output(command)
-        expected_res = """
+        s = sep
+        expected_res = f"""
 ├── directory_untracked/
-│   └── link2dir/ -> ../subdir
-├── link2deepdir/ -> subds_modified/subdir/deepdir
+│   └── link2dir/ -> ..{s}subdir
+├── link2deepdir/ -> subds_modified{s}subdir{s}deepdir
 │   └── subdeepdir/
 ├── link2dir/ -> subdir
-├── link2extdir/ -> ../ext_dir
+├── link2extdir/ -> ..{s}ext_dir
 │   └── ext_subdir/
-├── link2parent/ -> ../..
-├── link2subdsdir/ -> subds_modified/subdir
+├── link2parent/ -> ..{s}..
+├── link2subdsdir/ -> subds_modified{s}subdir
 ├── link2subdsroot/ -> subds_modified
 ├── subdir/
 └── [DS~1] subds_modified/
-    ├── link2superdsdir/ -> ../subdir
+    ├── link2superdsdir/ -> ..{s}subdir
     ├── subdir/
     └── [DS~2] subds_lvl1_modified/
 """.lstrip("\n")
