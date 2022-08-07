@@ -12,6 +12,7 @@ __docformat__ = "numpy"
 
 import logging
 from functools import wraps, lru_cache
+from os import readlink
 from pathlib import Path
 
 from datalad.interface.base import (
@@ -25,7 +26,8 @@ from datalad.support.exceptions import (
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
     datasetmethod,
-    require_dataset, Dataset,
+    require_dataset,
+    Dataset,
 )
 from datalad.interface.results import (
     get_status_dict,
@@ -180,9 +182,19 @@ class TreeCommand(Interface):
                     "dataset_is_installed": node.is_installed
                 })
 
+            if node.is_symlink():
+                # TODO: should we inform if the symlink is recursive (as per
+                #  `tree.is_recursive_symlink()`) although not broken? The
+                #  UNIX 'tree' command shows the message '[recursive,
+                #  not followed]' next to the path. Not sure if this is
+                #  interesting at all or more confusing.
+                res_dict["symlink_target"] = node.get_symlink_target()
+                res_dict["is_broken_symlink"] = node.is_broken_symlink()
+
             if node.exception is not None:
                 # mimic error message of unix 'tree' command for
-                # permission denied error
+                # permission denied error, otherwise use exception short
+                # message
                 message = "error opening dir" \
                     if node.exception.name == "PermissionError" \
                     else node.exception.message
@@ -252,17 +264,26 @@ class TreeCommand(Interface):
         color_for_type = {
             "dataset": ansi_colors.MAGENTA,
             "directory": ansi_colors.BLUE,
-            "file": None
+            "file": None,
+            "broken_symlink": ansi_colors.RED
         }
         # ANSI color for the path, if terminal colors are enabled
         color = color_for_type[node_type]
         if color is not None:
             path = ansi_colors.color_word(path, color)
+        if res.get("is_broken_symlink", False):
+            path = ansi_colors.color_word(path,
+                                          color_for_type["broken_symlink"])
 
         # set suffix for directories
         dir_suffix = ""
         if depth > 0 and node_type in ("directory", "dataset"):
             dir_suffix = "/"
+
+        # append symlink target if symlink
+        symlink_target = ""
+        if "symlink_target" in res:
+            symlink_target = " -> " + res["symlink_target"]
 
         # add short error message if there was exception
         error_msg = ""
@@ -271,7 +292,7 @@ class TreeCommand(Interface):
 
         line = indentation + \
             " ".join((s for s in (prefix, ds_marker, path) if s != "")) + \
-            dir_suffix + error_msg
+            dir_suffix + symlink_target + error_msg
         ui.message(line)
 
     @staticmethod
@@ -333,7 +354,11 @@ def increment_node_count(node_generator_func):
                 raise ValueError(
                     f"No counts collected for unknown node type '{node_type}'"
                 )
-            if node.depth > 0:  # we do not count the root directory
+            if node.depth > 0:  # do not count the root directory
+                # TODO: do not count symlinks if they point to
+                #  files/directories that are already included in the tree
+                #  (to prevent double counting)? Note that UNIX 'tree' does
+                #  count double.
                 self.node_count[node_type] += 1
 
             yield node  # yield what the generator yielded
@@ -383,7 +408,7 @@ def is_dataset(path: Path):
     be run multiple times on the same path.
 
     TODO: is there a way to detect a datalad dataset if it is not installed
-    and it is not a subdataset?
+     and it is not a subdataset?
 
     Parameters
     ----------
@@ -394,8 +419,8 @@ def is_dataset(path: Path):
         if path.is_symlink():
             # ignore symlinks even if pointing to datasets, otherwise we may
             # get duplicate counts of datasets
-            lgr.debug("Path is a symlink, do not consider it a DatasetNode: "
-                      f"'{path}'")
+            lgr.debug("Path is a symlink, will not check if it points to a "
+                      f"dataset: '{path}'")
             return False
 
         if (path / ".datalad" / "config").is_file() or \
@@ -965,6 +990,46 @@ class _TreeNode:
             parents_from_tree_root.append(path)
 
         return parents_from_tree_root[::-1]  # top-down order
+
+    def is_symlink(self) -> bool:
+        """Check if node path is a symlink"""
+        try:
+            if self.path.is_symlink():
+                return True
+        except Exception as ex:
+            # could fail because of permission issues etc.
+            # in which case we just default to False
+            self.exception = CapturedException(ex, level=10)
+            return False
+
+    def is_broken_symlink(self) -> bool:
+        """If node path is a symlink, check if it points to a non-existing
+        target or to itself (self-referencing link)"""
+        try:
+            if self.is_symlink():
+                self.path.resolve(strict=True)
+                return False
+        except FileNotFoundError:
+            return True
+        except RuntimeError:
+            # if symlink loop, consider it broken symlink
+            # (like UNIX 'tree' command does)
+            return True
+        except Exception as ex:
+            # probably broken in some way
+            self.exception = CapturedException(ex, level=10)
+            return True
+
+    def get_symlink_target(self) -> str:
+        """If node path is a symlink, get link target as string. Does not
+        check that target path exists."""
+        try:
+            if self.is_symlink():
+                # use os.readlink() instead of Path.readlink() for
+                # Python <3.9 compatibility
+                return readlink(str(self.path))
+        except Exception as ex:
+            self.exception = CapturedException(ex, level=10)
 
 
 class DirectoryNode(_TreeNode):
