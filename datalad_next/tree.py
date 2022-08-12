@@ -1014,26 +1014,29 @@ class _TreeNode:
             return False
 
     def is_broken_symlink(self) -> bool:
-        """If node path is a symlink, check if it points to a non-existing
-        target or to itself (self-referencing link)"""
+        """If node path is a symlink, check if it points to a nonexisting
+        or inaccessible target or to itself (self-referencing link). Raise
+        exception if the node path is not a symlink."""
+        if not self.is_symlink():
+            raise ValueError("Node path is not a symlink, cannot check if "
+                             f"symlink is broken: {self.path}")
+
         try:
-            if self.is_symlink():
-                self.path.resolve(strict=True)
-                return False
-        except FileNotFoundError:
+            self.path.resolve(strict=True)
+            return False
+        except FileNotFoundError:  # target does not exist
             return True
-        except (RuntimeError, OSError):  # OSError on Windows
-            # if symlink loop, consider it broken symlink
-            # (like UNIX 'tree' command does)
+        except PermissionError:  # target exists but is not accessible
             return True
-        except Exception as ex:
-            # probably broken in some way
+        except (RuntimeError, OSError):  # symlink loop (OSError on Windows)
+            return True
+        except Exception as ex:  # probably broken in some other way
             self.exception = CapturedException(ex, level=10)
             return True
 
     def get_symlink_target(self) -> str:
-        """If node path is a symlink, get link target as string. Does not
-        check that target path exists."""
+        """If node path is a symlink, get link target as string. Otherwise,
+        return None. Does not check that target path exists."""
         try:
             if self.is_symlink():
                 # use os.readlink() instead of Path.readlink() for
