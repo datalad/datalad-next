@@ -725,11 +725,22 @@ class Tree:
                 else:
                     self.exhausted_levels.discard(self.path_depth(child))
 
-                if child.is_dir():
-                    # recurse into subdirectories
-                    yield from self._generate_tree_nodes(child)
-                else:
-                    yield FileNode(child, self.path_depth(child))
+                try:
+                    # `child.is_dir()` could fail because of permission error
+                    # error if node is symlink pointing to contents under
+                    # inaccessible directory
+                    if child.is_dir():
+                        # recurse into subdirectories
+                        yield from self._generate_tree_nodes(child)
+                    else:
+                        yield FileNode(child, self.path_depth(child))
+                except OSError as ex:
+                    # assume it's a file
+                    yield FileNode(
+                        child,
+                        self.path_depth(child),
+                        exception=CapturedException(ex, level=10)
+                    )
 
     @increment_node_count
     def generate_nodes(self):
@@ -1042,6 +1053,7 @@ class DirectoryNode(_TreeNode):
             # get first child if exists. this is a check for whether
             # we can (potentially) recurse into the directory or
             # if there are any filesystem issues (permissions errors, etc)
+            # TODO: replace with generic `Path.stat()`? (follows symlinks)
             any(self.path.iterdir())
         except OSError as ex:
             # permission errors etc. are logged and stored as node
