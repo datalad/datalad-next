@@ -708,48 +708,92 @@ class TestTreeFilesystemIssues:
             assert_str_equal(expected, actual)
 
     @skip_wo_symlink_capability
-    @with_tempfile
-    def test_tree_with_broken_symlinks(self, path=None):
-        """Test that broken symlinks are reported as such"""
+    @with_tempfile  # main temp dir to construct tree
+    @with_tempfile  # separate temp dir to be symlinked (forbidden_dir)
+    def test_tree_with_broken_symlinks(self, path=None, forbidden_path=None):
+        """Test that broken symlinks are reported as such.
+        TODO split into separate tests"""
+        # prep
         dpath = Path(path)
         dir1 = dpath / 'real' / 'dir1'
         file1 = dpath / 'real' / 'dir1' / 'file1'
+        forbidden_file = dpath / 'real' / 'dir1' / 'forbidden_file'
         dir1.mkdir(parents=True)
         file1.touch()
+        forbidden_file.touch()  # permissions will be removed later ad-hoc
+
+        # create directory without permissions (outside of main tree)
+        forbidden_dir = Path(forbidden_path)
+        forbidden_dir.mkdir()
+        file_in_forbidden_dir = forbidden_dir / 'file_in_forbidden_dir'
+        file_in_forbidden_dir.touch()
 
         # create good symlinks
         (dpath / 'links').mkdir()
-        # 1. symlink pointing to directory
+
+        # 1. symlink pointing to existing directory
         link_to_dir1 = dpath / 'links' / 'link_to_dir1'
         link_to_dir1.symlink_to(dir1, target_is_directory=True)
         ok_good_symlink(link_to_dir1)
-        # 2. symlink pointing to file
+
+        # 2. symlink pointing to existing file
         link_to_file1 = dpath / 'links' / 'link_to_file1'
         link_to_file1.symlink_to(file1)
         ok_good_symlink(link_to_file1)
 
+        # 3. symlink pointing to existing but inaccessible directory
+        link_to_forbidden_dir = dpath / 'links' / 'link_to_forbidden_dir'
+        link_to_forbidden_dir.symlink_to(forbidden_dir, target_is_directory=True)
+        with ensure_no_permissions(forbidden_dir):
+            ok_good_symlink(link_to_forbidden_dir)
+
+        # 4. symlink pointing to existing but inaccessible file
+        link_to_forbidden_file = dpath / 'links' / 'link_to_forbidden_file'
+        link_to_forbidden_file.symlink_to(forbidden_file)
+        with ensure_no_permissions(forbidden_file):
+            ok_good_symlink(link_to_forbidden_file)
+
         # create bad symlinks
         # 1. symlink pointing to non-existent target
-        link_to_nonexistent = dpath / 'links' / 'link_to_nonexistent'
+        link_to_nonexistent = dpath / 'links' / '1_link_to_nonexistent'
         link_to_nonexistent.symlink_to(dpath / 'nonexistent')
         ok_broken_symlink(link_to_nonexistent)
 
         # 2. symlink pointing to itself
-        link_to_self = dpath / 'links' / 'link_to_self'
+        link_to_self = dpath / 'links' / '2_link_to_self'
         link_to_self.symlink_to(link_to_self)
         with assert_raises((RuntimeError, OSError)):  # OSError on Windows
             # resolution fails because of infinite loop
             link_to_self.resolve()
 
-        # test results dict using python API
-        actual = TreeCommand.__call__(
-            dpath,
-            include_files=True,
-            result_renderer="disabled",
-            result_xfm="paths",
-            result_filter=lambda res: res.get("is_broken_symlink", False)
-        )
-        expected = [str(link_to_nonexistent), str(link_to_self)]
+        # 3. symlink pointing to file under inaccessible directory
+        link_to_file_in_forbidden_dir = dpath / 'links' / '3_link_to_file_in_forbidden_dir'
+        link_to_file_in_forbidden_dir.symlink_to(file_in_forbidden_dir)
+        with ensure_no_permissions(forbidden_dir):
+            with assert_raises(PermissionError):
+                # resolution fails because of missing permissions
+                link_to_file_in_forbidden_dir.resolve(strict=True)
+
+        # temporarily remove all permissions (octal 000)
+        # restore permissions at the end, otherwise we can't delete temp dir
+        with ensure_no_permissions(forbidden_dir), \
+                ensure_no_permissions(forbidden_file):
+
+            # test results dict using python API
+            # implicitly also tests that command yields tree without crashing
+            actual = TreeCommand.__call__(
+                dpath,
+                include_files=True,
+                result_renderer="disabled",
+                result_xfm="paths",
+                result_filter=lambda res: res.get("is_broken_symlink", False),
+                on_failure="ignore"
+            )
+        expected = [
+            str(link_to_nonexistent),
+            str(link_to_self),
+            str(link_to_file_in_forbidden_dir)
+        ]
         assert expected == actual
 
     @skip_wo_symlink_capability
