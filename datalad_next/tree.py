@@ -504,7 +504,7 @@ def get_dataset_root_datalad_only(path: Path):
             return potential_ds_root  # it's a match
 
         # we go one directory higher and try again
-        ds_root = Path.resolve(potential_ds_root / '..')
+        ds_root = (potential_ds_root / "..").resolve(strict=True)
     return ds_root
 
 
@@ -522,13 +522,11 @@ def get_superdataset(path: Path):
     -------
     Dataset or None
     """
-    path = str(path)
     superds_path = None
 
     while path:
-        # normalize the path after adding .. so we guaranteed to not
-        # follow into original directory if path itself is a symlink
-        parent_path = Path.resolve(Path(path) / '..')
+        parent_path = (path / "..").resolve(strict=True)
+
         sds_path_ = get_dataset_root_datalad_only(parent_path)
         if sds_path_ is None:
             # no more parents, use previous found
@@ -537,12 +535,12 @@ def get_superdataset(path: Path):
         superds = Dataset(sds_path_)
 
         # test if path is registered subdataset of the parent
-        if not is_subds_of_parent(Path(path), superds.pathobj):
+        if not is_subds_of_parent(path, superds.pathobj):
             break
 
         # That was a good candidate
         superds_path = sds_path_
-        path = str(parent_path)
+        path = parent_path
         break
 
     if superds_path is None:
@@ -733,7 +731,7 @@ class Tree:
                 )
 
                 try:
-                    # `child.is_dir()` could fail because of permission error
+                    # `child.is_dir()` could fail because of permission
                     # error if node is symlink pointing to contents under
                     # inaccessible directory
                     if child.is_dir():
@@ -996,6 +994,7 @@ class _TreeNode:
     @property
     def parents(self):
         """List of parent paths in top-down order beginning from the tree root.
+        Assumes the node path to be already normalized.
 
         Returns
         -------
@@ -1114,7 +1113,7 @@ class DatasetNode(_TreeNode):
         ds = self.ds
 
         while ds:
-            superds = get_superdataset(ds.path)
+            superds = get_superdataset(ds.pathobj)
 
             if superds is None:
                 # it is not a dataset, do nothing
