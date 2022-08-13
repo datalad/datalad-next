@@ -327,10 +327,10 @@ def build_excluded_node_func(include_hidden=False, include_files=False):
         and returns true if the node should *not* be displayed in the tree.
     """
 
-    def is_excluded(path):
+    def is_excluded(node: _TreeNode):
         return any((
-            not path.is_dir() if not include_files else False,
-            path.name.startswith(".") if not include_hidden else False
+            isinstance(node, FileNode) if not include_files else False,
+            node.path.name.startswith(".") if not include_hidden else False
         ))
 
     return is_excluded
@@ -604,9 +604,11 @@ class Tree:
                            for node_type in _TreeNode.__subclasses__()}
 
     @staticmethod
-    def default_exclude_func(path: Path):
+    def default_exclude_func(node):
         """By default, exclude files and hidden directories from the tree"""
-        return any((not path.is_dir(), path.name.startswith(".")))
+        return any(
+            (isinstance(node, FileNode), node.path.name.startswith("."))
+        )
 
     def path_depth(self, path: Path):
         """Calculate directory depth of a given path relative to the root of
@@ -704,12 +706,12 @@ class Tree:
             all_children = sorted(list(dir_path.iterdir()))
             child_depth = current_depth + 1
 
-            # apply exclusion filters
-            children = (
-                Node(p, child_depth)
-                for p in all_children
-                if not self.exclude_node_func(p)
-            )
+            # generator to apply exclusion filter
+            def children():
+                for child_path in all_children:
+                    child_node = Node(child_path, child_depth)
+                    if not self.exclude_node_func(child_node):
+                        yield child_node
 
             # exclusion function could be expensive to compute, so we
             # use a generator for child nodes. however, we need to be able
@@ -717,7 +719,7 @@ class Tree:
             # displaying special end-of-subtree prefix). so we wrap the
             # generator in another 'lookahead' generator to detect the last
             # item.
-            for is_last_child, child in yield_with_last_item(children):
+            for is_last_child, child in yield_with_last_item(children()):
 
                 if is_last_child:  # last child of its subtree
                     self.exhausted_levels.add(child_depth)
@@ -801,7 +803,7 @@ class DatasetTree(Tree):
         Generator[_TreeNode]
         """
 
-        def exclude_func(path: Path):
+        def exclude_func(node: _TreeNode):
             """Exclusion function -- here is the crux of the logic for
             pruning the main tree."""
 
@@ -811,9 +813,9 @@ class DatasetTree(Tree):
                         self._next_ds.depth is None:  # dummy depth
                     self._advance_ds_generator()
 
-                if path.is_dir() and is_dataset(path):
+                if isinstance(node, DatasetNode):
                     # check if maximum dataset depth is exceeded
-                    is_valid_ds = self._is_valid_dataset(path)
+                    is_valid_ds = self._is_valid_dataset(node)
                     if is_valid_ds:
                         self._advance_ds_generator()  # go to next dataset(-parent)
                     return not is_valid_ds
@@ -823,15 +825,15 @@ class DatasetTree(Tree):
                 # unless (in case of a directory) it is itself the parent of a
                 # valid dataset. if it's a parent of a dataset, we don't apply
                 # any filters -- it's just a means to get to the next dataset.
-                if not self._is_parent_of_ds(path):
-                    return self.exclude_node_func(path) or \
-                           self._ds_child_node_exceeds_max_depth(path)
+                if not self._is_parent_of_ds(node):
+                    return self.exclude_node_func(node) or \
+                           self._ds_child_node_exceeds_max_depth(node)
 
             except Exception as ex:
                 CapturedException(ex, level=10)  # DEBUG level
-                lgr.debug(f"Excluding path '{path}' from tree because "
+                lgr.debug(f"Excluding node from tree because "
                           "an exception occurred while applying the "
-                          "exclusion filter.")
+                          f"exclusion filter: '{node.path}'")
                 return True  # exclude by default
 
             return False  # do not exclude
@@ -872,10 +874,10 @@ class DatasetTree(Tree):
         Generator[DirectoryNode or DatasetNode]
         """
 
-        def exclude(p: Path):
+        def exclude(n: _TreeNode):
             # we won't find any datasets underneath the git folder
-            return not p.is_dir() or \
-                   (p.is_dir() and p.name == ".git")
+            return isinstance(n, FileNode) or \
+                   (isinstance(n, DirectoryNode) and n.path.name == ".git")
 
         ds_tree = Tree(
             self.root,
@@ -894,7 +896,7 @@ class DatasetTree(Tree):
             # yield the dataset itself
             if isinstance(node, DatasetNode) and \
                     node.ds_depth <= self.max_dataset_depth and \
-                    not self.exclude_node_func(node.path):
+                    not self.exclude_node_func(node):
 
                 # yield parent directories if not already done
                 parents_below_root = node.parents[1:]  # first parent is root
@@ -907,39 +909,38 @@ class DatasetTree(Tree):
                 visited.add(node.path)
                 yield node
 
-    def _is_valid_dataset(self, path: Path):
-        return path.is_dir() and \
-               is_path_relative_to(path, self.root) and \
-               is_dataset(path) and \
-               not self.exclude_node_func(path) and \
-               not self._ds_exceeds_max_ds_depth(path)
+    def _is_valid_dataset(self, node):
+        return isinstance(node, DatasetNode) and \
+               is_path_relative_to(node.path, self.root) and \
+               not self.exclude_node_func(node) and \
+               not self._ds_exceeds_max_ds_depth(node)
 
-    def _ds_exceeds_max_ds_depth(self, path: Path):
-        ds = DatasetNode(path, self.path_depth(path))
-        return ds.ds_depth > self.max_dataset_depth
+    def _ds_exceeds_max_ds_depth(self, ds_node):
+        return ds_node.ds_depth > self.max_dataset_depth
 
-    def _ds_child_node_exceeds_max_depth(self, path: Path):
-        ds_parent = get_dataset_root_datalad_only(path)
+    def _ds_child_node_exceeds_max_depth(self, ds_node):
+        ds_parent = get_dataset_root_datalad_only(ds_node.path)
         if ds_parent is None:
             return True  # it's not a dataset child, we exclude it
 
-        if not self._is_valid_dataset(ds_parent):
+        ds_parent_depth = self.path_depth(ds_parent)
+        if not self._is_valid_dataset(Node(ds_parent, ds_parent_depth)):
             return True  # also exclude
 
         # check directory depth relative to the dataset parent
-        rel_depth = self.path_depth(path) - self.path_depth(ds_parent)
+        rel_depth = ds_node.depth - ds_parent_depth
         assert rel_depth >= 0, "relative depth from parent cannot be < 0 " \
-                               f"(path: '{path}', parent: '{ds_parent}')"
+                               f"(path: '{ds_node.path}', parent: '{ds_parent}')"
         return rel_depth > self.max_depth
 
-    def _is_parent_of_ds(self, path: Path):
-        if not path.is_dir():
+    def _is_parent_of_ds(self, node):
+        if isinstance(node, FileNode):
             return False  # files can't be parents
 
         if self._next_ds is None:
             return False  # no more datasets, can't be a parent
 
-        if self._next_ds.path == path:
+        if self._next_ds.path == node.path:
             # we hit a dataset or the parent of a dataset
             self._advance_ds_generator()
             return True
@@ -1130,7 +1131,6 @@ class DatasetNode(_TreeNode):
         ds_absolute_depth = 0
 
         ds = self.ds
-
         while ds:
             superds = get_superdataset(ds.pathobj)
 
