@@ -383,6 +383,28 @@ def yield_with_last_item(generator):
         yield True, prev_val
 
 
+def path_depth(path: Path, root: Path):
+    """Calculate directory depth of a path relative to the given root.
+
+    Can also be a negative integer if the path is a parent of the
+    tree root.
+
+    Returns
+    -------
+    int
+        Number of levels of the given path *below* the root (positive
+        integer) or *above* the tree root (negative integer)
+    """
+    if is_path_relative_to(path, root):
+        return len(path.relative_to(root).parts)
+    elif is_path_relative_to(root, path):
+        return - len(root.relative_to(path).parts)
+    else:
+        raise ValueError("Could not calculate directory depth: "
+                         f"'{path}' is not relative to the tree root "
+                         f"'{root}' (or vice-versa)")
+
+
 def is_empty_dir(path: Path):
     return path.is_dir() and not any(path.iterdir())
 
@@ -611,62 +633,7 @@ class Tree:
         )
 
     def path_depth(self, path: Path):
-        """Calculate directory depth of a given path relative to the root of
-        the tree.
-
-        Can also be a negative integer if the path is a parent of the
-        tree root.
-
-        Returns
-        -------
-        int
-            Number of levels of the given path *below* the tree root (positive
-            integer) or *above* the tree root (negative integer)
-        """
-        if is_path_relative_to(path, self.root):
-            return len(path.relative_to(self.root).parts)
-        elif is_path_relative_to(self.root, path):
-            return - len(self.root.relative_to(path).parts)
-        else:
-            raise ValueError("Could not calculate directory depth: "
-                             f"'{path}' is not relative to the tree root "
-                             f"'{self.root}' (or vice-versa)")
-
-    def is_recursive_symlink(self, dir_path: Path):
-        """Detect symlink pointing to a directory within the same tree
-        (directly or indirectly).
-
-        The default behaviour is to follow symlinks. However, we do not follow
-        symlinks to directories that we may visit or have visited already,
-        i.e. are also located under the tree root or any parent of
-        the tree root (within a distance of ``max_depth``).
-
-        Otherwise, the same subtree could be generated multiple times in
-        different places, potentially in a recursive loop (e.g. if the
-        symlink points to its parent).
-
-        This is similar to the logic of the UNIX 'tree' command, but goes a
-        step further to prune all duplicate subtrees.
-        """
-        if not dir_path.is_symlink():
-            return False
-
-        if not dir_path.is_dir():
-            # we are only interested in symlinks pointing to a directory
-            raise ValueError("Path must be a directory")
-
-        target_dir = dir_path.resolve()
-
-        if is_path_relative_to(target_dir, self.root) or \
-                is_path_relative_to(self.root, target_dir):
-            # either:
-            # - target dir is within `max_depth` levels beneath the tree
-            #   root, so it will likely be yielded or has already been
-            #   yielded (bar any exclusion filters)
-            # - target dir is a parent of the tree root, so we may still
-            #   get into a loop if we recurse more than `max_depth` levels
-            return self.max_depth is None or \
-                abs(self.path_depth(target_dir)) <= self.max_depth
+        return path_depth(path, self.root)
 
     def _generate_tree_nodes(self, dir_path: Path):
         """Recursively yield ``_TreeNode`` objects starting from ``dir_path``
@@ -686,7 +653,8 @@ class Tree:
         if self.max_depth is None or \
                 current_depth < self.max_depth:
 
-            if self.is_recursive_symlink(dir_path):
+            if current_node.is_symlink() and \
+                    current_node.is_recursive_symlink(self.max_depth):
                 # if symlink points to directory that we may visit or may
                 # have visited already, do not recurse into it
                 lgr.debug(f"Symlink is potentially recursive, "
@@ -983,7 +951,7 @@ class _TreeNode:
             else self.path  # we are the root
 
     @property
-    def parents(self):
+    def parents(self) -> list[Path]:
         """List of parent paths in top-down order beginning from the tree root.
         Assumes the node path to be already normalized.
 
@@ -1010,6 +978,17 @@ class _TreeNode:
             self.exception = CapturedException(ex, level=10)
             return False
 
+    def get_symlink_target(self) -> str:
+        """If node path is a symlink, get link target as string. Otherwise,
+        return None. Does not check that target path exists."""
+        try:
+            if self.is_symlink():
+                # use os.readlink() instead of Path.readlink() for
+                # Python <3.9 compatibility
+                return readlink(str(self.path))
+        except Exception as ex:
+            self.exception = CapturedException(ex, level=10)
+
     def is_broken_symlink(self) -> bool:
         """If node path is a symlink, check if it points to a nonexisting
         or inaccessible target or to itself (self-referencing link). Raise
@@ -1031,16 +1010,56 @@ class _TreeNode:
             self.exception = CapturedException(ex, level=10)
             return True
 
-    def get_symlink_target(self) -> str:
-        """If node path is a symlink, get link target as string. Otherwise,
-        return None. Does not check that target path exists."""
-        try:
-            if self.is_symlink():
-                # use os.readlink() instead of Path.readlink() for
-                # Python <3.9 compatibility
-                return readlink(str(self.path))
-        except Exception as ex:
-            self.exception = CapturedException(ex, level=10)
+    def is_recursive_symlink(self, max_depth) -> bool:
+        """Detect symlink pointing to a directory within the same tree
+        (directly or indirectly).
+
+        The default behaviour is to follow symlinks when traversing the tree.
+        However, we should not follow symlinks to directories that we may
+        visit or have visited already, i.e. are also located under the tree
+        root or any parent of the tree root (within a distance of
+        ``max_depth``).
+
+        Otherwise, the same subtree could be generated multiple times in
+        different places, potentially in a recursive loop (e.g. if the
+        symlink points to its parent).
+
+        This is similar to the logic of the UNIX 'tree' command, but goes a
+        step further to prune all duplicate subtrees.
+
+        Parameters
+        ----------
+        max_depth
+            Max depth of the ``Tree`` to which this node belongs
+        """
+        if not self.is_symlink():
+            raise ValueError("Node path is not a symlink, cannot check if "
+                             f"symlink is recursive: {self.path}")
+
+        if isinstance(self, FileNode):
+            # we are only interested in symlinks pointing to a directory
+            return False
+
+        if self.is_broken_symlink():
+            # cannot identify target, no way to know if link is recursive
+            return False
+
+        target_dir = self.path.resolve()
+        tree_root = self.tree_root
+
+        if is_path_relative_to(target_dir, tree_root) or \
+                is_path_relative_to(tree_root, target_dir):
+            # either:
+            # - target dir is within `max_depth` levels beneath the tree
+            #   root, so it will likely be yielded or has already been
+            #   yielded (bar any exclusion filters)
+            # - target dir is a parent of the tree root, so we may still
+            #   get into a loop if we recurse more than `max_depth` levels
+            relative_depth = abs(path_depth(target_dir, tree_root))
+            return max_depth is None or \
+                relative_depth <= max_depth
+        else:
+            return False
 
 
 class Node:
