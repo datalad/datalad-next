@@ -589,10 +589,10 @@ class Tree:
         # will not be yielded by the node generator
         self.exclude_node_func = exclude_node_func or self.default_exclude_func
 
-        # keep track of levels where the subtree is exhausted,
-        # i.e. we have reached the last child of the current subtree.
-        # this is needed for the custom results renderer, to display
-        # nodes differently based on their relative position in the tree.
+        # keep track of levels where the subtree is exhausted, i.e. we
+        # have reached the last node of the current subtree.
+        # this is needed for the custom results renderer, to display nodes
+        # differently depending on whether they are the last child or not.
         self.exhausted_levels = set([])
 
         # store dict with count of nodes for each node type, similar to the
@@ -724,6 +724,13 @@ class Tree:
                     self.exhausted_levels.add(self.path_depth(child))
                 else:
                     self.exhausted_levels.discard(self.path_depth(child))
+
+                # remove exhausted levels that are deeper than the
+                # current depth (we don't need them anymore)
+                levels = set(self.exhausted_levels)  # copy
+                self.exhausted_levels.difference_update(
+                    l for l in levels if l > self.path_depth(child)
+                )
 
                 try:
                     # `child.is_dir()` could fail because of permission error

@@ -315,6 +315,9 @@ class TestTree:
         ],
         "test_print_stats": [
             "depth", "include_files", "include_hidden", "expected_stats_str"
+        ],
+        "test_exhausted_levels_are_below_current_depth": [
+            "depth", "include_files", "include_hidden"
         ]
     }
 
@@ -521,6 +524,30 @@ class TestTreeWithoutDatasets(TestTree):
         actual = get_tree_rendered_output(command)
         expected = (root, '', '0 datasets, 0 directories, 0 files')
         assert expected == actual
+
+    def test_exhausted_levels_are_below_current_depth(
+            self, depth, include_files, include_hidden):
+        """For each node, the exhausted levels reported for that node
+        should be smaller or equal to the node's depth"""
+
+        results = TreeCommand.__call__(
+            self.path,
+            depth=depth,
+            include_files=include_files,
+            include_hidden=include_hidden,
+            result_renderer="disabled",
+            # return only 'depth' and 'exhausted_levels' from result dicts
+            result_xfm=lambda res: {k: res[k]
+                                    for k in ("depth", "exhausted_levels")}
+        )
+        # sanity checks
+        assert len(results) > 1
+        assert any(res["exhausted_levels"] for res in results)
+
+        # actual test
+        assert all(level <= res["depth"]
+                   for res in results
+                   for level in res["exhausted_levels"])
 
 
 @pytest.mark.usefixtures("inject_path_ds")
