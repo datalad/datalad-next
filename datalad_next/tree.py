@@ -575,9 +575,11 @@ class Tree:
         exclude_node_func: Callable or None
             Function to filter out tree nodes from the tree
         """
-        self.root = root.resolve()
-        if not self.root.is_dir():
-            raise ValueError(f"Directory not found: '{root}'")
+        self.root = root.resolve(strict=False)
+        try:
+            assert self.root.is_dir(), f"path is not a directory: {self.root}"
+        except (AssertionError, OSError) as ex:  # could be permission error
+            raise ValueError(f"directory not found: '{root}'") from ex
 
         self.max_depth = max_depth
         if max_depth is not None and max_depth < 0:
