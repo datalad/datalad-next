@@ -84,6 +84,18 @@ def create_temp_dir_tree(tree_dict: dict) -> Path:
     return Path(temp_dir_root).resolve()
 
 
+@pytest.fixture(scope="function")
+def path():
+    """Generic fixture for creating a temporary directory tree.
+
+    TODO: harness pytest's native ``tmp_path`` / ``tmp_path_factory``
+    fixtures"""
+    temp_dir_root = create_temp_dir_tree({})  # empty directory
+    yield temp_dir_root
+    rmtemp(temp_dir_root)
+    assert not temp_dir_root.exists()
+
+
 @pytest.fixture(scope="module")
 def path_no_ds():
     """Fixture for creating a temporary directory tree (**without** datasets)
@@ -704,8 +716,7 @@ class TestTreeFilesystemIssues:
             Tree(Path(nonexistent_dir), max_depth=1)
 
     @skip_if_on_windows
-    @with_tempfile
-    def test_print_tree_permission_denied(self, path=None):
+    def test_print_tree_permission_denied(self, path):
         """
         - If the tree contains a directory for which the user has no
           permissions (so it would not be possible to traverse it), a message
@@ -720,7 +731,7 @@ class TestTreeFilesystemIssues:
         # temporarily remove all permissions (octal 000)
         # restore permissions at the end, otherwise we can't delete temp dir
         with ensure_no_permissions(forbidden_dir):
-            command = ['tree', path, '--depth', '2']
+            command = ['tree', str(path), '--depth', '2']
             # expect exit code 1
             _, actual, _ = get_tree_rendered_output(command, exit_code=1)
             expected = f"""
@@ -824,8 +835,7 @@ class TestTreeFilesystemIssues:
         assert expected == actual
 
     @skip_wo_symlink_capability
-    @with_tempfile
-    def test_print_tree_with_recursive_symlinks(self, path=None):
+    def test_print_tree_with_recursive_symlinks(self, path):
         """
         TODO: break down into separate tests
 
@@ -836,14 +846,13 @@ class TestTreeFilesystemIssues:
           themselves, but regular directories (to prevent duplicate counts
           of datasets)
         """
-        parent = Path(path)
-        ds = get_deeply_nested_structure(str(parent / 'superds'))
+        ds = get_deeply_nested_structure(str(path / 'superds'))
 
         # change current dir to create symlinks with relative path
         with chpwd(ds.path):
             # create symlink to a sibling directory of the tree
             # (should be recursed into)
-            (parent / 'ext_dir' / 'ext_subdir').mkdir(parents=True)
+            (path / 'ext_dir' / 'ext_subdir').mkdir(parents=True)
             Path('link2extdir').symlink_to(Path('..') / 'ext_dir',
                                            target_is_directory=True)
 
