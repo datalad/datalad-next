@@ -615,10 +615,6 @@ class Tree:
         Can also be a negative integer if the path is a parent of the
         tree root.
 
-        Parameters
-        ----------
-        path: Path
-
         Returns
         -------
         int
@@ -671,21 +667,22 @@ class Tree:
                 abs(self.path_depth(target_dir)) <= self.max_depth
 
     def _generate_tree_nodes(self, dir_path: Path):
-        """Recursively yield ``_TreeNode`` objects starting from
-        ``dir_path``
+        """Recursively yield ``_TreeNode`` objects starting from ``dir_path``
 
         Parameters
         ----------
         dir_path: Path
             Directory from which to calculate the tree
         """
-        # yield current node
-        yield DirectoryOrDatasetNode(dir_path, self.path_depth(dir_path))
+        # yield current directory/dataset node
+        current_depth = self.path_depth(dir_path)
+        current_node = Node(dir_path, current_depth)
+        yield current_node
 
         # check that we are within max_depth levels
         # (None means unlimited depth)
         if self.max_depth is None or \
-                self.path_depth(dir_path) < self.max_depth:
+                current_depth < self.max_depth:
 
             if self.is_recursive_symlink(dir_path):
                 # if symlink points to directory that we may visit or may
@@ -694,21 +691,23 @@ class Tree:
                           f"will not traverse target directory: '{dir_path}'")
                 return
 
-            try:
-                # sort child nodes alphabetically
-                # needs to be done *before* calling the exclusion function,
-                # because the function may depend on sort order
-                all_children = sorted(list(dir_path.iterdir()))
-            except OSError:
-                # do not recurse into children.
-                # the error should have been already stored as
-                # `CapturedException` in the `exception` attribute of the
-                # current parent node on creation.
+            if current_node.exception is not None:
+                # if some exception occurred when instantiating the node
+                # (missing permissions etc), do not recurse into directory
+                lgr.debug("Node has exception, will not traverse directory: "
+                          f"path={current_node.path}, exc={current_node.exception}")
                 return
+
+            # sort child nodes alphabetically
+            # needs to be done *before* calling the exclusion function,
+            # because the function may depend on sort order
+            all_children = sorted(list(dir_path.iterdir()))
+            child_depth = current_depth + 1
 
             # apply exclusion filters
             children = (
-                p for p in all_children
+                Node(p, child_depth)
+                for p in all_children
                 if not self.exclude_node_func(p)
             )
 
@@ -721,33 +720,23 @@ class Tree:
             for is_last_child, child in yield_with_last_item(children):
 
                 if is_last_child:  # last child of its subtree
-                    self.exhausted_levels.add(self.path_depth(child))
+                    self.exhausted_levels.add(child_depth)
                 else:
-                    self.exhausted_levels.discard(self.path_depth(child))
+                    self.exhausted_levels.discard(child_depth)
 
                 # remove exhausted levels that are deeper than the
                 # current depth (we don't need them anymore)
                 levels = set(self.exhausted_levels)  # copy
                 self.exhausted_levels.difference_update(
-                    l for l in levels if l > self.path_depth(child)
+                    l for l in levels if l > child_depth
                 )
 
-                try:
-                    # `child.is_dir()` could fail because of permission
-                    # error if node is symlink pointing to contents under
-                    # inaccessible directory
-                    if child.is_dir():
-                        # recurse into subdirectories
-                        yield from self._generate_tree_nodes(child)
-                    else:
-                        yield FileNode(child, self.path_depth(child))
-                except OSError as ex:
-                    # assume it's a file
-                    yield FileNode(
-                        child,
-                        self.path_depth(child),
-                        exception=CapturedException(ex, level=10)
-                    )
+                if isinstance(child, (DirectoryNode, DatasetNode)):
+                    # recurse into subdirectories
+                    yield from self._generate_tree_nodes(child.path)
+                else:
+                    # it's a file, just yield it
+                    yield child
 
     @increment_node_count
     def generate_nodes(self):
@@ -913,7 +902,7 @@ class DatasetTree(Tree):
                     if parent not in visited:
                         visited.add(parent)
 
-                        yield DirectoryOrDatasetNode(parent, depth)
+                        yield Node(parent, depth)
 
                 visited.add(node.path)
                 yield node
@@ -977,7 +966,6 @@ class _TreeNode:
         """
         self.path = path
         self.depth = depth
-        # TODO: should be error collection / list of exceptions?
         self.exception = exception
 
     def __eq__(self, other):
@@ -1054,6 +1042,34 @@ class _TreeNode:
             self.exception = CapturedException(ex, level=10)
 
 
+class Node:
+    """
+    Factory class for creating a ``_TreeNode`` of a particular subclass.
+    Detects whether the path is a file or a directory or dataset,
+    and handles any exceptions (permission errors, broken symlinks, etc.)
+    """
+    def __new__(cls, path: Path, depth: int, **kwargs):
+        node_cls = FileNode
+        captured_ex = None
+        try:
+            if path.is_dir():
+                if is_dataset(path):
+                    node_cls = DatasetNode
+                else:
+                    node_cls = DirectoryNode
+        except NoDatasetFound as ex:  # means 'is_dataset()' failed
+            # default to directory node
+            # just log the exception, do not set it as node attribute
+            CapturedException(ex, level=10)
+            node_cls = DirectoryNode
+        except Exception as ex:  # means 'is_dir()' failed
+            # default to file node
+            # set exception as node attribute
+            captured_ex = CapturedException(ex, level=10)
+
+        return node_cls(path, depth, exception=captured_ex, **kwargs)
+
+
 class DirectoryNode(_TreeNode):
     TYPE = "directory"
 
@@ -1062,14 +1078,15 @@ class DirectoryNode(_TreeNode):
 
         try:
             # get first child if exists. this is a check for whether
-            # we can (potentially) recurse into the directory or
+            # we can potentially recurse into the directory or
             # if there are any filesystem issues (permissions errors, etc)
-            # TODO: replace with generic `Path.stat()`? (follows symlinks)
             any(self.path.iterdir())
         except OSError as ex:
             # permission errors etc. are logged and stored as node
             # attribute so they can be passed to results dict.
-            # this will overwrite any exception passed to the constructor.
+            # this will overwrite any exception passed to the constructor,
+            # since we assume that this exception is closer to the root
+            # cause.
             self.exception = CapturedException(ex, level=10)  # DEBUG level
 
 
@@ -1134,20 +1151,3 @@ class DatasetNode(_TreeNode):
             ds = superds
 
         return ds_depth, ds_absolute_depth
-
-
-class DirectoryOrDatasetNode:
-    """Factory class for creating either a ``DirectoryNode`` or
-    ``DatasetNode``, based on whether the path is a dataset or not.
-    """
-    def __new__(cls, path, *args, **kwargs):
-        try:
-            is_ds = is_dataset(path)  # could fail because of permissions etc.
-        except Exception as ex:
-            # if dataset detection has failed, we fall back to a
-            # `DirectoryNode` with the exception stored as attribute
-            ce = CapturedException(ex, level=10)
-            return DirectoryNode(path, *args, exception=ce, **kwargs)
-
-        node_cls = DatasetNode if is_ds else DirectoryNode
-        return node_cls(path, *args, **kwargs)
