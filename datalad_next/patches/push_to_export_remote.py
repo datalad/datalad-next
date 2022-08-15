@@ -167,6 +167,8 @@ def _transfer_data(repo: AnnexRepo,
         )
         return
 
+    from datalad.interface.results import annexjson2result
+
     # TODO:
     #  - check for configuration entries, e.g. what to export
 
@@ -221,12 +223,13 @@ def _transfer_data(repo: AnnexRepo,
                 ],
                 progress=True
             ):
-                yield {
-                    **res_kwargs,
-                    "action": "copy",
-                    "status": "ok",
-                    "path": str(Path(res_kwargs["path"]) / result["file"])
-                }
+                result_adjusted = \
+                    annexjson2result(result, ds, **res_kwargs)
+                # annexjson2result overwrites 'action' with annex' 'command',
+                # even if we provided our 'action' within res_kwargs. Therefore,
+                # change afterwards instead:
+                result_adjusted['action'] = "copy"
+                yield result_adjusted
 
         except CommandError as cmd_error:
             ce = CapturedException(cmd_error)

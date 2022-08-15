@@ -11,6 +11,7 @@ from datalad.tests.utils_pytest import (
     SkipTest,
     assert_false,
     assert_in,
+    assert_in_results,
     assert_true,
     eq_,
 )
@@ -55,11 +56,19 @@ class MockRepo:
 
     def _call_annex_records_items_(self, *args, **kwargs):
         yield {
-            'target': args[0][3],
-            'action': 'copy',
-            'status': 'ok',
+            "command": f"export {args[0][3]}",
             "file": "file.txt",
+            "success": True,
+            "input": [],
+            "error-messages": []
         }
+        yield {
+            "command": f"export {args[0][3]}",
+            "success": False,
+            "input": [],
+            "error-messages":
+                ["external special remote error: WHATEVER WENT WRONG"],
+            "file": "somefile"}
 
 
 def _call_transfer(target: str,
@@ -67,6 +76,7 @@ def _call_transfer(target: str,
                    return_special_remotes: bool = True) -> Generator:
     ds_mock = MagicMock()
     ds_mock.config.getbool.return_value = config_result
+    ds_mock.pathobj = Path("/root")
     return _transfer_data(
         repo=MockRepo(return_special_remotes),
         ds=ds_mock,
@@ -107,14 +117,16 @@ def test_patch_execute_export():
         gele_mock.return_value = None
         results = tuple(_call_transfer("yes-target", False))
         eq_(pd_mock.call_count, 0)
-        assert_in(
-            {
-                "path": str(Path("/root/file.txt")),
-                "target": "yes-target",
-                "action": "copy",
-                "status": "ok",
-            },
-            results)
+        assert_in_results(results,
+                          path=str(Path("/root/file.txt")),
+                          target="yes-target",
+                          action="copy",
+                          status="ok")
+        assert_in_results(results,
+                          path=str(Path("/root/somefile")),
+                          target="yes-target",
+                          action="copy",
+                          status="error")
 
 
 def test_patch_skip_ignore_targets_export():
@@ -144,14 +156,16 @@ def test_patch_check_envpatch():
         gc_mock.return_value = {"secret": "abc", "user": "hans"}
         results = tuple(_call_transfer("yes-target", False))
         eq_(pd_mock.call_count, 0)
-        assert_in(
-            {
-                "path": str(Path("/root/file.txt")),
-                "target": "yes-target",
-                "action": "copy",
-                "status": "ok",
-            },
-            results)
+        assert_in_results(results,
+                          path=str(Path("/root/file.txt")),
+                          target="yes-target",
+                          action="copy",
+                          status="ok")
+        assert_in_results(results,
+                          path=str(Path("/root/somefile")),
+                          target="yes-target",
+                          action="copy",
+                          status="error")
 
 
 def test_no_special_remotes():
