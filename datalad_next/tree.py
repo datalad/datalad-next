@@ -1072,6 +1072,9 @@ class Node:
     and handles any exceptions (permission errors, broken symlinks, etc.)
     """
     def __new__(cls, path: Path, depth: int, **kwargs):
+        if not isinstance(path, Path):
+            raise ValueError("path must be a Path object")
+
         node_cls = FileNode
         captured_ex = None
         try:
