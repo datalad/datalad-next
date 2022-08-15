@@ -457,8 +457,7 @@ def is_dataset(path: Path, installed_only=False):
                       f"dataset: '{path}'")
             return False
 
-        if (path / ".datalad" / "config").is_file() or \
-                (path / ".datalad" / "metadata").is_dir():
+        if (path / ".datalad" / "config").is_file():
             # could also query `ds.id`, but checking just for existence
             # of config file is quicker.
             return True
