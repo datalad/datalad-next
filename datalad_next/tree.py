@@ -951,7 +951,9 @@ class _TreeNode:
             else self.path  # we are the root
 
     @property
-    def parents(self) -> list[Path]:
+    # More accurate annotation only from PY3.9 onwards
+    # def parents(self) -> list[Path]:
+    def parents(self) -> list:
         """List of parent paths in top-down order beginning from the tree root.
         Assumes the node path to be already normalized.
 
