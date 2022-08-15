@@ -177,17 +177,19 @@ def path_ds():
     # create datasets / repos
     root = temp_dir_root / "root"
     BasicGitTestRepo(path=root / "repo0", puke_if_exists=False)
-    superds0 = Dataset(root / "superds0").create(force=True)
-    sd0_subds0 = superds0.create("sd0_subds0", force=True)
-    sd0_subds0.create("sd0_sub0_subds0", force=True)
-    superds1 = Dataset(root / "superds1").create(force=True)
-    superds1.create(Path("sd1_dir0") / "sd1_d0_subds0", force=True)
-    Dataset(root / "superds1" / "sd1_ds0").create(force=True)
+    ckwa = dict(force=True, result_renderer="disabled")
+    superds0 = Dataset(root / "superds0").create(**ckwa)
+    sd0_subds0 = superds0.create("sd0_subds0", **ckwa)
+    sd0_subds0.create("sd0_sub0_subds0", **ckwa)
+    superds1 = Dataset(root / "superds1").create(**ckwa)
+    superds1.create(Path("sd1_dir0") / "sd1_d0_subds0", **ckwa)
+    Dataset(root / "superds1" / "sd1_ds0").create(**ckwa)
     BasicGitTestRepo(
         path=root / "superds1" / "sd1_dir0" / "sd1_d0_repo0",
         puke_if_exists=False)
-    sd1_subds0 = superds1.create("sd1_subds0", force=True)
-    sd1_subds0.drop(what='all', reckless='kill', recursive=True)
+    sd1_subds0 = superds1.create("sd1_subds0", **ckwa)
+    sd1_subds0.drop(what='all', reckless='kill',
+                    recursive=True, result_renderer='disabled')
 
     yield temp_dir_root
 
