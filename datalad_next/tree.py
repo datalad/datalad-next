@@ -505,13 +505,6 @@ def get_subds_paths(ds_path: Path):
     )
 
 
-def is_subds_of_parent(subds_path: Path, parent_path: Path):
-    return any(
-        is_path_relative_to(Path(p), subds_path)
-        for p in get_subds_paths(parent_path)
-    )
-
-
 def get_dataset_root_datalad_only(path: Path):
     """Get root of dataset containing a given path (datalad datasets only,
     not pure git/git-annex repo)
@@ -568,7 +561,7 @@ def get_superdataset(path: Path):
         superds = Dataset(sds_path_)
 
         # test if path is registered subdataset of the parent
-        if not is_subds_of_parent(path, superds.pathobj):
+        if not str(path) in get_subds_paths(superds.pathobj):
             break
 
         # That was a good candidate
@@ -1060,18 +1053,19 @@ class _TreeNode:
         target_dir = self.path.resolve()
         tree_root = self.tree_root
 
-        if is_path_relative_to(target_dir, tree_root) or \
-                is_path_relative_to(tree_root, target_dir):
-            # either:
-            # - target dir is within `max_depth` levels beneath the tree
-            #   root, so it will likely be yielded or has already been
-            #   yielded (bar any exclusion filters)
-            # - target dir is a parent of the tree root, so we may still
-            #   get into a loop if we recurse more than `max_depth` levels
-            relative_depth = abs(path_depth(target_dir, tree_root))
+        # either:
+        # - target dir is within `max_depth` levels beneath the tree
+        #   root, so it will likely be yielded or has already been
+        #   yielded (bar any exclusion filters)
+        # - target dir is a parent of the tree root, so we may still
+        #   get into a loop if we recurse more than `max_depth` levels
+        try:
+            rel_depth = abs(path_depth(target_dir, tree_root))
             return max_depth is None or \
-                relative_depth <= max_depth
-        else:
+                rel_depth <= max_depth
+        except ValueError:
+            # cannot compute path depth because target is outside
+            # of the tree root, so no loop is possible
             return False
 
 
