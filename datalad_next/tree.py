@@ -506,6 +506,7 @@ def get_subds_paths(ds_path: Path):
     )
 
 
+@lru_cache
 def get_dataset_root_datalad_only(path: Path):
     """Get root of dataset containing a given path (datalad datasets only,
     not pure git/git-annex repo)
