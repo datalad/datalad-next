@@ -752,6 +752,8 @@ class DatasetTree(Tree):
         # secondary 'helper' generator that will traverse the whole tree
         # (once) and yield only datasets and their parents directories
         self._ds_generator = self._generate_datasets()
+        # keep track of node paths that have been yielded
+        self._visited = set([])
 
         # current value of the ds_generator. the generator will be initialized
         # lazily, so for now we set the value to a dummy `_TreeNode`
@@ -787,7 +789,8 @@ class DatasetTree(Tree):
 
                 if isinstance(node, DatasetNode):
                     # check if maximum dataset depth is exceeded
-                    is_valid_ds = self._is_valid_dataset(node)
+                    is_valid_ds = not self.exclude_node_func(node) and \
+                                    node.ds_depth <= self.max_dataset_depth
                     if is_valid_ds:
                         self._advance_ds_generator()  # go to next dataset(-parent)
                     return not is_valid_ds
@@ -857,9 +860,6 @@ class DatasetTree(Tree):
             exclude_node_func=exclude,
         )
 
-        # keep track of node paths that have already been yielded
-        visited = set([])
-
         nodes_below_root = ds_tree.generate_nodes()
         next(nodes_below_root)  # skip root node
 
@@ -872,43 +872,37 @@ class DatasetTree(Tree):
 
                 # yield parent directories if not already done
                 parents_below_root = node.parents[1:]  # first parent is root
-                for depth, parent in enumerate(parents_below_root):
-                    if parent not in visited:
-                        visited.add(parent)
+                for par_depth, par_path in enumerate(parents_below_root):
+                    parent = Node(par_path, par_depth)
 
-                        yield Node(parent, depth)
+                    if parent not in self._visited:
+                        self._visited.add(parent)
+                        yield parent
 
-                visited.add(node.path)
+                self._visited.add(node)
                 yield node
 
-    def _is_valid_dataset(self, node):
-        return isinstance(node, DatasetNode) and \
-               is_path_relative_to(node.path, self.root) and \
-               not self.exclude_node_func(node) and \
-               not self._ds_exceeds_max_ds_depth(node)
-
-    def _ds_exceeds_max_ds_depth(self, ds_node):
-        return ds_node.ds_depth > self.max_dataset_depth
-
     def _ds_child_node_exceeds_max_depth(self, ds_node):
-        ds_parent = get_dataset_root_datalad_only(ds_node.path)
-        if ds_parent is None:
-            return True  # it's not a dataset child, we exclude it
+        ds_parent_path = get_dataset_root_datalad_only(ds_node.path)
+        if ds_parent_path is None:
+            # it's not a dataset's child, so exclude
+            return True
 
-        ds_parent_depth = self.path_depth(ds_parent)
-        if not self._is_valid_dataset(Node(ds_parent, ds_parent_depth)):
-            return True  # also exclude
+        if ds_parent_path == self.root:
+            ds_parent_depth = 0
+        else:
+            ds_parent = next((node for node in self._visited
+                             if node.path == ds_parent_path), None)
+            if ds_parent is None:
+                # parent is not part of the tree, so exclude child
+                return True
+            ds_parent_depth = ds_parent.depth
 
         # check directory depth relative to the dataset parent
         rel_depth = ds_node.depth - ds_parent_depth
-        assert rel_depth >= 0, "relative depth from parent cannot be < 0 " \
-                               f"(path: '{ds_node.path}', parent: '{ds_parent}')"
         return rel_depth > self.max_depth
 
     def _is_parent_of_ds(self, node):
-        if isinstance(node, FileNode):
-            return False  # files can't be parents
-
         if self._next_ds is None:
             return False  # no more datasets, can't be a parent
 
