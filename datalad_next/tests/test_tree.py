@@ -715,6 +715,7 @@ class TestTreeFilesystemIssues:
             Tree(Path(nonexistent_dir), max_depth=1)
 
     @skip_if_on_windows
+    @skip_wo_symlink_capability
     def test_print_tree_permission_denied(self, path):
         """
         - If the tree contains a directory for which the user has no
@@ -805,6 +806,7 @@ class TestTreeFilesystemIssues:
         assert set(expected) == set(actual)
 
     @skip_if_on_windows
+    @skip_wo_symlink_capability
     @pytest.mark.parametrize("include_files", (True, False))
     def test_tree_with_broken_symlinks_to_inaccessible_targets(
             self, path, include_files):
