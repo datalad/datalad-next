@@ -423,17 +423,16 @@ def is_empty_dir(path: Path):
 
 
 @lru_cache
-def is_dataset(path: Path):
+def is_dataset(path: Path, installed_only=False):
     """Fast dataset detection.
 
     Infer that a directory is a dataset if it is either:
 
     - installed, or
-    - not installed, but has an installed superdatset.
+    - not installed, but has an installed superdatset (only if argument
+      ``installed_only`` is False)
 
-    Only consider datalad datasets, not plain git/git-annex repos. Datasets
-    used for aggregating metadatata from subdatasets are also counted as
-    datasets, although they do not have a dataset ID themselves.
+    Only consider datalad datasets, not plain git/git-annex repos.
 
     Symlinks pointing to datasets are not resolved, so will always return
     False for symlinks. This prevents potentially detecting duplicate datasets
@@ -442,13 +441,13 @@ def is_dataset(path: Path):
     Results are cached because the check is somewhat expensive and may
     be run multiple times on the same path.
 
-    TODO: is there a way to detect a datalad dataset if it is not installed
-     and it is not a subdataset?
-
     Parameters
     ----------
     path: Path
         Path to directory to be identified as dataset or non-dataset
+
+    installed_only: bool
+        Whether to ignore datasets that are not installed
     """
     try:
         if path.is_symlink():
@@ -468,9 +467,9 @@ def is_dataset(path: Path):
         # instead of querying ds.is_installed() (which checks if the
         # directory has the .git folder), we check if the directory
         # is empty (faster) -- as e.g. after a non-recursive `datalad clone`
-        if is_empty_dir(path):
-            if get_superdataset(path) is not None:
-                return True
+        if not installed_only:
+            if is_empty_dir(path):
+                return get_superdataset(path) is not None
 
     except Exception as ex:
         # if anything fails (e.g. permission denied), we raise exception
@@ -528,7 +527,7 @@ def get_dataset_root_datalad_only(path: Path):
             return None  # we are not inside a dataset
 
         potential_ds_root = Path(potential_ds_root)
-        if is_dataset(potential_ds_root):
+        if is_dataset(potential_ds_root, installed_only=True):
             return potential_ds_root  # it's a match
 
         # we go one directory higher and try again
