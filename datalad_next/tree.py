@@ -417,7 +417,9 @@ def path_depth(path: Path, root: Path):
 
 
 def is_empty_dir(path: Path):
-    return path.is_dir() and not any(path.iterdir())
+    """Does not check that path is a directory (to avoid extra
+    system calls)"""
+    return not any(path.iterdir())
 
 
 @lru_cache
