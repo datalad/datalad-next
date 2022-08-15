@@ -394,15 +394,26 @@ def path_depth(path: Path, root: Path):
     int
         Number of levels of the given path *below* the root (positive
         integer) or *above* the tree root (negative integer)
+
+    Raises
+    ------
+    ValueError
+        Like ``path.relative_to()``, raises ``ValueError`` if the path is not
+        relative to the root
     """
-    if is_path_relative_to(path, root):
-        return len(path.relative_to(root).parts)
-    elif is_path_relative_to(root, path):
-        return - len(root.relative_to(path).parts)
-    else:
-        raise ValueError("Could not calculate directory depth: "
-                         f"'{path}' is not relative to the tree root "
-                         f"'{root}' (or vice-versa)")
+    sign = 1
+    try:
+        rpath = path.relative_to(root)
+    except ValueError:
+        try:
+            rpath = root.relative_to(path)
+            sign = -1
+        except ValueError:
+            raise ValueError(
+                "Could not calculate directory depth: "
+                f"'{path}' is not relative to the tree root "
+                f"'{root}' (or vice-versa)")
+    return sign * len(rpath.parts)
 
 
 def is_empty_dir(path: Path):
