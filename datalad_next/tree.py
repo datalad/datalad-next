@@ -175,25 +175,26 @@ class TreeCommand(Interface):
             constraints=EnsureStr() | EnsureNone()),
         depth=Parameter(
             args=("--depth",),
-            doc="""maximum level of directory tree to display.
-            If not specified, will display all levels.
+            doc="""maximum level of subdirectories to include in the tree.
+            If not specified, will generate the full tree with no depth 
+            constraint.
             If paired with [CMD: ``--dataset-depth`` CMD][PY: 
             ``dataset_depth`` PY], refers to the maximum directory level to 
-            display underneath each dataset.""",
+            generate underneath each dataset.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
             args=("--dataset-depth",),
-            doc="""maximum level of nested subdatasets to display. 0 means
-            only top-level datasets, 1 means top-level datasets and their 
-            immediate subdatasets, etc.""",
+            doc="""maximum level of nested subdatasets to include in the 
+            tree. 0 means only top-level datasets, 1 means top-level 
+            datasets and their immediate subdatasets, etc.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         include_files=Parameter(
             args=("--include-files",),
-            doc="""include files in output display""",
+            doc="""include files in the tree""",
             action='store_true'),
         include_hidden=Parameter(
             args=("--include-hidden",),
-            doc="""include hidden files/directories in output display. This 
+            doc="""include hidden files/directories in the tree. This 
             option does not affect which directories will be searched for 
             datasets when specifying [CMD: ``--dataset-depth`` CMD][PY: 
             ``dataset_depth`` PY]. For example, datasets located underneath 
@@ -203,14 +204,14 @@ class TreeCommand(Interface):
     )
 
     _examples_ = [
-        dict(text="Display up to 3 levels of subdirectories below the current "
+        dict(text="Show up to 3 levels of subdirectories below the current "
                   "directory, including files and hidden contents",
              code_py="tree(depth=3, include_files=True, include_hidden=True)",
              code_cmd="datalad tree --depth 3 --include-files --include-hidden"),
         dict(text="Find all top-level datasets located anywhere under ``/tmp``",
              code_py="tree('/tmp', dataset_depth=0)",
              code_cmd="datalad tree /tmp --dataset-depth 0"),
-        dict(text="Display first- and second-level subdatasets and their "
+        dict(text="Report first- and second-level subdatasets and their "
                   "directory contents, up to 1 subdirectory deep within each "
                   "dataset",
              code_py="tree(dataset_depth=2, depth=1)",
