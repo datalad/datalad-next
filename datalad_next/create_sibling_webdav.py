@@ -13,6 +13,7 @@ from typing import (
     Optional,
     Union,
 )
+from unittest.mock import patch
 from urllib.parse import (
     quote as urlquote,
     urlparse,
@@ -636,8 +637,6 @@ def _create_storage_sibling(
         #https://github.com/datalad/datalad/issues/6634
         #"autoenable=true"
     ]
-    # delayed heavy-ish import
-    from unittest.mock import patch
     # Add a git-annex webdav special remote. This requires to set
     # the webdav environment variables accordingly.
     with patch.dict('os.environ', {

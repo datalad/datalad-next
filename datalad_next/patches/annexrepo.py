@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from unittest.mock import patch
 
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.exceptions import (
@@ -80,7 +81,6 @@ def annexRepo__enable_remote(self, name, options=None, env=None):
                 env.update(credpatch)
 
     try:
-        from unittest.mock import patch
         with patch.object(self._git_runner, 'env', env):
             # TODO: outputs are nohow used/displayed. Eventually convert to
             # to a generator style yielding our "dict records"
