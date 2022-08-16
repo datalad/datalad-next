@@ -51,38 +51,117 @@ lgr = logging.getLogger('datalad.local.tree')
 class TreeCommand(Interface):
     """Visualize directory and dataset hierarchies
 
-    This command mimics the UNIX/MSDOS ``tree`` utility to display a directory
-    tree, highlighting DataLad datasets in the hierarchy.
+    This command mimics the UNIX/MSDOS 'tree' utility to generate and
+    display a directory tree, with DataLad-specific enhancements.
 
-    Two main use cases are covered:
+    It can serve the following purposes:
 
-    1. Glorified ``tree`` command:
+    1. Glorified 'tree' command
+    2. Dataset discovery
+    3. Programmatic directory traversal
 
-      Display the contents of a directory tree and see which directories are
-      datalad datasets (including subdatasets that are present but not
-      installed, such as after a non-recursive clone).
+    *Glorified 'tree' command*
 
-      This is basically just ``tree`` with visual markers for datasets. In
-      addition to it, ``datalad-tree`` provides the following:
+    The rendered command output uses 'tree'-style visualization::
 
-        - The subdataset hierarchy level is shown in the dataset marker
-          (e.g. [DS~2]). This is the absolute level, meaning it may also take
-          into account superdatasets located above the tree root and thus
-          not included in the output.
-        - The 'report line' at the bottom of the output shows the count of
-          displayed datasets, in addition to the count of directories and
-          files.
+        /tmp/mydir
+        ├── [DS~0] ds_A/
+        │   └── [DS~1] subds_A/
+        └── [DS~0] ds_B/
+            ├── dir_B/
+            │   ├── file.txt
+            │   ├── subdir_B/
+            │   └── [DS~1] subds_B0/
+            └── [DS~1] (not installed) subds_B1/
 
-    2. Descriptor of nested subdataset hierarchies:
+        5 datasets, 2 directories, 1 file
 
-      Display the structure of multiple datasets and their hierarchies based
-      on subdataset nesting level, regardless of their location in the
-      directory tree.
+    Dataset paths are prefixed by a marker indicating subdataset hierarchy
+    level, like ``[DS~1]``.
+    This is the absolute subdataset level, meaning it may also take into
+    account superdatasets located above the tree root and thus not included
+    in the output.
+    If a subdataset is registered but not installed (such as after a
+    non-recursive ``datalad clone``), it will be prefixed by ``(not
+    installed)``. Only DataLad datasets are considered, not pure
+    git/git-annex repositories.
 
-      In this case, the tree depth is determined by subdataset depth.
-      There is also the option to display contents (directories/files) of
-      each dataset up to max_depth levels, to provide better context around
-      the datasets.
+    The 'report line' at the bottom of the output shows the count of
+    displayed datasets, in addition to the count of directories and
+    files. In this context, datasets and directories are mutually
+    exclusive categories.
+
+    By default, only directories (no files) are included in the tree,
+    and hidden directories are skipped. Both behaviours can be changed
+    using command options.
+
+    Symbolic links are always followed.
+    This means that a symlink pointing to a directory is traversed and
+    counted as a directory (unless it potentially creates a loop in
+    the tree).
+
+    *Dataset discovery*
+
+    Using the [CMD: ``--dataset-depth`` CMD][PY: ``dataset_depth`` PY]
+    option, this command generates the layout of dataset hierarchies based on
+    subdataset nesting level, regardless of their location in the
+    filesystem.
+
+    In this case, tree depth is determined by subdataset depth. This mode
+    is therefore suited for discovering available datasets when their
+    location is not known in advance.
+
+    By default, only datasets are listed, without their contents. If
+    [CMD: ``--depth`` CMD][PY: ``depth`` PY] is specified additionally,
+    the contents of each dataset will be included up to [CMD:
+    ``--depth`` CMD][PY: ``depth`` PY] directory levels.
+
+    Tree filtering options such as [CMD: ``--include-hidden`` CMD][PY:
+    ``include_hidden`` PY] only affect which directories are
+    reported/displayed,  not which directories are traversed to find datasets.
+
+    *Programmatic directory traversal*
+
+    The command yields a result record for each tree node (dataset,
+    directory or file). The following properties are reported, where available:
+
+    "path"
+        Absolute path of the tree node
+
+    "type"
+        Type of tree node: "dataset", "directory" or "file"
+
+    "depth"
+        Directory depth of node relative to the tree root
+
+    "exhausted_levels"
+        Depth levels for which no nodes are left to be generated (the
+        respective subtrees have been 'exhausted')
+
+    "count"
+        Dict with cumulative counts of datasets, directories and files in the
+        tree up until the current node. File count is only included if the
+        command is run with the [CMD: ``--include-files`` CMD][PY:
+        ``include_files`` PY]
+        option.
+
+    "dataset_depth"
+        Subdataset depth level relative to the tree root. Only included for
+        node type "dataset".
+
+    "dataset_abs_depth"
+        Absolute subdataset depth level. Only included for node type "dataset".
+
+    "dataset_is_installed"
+        Whether the registered subdataset is installed. Only included for node
+        type "dataset".
+
+    "symlink_target"
+        If the tree node is a symlink, the path to the link target
+
+    "is_broken_symlink"
+        If the tree node is a symlink, whether it is a broken symlink
+
     """
 
     result_renderer = 'tailored'
@@ -98,13 +177,15 @@ class TreeCommand(Interface):
             args=("--depth",),
             doc="""maximum level of directory tree to display.
             If not specified, will display all levels.
-            If paired with [CMD: --dataset-depth CMD][PY: dataset_depth PY],
-            refers to the maximum directory level to display underneath each
-            dataset.""",
+            If paired with [CMD: ``--dataset-depth`` CMD][PY: 
+            ``dataset_depth`` PY], refers to the maximum directory level to 
+            display underneath each dataset.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
             args=("--dataset-depth",),
-            doc="""maximum level of nested subdatasets to display""",
+            doc="""maximum level of nested subdatasets to display. 0 means
+            only top-level datasets, 1 means top-level datasets and their 
+            immediate subdatasets, etc.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         include_files=Parameter(
             args=("--include-files",),
@@ -112,22 +193,26 @@ class TreeCommand(Interface):
             action='store_true'),
         include_hidden=Parameter(
             args=("--include-hidden",),
-            doc="""include hidden files/directories in output display""",
+            doc="""include hidden files/directories in output display. This 
+            option does not affect which directories will be searched for 
+            datasets when specifying [CMD: ``--dataset-depth`` CMD][PY: 
+            ``dataset_depth`` PY]. For example, datasets located underneath 
+            the hidden folder `.datalad` will be reported even if [CMD: 
+            ``--include-hidden`` CMD][PY: ``include_hidden`` PY] is omitted.""",
             action='store_true'),
     )
 
     _examples_ = [
-        dict(text="Display up to 3 levels of the current directory's "
-                  "subdirectories and their contents",
-             code_py="tree(depth=3, include_files=True)",
-             code_cmd="datalad tree --depth 3 --include-files"),
-        dict(text="Display all first- and second-level subdatasets of "
-                  "datasets located anywhere under /tmp (including in hidden "
-                  "directories) regardless of directory depth",
-             code_py="tree('/tmp', dataset_depth=2, include_hidden=True)",
-             code_cmd="datalad tree /tmp --dataset-depth 2 --include-hidden"),
+        dict(text="Display up to 3 levels of subdirectories below the current "
+                  "directory, including files and hidden contents",
+             code_py="tree(depth=3, include_files=True, include_hidden=True)",
+             code_cmd="datalad tree --depth 3 --include-files --include-hidden"),
+        dict(text="Find all top-level datasets located anywhere under ``/tmp``",
+             code_py="tree('/tmp', dataset_depth=0)",
+             code_cmd="datalad tree /tmp --dataset-depth 0"),
         dict(text="Display first- and second-level subdatasets and their "
-                  "contents, up to 1 directory deep within each dataset",
+                  "directory contents, up to 1 subdirectory deep within each "
+                  "dataset",
              code_py="tree(dataset_depth=2, depth=1)",
              code_cmd="datalad tree --dataset-depth 2 --depth 1"),
     ]
