@@ -508,7 +508,7 @@ def is_empty_dir(path: Path):
     return not any(path.iterdir())
 
 
-@lru_cache
+@lru_cache()
 def is_dataset(path: Path, installed_only=False):
     """Fast dataset detection.
 
@@ -566,7 +566,7 @@ def is_dataset(path: Path, installed_only=False):
     return False
 
 
-@lru_cache
+@lru_cache()
 def get_subds_paths(ds_path: Path):
     """Return paths of immediate subdatasets for a given dataset path."""
     # This is an expensive operation because it calls git to read the
@@ -591,7 +591,7 @@ def get_subds_paths(ds_path: Path):
     )
 
 
-@lru_cache
+@lru_cache()
 def get_dataset_root_datalad_only(path: Path):
     """Get root of dataset containing a given path (datalad datasets only,
     not pure git/git-annex repo)
@@ -621,7 +621,7 @@ def get_dataset_root_datalad_only(path: Path):
     return ds_root
 
 
-@lru_cache
+@lru_cache()
 def get_superdataset(path: Path):
     """Reimplementation of ``Dataset.get_superdataset()`` to allow caching
     results of `ds.subdatasets()` (the most expensive operation).
@@ -1222,7 +1222,7 @@ class DatasetNode(_TreeNode):
                 # only if exception has not already been passed to constructor
                 self.exception = CapturedException(ex, level=10)
 
-    @lru_cache
+    @lru_cache()
     def calculate_dataset_depth(self):
         """
         Calculate 2 measures of a dataset's nesting depth/level:
