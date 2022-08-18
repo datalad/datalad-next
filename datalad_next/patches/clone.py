@@ -107,31 +107,12 @@ def clone_dataset(
         result_props['source'] = last_candidate
 
     if not destds.is_installed():
-        if len(error_msgs):
-            if all(not e.stdout and not e.stderr for e in error_msgs.values()):
-                # there is nothing we can learn from the actual exception,
-                # the exit code is uninformative, the command is predictable
-                error_msg = "Failed to clone from all attempted sources: %s"
-                error_args = list(error_msgs.keys())
-            else:
-                error_msg = "Failed to clone from any candidate source URL. " \
-                            "Encountered errors per each url were:\n- %s"
-                error_args = '\n- '.join(
-                    '{}\n  {}'.format(url, exc.to_str())
-                    for url, exc in error_msgs.items()
-                )
-        else:
-            # yoh: Not sure if we ever get here but I felt that there could
-            #      be a case when this might happen and original error would
-            #      not be sufficient to troubleshoot what is going on.
-            error_msg = "Awkward error -- we failed to clone properly. " \
-                        "Although no errors were encountered, target " \
-                        "dataset at %s seems to be not fully installed. " \
-                        "The 'succesful' source was: %s"
-            error_args = (destds.path, cand['giturl'])
+        # we do not have a clone, stop, provide aggregate error message
+        # covering all attempts
         yield get_status_dict(
             status='error',
-            message=(error_msg, error_args),
+            message=_format_clone_errors(
+                destds, error_msgs, last_candidate['giturl']),
             **result_props)
         return
 
@@ -384,6 +365,42 @@ def _try_clone(
         'Completed clone attempts for %s', destds
     )
     return cand, error_msgs, None
+
+
+def _format_clone_errors(
+        destds: Dataset,
+        error_msgs: List,
+        last_clone_url: str) -> Tuple:
+    """Format all accumulated clone errors across candidates into one message
+
+    Returns
+    -------
+    (str, list)
+      Message body and string formating arguments for it.
+    """
+    if len(error_msgs):
+        if all(not e.stdout and not e.stderr for e in error_msgs.values()):
+            # there is nothing we can learn from the actual exception,
+            # the exit code is uninformative, the command is predictable
+            error_msg = "Failed to clone from all attempted sources: %s"
+            error_args = list(error_msgs.keys())
+        else:
+            error_msg = "Failed to clone from any candidate source URL. " \
+                        "Encountered errors per each url were:\n- %s"
+            error_args = '\n- '.join(
+                '{}\n  {}'.format(url, exc.to_str())
+                for url, exc in error_msgs.items()
+            )
+    else:
+        # yoh: Not sure if we ever get here but I felt that there could
+        #      be a case when this might happen and original error would
+        #      not be sufficient to troubleshoot what is going on.
+        error_msg = "Awkward error -- we failed to clone properly. " \
+                    "Although no errors were encountered, target " \
+                    "dataset at %s seems to be not fully installed. " \
+                    "The 'succesful' source was: %s"
+        error_args = (destds.path, last_clone_url)
+    return error_msg, error_args
 
 
 # apply patch
