@@ -7,6 +7,7 @@ from typing import (
     Tuple,
 )
 
+from datalad.config import ConfigManager
 from datalad.core.distributed import clone as mod_clone
 from datalad.core.distributed.clone import (
     _get_tracking_source,
@@ -76,6 +77,12 @@ def clone_dataset(
 
     dest_path = destds.pathobj
 
+    #
+    # TODO this is all candidate for extension patching
+    # wrap the whole thing in try-except, catch any exceptions
+    # report it as an error results `rmtree` any intermediate
+    # an return -- like done for checkout failure now.
+    #
     candidate_sources = _generate_candidate_clone_sources(
         srcs, cfg or destds.config)
 
@@ -89,6 +96,12 @@ def clone_dataset(
         result_props.update(stop_props)
         yield get_status_dict(**result_props)
         return
+
+    if reckless is None and cfg:
+        # if reckless is not explicitly given, but we operate on a
+        # superdataset, query whether it has been instructed to operate
+        # in a reckless mode, and inherit it for the coming clone
+        reckless = cfg.get('datalad.clone.reckless', None)
 
     last_candidate, error_msgs, stop_props = _try_clone(
         destds,
@@ -117,29 +130,20 @@ def clone_dataset(
         return
 
     dest_repo = destds.repo
-
     remote = _get_remote(dest_repo)
 
-    if not last_candidate.get("version"):
-        postclone_check_head(destds, remote=remote)
+    for res in _post_git_init_processing_(
+        destds,
+        cfg,
+        last_candidate,
+        remote,
+        reckless,
+    ):
+        # makes sure that any externally generated results cannot overwrite
+        # the expected core properties
+        yield dict(res, **result_props)
 
-    if reckless is None and cfg:
-        # if reckless is not explicitly given, but we operate on a
-        # superdataset, query whether it has been instructed to operate
-        # in a reckless mode, and inherit it for the coming clone
-        reckless = cfg.get('datalad.clone.reckless', None)
-
-    # act on --reckless=shared-...
-    # must happen prior git-annex-init, where we can cheaply alter the repo
-    # setup through safe re-init'ing
-    if reckless and reckless.startswith('shared-'):
-        lgr.debug('Reinitializing %s to enable shared access permissions', destds)
-        destds.repo.call_git(['init', '--shared={}'.format(reckless[7:])])
-
-    # In case of RIA stores we need to prepare *before* annex is called at all
-    if result_props['source']['type'] == 'ria':
-        postclone_preannex_cfg_ria(destds, remote=remote)
-
+    # TODO dissolve into the pre-init, init, and post-init
     yield from postclonecfg_annexdataset(
         destds,
         reckless,
@@ -147,7 +151,8 @@ def clone_dataset(
         remote=remote)
 
     if checkout_gitsha and \
-       dest_repo.get_hexsha(dest_repo.get_corresponding_branch()) != checkout_gitsha:
+       dest_repo.get_hexsha(
+            dest_repo.get_corresponding_branch()) != checkout_gitsha:
         try:
             postclone_checkout_commit(dest_repo, checkout_gitsha,
                                       remote=remote)
@@ -170,25 +175,16 @@ def clone_dataset(
             rmtree(str(dest_path), children_only=dest_path_existed)
             return
 
-    # perform any post-processing that needs to know details of the clone
-    # source
-    if result_props['source']['type'] == 'ria':
-        yield from postclonecfg_ria(destds, result_props['source'],
-                                    remote=remote)
-
-    if reckless:
-        # store the reckless setting in the dataset to make it
-        # known to later clones of subdatasets via get()
-        destds.config.set(
-            'datalad.clone.reckless', reckless,
-            scope='local',
-            reload=True)
-    else:
-        # We would still want to reload configuration to ensure that any of the
-        # above git invocations could have potentially changed the config
-        # TODO: might no longer be necessary if 0.14.0 adds reloading upon
-        # non-readonly commands invocation
-        destds.config.reload()
+    for res in _post_annex_init_processing_(
+        destds,
+        cfg,
+        last_candidate,
+        remote,
+        reckless,
+    ):
+        # makes sure that any externally generated results cannot overwrite
+        # the expected core properties
+        yield dict(res, **result_props)
 
     # yield successful clone of the base dataset now, as any possible
     # subdataset clone down below will not alter the Git-state of the
@@ -413,6 +409,65 @@ def _get_remote(repo: GitRepo) -> str:
     else:
         raise RuntimeError("bug: fresh clone has zero remotes")
     return remote
+
+
+def _post_git_init_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        remote: str,
+        reckless: None or str,
+):
+    if not gitclonerec.get("version"):
+        postclone_check_head(destds, remote=remote)
+
+    # act on --reckless=shared-...
+    # must happen prior git-annex-init, where we can cheaply alter the repo
+    # setup through safe re-init'ing
+    if reckless and reckless.startswith('shared-'):
+        lgr.debug(
+            'Reinitializing %s to enable shared access permissions',
+            destds)
+        destds.repo.call_git(['init', '--shared={}'.format(reckless[7:])])
+
+    # In case of RIA stores we need to prepare *before* annex is called at all
+    if gitclonerec['type'] == 'ria':
+        postclone_preannex_cfg_ria(destds, remote=remote)
+
+    # trick to have the function behave like a generator, even if it
+    # (currently) doesn't actually yield anything.
+    # but a patched version might want to...so for uniformity with
+    # _post_annex_init_processing_() let's do this
+    if False:
+        yield
+
+
+def _post_annex_init_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        remote: str,
+        reckless: None or str,
+):
+    # perform any post-processing that needs to know details of the clone
+    # source
+    if gitclonerec['type'] == 'ria':
+        yield from postclonecfg_ria(destds, gitclonerec,
+                                    remote=remote)
+
+    if reckless:
+        # store the reckless setting in the dataset to make it
+        # known to later clones of subdatasets via get()
+        destds.config.set(
+            'datalad.clone.reckless', reckless,
+            scope='local',
+            reload=True)
+    else:
+        # We would still want to reload configuration to ensure that any of the
+        # above git invocations could have potentially changed the config
+        # TODO: might no longer be necessary if 0.14.0 adds reloading upon
+        # non-readonly commands invocation
+        destds.config.reload()
 
 
 # apply patch
