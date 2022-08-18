@@ -53,7 +53,7 @@ lgr = logging.getLogger('datalad.core.distributed.clone')
 # This function is taken from datalad-core@bacdc8e8f8c942649cba98b15b426670c564ed3f
 # datalad/core/distributed/clone.py
 # Changes
-# -
+# - Refactored into smaller, more manageable units
 def clone_dataset(
         srcs,
         destds,
