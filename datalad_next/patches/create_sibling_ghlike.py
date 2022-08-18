@@ -41,14 +41,16 @@ def _set_request_headers(self, credential_name, auth_info, require_token):
             # it below
             credential_name, credential = creds[0]
             from_query = True
+    if not credential_name:
+        # if we have no name given, fall back on a generated one
+        # that may exist from times before realms were recorded
+        # properly, otherwise we would not be here
+        credential_name = urlparse(self.api_url).netloc
     if not credential:
         # no credential yet
         try:
             credential = credman.get(
-                # if we have no name given, fall back on a generated one
-                # that may exist from times before realms were recorded
-                # properly, otherwise we would not be here
-                credential_name or urlparse(self.api_url).netloc,
+                credential_name,
                 _prompt=auth_info,
                 type='token',
                 realm=self.api_url,
