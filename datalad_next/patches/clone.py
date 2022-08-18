@@ -2,7 +2,10 @@ import logging
 import re
 from os.path import expanduser
 from collections import OrderedDict
-from typing import List
+from typing import (
+    List,
+    Tuple,
+)
 
 from datalad.core.distributed import clone as mod_clone
 from datalad.core.distributed.clone import (
@@ -34,6 +37,9 @@ from datalad.support.network import (
 from datalad.utils import (
     Path,
     rmtree,
+)
+from datalad.distribution.dataset import (
+    Dataset,
 )
 from datalad.distribution.utils import (
     _get_flexible_source_candidates,
@@ -73,45 +79,15 @@ def clone_dataset(
     candidate_sources = _generate_candidate_clone_sources(
         srcs, cfg or destds.config)
 
-    # important test! based on this `rmtree` will happen below after failed clone
-    dest_path_existed = dest_path.exists()
-    if dest_path_existed and any(dest_path.iterdir()):
-        if destds.is_installed():
-            # check if dest was cloned from the given source before
-            # this is where we would have installed this from
-            # this is where it was actually installed from
-            track_name, track_url = _get_tracking_source(destds)
-            try:
-                # this will get us track_url in system native path conventions,
-                # whenever it is a path (and not a URL)
-                # this is needed to match it to any potentially incoming local
-                # source path in the 'notneeded' test below
-                track_path = str(Path(track_url))
-            except Exception as e:
-                CapturedException(e)
-                # this should never happen, because Path() will let any non-path stringification
-                # pass through unmodified, but we do not want any potential crash due to
-                # pathlib behavior changes
-                lgr.debug("Unexpected behavior of pathlib!")
-                track_path = None
-            for cand in candidate_sources:
-                src = cand['giturl']
-                if track_url == src \
-                        or (not is_url(track_url)
-                            and get_local_file_url(track_url, compatibility='git') == src) \
-                        or track_path == expanduser(src):
-                    yield get_status_dict(
-                        status='notneeded',
-                        message=("dataset %s was already cloned from '%s'",
-                                 destds,
-                                 src),
-                        **result_props)
-                    return
-        # anything else is an error
-        yield get_status_dict(
-            status='error',
-            message='target path already exists and not empty, refuse to clone into target path',
-            **result_props)
+    # important test!
+    # based on this `rmtree` will happen below after failed clone
+    dest_path_existed, stop_props = _test_existing_clone_target(
+        destds, candidate_sources)
+    if stop_props:
+        # something happened that indicates we cannot continue
+        # yield and return
+        result_props.update(stop_props)
+        yield get_status_dict(**result_props)
         return
 
     log_progress(
@@ -331,6 +307,63 @@ def _generate_candidate_clone_sources(srcs: List, cfg) -> List:
         for s in _get_flexible_source_candidates(props['giturl'])
     ]
 
+
+def _test_existing_clone_target(
+        destds: Dataset,
+        candidate_sources: List) -> Tuple:
+    """Check if the clone target exists, inspect it, if so
+
+    Returns
+    -------
+    (bool, dict or None)
+      A flag whether the target exists, and either a dict with properties
+      of a result that should be yielded before an immediate return, or
+      None, if the processing can continue
+    """
+    # important test! based on this `rmtree` will happen below after
+    # failed clone
+    dest_path = destds.pathobj
+    dest_path_existed = dest_path.exists()
+    if dest_path_existed and any(dest_path.iterdir()):
+        if destds.is_installed():
+            # check if dest was cloned from the given source before
+            # this is where we would have installed this from
+            # this is where it was actually installed from
+            track_name, track_url = _get_tracking_source(destds)
+            try:
+                # this will get us track_url in system native path conventions,
+                # whenever it is a path (and not a URL)
+                # this is needed to match it to any potentially incoming local
+                # source path in the 'notneeded' test below
+                track_path = str(Path(track_url))
+            except Exception as e:
+                CapturedException(e)
+                # this should never happen, because Path() will let any non-path
+                # stringification pass through unmodified, but we do not want any
+                # potential crash due to pathlib behavior changes
+                lgr.debug("Unexpected behavior of pathlib!")
+                track_path = None
+            for cand in candidate_sources:
+                src = cand['giturl']
+                if track_url == src \
+                        or (not is_url(track_url)
+                            and get_local_file_url(
+                                track_url, compatibility='git') == src) \
+                        or track_path == expanduser(src):
+                    return dest_path_existed, dict(
+                        status='notneeded',
+                        message=("dataset %s was already cloned from '%s'",
+                                 destds,
+                                 src),
+                    )
+        # anything else is an error
+        return dest_path_existed, dict(
+            status='error',
+            message='target path already exists and not empty, '
+                    'refuse to clone into target path',
+        )
+    # found no reason to stop, i.e. empty target dir
+    return dest_path_existed, None
 
 
 # apply patch
