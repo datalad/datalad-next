@@ -68,12 +68,6 @@ def clone_dataset(
             ds=destds,
         )
 
-    if reckless is None and cfg:
-        # if reckless is not explicitly given, but we operate on a
-        # superdataset, query whether it has been instructed to operate
-        # in a reckless mode, and inherit it for the coming clone
-        reckless = cfg.get('datalad.clone.reckless', None)
-
     dest_path = destds.pathobj
 
     candidate_sources = _generate_candidate_clone_sources(
@@ -243,6 +237,12 @@ def clone_dataset(
 
     if not cand.get("version"):
         postclone_check_head(destds, remote=remote)
+
+    if reckless is None and cfg:
+        # if reckless is not explicitly given, but we operate on a
+        # superdataset, query whether it has been instructed to operate
+        # in a reckless mode, and inherit it for the coming clone
+        reckless = cfg.get('datalad.clone.reckless', None)
 
     # act on --reckless=shared-...
     # must happen prior git-annex-init, where we can cheaply alter the repo
