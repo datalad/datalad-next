@@ -118,18 +118,7 @@ def clone_dataset(
 
     dest_repo = destds.repo
 
-    remotes = dest_repo.get_remotes(with_urls_only=True)
-    nremotes = len(remotes)
-    if nremotes == 1:
-        remote = remotes[0]
-        lgr.debug("Determined %s to be remote of %s", remote, destds)
-    elif remotes > 1:
-        lgr.warning(
-            "Fresh clone %s unexpected has multiple remotes: %s. Using %s",
-            destds.path, remotes, remotes[0])
-        remote = remotes[0]
-    else:
-        raise RuntimeError("bug: fresh clone has zero remotes")
+    remote = _get_remote(dest_repo)
 
     if not last_candidate.get("version"):
         postclone_check_head(destds, remote=remote)
@@ -401,6 +390,29 @@ def _format_clone_errors(
                     "The 'succesful' source was: %s"
         error_args = (destds.path, last_clone_url)
     return error_msg, error_args
+
+
+def _get_remote(repo: GitRepo) -> str:
+    """Return the name of the remote of a freshly clones repo
+
+    Raises
+    ------
+    RuntimeError
+      In case there is no remote, which should never happen.
+    """
+    remotes = repo.get_remotes(with_urls_only=True)
+    nremotes = len(remotes)
+    if nremotes == 1:
+        remote = remotes[0]
+        lgr.debug("Determined %s to be remote of %s", remote, repo)
+    elif remotes > 1:
+        lgr.warning(
+            "Fresh clone %s unexpected has multiple remotes: %s. Using %s",
+            repo.path, remotes, remotes[0])
+        remote = remotes[0]
+    else:
+        raise RuntimeError("bug: fresh clone has zero remotes")
+    return remote
 
 
 # apply patch
