@@ -2,6 +2,7 @@ import logging
 import re
 from os.path import expanduser
 from collections import OrderedDict
+from typing import List
 
 from datalad.core.distributed import clone as mod_clone
 from datalad.core.distributed.clone import (
@@ -75,22 +76,8 @@ def clone_dataset(
 
     dest_path = destds.pathobj
 
-    # check for configured URL mappings, either in the given config manager
-    # or in the one of the destination dataset, which is typically not existent
-    # yet and the process config manager is then used effectively
-    srcs = _map_urls(cfg or destds.config, srcs)
-
-    # decode all source candidate specifications
-    candidate_sources = [decode_source_spec(s, cfg=cfg) for s in srcs]
-
-    # now expand the candidate sources with additional variants of the decoded
-    # giturl, while duplicating the other properties in the additional records
-    # for simplicity. The hope is to overcome a few corner cases and be more
-    # robust than git clone
-    candidate_sources = [
-        dict(props, giturl=s) for props in candidate_sources
-        for s in _get_flexible_source_candidates(props['giturl'])
-    ]
+    candidate_sources = _generate_candidate_clone_sources(
+        srcs, cfg or destds.config)
 
     # important test! based on this `rmtree` will happen below after failed clone
     dest_path_existed = dest_path.exists()
@@ -322,6 +309,28 @@ def clone_dataset(
     # subdataset clone down below will not alter the Git-state of the
     # parent
     yield get_status_dict(status='ok', **result_props)
+
+
+def _generate_candidate_clone_sources(srcs: List, cfg) -> List:
+    """Convert "raw" clone source specs to candidate URLs
+    """
+    # check for configured URL mappings, either in the given config manager
+    # or in the one of the destination dataset, which is typically not existent
+    # yet and the process config manager is then used effectively
+    srcs = _map_urls(cfg, srcs)
+
+    # decode all source candidate specifications
+    candidate_sources = [decode_source_spec(s, cfg=cfg) for s in srcs]
+
+    # now expand the candidate sources with additional variants of the decoded
+    # giturl, while duplicating the other properties in the additional records
+    # for simplicity. The hope is to overcome a few corner cases and be more
+    # robust than git clone
+    return [
+        dict(props, giturl=s) for props in candidate_sources
+        for s in _get_flexible_source_candidates(props['giturl'])
+    ]
+
 
 
 # apply patch
