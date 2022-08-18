@@ -1,8 +1,8 @@
 import logging
 import re
 from os.path import expanduser
-from collections import OrderedDict
 from typing import (
+    Dict,
     List,
     Tuple,
 )
@@ -90,82 +90,21 @@ def clone_dataset(
         yield get_status_dict(**result_props)
         return
 
-    log_progress(
-        lgr.info,
-        'cloneds',
-        'Cloning dataset to %s', destds,
-        total=len(candidate_sources),
-        label='Clone attempt',
-        unit=' Candidate locations',
+    last_candidate, error_msgs, stop_props = _try_clone(
+        destds,
+        candidate_sources,
+        clone_opts or [],
+        dest_path_existed,
     )
-    clone_opts = clone_opts or []
-    error_msgs = OrderedDict()  # accumulate all error messages formatted per each url
-    for cand in candidate_sources:
-        log_progress(
-            lgr.info,
-            'cloneds',
-            'Attempting to clone from %s to %s', cand['giturl'], dest_path,
-            update=1,
-            increment=True)
-
-        if cand.get('version', None):
-            opts = clone_opts + ["--branch=" + cand['version']]
-        else:
-            opts = clone_opts
-
-        try:
-            # TODO for now GitRepo.clone() cannot handle Path instances, and PY35
-            # doesn't make it happen seamlessly
-            GitRepo.clone(
-                path=str(dest_path),
-                url=cand['giturl'],
-                clone_options=opts,
-                create=True)
-
-        except CommandError as e:
-            ce = CapturedException(e)
-            e_stderr = e.stderr
-
-            error_msgs[cand['giturl']] = e
-            lgr.debug("Failed to clone from URL: %s (%s)",
-                      cand['giturl'], ce)
-            if dest_path.exists():
-                lgr.debug("Wiping out unsuccessful clone attempt at: %s",
-                          dest_path)
-                # We must not just rmtree since it might be curdir etc
-                # we should remove all files/directories under it
-                # TODO stringification can be removed once patlib compatible
-                # or if PY35 is no longer supported
-                rmtree(str(dest_path), children_only=dest_path_existed)
-
-            if e_stderr and 'could not create work tree' in e_stderr.lower():
-                # this cannot be fixed by trying another URL
-                re_match = re.match(r".*fatal: (.*)$", e_stderr,
-                                    flags=re.MULTILINE | re.DOTALL)
-                # cancel progress bar
-                log_progress(
-                    lgr.info,
-                    'cloneds',
-                    'Completed clone attempts for %s', destds
-                )
-                yield get_status_dict(
-                    status='error',
-                    message=re_match.group(1).strip()
-                    if re_match else "stderr: " + e_stderr,
-                    **result_props)
-                return
-            # next candidate
-            continue
-
-        result_props['source'] = cand
-        # do not bother with other sources if succeeded
-        break
-
-    log_progress(
-        lgr.info,
-        'cloneds',
-        'Completed clone attempts for %s', destds
-    )
+    if stop_props:
+        # no luck, report and stop
+        result_props.update(stop_props)
+        yield get_status_dict(**result_props)
+        return
+    else:
+        # we can record the last attempt as the candidate URL that gave
+        # a successful clone
+        result_props['source'] = last_candidate
 
     if not destds.is_installed():
         if len(error_msgs):
@@ -211,7 +150,7 @@ def clone_dataset(
     else:
         raise RuntimeError("bug: fresh clone has zero remotes")
 
-    if not cand.get("version"):
+    if not last_candidate.get("version"):
         postclone_check_head(destds, remote=remote)
 
     if reckless is None and cfg:
@@ -364,6 +303,87 @@ def _test_existing_clone_target(
         )
     # found no reason to stop, i.e. empty target dir
     return dest_path_existed, None
+
+
+def _try_clone(
+        destds: Dataset,
+        candidate_sources: List,
+        clone_opts: List,
+        dest_path_existed: bool) -> Tuple:
+    """Iterate over candidate URLs and attempt a clone
+
+    Returns
+    -------
+    (dict or None, dict, dict or None)
+      The record of the last clone attempt, a mapping of candidate URLs
+      to potential error messages they yielded, and either a dict with
+      properties of a result that should be yielded before an immediate
+      return, or None, if the processing can continue
+    """
+    error_msgs = dict()  # accumulate all error messages formatted per each url
+    for cand in candidate_sources:
+        log_progress(
+            lgr.info,
+            'cloneds',
+            'Attempting to clone from %s to %s', cand['giturl'], destds.path,
+            update=1,
+            increment=True)
+
+        if cand.get('version', None):
+            opts = clone_opts + ["--branch=" + cand['version']]
+        else:
+            opts = clone_opts
+
+        try:
+            GitRepo.clone(
+                path=destds.path,
+                url=cand['giturl'],
+                clone_options=opts,
+                create=True)
+
+        except CommandError as e:
+            ce = CapturedException(e)
+            e_stderr = e.stderr
+
+            error_msgs[cand['giturl']] = e
+            lgr.debug("Failed to clone from URL: %s (%s)",
+                      cand['giturl'], ce)
+            if destds.pathobj.exists():
+                lgr.debug("Wiping out unsuccessful clone attempt at: %s",
+                          destds.path)
+                # We must not just rmtree since it might be curdir etc
+                # we should remove all files/directories under it
+                # TODO stringification can be removed once patlib compatible
+                # or if PY35 is no longer supported
+                rmtree(destds.path, children_only=dest_path_existed)
+
+            if e_stderr and 'could not create work tree' in e_stderr.lower():
+                # this cannot be fixed by trying another URL
+                re_match = re.match(r".*fatal: (.*)$", e_stderr,
+                                    flags=re.MULTILINE | re.DOTALL)
+                # cancel progress bar
+                log_progress(
+                    lgr.info,
+                    'cloneds',
+                    'Completed clone attempts for %s', destds
+                )
+                return cand, error_msgs, dict(
+                    status='error',
+                    message=re_match.group(1).strip()
+                    if re_match else "stderr: " + e_stderr,
+                )
+            # next candidate
+            continue
+
+        # do not bother with other sources if succeeded
+        break
+
+    log_progress(
+        lgr.info,
+        'cloneds',
+        'Completed clone attempts for %s', destds
+    )
+    return cand, error_msgs, None
 
 
 # apply patch
