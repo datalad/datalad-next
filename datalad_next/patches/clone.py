@@ -146,7 +146,9 @@ def clone_dataset(
         # we are hadly able to distinguish user-error from an other errors
         yield get_status_dict(
             status='error',
-            error_message=ce.message,
+            # XXX A test in core insists on the wrong message type to be used
+            #error_message=ce.message,
+            message=ce.message,
             exception=ce,
             **result_props,
         )
