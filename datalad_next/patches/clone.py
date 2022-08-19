@@ -78,7 +78,7 @@ def clone_dataset(
         result_props = result_props.copy()
 
     candidate_sources = _generate_candidate_clone_sources(
-        srcs, cfg, destds)
+        destds, srcs, cfg)
 
     # important test!
     # based on this `rmtree` will happen below after failed clone
@@ -212,9 +212,9 @@ def _post_gitclone_processing(
 
 
 def _generate_candidate_clone_sources(
+        destds: Dataset,
         srcs: List,
-        cfg: ConfigManager or None,
-        destds: Dataset) -> List:
+        cfg: ConfigManager or None) -> List:
     """Convert "raw" clone source specs to candidate URLs
     """
     # check for configured URL mappings, either in the given config manager
