@@ -129,17 +129,14 @@ def clone_dataset(
     # report it as an error results `rmtree` any intermediate and return
     #
     try:
-        for res in _post_gitclone_processing(
+        yield from _post_gitclone_processing_(
             destds,
             cfg,
             last_candidate,
             reckless,
             checkout_gitsha,
             description,
-        ):
-            # makes sure that any externally generated results cannot overwrite
-            # the expected core properties
-            yield get_status_dict(**res)
+        )
     except Exception as e:
         ce = CapturedException(e)
         # the rational for turning any exception into an error result is that
@@ -159,57 +156,6 @@ def clone_dataset(
     # subdataset clone down below will not alter the Git-state of the
     # parent
     yield get_status_dict(status='ok', **result_props)
-
-
-def _post_gitclone_processing(
-        destds: Dataset,
-        cfg: ConfigManager,
-        gitclonerec: Dict,
-        reckless: None or str,
-        checkout_gitsha: None or str,
-        description: None or str,
-):
-    dest_repo = destds.repo
-    remote = _get_remote(dest_repo)
-
-    yield from _post_git_init_processing_(
-        destds,
-        cfg,
-        gitclonerec,
-        remote,
-        reckless,
-    )
-
-    # TODO dissolve into the pre-init, init, and post-init
-    yield from postclonecfg_annexdataset(
-        destds,
-        reckless,
-        description,
-        remote=remote)
-
-    if checkout_gitsha and \
-       dest_repo.get_hexsha(
-            dest_repo.get_corresponding_branch()) != checkout_gitsha:
-        try:
-            postclone_checkout_commit(dest_repo, checkout_gitsha,
-                                      remote=remote)
-        except Exception:
-            # We were supposed to clone a particular version but failed to.
-            # This is particularly pointless in case of subdatasets and
-            # potentially fatal with current implementation of recursion.
-            # see gh-5387
-            lgr.debug(
-                "Failed to checkout %s, removing this clone attempt at %s",
-                checkout_gitsha, destds.path)
-            raise
-
-    yield from _post_annex_init_processing_(
-        destds,
-        cfg,
-        gitclonerec,
-        remote,
-        reckless,
-    )
 
 
 def _generate_candidate_clone_sources(
@@ -436,6 +382,67 @@ def _get_remote(repo: GitRepo) -> str:
     else:
         raise RuntimeError("bug: fresh clone has zero remotes")
     return remote
+
+
+def _post_gitclone_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        reckless: None or str,
+        checkout_gitsha: None or str,
+        description: None or str,
+):
+    """Perform git-clone post-processing
+
+    This is helper is called immediately after a Git clone was established.
+
+    The properties of that clone are passed via `gitclonerec`.
+
+    Yields
+    ------
+    DataLad result records
+    """
+    dest_repo = destds.repo
+    remote = _get_remote(dest_repo)
+
+    yield from _post_git_init_processing_(
+        destds,
+        cfg,
+        gitclonerec,
+        remote,
+        reckless,
+    )
+
+    # TODO dissolve into the pre-init, init, and post-init
+    yield from postclonecfg_annexdataset(
+        destds,
+        reckless,
+        description,
+        remote=remote)
+
+    if checkout_gitsha and \
+       dest_repo.get_hexsha(
+            dest_repo.get_corresponding_branch()) != checkout_gitsha:
+        try:
+            postclone_checkout_commit(dest_repo, checkout_gitsha,
+                                      remote=remote)
+        except Exception:
+            # We were supposed to clone a particular version but failed to.
+            # This is particularly pointless in case of subdatasets and
+            # potentially fatal with current implementation of recursion.
+            # see gh-5387
+            lgr.debug(
+                "Failed to checkout %s, removing this clone attempt at %s",
+                checkout_gitsha, destds.path)
+            raise
+
+    yield from _post_annex_init_processing_(
+        destds,
+        cfg,
+        gitclonerec,
+        remote,
+        reckless,
+    )
 
 
 def _post_git_init_processing_(
