@@ -12,16 +12,17 @@ from datalad.core.distributed import clone as mod_clone
 from datalad.core.distributed.clone import (
     _get_tracking_source,
     _map_urls,
+    configure_origins,
     decode_source_spec,
     postclone_check_head,
     postclone_checkout_commit,
     postclone_preannex_cfg_ria,
-    postclonecfg_annexdataset,
     postclonecfg_ria,
 )
-
+from datalad.dochelpers import single_or_plural
 from datalad.interface.results import get_status_dict
 from datalad.log import log_progress
+from datalad.support.annexrepo import AnnexRepo
 from datalad.support.gitrepo import (
     GitRepo,
 )
@@ -32,11 +33,15 @@ from datalad.support.exceptions import (
     CapturedException,
 )
 from datalad.support.network import (
+    RI,
     get_local_file_url,
     is_url,
 )
 from datalad.utils import (
     Path,
+    check_symlink_capability,
+    ensure_bool,
+    knows_annex,
     rmtree,
 )
 from datalad.distribution.dataset import (
@@ -382,6 +387,197 @@ def _get_remote(repo: GitRepo) -> str:
     else:
         raise RuntimeError("bug: fresh clone has zero remotes")
     return remote
+
+
+# This function is taken from datalad-core@bacdc8e8f8c942649cba98b15b426670c564ed3f
+# datalad/core/distributed/clone.py
+# Changes
+# -
+def postclonecfg_annexdataset(ds, reckless, description=None, remote="origin"):
+    """If ds "knows annex" -- annex init it, set into reckless etc
+
+    Provides additional tune up to a possibly an annex repo, e.g.
+    "enables" reckless mode, sets up description
+    """
+    # in any case check whether we need to annex-init the installed thing:
+    if not knows_annex(ds.path):
+        # not for us
+        return
+
+    # init annex when traces of a remote annex can be detected
+    if reckless == 'auto':
+        lgr.debug(
+            "Instruct annex to hardlink content in %s from local "
+            "sources, if possible (reckless)", ds.path)
+        ds.config.set(
+            'annex.hardlink', 'true', scope='local', reload=True)
+    elif reckless == 'ephemeral':
+        # In ephemeral clones we set annex.private=true. This would prevent the
+        # location itself being recorded in uuid.log. With a private repo,
+        # declaring dead (see below after annex-init) seems somewhat
+        # superfluous, but on the other hand:
+        # If an older annex that doesn't support private yet touches the
+        # repo, the entire purpose of ephemeral would be sabotaged if we did
+        # not declare dead in addition. Hence, keep it regardless of annex
+        # version.
+        ds.config.set('annex.private', 'true', scope='local')
+
+    lgr.debug("Initializing annex repo at %s", ds.path)
+    # Note, that we cannot enforce annex-init via AnnexRepo().
+    # If such an instance already exists, its __init__ will not be executed.
+    # Therefore do quick test once we have an object and decide whether to call
+    # its _init().
+    #
+    # Additionally, call init if we need to add a description (see #1403),
+    # since AnnexRepo.__init__ can only do it with create=True
+    repo = AnnexRepo(ds.path, init=True)
+    if not repo.is_initialized() or description:
+        repo._init(description=description)
+    if reckless == 'auto' or (reckless and reckless.startswith('shared-')):
+        repo.call_annex(['untrust', 'here'])
+
+    elif reckless == 'ephemeral':
+        # with ephemeral we declare 'here' as 'dead' right away, whenever
+        # we symlink the remote's annex, since availability from 'here' should
+        # not be propagated for an ephemeral clone when we publish back to
+        # the remote.
+        # This will cause stuff like this for a locally present annexed file:
+        # % git annex whereis d1
+        # whereis d1 (0 copies) failed
+        # BUT this works:
+        # % git annex find . --not --in here
+        # % git annex find . --in here
+        # d1
+
+        # we don't want annex copy-to <remote>
+        ds.config.set(
+            f'remote.{remote}.annex-ignore', 'true',
+            scope='local')
+        ds.repo.set_remote_dead('here')
+
+        if check_symlink_capability(ds.repo.dot_git / 'dl_link_test',
+                                    ds.repo.dot_git / 'dl_target_test'):
+            # symlink the annex to avoid needless copies in an ephemeral clone
+            annex_dir = ds.repo.dot_git / 'annex'
+            origin_annex_url = ds.config.get(f"remote.{remote}.url", None)
+            origin_git_path = None
+            if origin_annex_url:
+                try:
+                    # Deal with file:// scheme URLs as well as plain paths.
+                    # If origin isn't local, we have nothing to do.
+                    origin_git_path = Path(RI(origin_annex_url).localpath)
+
+                    # we are local; check for a bare repo first to not mess w/
+                    # the path
+                    if GitRepo(origin_git_path, create=False).bare:
+                        # origin is a bare repo -> use path as is
+                        pass
+                    elif origin_git_path.name != '.git':
+                        origin_git_path /= '.git'
+                except ValueError as e:
+                    CapturedException(e)
+                    # Note, that accessing localpath on a non-local RI throws
+                    # ValueError rather than resulting in an AttributeError.
+                    # TODO: Warning level okay or is info level sufficient?
+                    # Note, that setting annex-dead is independent of
+                    # symlinking .git/annex. It might still make sense to
+                    # have an ephemeral clone that doesn't propagate its avail.
+                    # info. Therefore don't fail altogether.
+                    lgr.warning("reckless=ephemeral mode: %s doesn't seem "
+                                "local: %s\nno symlinks being used",
+                                remote, origin_annex_url)
+            if origin_git_path:
+                # TODO make sure that we do not delete any unique data
+                rmtree(str(annex_dir)) \
+                    if not annex_dir.is_symlink() else annex_dir.unlink()
+                annex_dir.symlink_to(origin_git_path / 'annex',
+                                     target_is_directory=True)
+        else:
+            # TODO: What level? + note, that annex-dead is independent
+            lgr.warning("reckless=ephemeral mode: Unable to create symlinks on "
+                        "this file system.")
+
+    srs = {True: [], False: []}  # special remotes by "autoenable" key
+    remote_uuids = None  # might be necessary to discover known UUIDs
+
+    repo_config = repo.config
+    # Note: The purpose of this function is to inform the user. So if something
+    # looks misconfigured, we'll warn and move on to the next item.
+    for uuid, config in repo.get_special_remotes().items():
+        sr_name = config.get('name', None)
+        if sr_name is None:
+            lgr.warning(
+                'Ignoring special remote %s because it does not have a name. '
+                'Known information: %s',
+                uuid, config)
+            continue
+        sr_autoenable = config.get('autoenable', False)
+        try:
+            sr_autoenable = ensure_bool(sr_autoenable)
+        except ValueError as e:
+            CapturedException(e)
+            lgr.warning(
+                'Failed to process "autoenable" value %r for sibling %s in '
+                'dataset %s as bool.'
+                'You might need to enable it later manually and/or fix it up to'
+                ' avoid this message in the future.',
+                sr_autoenable, sr_name, ds.path)
+            continue
+
+        # If it looks like a type=git special remote, make sure we have up to
+        # date information. See gh-2897.
+        if sr_autoenable and repo_config.get("remote.{}.fetch".format(sr_name)):
+            try:
+                repo.fetch(remote=sr_name)
+            except CommandError as exc:
+                ce = CapturedException(exc)
+                lgr.warning("Failed to fetch type=git special remote %s: %s",
+                            sr_name, exc)
+
+        # determine whether there is a registered remote with matching UUID
+        if uuid:
+            if remote_uuids is None:
+                remote_uuids = {
+                    # Check annex-config-uuid first. For sameas annex remotes,
+                    # this will point to the UUID for the configuration (i.e.
+                    # the key returned by get_special_remotes) rather than the
+                    # shared UUID.
+                    (repo_config.get('remote.%s.annex-config-uuid' % r) or
+                     repo_config.get('remote.%s.annex-uuid' % r))
+                    for r in repo.get_remotes()
+                }
+            if uuid not in remote_uuids:
+                srs[sr_autoenable].append(sr_name)
+
+    if srs[True]:
+        lgr.debug(
+            "configuration for %s %s added because of autoenable,"
+            " but no UUIDs for them yet known for dataset %s",
+            # since we are only at debug level, we could call things their
+            # proper names
+            single_or_plural("special remote",
+                             "special remotes", len(srs[True]), True),
+            ", ".join(srs[True]),
+            ds.path
+        )
+
+    if srs[False]:
+        # if has no auto-enable special remotes
+        lgr.info(
+            'access to %s %s not auto-enabled, enable with:\n'
+            '\t\tdatalad siblings -d "%s" enable -s %s',
+            # but since humans might read it, we better confuse them with our
+            # own terms!
+            single_or_plural("dataset sibling",
+                             "dataset siblings", len(srs[False]), True),
+            ", ".join(srs[False]),
+            ds.path,
+            srs[False][0] if len(srs[False]) == 1 else "SIBLING",
+        )
+
+    # we have just cloned the repo, so it has a remote `remote`, configure any
+    # reachable origin of origins
+    yield from configure_origins(ds, ds, remote=remote)
 
 
 def _post_gitclone_processing_(
