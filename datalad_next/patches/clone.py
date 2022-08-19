@@ -74,6 +74,8 @@ def clone_dataset(
             logger=lgr,
             ds=destds,
         )
+    else:
+        result_props = result_props.copy()
 
     dest_path = destds.pathobj
 
