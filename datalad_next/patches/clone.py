@@ -1,19 +1,16 @@
+""""""
+
+__docformat__ = 'restructuredtext'
+
 import logging
-import re
-from os.path import expanduser
 from typing import (
     Dict,
-    List,
-    Tuple,
 )
 
 from datalad.config import ConfigManager
 from datalad.core.distributed import clone as mod_clone
 from datalad.core.distributed.clone import (
-    _get_tracking_source,
-    _map_urls,
     configure_origins,
-    decode_source_spec,
     postclone_check_head,
     postclone_checkout_commit,
     postclone_preannex_cfg_ria,
@@ -21,7 +18,6 @@ from datalad.core.distributed.clone import (
 )
 from datalad.dochelpers import single_or_plural
 from datalad.interface.results import get_status_dict
-from datalad.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.gitrepo import (
     GitRepo,
@@ -34,8 +30,6 @@ from datalad.support.exceptions import (
 )
 from datalad.support.network import (
     RI,
-    get_local_file_url,
-    is_url,
 )
 from datalad.utils import (
     Path,
@@ -47,11 +41,14 @@ from datalad.utils import (
 from datalad.distribution.dataset import (
     Dataset,
 )
-from datalad.distribution.utils import (
-    _get_flexible_source_candidates,
-)
 
-__docformat__ = 'restructuredtext'
+from .clone_utils import (
+    _get_remote,
+    _format_clone_errors,
+    _try_clone,
+    _test_existing_clone_target,
+    _generate_candidate_clone_sources,
+)
 
 lgr = logging.getLogger('datalad.core.distributed.clone')
 
@@ -161,232 +158,6 @@ def clone_dataset(
     # subdataset clone down below will not alter the Git-state of the
     # parent
     yield get_status_dict(status='ok', **result_props)
-
-
-def _generate_candidate_clone_sources(
-        destds: Dataset,
-        srcs: List,
-        cfg: ConfigManager or None) -> List:
-    """Convert "raw" clone source specs to candidate URLs
-    """
-    # check for configured URL mappings, either in the given config manager
-    # or in the one of the destination dataset, which is typically not existent
-    # yet and the process config is then used effectively
-    srcs = _map_urls(cfg or destds.config, srcs)
-
-    # decode all source candidate specifications
-    # use a given config or pass None to make it use the process config
-    # manager. Theoretically, we could also do
-    # `cfg or destds.config` as done above, but some tests patch
-    # the process config manager
-    candidate_sources = [decode_source_spec(s, cfg=cfg) for s in srcs]
-
-    # now expand the candidate sources with additional variants of the decoded
-    # giturl, while duplicating the other properties in the additional records
-    # for simplicity. The hope is to overcome a few corner cases and be more
-    # robust than git clone
-    return [
-        dict(props, giturl=s) for props in candidate_sources
-        for s in _get_flexible_source_candidates(props['giturl'])
-    ]
-
-
-def _test_existing_clone_target(
-        destds: Dataset,
-        candidate_sources: List) -> Tuple:
-    """Check if the clone target exists, inspect it, if so
-
-    Returns
-    -------
-    (bool, dict or None)
-      A flag whether the target exists, and either a dict with properties
-      of a result that should be yielded before an immediate return, or
-      None, if the processing can continue
-    """
-    # important test! based on this `rmtree` will happen below after
-    # failed clone
-    dest_path = destds.pathobj
-    dest_path_existed = dest_path.exists()
-    if dest_path_existed and any(dest_path.iterdir()):
-        if destds.is_installed():
-            # check if dest was cloned from the given source before
-            # this is where we would have installed this from
-            # this is where it was actually installed from
-            track_name, track_url = _get_tracking_source(destds)
-            try:
-                # this will get us track_url in system native path conventions,
-                # whenever it is a path (and not a URL)
-                # this is needed to match it to any potentially incoming local
-                # source path in the 'notneeded' test below
-                track_path = str(Path(track_url))
-            except Exception as e:
-                CapturedException(e)
-                # this should never happen, because Path() will let any non-path
-                # stringification pass through unmodified, but we do not want any
-                # potential crash due to pathlib behavior changes
-                lgr.debug("Unexpected behavior of pathlib!")
-                track_path = None
-            for cand in candidate_sources:
-                src = cand['giturl']
-                if track_url == src \
-                        or (not is_url(track_url)
-                            and get_local_file_url(
-                                track_url, compatibility='git') == src) \
-                        or track_path == expanduser(src):
-                    return dest_path_existed, dict(
-                        status='notneeded',
-                        message=("dataset %s was already cloned from '%s'",
-                                 destds,
-                                 src),
-                    )
-        # anything else is an error
-        return dest_path_existed, dict(
-            status='error',
-            message='target path already exists and not empty, '
-                    'refuse to clone into target path',
-        )
-    # found no reason to stop, i.e. empty target dir
-    return dest_path_existed, None
-
-
-def _try_clone(
-        destds: Dataset,
-        candidate_sources: List,
-        clone_opts: List,
-        dest_path_existed: bool) -> Tuple:
-    """Iterate over candidate URLs and attempt a clone
-
-    Returns
-    -------
-    (dict or None, dict, dict or None)
-      The record of the last clone attempt, a mapping of candidate URLs
-      to potential error messages they yielded, and either a dict with
-      properties of a result that should be yielded before an immediate
-      return, or None, if the processing can continue
-    """
-    error_msgs = dict()  # accumulate all error messages formatted per each url
-    for cand in candidate_sources:
-        log_progress(
-            lgr.info,
-            'cloneds',
-            'Attempting to clone from %s to %s', cand['giturl'], destds.path,
-            update=1,
-            increment=True)
-
-        if cand.get('version', None):
-            opts = clone_opts + ["--branch=" + cand['version']]
-        else:
-            opts = clone_opts
-
-        try:
-            GitRepo.clone(
-                path=destds.path,
-                url=cand['giturl'],
-                clone_options=opts,
-                create=True)
-
-        except CommandError as e:
-            ce = CapturedException(e)
-            e_stderr = e.stderr
-
-            error_msgs[cand['giturl']] = e
-            lgr.debug("Failed to clone from URL: %s (%s)",
-                      cand['giturl'], ce)
-            if destds.pathobj.exists():
-                lgr.debug("Wiping out unsuccessful clone attempt at: %s",
-                          destds.path)
-                # We must not just rmtree since it might be curdir etc
-                # we should remove all files/directories under it
-                # TODO stringification can be removed once patlib compatible
-                # or if PY35 is no longer supported
-                rmtree(destds.path, children_only=dest_path_existed)
-
-            if e_stderr and 'could not create work tree' in e_stderr.lower():
-                # this cannot be fixed by trying another URL
-                re_match = re.match(r".*fatal: (.*)$", e_stderr,
-                                    flags=re.MULTILINE | re.DOTALL)
-                # cancel progress bar
-                log_progress(
-                    lgr.info,
-                    'cloneds',
-                    'Completed clone attempts for %s', destds
-                )
-                return cand, error_msgs, dict(
-                    status='error',
-                    message=re_match.group(1).strip()
-                    if re_match else "stderr: " + e_stderr,
-                )
-            # next candidate
-            continue
-
-        # do not bother with other sources if succeeded
-        break
-
-    log_progress(
-        lgr.info,
-        'cloneds',
-        'Completed clone attempts for %s', destds
-    )
-    return cand, error_msgs, None
-
-
-def _format_clone_errors(
-        destds: Dataset,
-        error_msgs: List,
-        last_clone_url: str) -> Tuple:
-    """Format all accumulated clone errors across candidates into one message
-
-    Returns
-    -------
-    (str, list)
-      Message body and string formating arguments for it.
-    """
-    if len(error_msgs):
-        if all(not e.stdout and not e.stderr for e in error_msgs.values()):
-            # there is nothing we can learn from the actual exception,
-            # the exit code is uninformative, the command is predictable
-            error_msg = "Failed to clone from all attempted sources: %s"
-            error_args = list(error_msgs.keys())
-        else:
-            error_msg = "Failed to clone from any candidate source URL. " \
-                        "Encountered errors per each url were:\n- %s"
-            error_args = '\n- '.join(
-                '{}\n  {}'.format(url, exc.to_str())
-                for url, exc in error_msgs.items()
-            )
-    else:
-        # yoh: Not sure if we ever get here but I felt that there could
-        #      be a case when this might happen and original error would
-        #      not be sufficient to troubleshoot what is going on.
-        error_msg = "Awkward error -- we failed to clone properly. " \
-                    "Although no errors were encountered, target " \
-                    "dataset at %s seems to be not fully installed. " \
-                    "The 'succesful' source was: %s"
-        error_args = (destds.path, last_clone_url)
-    return error_msg, error_args
-
-
-def _get_remote(repo: GitRepo) -> str:
-    """Return the name of the remote of a freshly clones repo
-
-    Raises
-    ------
-    RuntimeError
-      In case there is no remote, which should never happen.
-    """
-    remotes = repo.get_remotes(with_urls_only=True)
-    nremotes = len(remotes)
-    if nremotes == 1:
-        remote = remotes[0]
-        lgr.debug("Determined %s to be remote of %s", remote, repo)
-    elif remotes > 1:
-        lgr.warning(
-            "Fresh clone %s unexpected has multiple remotes: %s. Using %s",
-            repo.path, remotes, remotes[0])
-        remote = remotes[0]
-    else:
-        raise RuntimeError("bug: fresh clone has zero remotes")
-    return remote
 
 
 def _post_gitclone_processing_(
