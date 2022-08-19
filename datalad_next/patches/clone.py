@@ -389,27 +389,130 @@ def _get_remote(repo: GitRepo) -> str:
     return remote
 
 
-# This function is taken from datalad-core@bacdc8e8f8c942649cba98b15b426670c564ed3f
-# datalad/core/distributed/clone.py
-# Changes
-# -
-def postclonecfg_annexdataset(ds, reckless, description=None, remote="origin"):
-    """If ds "knows annex" -- annex init it, set into reckless etc
+def _post_gitclone_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        reckless: None or str,
+        checkout_gitsha: None or str,
+        description: None or str,
+):
+    """Perform git-clone post-processing
 
-    Provides additional tune up to a possibly an annex repo, e.g.
-    "enables" reckless mode, sets up description
+    This is helper is called immediately after a Git clone was established.
+
+    The properties of that clone are passed via `gitclonerec`.
+
+    Yields
+    ------
+    DataLad result records
     """
-    # in any case check whether we need to annex-init the installed thing:
-    if not knows_annex(ds.path):
-        # not for us
-        return
+    dest_repo = destds.repo
+    remote = _get_remote(dest_repo)
 
-    # init annex when traces of a remote annex can be detected
+    yield from _post_git_init_processing_(
+        destds,
+        cfg,
+        gitclonerec,
+        remote,
+        reckless,
+    )
+
+    if knows_annex(destds.path):
+        # init annex when traces of a remote annex can be detected
+        yield from _pre_annex_init_processing_(
+            destds,
+            cfg,
+            gitclonerec,
+            remote,
+            reckless,
+        )
+        dest_repo = _annex_init(
+            destds,
+            cfg,
+            gitclonerec,
+            remote,
+            description,
+        )
+        yield from _post_annex_init_processing_(
+            destds,
+            cfg,
+            gitclonerec,
+            remote,
+            reckless,
+        )
+
+    if checkout_gitsha and \
+       dest_repo.get_hexsha(
+            dest_repo.get_corresponding_branch()) != checkout_gitsha:
+        try:
+            postclone_checkout_commit(dest_repo, checkout_gitsha,
+                                      remote=remote)
+        except Exception:
+            # We were supposed to clone a particular version but failed to.
+            # This is particularly pointless in case of subdatasets and
+            # potentially fatal with current implementation of recursion.
+            # see gh-5387
+            lgr.debug(
+                "Failed to checkout %s, removing this clone attempt at %s",
+                checkout_gitsha, destds.path)
+            raise
+
+    yield from _pre_final_processing_(
+        destds,
+        cfg,
+        gitclonerec,
+        remote,
+        reckless,
+    )
+
+
+def _post_git_init_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        remote: str,
+        reckless: None or str,
+):
+    """Any post-git-init processing that need not be concerned with git-annex
+    """
+    if not gitclonerec.get("version"):
+        postclone_check_head(destds, remote=remote)
+
+    # act on --reckless=shared-...
+    # must happen prior git-annex-init, where we can cheaply alter the repo
+    # setup through safe re-init'ing
+    if reckless and reckless.startswith('shared-'):
+        lgr.debug(
+            'Reinitializing %s to enable shared access permissions',
+            destds)
+        destds.repo.call_git(['init', '--shared={}'.format(reckless[7:])])
+
+    # In case of RIA stores we need to prepare *before* annex is called at all
+    if gitclonerec['type'] == 'ria':
+        postclone_preannex_cfg_ria(destds, remote=remote)
+
+    # trick to have the function behave like a generator, even if it
+    # (currently) doesn't actually yield anything.
+    # but a patched version might want to...so for uniformity with
+    # _post_annex_init_processing_() let's do this
+    if False:
+        yield
+
+
+def _pre_annex_init_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        remote: str,
+        reckless: None or str,
+):
+    """Pre-processing a to-be-initialized annex repository"""
     if reckless == 'auto':
         lgr.debug(
             "Instruct annex to hardlink content in %s from local "
-            "sources, if possible (reckless)", ds.path)
-        ds.config.set(
+            "sources, if possible (reckless)", destds.path)
+        destds.config.set(
             'annex.hardlink', 'true', scope='local', reload=True)
     elif reckless == 'ephemeral':
         # In ephemeral clones we set annex.private=true. This would prevent the
@@ -420,9 +523,22 @@ def postclonecfg_annexdataset(ds, reckless, description=None, remote="origin"):
         # repo, the entire purpose of ephemeral would be sabotaged if we did
         # not declare dead in addition. Hence, keep it regardless of annex
         # version.
-        ds.config.set('annex.private', 'true', scope='local')
+        destds.config.set('annex.private', 'true', scope='local')
+    # trick to have the function behave like a generator, even if it
+    # (currently) doesn't actually yield anything.
+    if False:
+        yield
 
-    lgr.debug("Initializing annex repo at %s", ds.path)
+
+def _annex_init(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        remote: str,
+        description: None or str,
+):
+    """Initializing an annex repository"""
+    lgr.debug("Initializing annex repo at %s", destds.path)
     # Note, that we cannot enforce annex-init via AnnexRepo().
     # If such an instance already exists, its __init__ will not be executed.
     # Therefore do quick test once we have an object and decide whether to call
@@ -430,9 +546,24 @@ def postclonecfg_annexdataset(ds, reckless, description=None, remote="origin"):
     #
     # Additionally, call init if we need to add a description (see #1403),
     # since AnnexRepo.__init__ can only do it with create=True
-    repo = AnnexRepo(ds.path, init=True)
+    repo = AnnexRepo(destds.path, init=True)
     if not repo.is_initialized() or description:
         repo._init(description=description)
+    return repo
+
+
+def _post_annex_init_processing_(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        remote: str,
+        reckless: None or str,
+):
+    """Post-processing an annex repository"""
+    # convenience aliases
+    repo = destds.repo
+    ds = destds
+
     if reckless == 'auto' or (reckless and reckless.startswith('shared-')):
         repo.call_annex(['untrust', 'here'])
 
@@ -580,105 +711,15 @@ def postclonecfg_annexdataset(ds, reckless, description=None, remote="origin"):
     yield from configure_origins(ds, ds, remote=remote)
 
 
-def _post_gitclone_processing_(
+def _pre_final_processing_(
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
+        remote: str,
         reckless: None or str,
-        checkout_gitsha: None or str,
-        description: None or str,
 ):
-    """Perform git-clone post-processing
-
-    This is helper is called immediately after a Git clone was established.
-
-    The properties of that clone are passed via `gitclonerec`.
-
-    Yields
-    ------
-    DataLad result records
+    """Any post-processing after Git and git-annex pieces are fully initialized
     """
-    dest_repo = destds.repo
-    remote = _get_remote(dest_repo)
-
-    yield from _post_git_init_processing_(
-        destds,
-        cfg,
-        gitclonerec,
-        remote,
-        reckless,
-    )
-
-    # TODO dissolve into the pre-init, init, and post-init
-    yield from postclonecfg_annexdataset(
-        destds,
-        reckless,
-        description,
-        remote=remote)
-
-    if checkout_gitsha and \
-       dest_repo.get_hexsha(
-            dest_repo.get_corresponding_branch()) != checkout_gitsha:
-        try:
-            postclone_checkout_commit(dest_repo, checkout_gitsha,
-                                      remote=remote)
-        except Exception:
-            # We were supposed to clone a particular version but failed to.
-            # This is particularly pointless in case of subdatasets and
-            # potentially fatal with current implementation of recursion.
-            # see gh-5387
-            lgr.debug(
-                "Failed to checkout %s, removing this clone attempt at %s",
-                checkout_gitsha, destds.path)
-            raise
-
-    yield from _post_annex_init_processing_(
-        destds,
-        cfg,
-        gitclonerec,
-        remote,
-        reckless,
-    )
-
-
-def _post_git_init_processing_(
-        destds: Dataset,
-        cfg: ConfigManager,
-        gitclonerec: Dict,
-        remote: str,
-        reckless: None or str,
-):
-    if not gitclonerec.get("version"):
-        postclone_check_head(destds, remote=remote)
-
-    # act on --reckless=shared-...
-    # must happen prior git-annex-init, where we can cheaply alter the repo
-    # setup through safe re-init'ing
-    if reckless and reckless.startswith('shared-'):
-        lgr.debug(
-            'Reinitializing %s to enable shared access permissions',
-            destds)
-        destds.repo.call_git(['init', '--shared={}'.format(reckless[7:])])
-
-    # In case of RIA stores we need to prepare *before* annex is called at all
-    if gitclonerec['type'] == 'ria':
-        postclone_preannex_cfg_ria(destds, remote=remote)
-
-    # trick to have the function behave like a generator, even if it
-    # (currently) doesn't actually yield anything.
-    # but a patched version might want to...so for uniformity with
-    # _post_annex_init_processing_() let's do this
-    if False:
-        yield
-
-
-def _post_annex_init_processing_(
-        destds: Dataset,
-        cfg: ConfigManager,
-        gitclonerec: Dict,
-        remote: str,
-        reckless: None or str,
-):
     # perform any post-processing that needs to know details of the clone
     # source
     if gitclonerec['type'] == 'ria':
