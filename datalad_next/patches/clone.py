@@ -77,14 +77,6 @@ def clone_dataset(
     else:
         result_props = result_props.copy()
 
-    dest_path = destds.pathobj
-
-    #
-    # TODO this is all candidate for extension patching
-    # wrap the whole thing in try-except, catch any exceptions
-    # report it as an error results `rmtree` any intermediate
-    # an return -- like done for checkout failure now.
-    #
     candidate_sources = _generate_candidate_clone_sources(
         srcs, cfg, destds)
 
@@ -131,19 +123,61 @@ def clone_dataset(
             **result_props)
         return
 
+    #
+    # At minimum all further processing is all candidate for extension
+    # patching.  wrap the whole thing in try-except, catch any exceptions
+    # report it as an error results `rmtree` any intermediate and return
+    #
+    try:
+        for res in _post_gitclone_processing(
+            destds,
+            cfg,
+            last_candidate,
+            reckless,
+            checkout_gitsha,
+            description,
+        ):
+            # makes sure that any externally generated results cannot overwrite
+            # the expected core properties
+            yield get_status_dict(**res)
+    except Exception as e:
+        ce = CapturedException(e)
+        # the rational for turning any exception into an error result is that
+        # we are hadly able to distinguish user-error from an other errors
+        yield get_status_dict(
+            status='error',
+            # TODO is this needed when we add exception=?
+            message=str(ce),
+            exception=ce,
+            **result_props,
+        )
+        rmtree(destds.path, children_only=dest_path_existed)
+        return
+
+    # yield successful clone of the base dataset now, as any possible
+    # subdataset clone down below will not alter the Git-state of the
+    # parent
+    yield get_status_dict(status='ok', **result_props)
+
+
+def _post_gitclone_processing(
+        destds: Dataset,
+        cfg: ConfigManager,
+        gitclonerec: Dict,
+        reckless: None or str,
+        checkout_gitsha: None or str,
+        description: None or str,
+):
     dest_repo = destds.repo
     remote = _get_remote(dest_repo)
 
-    for res in _post_git_init_processing_(
+    yield from _post_git_init_processing_(
         destds,
         cfg,
-        last_candidate,
+        gitclonerec,
         remote,
         reckless,
-    ):
-        # makes sure that any externally generated results cannot overwrite
-        # the expected core properties
-        yield dict(res, **result_props)
+    )
 
     # TODO dissolve into the pre-init, init, and post-init
     yield from postclonecfg_annexdataset(
@@ -158,40 +192,23 @@ def clone_dataset(
         try:
             postclone_checkout_commit(dest_repo, checkout_gitsha,
                                       remote=remote)
-        except Exception as e:
-            ce = CapturedException(e)
-            yield get_status_dict(
-                status='error',
-                message=str(ce),
-                exception=ce,
-                **result_props,
-            )
-
+        except Exception:
             # We were supposed to clone a particular version but failed to.
             # This is particularly pointless in case of subdatasets and
             # potentially fatal with current implementation of recursion.
             # see gh-5387
-            lgr.debug("Failed to checkout %s, removing this clone attempt at %s", checkout_gitsha, dest_path)
-            # TODO stringification can be removed once pathlib compatible
-            # or if PY35 is no longer supported
-            rmtree(str(dest_path), children_only=dest_path_existed)
-            return
+            lgr.debug(
+                "Failed to checkout %s, removing this clone attempt at %s",
+                checkout_gitsha, destds.path)
+            raise
 
-    for res in _post_annex_init_processing_(
+    yield from _post_annex_init_processing_(
         destds,
         cfg,
-        last_candidate,
+        gitclonerec,
         remote,
         reckless,
-    ):
-        # makes sure that any externally generated results cannot overwrite
-        # the expected core properties
-        yield dict(res, **result_props)
-
-    # yield successful clone of the base dataset now, as any possible
-    # subdataset clone down below will not alter the Git-state of the
-    # parent
-    yield get_status_dict(status='ok', **result_props)
+    )
 
 
 def _generate_candidate_clone_sources(
