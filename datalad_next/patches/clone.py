@@ -84,7 +84,7 @@ def clone_dataset(
     # an return -- like done for checkout failure now.
     #
     candidate_sources = _generate_candidate_clone_sources(
-        srcs, cfg or destds.config)
+        srcs, cfg, destds)
 
     # important test!
     # based on this `rmtree` will happen below after failed clone
@@ -192,15 +192,22 @@ def clone_dataset(
     yield get_status_dict(status='ok', **result_props)
 
 
-def _generate_candidate_clone_sources(srcs: List, cfg) -> List:
+def _generate_candidate_clone_sources(
+        srcs: List,
+        cfg: ConfigManager or None,
+        destds: Dataset) -> List:
     """Convert "raw" clone source specs to candidate URLs
     """
     # check for configured URL mappings, either in the given config manager
     # or in the one of the destination dataset, which is typically not existent
-    # yet and the process config manager is then used effectively
-    srcs = _map_urls(cfg, srcs)
+    # yet and the process config is then used effectively
+    srcs = _map_urls(cfg or destds.config, srcs)
 
     # decode all source candidate specifications
+    # use a given config or pass None to make it use the process config
+    # manager. Theoretically, we could also do
+    # `cfg or destds.config` as done above, but some tests patch
+    # the process config manager
     candidate_sources = [decode_source_spec(s, cfg=cfg) for s in srcs]
 
     # now expand the candidate sources with additional variants of the decoded
