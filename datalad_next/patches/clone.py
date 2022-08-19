@@ -146,8 +146,7 @@ def clone_dataset(
         # we are hadly able to distinguish user-error from an other errors
         yield get_status_dict(
             status='error',
-            # TODO is this needed when we add exception=?
-            message=str(ce),
+            error_message=ce.message,
             exception=ce,
             **result_props,
         )
