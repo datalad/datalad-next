@@ -11,7 +11,10 @@
 __docformat__ = "numpy"
 
 import logging
-from functools import wraps, lru_cache
+from functools import (
+    wraps,
+    lru_cache
+)
 from os import readlink
 from pathlib import Path
 
