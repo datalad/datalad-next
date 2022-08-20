@@ -17,7 +17,9 @@ from datalad.core.distributed.clone import (
     decode_source_spec,
 )
 from datalad.distribution.dataset import Dataset
+from datalad.dochelpers import single_or_plural
 from datalad.log import log_progress
+from datalad.support.annexrepo import AnnexRepo
 from datalad.support.exceptions import CapturedException
 from datalad.runner.exception import CommandError
 from datalad.support.gitrepo import GitRepo
@@ -26,7 +28,10 @@ from datalad.support.network import (
     is_url,
 )
 from datalad.distribution.utils import _get_flexible_source_candidates
-from datalad.utils import rmtree
+from datalad.utils import (
+    ensure_bool,
+    rmtree,
+)
 
 __docformat__ = 'restructuredtext'
 
@@ -257,3 +262,84 @@ def _get_remote(repo: GitRepo) -> str:
     else:
         raise RuntimeError("bug: fresh clone has zero remotes")
     return remote
+
+
+def _check_autoenable_special_remotes(repo: AnnexRepo):
+    """Check and report on misconfigured/disfunctional special remotes
+    """
+    srs = {True: [], False: []}  # special remotes by "autoenable" key
+    remote_uuids = None  # might be necessary to discover known UUIDs
+
+    repo_config = repo.config
+    for uuid, config in repo.get_special_remotes().items():
+        sr_name = config.get('name', None)
+        if sr_name is None:
+            lgr.warning(
+                'Ignoring special remote %s because it does not have a name. '
+                'Known information: %s',
+                uuid, config)
+            continue
+        sr_autoenable = config.get('autoenable', False)
+        try:
+            sr_autoenable = ensure_bool(sr_autoenable)
+        except ValueError as e:
+            CapturedException(e)
+            lgr.warning(
+                'Failed to process "autoenable" value %r for sibling %s in '
+                'dataset %s as bool.'
+                'You might need to enable it later manually and/or fix it up '
+                'to avoid this message in the future.',
+                sr_autoenable, sr_name, repo.path)
+            continue
+
+        # If it looks like a type=git special remote, make sure we have up to
+        # date information. See gh-2897.
+        if sr_autoenable and repo_config.get(
+                "remote.{}.fetch".format(sr_name)):
+            try:
+                repo.fetch(remote=sr_name)
+            except CommandError as exc:
+                ce = CapturedException(exc)
+                lgr.warning("Failed to fetch type=git special remote %s: %s",
+                            sr_name, ce)
+
+        # determine whether there is a registered remote with matching UUID
+        if uuid:
+            if remote_uuids is None:
+                remote_uuids = {
+                    # Check annex-config-uuid first. For sameas annex remotes,
+                    # this will point to the UUID for the configuration (i.e.
+                    # the key returned by get_special_remotes) rather than the
+                    # shared UUID.
+                    (repo_config.get('remote.%s.annex-config-uuid' % r) or
+                     repo_config.get('remote.%s.annex-uuid' % r))
+                    for r in repo.get_remotes()
+                }
+            if uuid not in remote_uuids:
+                srs[sr_autoenable].append(sr_name)
+
+    if srs[True]:
+        lgr.debug(
+            "configuration for %s %s added because of autoenable,"
+            " but no UUIDs for them yet known for dataset %s",
+            # since we are only at debug level, we could call things their
+            # proper names
+            single_or_plural("special remote",
+                             "special remotes", len(srs[True]), True),
+            ", ".join(srs[True]),
+            repo.path
+        )
+
+    if srs[False]:
+        # if has no auto-enable special remotes
+        lgr.info(
+            'access to %s %s not auto-enabled, enable with:\n'
+            '\t\tdatalad siblings -d "%s" enable -s %s',
+            # but since humans might read it, we better confuse them with our
+            # own terms!
+            single_or_plural("dataset sibling",
+                             "dataset siblings", len(srs[False]), True),
+            ", ".join(srs[False]),
+            repo.path,
+            srs[False][0] if len(srs[False]) == 1 else "SIBLING",
+        )
