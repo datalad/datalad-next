@@ -702,6 +702,24 @@ class TestDatasetTree(TestTree):
         ui.message(actual_res)
         assert_str_equal(expected_res, actual_res)
 
+    def test_print_tree_without_datasets(self):
+        """If there are no datasets, should only print the root"""
+        root = str(self.path / "root" / "repo0")
+        command = [
+            'tree',
+            root,
+            '--depth', '10',
+            '--dataset-depth', '10',
+            '--include-files'
+        ]
+        _, actual_res, _ = get_tree_rendered_output(command)
+        expected_res = ""
+        ui.message("expected:")
+        ui.message(expected_res)
+        ui.message("actual:")
+        ui.message(actual_res)
+        assert_str_equal(expected_res, actual_res)
+
     def test_print_stats(
             self, dataset_depth, depth, expected_stats_str
     ):
