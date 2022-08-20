@@ -860,100 +860,50 @@ class DatasetTree(Tree):
             # by default, do not include datasets' contents
             self.max_depth = 0
 
-        # secondary 'helper' generator that will traverse the whole tree
-        # (once) and yield only datasets and their parents directories
-        self._ds_generator = self._generate_datasets()
-        # keep track of node paths that have been yielded
-        self._visited = set([])
+        # lazy initialization of list of datasets and their parents,
+        # will be computed when generating nodes for the first time
+        self.ds_nodes = []
 
-        # current value of the ds_generator. the generator will be initialized
-        # lazily, so for now we set the value to a dummy `_TreeNode`
-        # with an impossible depth just to distinguish it from None
-        # (None means the generator has finished).
-        self._next_ds = _TreeNode(self.root, None)
+    def __repr__(self):
+        return self.__class__.__name__ + \
+                f"('{self.root}', " \
+                f"max_dataset_depth={self.max_dataset_depth}, " \
+                f"max_depth={self.max_depth})"
 
     @increment_node_count
     def generate_nodes(self):
-        """
-        Yield ``_TreeNode`` objects that belong to the tree.
+        # compute full list of dataset nodes and their parents upfront.
+        # this requires an unlimited-depth tree traversal, so will
+        # be the slowest operation
+        if not self.ds_nodes:
+            lgr.debug("Started computing dataset nodes for " + repr(self))
+            self.ds_nodes = list(self.generate_dataset_nodes())
+            lgr.debug("Finished computing dataset nodes for " + repr(self))
 
-        A ``DatasetTree`` is just an unlimited-depth ``Tree`` with more
-        complex rules for pruning (skipping traversal of particular nodes).
-        Each exclusion rule is encoded in a function. The rules are then
-        combined in a final ``exclusion_func`` which is supplied to the
-        ``Tree`` constructor.
-
-        Returns
-        -------
-        Generator[_TreeNode]
-        """
-
-        def exclude_func(node: _TreeNode):
-            """Exclusion function -- here is the crux of the logic for
-            pruning the main tree."""
-
-            try:
-                # initialize dataset(-parent) generator if not done yet
-                if self._next_ds is not None and \
-                        self._next_ds.depth is None:  # dummy depth
-                    self._advance_ds_generator()
-
-                if isinstance(node, DatasetNode):
-                    # check if maximum dataset depth is exceeded
-                    is_valid_ds = not self.exclude_node_func(node) and \
-                                    node.ds_depth <= self.max_dataset_depth
-                    if is_valid_ds:
-                        self._advance_ds_generator()  # go to next dataset(-parent)
-                    return not is_valid_ds
-
-                # exclude file or directory underneath a dataset,
-                # if it has depth (relative to dataset root) > max_depth,
-                # unless (in case of a directory) it is itself the parent of a
-                # valid dataset. if it's a parent of a dataset, we don't apply
-                # any filters -- it's just a means to get to the next dataset.
-                if not self._is_parent_of_ds(node):
-                    return self.exclude_node_func(node) or \
-                           self._ds_child_node_exceeds_max_depth(node)
-
-            except Exception as ex:
-                CapturedException(ex, level=10)  # DEBUG level
-                lgr.debug(f"Excluding node from tree because "
-                          "an exception occurred while applying the "
-                          f"exclusion filter: '{node.path}'")
-                return True  # exclude by default
-
-            return False  # do not exclude
+        if not self.ds_nodes:
+            depth = 0  # no datasets to report on, just yield the root
+        else:
+            depth = max(node.depth for node in self.ds_nodes) + \
+                    self.max_depth  # max levels below the deepest dataset
 
         tree = Tree(
             self.root,
-            max_depth=None,  # unlimited traversal (datasets could be anywhere)
-            exclude_node_func=exclude_func,
+            max_depth=depth,
+            exclude_node_func=self.exclude_func,
         )
         # synchronize exhausted levels with the main tree
         self.exhausted_levels = tree.exhausted_levels
 
         yield from tree.generate_nodes()
 
-    def _advance_ds_generator(self):
-        """Go to the next dataset or parent of dataset"""
-        self._next_ds = next(self._ds_generator, None)
-        if self._next_ds is not None:
-            lgr.debug(
-                f"Next dataset" +
-                (" parent" if isinstance(self._next_ds, DirectoryNode) else "")
-                + f": {self._next_ds.path}")
-
-    def _generate_datasets(self):
-        """Generator of dataset nodes and their parent directories starting
+    def generate_dataset_nodes(self):
+        """
+        Generator of dataset nodes and their parent directories starting
         from below the tree root and up to ``max_dataset_depth`` levels.
 
-        This secondary 'helper' tree will be generated in parallel with the
-        main tree but will be one step ahead, such that it always points to
-        the next dataset (or dataset parent) relative to the current node in
-        the main tree.
-
-        We can use it to look into downstream/future nodes and decide
-        efficiently whether to prune the current node in the main tree.
+        The assumption is that (super)datasets could be located at any level
+        of the directory tree. Therefore, this function does a full-depth
+        tree traversal to discover datasets.
 
         Returns
         -------
@@ -965,12 +915,15 @@ class DatasetTree(Tree):
             return isinstance(n, FileNode) or \
                    (isinstance(n, DirectoryNode) and n.path.name == ".git")
 
+        # keep track of traversed nodes
+        # (needed to prevent yielding duplicates)
+        visited = set([])
+
         ds_tree = Tree(
             self.root,
-            max_depth=None,
-            exclude_node_func=exclude,
+            max_depth=None,  # unlimited depth, datasets could be anywhere
+            exclude_node_func=is_excluded,
         )
-
         nodes_below_root = ds_tree.generate_nodes()
         next(nodes_below_root)  # skip root node
 
@@ -986,43 +939,56 @@ class DatasetTree(Tree):
                 for par_depth, par_path in enumerate(parents_below_root):
                     parent = Node(par_path, par_depth)
 
-                    if parent not in self._visited:
-                        self._visited.add(parent)
+                    if parent not in visited:
+                        visited.add(parent)
                         yield parent
 
-                self._visited.add(node)
+                visited.add(node)
                 yield node
 
-    def _ds_child_node_exceeds_max_depth(self, ds_node):
-        ds_parent_path = get_dataset_root_datalad_only(ds_node.path)
-        if ds_parent_path is None:
-            # it's not a dataset's child, so exclude
-            return True
+    def exclude_func(self, node):
+        """Exclusion function for pruning the main tree"""
+        include, exclude = False, True  # prevent headaches
 
-        if ds_parent_path == self.root:
-            ds_parent_depth = 0
-        else:
-            ds_parent = next((node for node in self._visited
-                             if node.path == ds_parent_path), None)
-            if ds_parent is None:
-                # parent is not part of the tree, so exclude child
-                return True
-            ds_parent_depth = ds_parent.depth
+        try:
+            if node in self.ds_nodes:
+                # we hit a dataset or the parent of a dataset
+                return include
 
-        # check directory depth relative to the dataset parent
-        rel_depth = ds_node.depth - ds_parent_depth
-        return rel_depth > self.max_depth
+            # if `max_depth` is specified for returning dataset contents,
+            # exclude non-dataset nodes below a dataset that have
+            # depth (relative to parent dataset) > max_depth
+            if self.max_depth > 0 and \
+                    not isinstance(node, DatasetNode):
 
-    def _is_parent_of_ds(self, node):
-        if self._next_ds is None:
-            return False  # no more datasets, can't be a parent
+                # check that node is the child of a dataset
+                ds_parent = self._find_closest_ds_parent(node)
+                if ds_parent is not None:
+                    rel_depth = node.depth - ds_parent.depth
+                    exceeds_max_depth = rel_depth > self.max_depth
+                    # also filter by the user-supplied
+                    # exclusion logic in `exclude_node_func`
+                    return exceeds_max_depth or \
+                        self.exclude_node_func(node)
 
-        if self._next_ds.path == node.path:
-            # we hit a dataset or the parent of a dataset
-            self._advance_ds_generator()
-            return True
+        except Exception as ex:
+            CapturedException(ex, level=10)  # DEBUG level
+            lgr.debug(f"Excluding node from tree because "
+                      "an exception occurred while applying the "
+                      f"exclusion filter: '{node.path}'")
 
-        return False
+        return exclude  # exclude by default
+
+    def _find_closest_ds_parent(self, node):
+        ds_parent = None
+        for parent_path in node.path.parents:  # bottom-up order
+            ds_parent = next((n for n in self.ds_nodes
+                              if n.path == parent_path and
+                              isinstance(n, DatasetNode)), None)
+            if ds_parent is not None:
+                break
+
+        return ds_parent
 
 
 class _TreeNode:
