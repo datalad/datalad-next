@@ -123,6 +123,13 @@ class TreeCommand(Interface):
     ``include_hidden`` PY] only affect which directories are
     reported/displayed,  not which directories are traversed to find datasets.
 
+    **Performance note**: since no assumption is made on the location of
+    datasets, running this command with the [CMD: ``--dataset-depth`` CMD][PY:
+    ``dataset_depth`` PY] option does a full scan of the whole directory
+    tree. As such, it can be significantly slower than a call with an
+    equivalent output that uses [CMD: ``--depth`` CMD][PY: ``depth`` PY] to
+    limit the tree instead.
+
     *Programmatic directory traversal*
 
     The command yields a result record for each tree node (dataset,
@@ -189,7 +196,8 @@ class TreeCommand(Interface):
             args=("--dataset-depth",),
             doc="""maximum level of nested subdatasets to include in the 
             tree. 0 means only top-level datasets, 1 means top-level 
-            datasets and their immediate subdatasets, etc.""",
+            datasets and their immediate subdatasets, etc. *Note*: may be 
+            slow on large directory trees.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         include_files=Parameter(
             args=("--include-files",),
