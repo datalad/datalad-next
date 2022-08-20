@@ -13,8 +13,6 @@ from datalad.core.distributed.clone import (
     configure_origins,
     postclone_check_head,
     postclone_checkout_commit,
-    postclone_preannex_cfg_ria,
-    postclonecfg_ria,
 )
 from datalad.dochelpers import single_or_plural
 from datalad.interface.results import get_status_dict
@@ -261,10 +259,6 @@ def _post_git_init_processing_(
             destds)
         destds.repo.call_git(['init', '--shared={}'.format(reckless[7:])])
 
-    # In case of RIA stores we need to prepare *before* annex is called at all
-    if gitclonerec['type'] == 'ria':
-        postclone_preannex_cfg_ria(destds, remote=remote)
-
     # trick to have the function behave like a generator, even if it
     # (currently) doesn't actually yield anything.
     # but a patched version might want to...so for uniformity with
@@ -497,12 +491,6 @@ def _pre_final_processing_(
 ):
     """Any post-processing after Git and git-annex pieces are fully initialized
     """
-    # perform any post-processing that needs to know details of the clone
-    # source
-    if gitclonerec['type'] == 'ria':
-        yield from postclonecfg_ria(destds, gitclonerec,
-                                    remote=remote)
-
     if reckless:
         # store the reckless setting in the dataset to make it
         # known to later clones of subdatasets via get()
@@ -516,6 +504,11 @@ def _pre_final_processing_(
         # TODO: might no longer be necessary if 0.14.0 adds reloading upon
         # non-readonly commands invocation
         destds.config.reload()
+
+    # trick to have the function behave like a generator, even if it
+    # (currently) doesn't actually yield anything.
+    if False:
+        yield
 
 
 # apply patch
