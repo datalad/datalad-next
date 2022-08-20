@@ -733,6 +733,10 @@ class Tree:
         self.node_count = {node_type.__name__: 0
                            for node_type in _TreeNode.__subclasses__()}
 
+    def __repr__(self):
+        return self.__class__.__name__ + \
+               f"('{self.root}', max_depth={self.max_depth})"
+
     @staticmethod
     def default_exclude_func(node):
         """By default, exclude files and hidden directories from the tree"""
@@ -1045,6 +1049,9 @@ class _TreeNode:
 
     def __hash__(self):
         return hash(str(self.path))
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}('{self.path}', depth={self.depth})"
 
     @property
     def tree_root(self) -> Path:
