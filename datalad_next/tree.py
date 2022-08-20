@@ -704,8 +704,9 @@ class Tree:
         exclude_node_func: Callable or None
             Function to filter out tree nodes from the tree
         """
-        self.root = root.resolve(strict=False)
         try:
+            root = Path(root)
+            self.root = root.resolve(strict=False)
             assert self.root.is_dir(), f"path is not a directory: {self.root}"
         except (AssertionError, OSError) as ex:  # could be permission error
             raise ValueError(f"directory not found: '{root}'") from ex
