@@ -117,11 +117,13 @@ class TreeCommand(Interface):
     By default, only datasets are listed, without their contents. If
     [CMD: ``--depth`` CMD][PY: ``depth`` PY] is specified additionally,
     the contents of each dataset will be included up to [CMD:
-    ``--depth`` CMD][PY: ``depth`` PY] directory levels.
+    ``--depth`` CMD][PY: ``depth`` PY] directory levels (excluding
+    subdirectories that are themselves datasets).
 
     Tree filtering options such as [CMD: ``--include-hidden`` CMD][PY:
     ``include_hidden`` PY] only affect which directories are
-    reported/displayed,  not which directories are traversed to find datasets.
+    reported as dataset contents, not which directories are traversed to find
+    datasets.
 
     **Performance note**: since no assumption is made on the location of
     datasets, running this command with the [CMD: ``--dataset-depth`` CMD][PY:
@@ -188,9 +190,10 @@ class TreeCommand(Interface):
             doc="""maximum level of subdirectories to include in the tree.
             If not specified, will generate the full tree with no depth 
             constraint.
-            If paired with [CMD: ``--dataset-depth`` CMD][PY: 
-            ``dataset_depth`` PY], refers to the maximum directory level to 
-            generate underneath each dataset.""",
+            If paired with
+            [CMD: ``--dataset-depth`` CMD][PY: ``dataset_depth`` PY],
+            refers to the maximum directory level to generate underneath
+            each dataset.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         dataset_depth=Parameter(
             args=("--dataset-depth",),
@@ -311,11 +314,13 @@ class TreeCommand(Interface):
     @staticmethod
     def custom_result_renderer(res, **kwargs):
         """
-        Each node is printed on one line. The string uses the format:
-        ``[<indentation>] [<branch_tip_symbol>] <path> [<ds_marker]``
+        Each node is printed on one line. The string uses the format::
 
-        Example line:
-        ``│   │   ├── path_dir_level3``
+            [<indentation>] [<branch_tip_symbol>] [<ds_marker>] <path>
+
+        Example line::
+
+            │   │   ├── path_dir_level3
         """
         from datalad.support import ansi_colors
 
@@ -759,8 +764,9 @@ class Tree:
                     current_node.is_recursive_symlink(self.max_depth):
                 # if symlink points to directory that we may visit or may
                 # have visited already, do not recurse into it
-                lgr.debug(f"Symlink is potentially recursive, "
-                          f"will not traverse target directory: '{dir_path}'")
+                lgr.debug("Symlink is potentially recursive, "
+                          "will not traverse target directory: "
+                          f"{dir_path} -> {current_node.get_symlink_target()}")
                 return
 
             if current_node.exception is not None:
