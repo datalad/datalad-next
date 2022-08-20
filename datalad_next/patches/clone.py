@@ -17,21 +17,13 @@ from datalad.core.distributed.clone import (
 from datalad.dochelpers import single_or_plural
 from datalad.interface.results import get_status_dict
 from datalad.support.annexrepo import AnnexRepo
-from datalad.support.gitrepo import (
-    GitRepo,
-)
 from datalad.cmd import (
     CommandError,
 )
 from datalad.support.exceptions import (
     CapturedException,
 )
-from datalad.support.network import (
-    RI,
-)
 from datalad.utils import (
-    Path,
-    check_symlink_capability,
     ensure_bool,
     knows_annex,
     rmtree,
@@ -282,16 +274,7 @@ def _pre_annex_init_processing_(
             "sources, if possible (reckless)", destds.path)
         destds.config.set(
             'annex.hardlink', 'true', scope='local', reload=True)
-    elif reckless == 'ephemeral':
-        # In ephemeral clones we set annex.private=true. This would prevent the
-        # location itself being recorded in uuid.log. With a private repo,
-        # declaring dead (see below after annex-init) seems somewhat
-        # superfluous, but on the other hand:
-        # If an older annex that doesn't support private yet touches the
-        # repo, the entire purpose of ephemeral would be sabotaged if we did
-        # not declare dead in addition. Hence, keep it regardless of annex
-        # version.
-        destds.config.set('annex.private', 'true', scope='local')
+
     # trick to have the function behave like a generator, even if it
     # (currently) doesn't actually yield anything.
     if False:
@@ -336,67 +319,6 @@ def _post_annex_init_processing_(
 
     if reckless == 'auto' or (reckless and reckless.startswith('shared-')):
         repo.call_annex(['untrust', 'here'])
-
-    elif reckless == 'ephemeral':
-        # with ephemeral we declare 'here' as 'dead' right away, whenever
-        # we symlink the remote's annex, since availability from 'here' should
-        # not be propagated for an ephemeral clone when we publish back to
-        # the remote.
-        # This will cause stuff like this for a locally present annexed file:
-        # % git annex whereis d1
-        # whereis d1 (0 copies) failed
-        # BUT this works:
-        # % git annex find . --not --in here
-        # % git annex find . --in here
-        # d1
-
-        # we don't want annex copy-to <remote>
-        ds.config.set(
-            f'remote.{remote}.annex-ignore', 'true',
-            scope='local')
-        ds.repo.set_remote_dead('here')
-
-        if check_symlink_capability(ds.repo.dot_git / 'dl_link_test',
-                                    ds.repo.dot_git / 'dl_target_test'):
-            # symlink the annex to avoid needless copies in an ephemeral clone
-            annex_dir = ds.repo.dot_git / 'annex'
-            origin_annex_url = ds.config.get(f"remote.{remote}.url", None)
-            origin_git_path = None
-            if origin_annex_url:
-                try:
-                    # Deal with file:// scheme URLs as well as plain paths.
-                    # If origin isn't local, we have nothing to do.
-                    origin_git_path = Path(RI(origin_annex_url).localpath)
-
-                    # we are local; check for a bare repo first to not mess w/
-                    # the path
-                    if GitRepo(origin_git_path, create=False).bare:
-                        # origin is a bare repo -> use path as is
-                        pass
-                    elif origin_git_path.name != '.git':
-                        origin_git_path /= '.git'
-                except ValueError as e:
-                    CapturedException(e)
-                    # Note, that accessing localpath on a non-local RI throws
-                    # ValueError rather than resulting in an AttributeError.
-                    # TODO: Warning level okay or is info level sufficient?
-                    # Note, that setting annex-dead is independent of
-                    # symlinking .git/annex. It might still make sense to
-                    # have an ephemeral clone that doesn't propagate its avail.
-                    # info. Therefore don't fail altogether.
-                    lgr.warning("reckless=ephemeral mode: %s doesn't seem "
-                                "local: %s\nno symlinks being used",
-                                remote, origin_annex_url)
-            if origin_git_path:
-                # TODO make sure that we do not delete any unique data
-                rmtree(str(annex_dir)) \
-                    if not annex_dir.is_symlink() else annex_dir.unlink()
-                annex_dir.symlink_to(origin_git_path / 'annex',
-                                     target_is_directory=True)
-        else:
-            # TODO: What level? + note, that annex-dead is independent
-            lgr.warning("reckless=ephemeral mode: Unable to create symlinks on "
-                        "this file system.")
 
     srs = {True: [], False: []}  # special remotes by "autoenable" key
     remote_uuids = None  # might be necessary to discover known UUIDs
