@@ -132,12 +132,12 @@ def clone_dataset(
     #
     try:
         yield from _post_gitclone_processing_(
-            destds,
-            cfg,
-            last_candidate,
-            reckless,
-            checkout_gitsha,
-            description,
+            destds=destds,
+            cfg=cfg,
+            gitclonerec=last_candidate,
+            reckless=reckless,
+            checkout_gitsha=checkout_gitsha,
+            description=description,
         )
     except Exception as e:
         ce = CapturedException(e)
@@ -161,6 +161,7 @@ def clone_dataset(
 
 
 def _post_gitclone_processing_(
+        *,
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
@@ -182,35 +183,35 @@ def _post_gitclone_processing_(
     remote = _get_remote(dest_repo)
 
     yield from _post_git_init_processing_(
-        destds,
-        cfg,
-        gitclonerec,
-        remote,
-        reckless,
+        destds=destds,
+        cfg=cfg,
+        gitclonerec=gitclonerec,
+        remote=remote,
+        reckless=reckless,
     )
 
     if knows_annex(destds.path):
         # init annex when traces of a remote annex can be detected
         yield from _pre_annex_init_processing_(
-            destds,
-            cfg,
-            gitclonerec,
-            remote,
-            reckless,
+            destds=destds,
+            cfg=cfg,
+            gitclonerec=gitclonerec,
+            remote=remote,
+            reckless=reckless,
         )
         dest_repo = _annex_init(
-            destds,
-            cfg,
-            gitclonerec,
-            remote,
-            description,
+            destds=destds,
+            cfg=cfg,
+            gitclonerec=gitclonerec,
+            remote=remote,
+            description=description,
         )
         yield from _post_annex_init_processing_(
-            destds,
-            cfg,
-            gitclonerec,
-            remote,
-            reckless,
+            destds=destds,
+            cfg=cfg,
+            gitclonerec=gitclonerec,
+            remote=remote,
+            reckless=reckless,
         )
 
     if checkout_gitsha and \
@@ -230,15 +231,16 @@ def _post_gitclone_processing_(
             raise
 
     yield from _pre_final_processing_(
-        destds,
-        cfg,
-        gitclonerec,
-        remote,
-        reckless,
+        destds=destds,
+        cfg=cfg,
+        gitclonerec=gitclonerec,
+        remote=remote,
+        reckless=reckless,
     )
 
 
 def _post_git_init_processing_(
+        *,
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
@@ -272,6 +274,7 @@ def _post_git_init_processing_(
 
 
 def _pre_annex_init_processing_(
+        *,
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
@@ -302,6 +305,7 @@ def _pre_annex_init_processing_(
 
 
 def _annex_init(
+        *,
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
@@ -324,6 +328,7 @@ def _annex_init(
 
 
 def _post_annex_init_processing_(
+        *,
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
@@ -483,6 +488,7 @@ def _post_annex_init_processing_(
 
 
 def _pre_final_processing_(
+        *,
         destds: Dataset,
         cfg: ConfigManager,
         gitclonerec: Dict,
