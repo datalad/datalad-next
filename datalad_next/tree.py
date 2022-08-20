@@ -842,21 +842,23 @@ class Tree:
 
 class DatasetTree(Tree):
     """
-    ``DatasetTree`` is a ``Tree`` whose depth is determined by the
-    subdataset hierarchy level, instead of directory depth.
+    ``DatasetTree`` is a ``Tree`` whose depth is determined primarily
+    by the subdataset hierarchy level (parameter ``max_dataset_depth``).
+
+    Here, ``max_depth`` can also be specified, but it refers to the
+    depth of each dataset's content. If this depth is 0, only datasets
+    are reported, without any files or subdirectories underneath.
 
     Because of the different semantics of the ``max_depth`` parameter,
-    we implement a separate subclass of ``Tree``.
+    this class is implemented as a separate subclass of ``Tree``.
     """
     def __init__(self, *args, max_dataset_depth=0, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # by default, do not recurse into datasets' subdirectories (other
-        # than paths to nested subdatasets)
-        if self.max_depth is None:
-            self.max_depth = 0
-
         self.max_dataset_depth = max_dataset_depth
+        if self.max_depth is None:
+            # by default, do not include datasets' contents
+            self.max_depth = 0
 
         # secondary 'helper' generator that will traverse the whole tree
         # (once) and yield only datasets and their parents directories
@@ -958,8 +960,8 @@ class DatasetTree(Tree):
         Generator[DirectoryNode or DatasetNode]
         """
 
-        def exclude(n: _TreeNode):
-            # we won't find any datasets underneath the git folder
+        def is_excluded(n: _TreeNode):
+            # assumption: we won't find datasets underneath the git folder
             return isinstance(n, FileNode) or \
                    (isinstance(n, DirectoryNode) and n.path.name == ".git")
 
