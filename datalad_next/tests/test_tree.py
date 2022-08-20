@@ -633,6 +633,18 @@ class TestDatasetTree(TestTree):
 """
     },
     {
+        "dataset_depth": 0,
+        "depth": 2,
+        "expected_stats_str": "3 datasets, 2 directories",
+        "expected_str": """
+├── [DS~0] superds0/
+└── [DS~0] superds1/
+    ├── sd1_dir0/
+    │   └── sd1_d0_repo0/
+    └── [DS~0] sd1_ds0/
+"""
+    },
+    {
         "dataset_depth": 1,
         "depth": 0,
         "expected_stats_str": "6 datasets, 1 directory",
