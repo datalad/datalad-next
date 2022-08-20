@@ -556,7 +556,7 @@ def is_dataset(path: Path, installed_only=False):
             # ignore symlinks even if pointing to datasets, otherwise we may
             # get duplicate counts of datasets
             lgr.debug("Path is a symlink, will not check if it points to a "
-                      f"dataset: '{path}'")
+                      "dataset: %s", path)
             return False
 
         if (path / ".datalad" / "config").is_file():
@@ -770,15 +770,14 @@ class Tree:
                 # if symlink points to directory that we may visit or may
                 # have visited already, do not recurse into it
                 lgr.debug("Symlink is potentially recursive, "
-                          "will not traverse target directory: "
-                          f"{dir_path} -> {current_node.get_symlink_target()}")
+                          "will not traverse target directory: %s", dir_path)
                 return
 
             if current_node.exception is not None:
                 # if some exception occurred when instantiating the node
                 # (missing permissions etc), do not recurse into directory
                 lgr.debug("Node has exception, will not traverse directory: "
-                          f"path={current_node.path}, exc={current_node.exception}")
+                          "%r", current_node)
                 return
 
             # sort child nodes alphabetically
@@ -876,9 +875,9 @@ class DatasetTree(Tree):
         # this requires an unlimited-depth tree traversal, so will
         # be the slowest operation
         if not self.ds_nodes:
-            lgr.debug("Started computing dataset nodes for " + repr(self))
+            lgr.debug("Started computing dataset nodes for %r", self)
             self.ds_nodes = list(self.generate_dataset_nodes())
-            lgr.debug("Finished computing dataset nodes for " + repr(self))
+            lgr.debug("Finished computing dataset nodes for %r", self)
 
         if not self.ds_nodes:
             depth = 0  # no datasets to report on, just yield the root
@@ -973,9 +972,9 @@ class DatasetTree(Tree):
 
         except Exception as ex:
             CapturedException(ex, level=10)  # DEBUG level
-            lgr.debug(f"Excluding node from tree because "
-                      "an exception occurred while applying the "
-                      f"exclusion filter: '{node.path}'")
+            lgr.debug("Excluding node from tree because "
+                      "an exception occurred while applying "
+                      "exclusion filter: %r", node)
 
         return exclude  # exclude by default
 
