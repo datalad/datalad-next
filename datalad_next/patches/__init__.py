@@ -1,4 +1,5 @@
 from . import (
+    common_cfg,
     annexrepo,
     configuration,
     create_sibling_ghlike,
