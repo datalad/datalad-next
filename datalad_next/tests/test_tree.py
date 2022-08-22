@@ -692,7 +692,7 @@ class TestDatasetTree(TestTree):
             'tree',
             root,
             '--depth', str(depth),
-            '--dataset-depth', str(dataset_depth)
+            '--recursion-limit', str(dataset_depth)
         ]
         _, actual_res, _ = get_tree_rendered_output(command)
         expected_res = expected_str.lstrip("\n")  # strip first newline
@@ -709,7 +709,7 @@ class TestDatasetTree(TestTree):
             'tree',
             root,
             '--depth', '10',
-            '--dataset-depth', '10',
+            '--recursion-limit', '10',
             '--include-files'
         ]
         _, actual_res, _ = get_tree_rendered_output(command)
@@ -728,7 +728,7 @@ class TestDatasetTree(TestTree):
             'tree',
             root,
             '--depth', str(depth),
-            '--dataset-depth', str(dataset_depth)
+            '--recursion-limit', str(dataset_depth)
         ]
         _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
