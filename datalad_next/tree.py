@@ -105,13 +105,14 @@ class TreeCommand(Interface):
 
     *Dataset discovery*
 
-    Using the [CMD: ``--recursion-limit`` CMD][PY: ``recursion_limit`` PY]
+    Using the [CMD: ``--recursive`` CMD][PY: ``recursive`` PY] or [CMD:
+    ``--recursion-limit`` CMD][PY: ``recursion_limit`` PY]
     option, this command generates the layout of dataset hierarchies based on
     subdataset nesting level, regardless of their location in the
     filesystem.
 
     In this case, tree depth is determined by subdataset depth. This mode
-    is therefore suited for discovering available datasets when their
+    is thus suited for discovering available datasets when their
     location is not known in advance.
 
     By default, only datasets are listed, without their contents. If
@@ -126,7 +127,8 @@ class TreeCommand(Interface):
     datasets.
 
     **Performance note**: since no assumption is made on the location of
-    datasets, running this command with the [CMD: ``--recursion-limit`` CMD][PY:
+    datasets, running this command with the [CMD: ``--recursive`` CMD][PY:
+    ``recursive`` PY] or [CMD: ``--recursion-limit`` CMD][PY:
     ``recursion_limit`` PY] option does a full scan of the whole directory
     tree. As such, it can be significantly slower than a call with an
     equivalent output that uses [CMD: ``--depth`` CMD][PY: ``depth`` PY] to
@@ -187,21 +189,27 @@ class TreeCommand(Interface):
             constraints=EnsureStr() | EnsureNone()),
         depth=Parameter(
             args=("-L", "--depth",),
-            doc="""maximum level of subdirectories to include in the tree.
+            doc="""limit the tree to maximum level of subdirectories.
             If not specified, will generate the full tree with no depth 
             constraint.
-            If paired with
+            If paired with [CMD: ``--recursive`` CMD][PY: ``recursive`` PY] or
             [CMD: ``--recursion-limit`` CMD][PY: ``recursion_limit`` PY],
-            refers to the maximum directory level to generate underneath
+            refers to the maximum directory level to output below
             each dataset.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
+        recursive=Parameter(
+            args=("-r", "--recursive",),
+            doc="""produce a dataset tree of the full hierarchy of nested 
+            subdatasets. *Note*: may have slow performance on large 
+            directory trees.""",
+            action='store_true'),
         recursion_limit=Parameter(
             args=("-R", "--recursion-limit",),
             metavar="LEVELS",
-            doc="""maximum level of nested subdatasets to include in the 
-            tree. 0 means only top-level datasets, 1 means top-level 
-            datasets and their immediate subdatasets, etc. *Note*: may have 
-            slow performance on large directory trees.""",
+            doc="""limit the dataset tree to maximum level of nested 
+            subdatasets. 0 means include only top-level datasets, 1 means 
+            top-level datasets and their immediate subdatasets, etc. *Note*:
+            may have slow performance on large directory trees.""",
             constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
         include_files=Parameter(
             args=("--include-files",),
@@ -211,7 +219,8 @@ class TreeCommand(Interface):
             args=("--include-hidden",),
             doc="""include hidden files/directories in the tree. This 
             option does not affect which directories will be searched for 
-            datasets when specifying [CMD: ``--recursion-limit`` CMD][PY: 
+            datasets when specifying [CMD: ``--recursive`` CMD][PY: 
+            ``recursive`` PY] or [CMD: ``--recursion-limit`` CMD][PY: 
             ``recursion_limit`` PY]. For example, datasets located underneath 
             the hidden folder `.datalad` will be reported even if [CMD: 
             ``--include-hidden`` CMD][PY: ``include_hidden`` PY] is omitted.""",
@@ -226,11 +235,11 @@ class TreeCommand(Interface):
         dict(text="Find all top-level datasets located anywhere under ``/tmp``",
              code_py="tree('/tmp', recursion_limit=0)",
              code_cmd="datalad tree /tmp -R 0"),
-        dict(text="Report first- and second-level subdatasets and their "
-                  "directory contents, up to 1 subdirectory deep within each "
+        dict(text="Report all subdatasets recursively and their directory "
+                  "contents, up to 1 subdirectory deep within each "
                   "dataset",
-             code_py="tree(recursion_limit=2, depth=1)",
-             code_cmd="datalad tree -R 2 -L 1"),
+             code_py="tree(recursive=True, depth=1)",
+             code_cmd="datalad tree -r -L 1"),
     ]
 
     @staticmethod
@@ -240,11 +249,12 @@ class TreeCommand(Interface):
             path='.',
             *,
             depth=None,
+            recursive=False,
             recursion_limit=None,
             include_files=False,
             include_hidden=False):
 
-        if recursion_limit is not None:
+        if recursive or recursion_limit is not None:
             # special tree defined by subdataset nesting depth
             tree_cls = DatasetTree
             dataset_tree_args = {"max_dataset_depth": recursion_limit}
@@ -852,9 +862,10 @@ class DatasetTree(Tree):
     Because of the different semantics of the ``max_depth`` parameter,
     this class is implemented as a separate subclass of ``Tree``.
     """
-    def __init__(self, *args, max_dataset_depth=0, **kwargs):
+    def __init__(self, *args, max_dataset_depth=None, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # default max_dataset_depth 'None' means unlimited subdataset deoth
         self.max_dataset_depth = max_dataset_depth
         if self.max_depth is None:
             # by default, do not include datasets' contents
@@ -931,7 +942,8 @@ class DatasetTree(Tree):
             # for each dataset node, yield its parents first, then
             # yield the dataset itself
             if isinstance(node, DatasetNode) and \
-                    node.ds_depth <= self.max_dataset_depth and \
+                    (self.max_dataset_depth is None or
+                     node.ds_depth <= self.max_dataset_depth) and \
                     not self.exclude_node_func(node):
 
                 # yield parent directories if not already done

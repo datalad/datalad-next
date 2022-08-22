@@ -673,6 +673,37 @@ class TestDatasetTree(TestTree):
     └── [DS~1] (not installed) sd1_subds0/
 """
     },
+    {
+        "dataset_depth": None,
+        "depth": 0,
+        "expected_stats_str": "7 datasets, 1 directory",
+        "expected_str": """
+├── [DS~0] superds0/
+│   └── [DS~1] sd0_subds0/
+│       └── [DS~2] sd0_sub0_subds0/
+└── [DS~0] superds1/
+    ├── sd1_dir0/
+    │   └── [DS~1] sd1_d0_subds0/
+    ├── [DS~0] sd1_ds0/
+    └── [DS~1] (not installed) sd1_subds0/
+"""
+    },
+    {
+        "dataset_depth": None,
+        "depth": 2,
+        "expected_stats_str": "7 datasets, 2 directories",
+        "expected_str": """
+├── [DS~0] superds0/
+│   └── [DS~1] sd0_subds0/
+│       └── [DS~2] sd0_sub0_subds0/
+└── [DS~0] superds1/
+    ├── sd1_dir0/
+    │   ├── sd1_d0_repo0/
+    │   └── [DS~1] sd1_d0_subds0/
+    ├── [DS~0] sd1_ds0/
+    └── [DS~1] (not installed) sd1_subds0/
+"""
+    },
     ]
 
     params = {
@@ -688,11 +719,16 @@ class TestDatasetTree(TestTree):
             self, dataset_depth, depth, expected_str
     ):
         root = str(self.path / "root")
+
+        recursive_opts = ["--recursive"]
+        if dataset_depth is not None:
+            recursive_opts = ['--recursion-limit', str(dataset_depth)]
+
         command = [
             'tree',
             root,
             '--depth', str(depth),
-            '--recursion-limit', str(dataset_depth)
+            *recursive_opts
         ]
         _, actual_res, _ = get_tree_rendered_output(command)
         expected_res = expected_str.lstrip("\n")  # strip first newline
@@ -709,7 +745,7 @@ class TestDatasetTree(TestTree):
             'tree',
             root,
             '--depth', '10',
-            '--recursion-limit', '10',
+            '--recursive',
             '--include-files'
         ]
         _, actual_res, _ = get_tree_rendered_output(command)
@@ -724,11 +760,16 @@ class TestDatasetTree(TestTree):
             self, dataset_depth, depth, expected_stats_str
     ):
         root = str(self.path / "root")
+
+        recursive_opts = ["--recursive"]
+        if dataset_depth is not None:
+            recursive_opts = ['--recursion-limit', str(dataset_depth)]
+
         command = [
             'tree',
             root,
             '--depth', str(depth),
-            '--recursion-limit', str(dataset_depth)
+            *recursive_opts
         ]
         _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
