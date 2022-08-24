@@ -157,6 +157,7 @@ matrix:
 skip_commits:
   files:
     - docs/
+    - changelog.d/
 
 
 # it is OK to specify paths that may not exist for a particular test run
