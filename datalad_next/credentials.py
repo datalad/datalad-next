@@ -220,6 +220,10 @@ class Credentials(Interface):
         dict(text="Upgrade a legacy credential by annotating it with a 'type' property",
              code_py="credentials('set', name='legacycred', spec={'type': 'user_password')",
              code_cmd="datalad credentials set legacycred type=user_password"),
+        dict(text="Set a new credential of type user_password, with a given user property, "
+                  "and input its secret interactively",
+             code_py="credentials('set', name='mycred', spec={'type': 'user_password', 'user': '<username>'})",
+             code_cmd="datalad credentials set mycred type=user_password user=<username>"),
         dict(text="Obtain a (possibly yet undefined) credential with a minimum set of "
                   "properties. All missing properties and secret will be "
                   "prompted for, no information will be stored! "
