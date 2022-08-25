@@ -1,3 +1,58 @@
+# 0.6.0 (2022-08-25)
+
+## 🐛 Bug Fixes
+
+- Fixed datalad-push always reporting success when pushing to
+  an export remote.
+  Fixes https://github.com/datalad/datalad-next/issues/88 via
+  https://github.com/datalad/datalad-next/pull/93 (by @bpoldrack)
+
+- Token secrets entered for GitHub-like sibling creation are now stored by
+  default under a name matching the API endpoint hostname (e.g.
+  'api.github.com'), rather than a confusing and conflict-prone 'None'.
+  Using the `--credential` option, an alternative name can be given, as before.
+  Fixes https://github.com/datalad/datalad-next/issues/97 via
+  https://github.com/datalad/datalad-next/pull/98 (by @mih)
+
+## 💫 Enhancements and new features
+
+- The `configuration` command now indicates the absence of a particular
+  configuration setting queried via `get` with a `status='impossible'`
+  result. This change enables the distinction of an unset configuration
+  item from an item set to an empty string with the default
+  CLI result renderer.
+  Fixes https://github.com/datalad/datalad/issues/6851 via
+  https://github.com/datalad/datalad-next/pull/87 by @mih
+
+- The default of the configuration item `datalad.annex.retry`
+  (in effect when not explicitly configured otherwise) is changed
+  from `3` to `1`. This prevents a set of performance and user experience
+  issues resulting from, e.g., repeated download attempts, even
+  when no change in outcome can be expected (e.g., a wrong or
+  no credential supplied). This change can cause a loss of robustness
+  in download behavior for services that indeed experience spurious
+  failures. Its is recommended to specifically parametrize such command
+  calls (e.g., downloads in CI runs) with an appropriate configuration
+  override.
+  Fixes https://github.com/datalad/datalad/issues/6969 and
+  https://github.com/datalad/datalad/issues/6509 (by @mih)
+
+- New `tree` command for traversing a directory hierarchy.
+  Like the UNIX equivalent, it can visualize a directory tree.
+  Additionally, it annotates the output with DataLad-related
+  information, like the location of dataset, and their nesting
+  depth. Besides visualization, `tree` also reports structured
+  data in the form of result records that enable other applications
+  to use `tree` for gathering data from the file system.
+  Fixes https://github.com/datalad/datalad-next/issues/78 via
+  https://github.com/datalad/datalad-next/pull/92 (by @catetrai)
+
+## 📝 Documentation
+
+- Add an example of adding a `user_password`-type credentials, with a
+  given `user` property, to the examples in the `credentials`
+  command. https://github.com/datalad/datalad-next/pull/103 (by @mslw)
+
 # 0.5.0 (2022-07-19)
 
 ## 💫 Enhancements and new features
