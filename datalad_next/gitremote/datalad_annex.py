@@ -205,6 +205,7 @@ from datalad.runner import (
 )
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.exceptions import CapturedException
+from datalad.support.external_versions import external_versions
 from datalad.support.gitrepo import GitRepo
 from datalad.support.constraints import EnsureInt
 from datalad.ui import ui
@@ -316,6 +317,14 @@ class RepoAnnexGitRemote(object):
         self.pending_credential = None
         # must come after the two above!
         self.credential_env = self._get_credential_env()
+
+        annex_version = external_versions['cmd:annex']
+        if annex_version < '8.20211123':
+            self.log(
+                f'git-annex version {annex_version} is unsupported, '
+                'please upgrade',
+                level=1
+            )
 
     def _get_credential_env(self):
         """
