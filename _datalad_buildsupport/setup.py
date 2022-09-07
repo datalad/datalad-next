@@ -156,40 +156,6 @@ class BuildManPage(Command):
                     f.write(formatted)
 
 
-class BuildRSTExamplesFromScripts(Command):
-    description = 'Generate RST variants of example shell scripts.'
-
-    user_options = [
-        ('expath=', None, 'path to look for example scripts'),
-        ('rstpath=', None, 'output path for RST files'),
-    ]
-
-    def initialize_options(self):
-        self.expath = opj('docs', 'examples')
-        self.rstpath = opj('docs', 'source', 'generated', 'examples')
-
-    def finalize_options(self):
-        if self.expath is None:
-            raise DistutilsOptionError('\'expath\' option is required')
-        if self.rstpath is None:
-            raise DistutilsOptionError('\'rstpath\' option is required')
-        self.announce('Converting example scripts')
-
-    def run(self):
-        opath = self.rstpath
-        if not os.path.exists(opath):
-            os.makedirs(opath)
-
-        from glob import glob
-        for example in glob(opj(self.expath, '*.sh')):
-            exname = os.path.basename(example)[:-3]
-            with open(opj(opath, '{0}.rst'.format(exname)), 'w') as out:
-                fmt.cmdline_example_to_rst(
-                    open(example),
-                    out=out,
-                    ref='_example_{0}'.format(exname))
-
-
 class BuildConfigInfo(Command):
     description = 'Generate RST documentation for all config items.'
 
