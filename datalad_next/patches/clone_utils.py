@@ -159,6 +159,14 @@ def _try_clone_candidates(
       and either a dict with properties of a result that should be yielded
       before an immediate return, or None, if the processing can continue
     """
+    log_progress(
+        lgr.info,
+        'cloneds',
+        'Attempting a clone into %s', destds.path,
+        unit=' candidates',
+        label='Cloning',
+        total=len(candidate_sources),
+    )
     error_msgs = dict()  # accumulate all error messages formatted per each url
     for cand in candidate_sources:
         log_progress(
