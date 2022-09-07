@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from os.path import expanduser
 from typing import (
+    Dict,
     List,
     Tuple,
 )
@@ -43,6 +44,13 @@ def _generate_candidate_clone_sources(
         srcs: List,
         cfg: ConfigManager or None) -> List:
     """Convert "raw" clone source specs to candidate URLs
+
+    Returns
+    -------
+    Each item in the list is a dictionary with clone candidate properties.
+    At minimum each dictionary contains a 'giturl' property, with a URL
+    value suitable for passing to `git-clone`. Other properties are
+    provided by `decode_source_spec()` and are documented there.
     """
     # check for configured URL mappings, either in the given config manager
     # or in the one of the destination dataset, which is typically not existent
@@ -124,20 +132,32 @@ def _test_existing_clone_target(
     return dest_path_existed, None
 
 
-def _try_clone(
+def _try_clone_candidates(
         destds: Dataset,
         candidate_sources: List,
         clone_opts: List,
         dest_path_existed: bool) -> Tuple:
     """Iterate over candidate URLs and attempt a clone
 
+    Parameters
+    ----------
+    destds: Dataset
+      The target dataset the clone should materialize at.
+    candidate_sources: list
+      Each value is a dict with properties, as returned by
+      `_generate_candidate_clone_sources()`
+    clone_opts: list
+      Options to be passed on to `_try_clone_candidate()`
+    dest_path_existed: bool
+      Flag whether the target path existed before attempting a clone.
+
     Returns
     -------
     (dict or None, dict, dict or None)
-      The record of the last clone attempt, a mapping of candidate URLs
-      to potential error messages they yielded, and either a dict with
-      properties of a result that should be yielded before an immediate
-      return, or None, if the processing can continue
+      The candidate record of the last clone attempt,
+      a mapping of candidate URLs to potential error messages they yielded,
+      and either a dict with properties of a result that should be yielded
+      before an immediate return, or None, if the processing can continue
     """
     error_msgs = dict()  # accumulate all error messages formatted per each url
     for cand in candidate_sources:
@@ -148,25 +168,18 @@ def _try_clone(
             update=1,
             increment=True)
 
-        if cand.get('version', None):
-            opts = clone_opts + ["--branch=" + cand['version']]
-        else:
-            opts = clone_opts
+        tried_url, error, fatal = _try_clone_candidate(
+            destds,
+            cand,
+            clone_opts)
 
-        try:
-            GitRepo.clone(
-                path=destds.path,
-                url=cand['giturl'],
-                clone_options=opts,
-                create=True)
-
-        except CommandError as e:
-            ce = CapturedException(e)
-            e_stderr = e.stderr
-
-            error_msgs[cand['giturl']] = e
+        if error is not None:
             lgr.debug("Failed to clone from URL: %s (%s)",
-                      cand['giturl'], ce)
+                      tried_url, error)
+
+            error_msgs[tried_url] = error
+
+            # ready playing field for the next attempt
             if destds.pathobj.exists():
                 lgr.debug("Wiping out unsuccessful clone attempt at: %s",
                           destds.path)
@@ -176,26 +189,18 @@ def _try_clone(
                 # or if PY35 is no longer supported
                 rmtree(destds.path, children_only=dest_path_existed)
 
-            if e_stderr and 'could not create work tree' in e_stderr.lower():
-                # this cannot be fixed by trying another URL
-                re_match = re.match(r".*fatal: (.*)$", e_stderr,
-                                    flags=re.MULTILINE | re.DOTALL)
-                # cancel progress bar
-                log_progress(
-                    lgr.info,
-                    'cloneds',
-                    'Completed clone attempts for %s', destds
-                )
-                return cand, error_msgs, dict(
-                    status='error',
-                    message=re_match.group(1).strip()
-                    if re_match else "stderr: " + e_stderr,
-                )
-            # next candidate
-            continue
+        if fatal:
+            # cancel progress bar
+            log_progress(
+                lgr.info,
+                'cloneds',
+                'Completed clone attempts for %s', destds
+            )
+            return cand, error_msgs, fatal
 
-        # do not bother with other sources if succeeded
-        break
+        if error is None:
+            # do not bother with other sources if succeeded
+            break
 
     log_progress(
         lgr.info,
@@ -203,6 +208,81 @@ def _try_clone(
         'Completed clone attempts for %s', destds
     )
     return cand, error_msgs, None
+
+
+def _try_clone_candidate(
+        destds: Dataset,
+        cand: Dict,
+        clone_opts: List) -> Tuple:
+    """Attempt a clone from a single candidate
+
+    destds: Dataset
+      The target dataset the clone should materialize at.
+    candidate_sources: list
+      Each value is a dict with properties, as returned by
+      `_generate_candidate_clone_sources()`
+    clone_opts: list
+      Options to be passed on to `_try_clone_candidate()`
+
+    Returns
+    -------
+    (str, str or None, dict or None)
+      The first item is the effective URL a clone was attempted from.
+      The second item is `None` if the clone was successful, or an
+      error message, detailing the failure for the specific URL.
+      If the third item is not `None`, it must be a result dict that
+      should be yielded, and no further clone attempt (even when
+      other candidates remain) will be attempted.
+    """
+    # right now, we only know git-clone based approaches
+    return _try_git_clone_candidate(destds, cand, clone_opts)
+
+
+def _try_git_clone_candidate(
+        destds: Dataset,
+        cand: Dict,
+        clone_opts: List) -> Tuple:
+    """_try_clone_candidate() using `git-clone`
+
+    Parameters and return value behavior is as described in
+    `_try_clone_candidate()`.
+    """
+    if cand.get('version', None):
+        opts = clone_opts + ["--branch=" + cand['version']]
+    else:
+        opts = clone_opts
+
+    try:
+        GitRepo.clone(
+            path=destds.path,
+            url=cand['giturl'],
+            clone_options=opts,
+            create=True)
+
+    except CommandError as e:
+        ce = CapturedException(e)
+        e_stderr = e.stderr
+
+        # MIH thinks this should rather use any of ce's message generating
+        # methods, but kept it to avoid behavior changes
+        error_msg = e
+
+        if e_stderr and 'could not create work tree' in e_stderr.lower():
+            # this cannot be fixed by trying another URL
+            re_match = re.match(r".*fatal: (.*)$", e_stderr,
+                                flags=re.MULTILINE | re.DOTALL)
+            # existential failure
+            return cand['giturl'], error_msg, dict(
+                status='error',
+                message=re_match.group(1).strip()
+                if re_match else "stderr: " + e_stderr,
+            )
+
+        # failure for this URL
+        return cand['giturl'], error_msg, None
+
+    # success
+    return cand['giturl'], None, None
 
 
 def _format_clone_errors(

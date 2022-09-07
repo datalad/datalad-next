@@ -31,7 +31,7 @@ from .clone_utils import (
     _check_autoenable_special_remotes,
     _get_remote,
     _format_clone_errors,
-    _try_clone,
+    _try_clone_candidates,
     _test_existing_clone_target,
     _generate_candidate_clone_sources,
 )
@@ -85,7 +85,7 @@ def clone_dataset(
         # in a reckless mode, and inherit it for the coming clone
         reckless = cfg.get('datalad.clone.reckless', None)
 
-    last_candidate, error_msgs, stop_props = _try_clone(
+    last_candidate, error_msgs, stop_props = _try_clone_candidates(
         destds,
         candidate_sources,
         clone_opts or [],
