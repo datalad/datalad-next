@@ -133,6 +133,7 @@ def _test_existing_clone_target(
 
 
 def _try_clone_candidates(
+        *,
         destds: Dataset,
         candidate_sources: List,
         clone_opts: List,
@@ -177,9 +178,10 @@ def _try_clone_candidates(
             increment=True)
 
         tried_url, error, fatal = _try_clone_candidate(
-            destds,
-            cand,
-            clone_opts)
+            destds=destds,
+            cand=cand,
+            clone_opts=clone_opts,
+        )
 
         if error is not None:
             lgr.debug("Failed to clone from URL: %s (%s)",
@@ -219,6 +221,7 @@ def _try_clone_candidates(
 
 
 def _try_clone_candidate(
+        *,
         destds: Dataset,
         cand: Dict,
         clone_opts: List) -> Tuple:
@@ -243,10 +246,15 @@ def _try_clone_candidate(
       other candidates remain) will be attempted.
     """
     # right now, we only know git-clone based approaches
-    return _try_git_clone_candidate(destds, cand, clone_opts)
+    return _try_git_clone_candidate(
+        destds=destds,
+        cand=cand,
+        clone_opts=clone_opts,
+    )
 
 
 def _try_git_clone_candidate(
+        *,
         destds: Dataset,
         cand: Dict,
         clone_opts: List) -> Tuple:

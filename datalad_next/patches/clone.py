@@ -86,10 +86,10 @@ def clone_dataset(
         reckless = cfg.get('datalad.clone.reckless', None)
 
     last_candidate, error_msgs, stop_props = _try_clone_candidates(
-        destds,
-        candidate_sources,
-        clone_opts or [],
-        dest_path_existed,
+        destds=destds,
+        candidate_sources=candidate_sources,
+        clone_opts=clone_opts or [],
+        dest_path_existed=dest_path_existed,
     )
     if stop_props:
         # no luck, report and stop
