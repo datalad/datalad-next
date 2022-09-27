@@ -1,3 +1,12 @@
+# 0.6.1 (2022-09-27)
+
+## 💫 Enhancements and new features
+
+- A new patch set break up the implementation of `clone_dataset()`
+  into its procedural components, and makes it more accessible for
+  extension patches. There are no behavior changes associated with
+  this internal reorganization.
+
 # 0.6.0 (2022-08-25)
 
 ## 🐛 Bug Fixes
