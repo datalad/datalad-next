@@ -1,3 +1,23 @@
+
+# 0.6.2 (2022-10-14) -- Hidden secrets
+
+## 🐛 Bug Fixes
+
+- `CredentialManager` no longer splits a credential input prompt into a
+  prompt message (`ui.message()`) and the actual input (`ui.question()`)
+  this enables DataLad Gooey to properly render this jointly as an
+  input dialog with a description.
+  https://github.com/datalad/datalad-next/pull/113 (by @bpoldrack)
+
+## 💫 Enhancements and new features
+
+- `CredentialManager.get()` and the `credentials` command now also report
+  credential fragments for which there is no secret on record. This enables
+  the discovery of DataLad's legacy credentials, and for setting a secret
+  for them for use with the next credential system. Moreover, it reports
+  half-configured credentials, and facilitates their clean-up or completion,
+  for example with DataLad Gooey's credential management GUI.
+
 # 0.6.1 (2022-09-27)
 
 ## 💫 Enhancements and new features
