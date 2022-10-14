@@ -203,14 +203,16 @@ class CredentialManager(object):
             if secret:
                 prompted = True
 
-        if not secret:
-            # nothing
-            return
+        if secret:
+            cred['secret'] = secret
 
-        cred['secret'] = secret
         if 'type' not in cred and kwargs.get('type'):
             # enhance legacy credentials
             cred['type'] = kwargs.get('type')
+
+        if not cred:
+            # if there is absolutely nothing to report, report None
+            return
 
         # report whether there were any edits to the credential record
         # (incl. being entirely new), such that consumers can decide

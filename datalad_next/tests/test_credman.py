@@ -41,9 +41,16 @@ def check_credmanager():
     # doesn't work with thing air
     assert_raises(ValueError, credman.get)
     eq_(credman.get('donotexiststest'), None)
-    eq_(credman.get(crazy='empty'), None)
+    # but if there is anything, report it
+    # this makes it possible to discover credential fragments, if only to
+    # expose them for clean-up
+    eq_(credman.get(crazy='empty'), {'crazy': 'empty'})
     # smoke test for legacy credential retrieval code
-    eq_(credman.get('donotexiststest', type='user_password'), None)
+    # reporting back a credential, even if empty, exposes the legacy
+    # credentials (by name), and enables discovery and (re)setting them
+    # using this newer credential system
+    eq_(credman.get('donotexiststest', type='user_password'),
+        {'type': 'user_password'})
     # does not fiddle with a secret that is readily provided
     eq_(credman.get('dummy', secret='mike', _type_hint='token'),
         dict(type='token', secret='mike'))
@@ -89,7 +96,8 @@ def check_credmanager():
 
     # test full query and constrained query
     q = list(credman.query_())
-    eq_(len(q), 3)
+    # 3 defined here, plus any number of legacy credentials
+    assert len(q) > 3
     # now query for one of the creds created above
     q = list(credman.query_(prop='val'))
     eq_(len(q), 1)
