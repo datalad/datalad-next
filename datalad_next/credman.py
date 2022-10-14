@@ -510,17 +510,17 @@ class CredentialManager(object):
         if not ui.is_interactive:
             lgr.debug('Cannot ask for credential property %r in non-interactive session', name)
             return
-        self._prompt(prompt)
-        return ui.question(name, title=None)
+
+        return ui.question(name, title=prompt)
 
     def _ask_secret(self, type_hint=None, prompt=None):
         if not ui.is_interactive:
             lgr.debug('Cannot ask for credential secret in non-interactive session')
             return
-        self._prompt(prompt)
+
         return ui.question(
             type_hint or 'secret',
-            title=None,
+            title=prompt,
             repeat=self._cfg.obtain(
                 'datalad.credentials.repeat-secret-entry'),
             hidden=self._cfg.obtain(
