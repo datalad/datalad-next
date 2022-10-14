@@ -55,7 +55,7 @@ def _set_request_headers(self, credential_name, auth_info, require_token):
                 type='token',
                 realm=self.api_url,
             )
-            if credential is None:
+            if credential is None or 'secret' not in credential:
                 raise ValueError('No credential found')
         except Exception as e:
             CapturedException(e)
