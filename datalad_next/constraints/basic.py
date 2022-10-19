@@ -10,6 +10,7 @@
 
 __docformat__ = 'restructuredtext'
 
+from pathlib import Path
 import re
 
 from .api import Constraint
@@ -412,3 +413,79 @@ class EnsureRange(Constraint):
 
     def short_description(self):
         return None
+
+
+class EnsurePath(Constraint):
+    """Ensures input is convertible to a (platform) path and returns a `Path`
+
+    Optionally, the path can be tested for existence and whether it is absolute
+    or relative.
+    """
+    def __init__(self,
+                 path_type: type = Path,
+                 is_format: str or None = None,
+                 lexists: bool or None = None,
+                 is_mode: callable = None):
+        """
+        Parameters
+        ----------
+        path_type:
+          Specific pathlib type to convert the input to. The default is `Path`,
+          i.e. the platform's path type. Not all pathlib Path types can be
+          instantiated on all platforms, and not all checks are possible with
+          all path types.
+        is_format: {'absolute', 'relative'} or None
+          If not None, the path is tested whether it matches being relative or
+          absolute.
+        lexists:
+          If not None, the path is tested to confirmed exists or not. A symlink
+          need not point to an existing path to fullfil the "exists" condition.
+        is_mode:
+          If set, this callable will receive the path's `.lstat().st_mode`,
+          and an exception is raised, if the return value does not evaluate
+          to `True`. Typical callables for this feature are provided by the
+          `stat` module, e.g. `S_ISDIR()`
+        """
+        super().__init__()
+        self._path_type = path_type
+        self._is_format = is_format
+        self._lexists = lexists
+        self._is_mode = is_mode
+
+    def __call__(self, value):
+        path = self._path_type(value)
+        mode = None
+        if self._lexists is not None or self._is_mode is not None:
+            try:
+                mode = path.lstat().st_mode
+            except FileNotFoundError:
+                # this is fine, handled below
+                pass
+        if self._lexists is not None:
+            if self._lexists and mode is None:
+                raise ValueError(f'{path} does not exist')
+            elif not self._lexists and mode is not None:
+                raise ValueError(f'{path} does (already) exist')
+        if self._is_format is not None:
+            is_abs = path.is_absolute()
+            if self._is_format == 'absolute' and not is_abs:
+                raise ValueError(f'{path} is not an absolute path')
+            elif self._is_format == 'relative' and is_abs:
+                raise ValueError(f'{path} is not a relative path')
+        if self._is_mode is not None:
+            if not self._is_mode(mode):
+                raise ValueError(f'{path} does not match desired mode')
+        return path
+
+    def short_description(self):
+        return '{}{}path'.format(
+            'existing '
+            if self._lexists
+            else 'non-existing '
+            if self._lexists else '',
+            'absolute '
+            if self._is_format == 'absolute'
+            else 'relative'
+            if self._is_format == 'relative'
+            else '',
+        )

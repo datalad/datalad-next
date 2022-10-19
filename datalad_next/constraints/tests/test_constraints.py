@@ -1,3 +1,4 @@
+import pathlib
 import pytest
 
 from ..api import (
@@ -17,6 +18,7 @@ from ..basic import (
     EnsureIterableOf,
     EnsureListOf,
     EnsureTupleOf,
+    EnsurePath,
 )
 from ..utils import _type_str
 
@@ -334,3 +336,32 @@ def test_both():
 def test_type_str():
     assert _type_str((str,)) == 'str'
     assert _type_str(str) == 'str'
+
+
+def test_EnsurePath(tmp_path):
+    target = pathlib.Path(tmp_path)
+
+    assert EnsurePath()(tmp_path) == target
+    assert EnsurePath(lexists=True)(tmp_path) == target
+    with pytest.raises(ValueError):
+        EnsurePath(lexists=False)(tmp_path)
+    with pytest.raises(ValueError):
+        EnsurePath(lexists=True)(tmp_path / 'nothere')
+    assert EnsurePath(is_format='absolute')(tmp_path) == target
+    with pytest.raises(ValueError):
+        EnsurePath(is_format='relative')(tmp_path)
+    with pytest.raises(ValueError):
+        EnsurePath(is_format='absolute')(tmp_path.name)
+    from stat import S_ISDIR, S_ISREG
+    assert EnsurePath(is_mode=S_ISDIR)(tmp_path) == target
+    with pytest.raises(ValueError):
+        EnsurePath(is_mode=S_ISREG)(tmp_path)
+    # give particular path type
+    assert EnsurePath(path_type=pathlib.PurePath
+        )(tmp_path) == pathlib.PurePath(tmp_path)
+    # not everything is possible, this is known and OK
+    with pytest.raises(AttributeError):
+        EnsurePath(
+            path_type=pathlib.PurePath,
+            is_mode=S_ISREG,
+        )(tmp_path)
