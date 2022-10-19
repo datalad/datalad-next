@@ -427,6 +427,17 @@ def test_EnsurePath(tmp_path):
         )(tmp_path)
     assert EnsurePath().short_description() == 'path'
     assert EnsurePath(is_format='absolute').short_description() == 'absolute path'
+    # default comparison mode is parent-or-same-as
+    c = EnsurePath(ref=target)
+    assert c(target) == target
+    assert c(target / 'some') == target / 'some'
+    with pytest.raises(ValueError):
+        assert c(target.parent)
+    c = EnsurePath(ref=target, ref_is='parent-of')
+    assert c(target / 'some') == target / 'some'
+    with pytest.raises(ValueError):
+        assert c(target)
+    assert c.short_description() == f'path that is parent-of {target}'
 
 
 def test_EnsureMapping():

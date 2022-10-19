@@ -435,7 +435,9 @@ class EnsurePath(Constraint):
                  path_type: type = Path,
                  is_format: str or None = None,
                  lexists: bool or None = None,
-                 is_mode: callable = None):
+                 is_mode: callable = None,
+                 ref: Path = None,
+                 ref_is: str = 'parent-or-same-as'):
         """
         Parameters
         ----------
@@ -455,12 +457,19 @@ class EnsurePath(Constraint):
           and an exception is raised, if the return value does not evaluate
           to `True`. Typical callables for this feature are provided by the
           `stat` module, e.g. `S_ISDIR()`
+        ref:
+          If set, defines a reference Path any given path is compared to. The
+          comparison operation is given by `ref_is`.
+        ref_is: {'parent-or-identical'}
+          Comparison operation to perform when `ref` is given.
         """
         super().__init__()
         self._path_type = path_type
         self._is_format = is_format
         self._lexists = lexists
         self._is_mode = is_mode
+        self._ref = ref
+        self._ref_is = ref_is
 
     def __call__(self, value):
         path = self._path_type(value)
@@ -485,10 +494,22 @@ class EnsurePath(Constraint):
         if self._is_mode is not None:
             if not self._is_mode(mode):
                 raise ValueError(f'{path} does not match desired mode')
+        if self._ref:
+            ok = True
+            if self._ref_is == 'parent-or-same-as':
+                ok = (path == self._ref or self._ref in path.parents)
+            elif self._ref_is == 'parent-of':
+                ok = self._ref in path.parents
+            else:
+                raise ValueError('Unknown `ref_is` operation label')
+
+            if not ok:
+                raise ValueError(
+                    f'{self._ref} is not {self._ref_is} {path}')
         return path
 
     def short_description(self):
-        return '{}{}path'.format(
+        return '{}{}path{}'.format(
             'existing '
             if self._lexists
             else 'non-existing '
@@ -497,6 +518,9 @@ class EnsurePath(Constraint):
             if self._is_format == 'absolute'
             else 'relative'
             if self._is_format == 'relative'
+            else '',
+            f' that is {self._ref_is} {self._ref}'
+            if self._ref
             else '',
         )
 
