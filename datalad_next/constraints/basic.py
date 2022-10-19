@@ -68,48 +68,117 @@ class EnsureFloat(EnsureDType):
         EnsureDType.__init__(self, float)
 
 
-class EnsureListOf(Constraint):
+class EnsureIterableOf(Constraint):
     """Ensure that an input is a list of a particular data type
     """
-    def __init__(self, dtype):
+    def __init__(self,
+                 iter_type: type,
+                 item_constraint: callable,
+                 min_len: int or None = None,
+                 max_len: int or None = None):
         """
         Parameters
         ----------
-        dtype : functor
+        iter_type:
+          Target type of iterable. Common types are `list`, or `tuple`,
+          but also generator type iterables are possible. Type constructor
+          must take an iterable with items as the only required positional
+          argument.
+        item_constraint:
+          Each incoming item will be mapped through this callable
+          before being passed to the iterable type constructor.
+        min_len:
+          If not None, the iterable will be verified to have this minimum
+          number of items. The iterable type must implement `__len__()`
+          for this check to be supported.
+        max_len:
+          If not None, the iterable will be verified to have this maximum
+          number of items. The iterable type must implement `__len__()`
+          for this check to be supported.
         """
-        self._dtype = dtype
-        super(EnsureListOf, self).__init__()
+        if min_len is not None and max_len is not None and min_len > max_len:
+            raise ValueError(
+                'Given minimum length exceeds given maximum length')
+        self._iter_type = iter_type
+        self._item_constraint = item_constraint
+        self._min_len = min_len
+        self._max_len = max_len
+        super().__init__()
+
+    @property
+    def item_constraint(self):
+        return self._item_constraint
 
     def __call__(self, value):
-        return list(map(self._dtype, value))
+        iter = self._iter_type(
+            self._item_constraint(i) for i in value
+        )
+        if self._min_len is not None or self._max_len is not None:
+            # only do this if necessary, generators will not support
+            # __len__, for example
+            iter_len = len(iter)
+            if self._min_len is not None and iter_len < self._min_len:
+                raise ValueError(
+                    f'Length-{iter_len} iterable is shorter than '
+                    f'required minmum length {self._min_len}')
+            if self._max_len is not None and iter_len > self._max_len:
+                raise ValueError(
+                    f'Length-{iter_len} iterable is longer than '
+                    f'required maximum length {self._max_len}')
+        return iter
 
     def short_description(self):
-        return 'list(%s)' % _type_str(self._dtype)
-
-    def long_description(self):
-        return "value must be convertible to %s" % self.short_description()
+        return f'{self._iter_type}({self._item_constraint})'
 
 
-class EnsureTupleOf(Constraint):
-    """Ensure that an input is a tuple of a particular data type
-    """
-    def __init__(self, dtype):
+class EnsureListOf(EnsureIterableOf):
+    def __init__(self,
+                 item_constraint: callable,
+                 min_len: int or None = None,
+                 max_len: int or None = None):
         """
         Parameters
         ----------
-        dtype : functor
+        item_constraint:
+          Each incoming item will be mapped through this callable
+          before being passed to the list constructor.
+        min_len:
+          If not None, the list will be verified to have this minimum
+          number of items.
+        max_len:
+          If not None, the list will be verified to have this maximum
+          number of items.
         """
-        self._dtype = dtype
-        super(EnsureTupleOf, self).__init__()
-
-    def __call__(self, value):
-        return tuple(map(self._dtype, value))
+        super().__init__(list, item_constraint,
+                         min_len=min_len, max_len=max_len)
 
     def short_description(self):
-        return 'tuple(%s)' % _type_str(self._dtype)
+        return f'list({self._item_constraint})'
 
-    def long_description(self):
-        return "value must be convertible to %s" % self.short_description()
+
+class EnsureTupleOf(EnsureIterableOf):
+    def __init__(self,
+                 item_constraint: callable,
+                 min_len: int or None = None,
+                 max_len: int or None = None):
+        """
+        Parameters
+        ----------
+        item_constraint:
+          Each incoming item will be mapped through this callable
+          before being passed to the tuple constructor.
+        min_len:
+          If not None, the tuple will be verified to have this minimum
+          number of items.
+        max_len:
+          If not None, the tuple will be verified to have this maximum
+          number of items.
+        """
+        super().__init__(tuple, item_constraint,
+                         min_len=min_len, max_len=max_len)
+
+    def short_description(self):
+        return f'tuple({self._item_constraint})'
 
 
 class EnsureBool(Constraint):
