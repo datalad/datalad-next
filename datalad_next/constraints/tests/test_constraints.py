@@ -14,7 +14,7 @@ from datalad.tests.utils_pytest import (
     assert_raises,
 )
 
-from ..support import constraints as ct
+from ... import constraints as ct
 
 
 def test_int():
