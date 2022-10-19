@@ -15,6 +15,15 @@ from .api import Constraint
 from .utils import _type_str
 
 
+class NoConstraint(Constraint):
+    """A contraint that represents no constraints"""
+    def short_description(self):
+        return ''
+
+    def __call__(self, value):
+        return value
+
+
 class EnsureDType(Constraint):
     """Ensure that an input (or several inputs) are of a particular data type.
     """
