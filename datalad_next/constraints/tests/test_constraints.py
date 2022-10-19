@@ -21,6 +21,10 @@ from ..basic import (
     EnsureTupleOf,
     EnsurePath,
 )
+from ..git import (
+    EnsureGitRefName,
+)
+
 from ..utils import _type_str
 
 
@@ -399,3 +403,21 @@ def test_EnsureMapping():
               {'5': 'False', '6': True}):
         with pytest.raises(ValueError):
             d = constraint(v)
+
+
+def test_EnsureGitRefName():
+    assert EnsureGitRefName().short_description() == '(single-level) Git refname'
+    # standard branch name must work
+    assert EnsureGitRefName()('main') == 'main'
+    # normalize is on by default
+    assert EnsureGitRefName()('/main') == 'main'
+    # be able to turn off onelevel
+    with pytest.raises(ValueError):
+        EnsureGitRefName(allow_onelevel=False)('main')
+    assert EnsureGitRefName(allow_onelevel=False)(
+        'refs/heads/main') == 'refs/heads/main'
+    # refspec pattern off by default
+    with pytest.raises(ValueError):
+        EnsureGitRefName()('refs/heads/*')
+    assert EnsureGitRefName(refspec_pattern=True)(
+        'refs/heads/*') == 'refs/heads/*'
