@@ -1,9 +1,19 @@
 """"""
-
 __docformat__ = 'restructuredtext'
 
+from typing import (
+    TYPE_CHECKING,
+    TypeVar,
+)
 
-class Constraint(object):
+if TYPE_CHECKING:
+    from datalad.distribution.dataset import Dataset
+
+aConstraint = TypeVar('aConstraint', bound='Constraint')
+aDataset = TypeVar('aDataset', bound='Dataset')
+
+
+class Constraint:
     """Base class for input value conversion/validation.
 
     These classes are also meant to be able to generate appropriate
@@ -36,6 +46,14 @@ class Constraint(object):
         # return meaningful docs or None
         # used as a condensed primer for the parameter lists
         raise NotImplementedError("abstract class")
+
+    def for_dataset(self, dataset: aDataset) -> aConstraint:
+        """Return a constraint-variant for a specific dataset context
+
+        The default implementation returns the unmodified, identical
+        constraint. However, subclasses can implement different behaviors.
+        """
+        return self
 
 
 class _MultiConstraint(Constraint):
