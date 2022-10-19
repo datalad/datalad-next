@@ -58,11 +58,6 @@ class EnsureGitRefName(Constraint):
         else:
             return value
 
-    def long_description(self):
-        return 'must be a string{}'.format(
-            f' and match {self._match.pattern}' if self._match else '',
-        )
-
     def short_description(self):
         return '{}Git refname{}'.format(
             '(single-level) ' if self._allow_onelevel else '',

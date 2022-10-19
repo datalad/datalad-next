@@ -6,7 +6,7 @@ from typing import (
     TypeVar,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from datalad.distribution.dataset import Dataset
 
 aConstraint = TypeVar('aConstraint', bound='Constraint')
@@ -60,24 +60,18 @@ class _MultiConstraint(Constraint):
     """Helper class to override the description methods to reported
     multiple constraints
     """
-    def _get_description(self, attr):
+    def _get_description(self, attr: str, operation: str) -> str:
         cs = [
             getattr(c, attr)()
             for c in self.constraints
             if hasattr(c, attr)
         ]
         cs = [c for c in cs if c is not None]
-        doc = ' or '.join(cs)
+        doc = f' {operation} '.join(cs)
         if len(cs) > 1:
             return f'({doc})'
         else:
             return doc
-
-    def long_description(self):
-        return self._get_description('long_description')
-
-    def short_description(self):
-        return self._get_description('short_description')
 
 
 class AltConstraints(_MultiConstraint):
@@ -118,6 +112,12 @@ class AltConstraints(_MultiConstraint):
         raise ValueError("all alternative constraints (%s) violated while testing value %r"
                          % (self.constraints, value))
 
+    def long_description(self):
+        return self._get_description('long_description', 'or')
+
+    def short_description(self):
+        return self._get_description('short_description', 'or')
+
 
 class Constraints(_MultiConstraint):
     """Logical AND for constraints.
@@ -152,3 +152,9 @@ class Constraints(_MultiConstraint):
         for c in (self.constraints):
             value = c(value)
         return value
+
+    def long_description(self):
+        return self._get_description('long_description', 'and')
+
+    def short_description(self):
+        return self._get_description('short_description', 'and')

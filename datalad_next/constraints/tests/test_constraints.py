@@ -2,6 +2,7 @@ import pathlib
 import pytest
 
 from ..api import (
+    Constraint,
     Constraints,
     AltConstraints,
 )
@@ -10,6 +11,7 @@ from ..basic import (
     EnsureFloat,
     EnsureBool,
     EnsureStr,
+    EnsureStrPrefix,
     EnsureNone,
     EnsureCallable,
     EnsureChoice,
@@ -20,6 +22,7 @@ from ..basic import (
     EnsureListOf,
     EnsureTupleOf,
     EnsurePath,
+    NoConstraint,
 )
 from ..git import (
     EnsureGitRefName,
@@ -27,6 +30,25 @@ from ..git import (
 
 from ..utils import _type_str
 
+
+def test_base():
+    # there is no "standard" implementation
+    with pytest.raises(NotImplementedError):
+        Constraint()('whatever')
+    # no standard docs
+    with pytest.raises(NotImplementedError):
+        Constraint().short_description()
+    with pytest.raises(NotImplementedError):
+        Constraint().long_description()
+    # dataset context switching is by default a no-op
+    generic = Constraint()
+    assert id(generic) == id(generic.for_dataset('some'))
+
+
+def test_noconstraint():
+    c = NoConstraint()
+    assert c(5) == 5
+    assert c.short_description() == ''
 
 def test_int():
     c = EnsureInt()
@@ -134,6 +156,15 @@ def test_EnsureStr_match():
             assert constraint('')
 
 
+def test_EnsureStrPrefix():
+    c = EnsureStrPrefix('some-')
+    c('some-mess') == 'some-mess'
+    with pytest.raises(ValueError):
+        c('mess')
+    assert c.short_description() == 'some-...'
+    assert c.long_description() == "value must start with 'some-'"
+
+
 def test_none():
     c = EnsureNone()
     # this should always work
@@ -147,6 +178,8 @@ def test_none():
 
 def test_callable():
     c = EnsureCallable()
+    assert c.short_description() == 'callable'
+    assert c.long_description() == 'value must be a callable'
     # this should always work
     assert c(range) == range
     with pytest.raises(ValueError):
@@ -183,6 +216,8 @@ def test_keychoice():
 
 
 def test_range():
+    with pytest.raises(ValueError):
+        EnsureRange(min=None, max=None)
     c = EnsureRange(min=3, max=7)
     # this should always work
     assert c(3.0) == 3.0
@@ -230,8 +265,9 @@ def test_EnsureListOf():
 
 
 def test_EnsureIterableOf():
-    assert EnsureIterableOf(
-        list, int).short_description() == "<class 'list'>(<class 'int'>)"
+    c = EnsureIterableOf(list, int)
+    assert c.short_description() == "<class 'list'>(<class 'int'>)"
+    assert c.item_constraint == int
     # testing aspects that are not covered by test_EnsureListOf
     tgt = [True, False, True]
     assert EnsureIterableOf(list, bool)((1, 0, 1)) == tgt
@@ -274,6 +310,8 @@ def test_constraints():
     assert c(7.0) == 7.0
     # __and__ form
     c = EnsureFloat() & EnsureRange(min=4.0)
+    assert c.short_description() == '(float and not less than 4.0)'
+    assert 'and not less than 4.0' in c.long_description()
     assert c(7.0) == 7.0
     with pytest.raises(ValueError):
         c(3.9)
@@ -296,6 +334,14 @@ def test_constraints():
         c(3.99)
     with pytest.raises(ValueError):
         c(9.01)
+    # smoke test concat AND constraints
+    c = Constraints(EnsureRange(max=10), EnsureRange(min=5)) & \
+            Constraints(EnsureRange(max=6), EnsureRange(min=2))
+    assert c(6) == 6
+    with pytest.raises(ValueError):
+        c(4)
+
+
 
 
 def test_altconstraints():
@@ -306,6 +352,15 @@ def test_altconstraints():
     assert c.short_description(), '(float or None)'
     assert c(7.0) == 7.0
     assert c(None) is None
+    # OR with an alternative just extends
+    c = c | EnsureInt()
+    assert c.short_description(), '(float or None or int)'
+    # OR with an alternative combo also extends
+    c = c | AltConstraints(EnsureBool(), EnsureInt())
+    # yes, no de-duplication
+    assert c.short_description(), '(float or None or int or bool or int)'
+    # spot check long_description, must have some number
+    assert len(c.long_description().split(' or ')) == 5
     # __or__ form
     c = EnsureFloat() | EnsureNone()
     assert c(7.0) == 7.0
@@ -370,6 +425,8 @@ def test_EnsurePath(tmp_path):
             path_type=pathlib.PurePath,
             is_mode=S_ISREG,
         )(tmp_path)
+    assert EnsurePath().short_description() == 'path'
+    assert EnsurePath(is_format='absolute').short_description() == 'absolute path'
 
 
 def test_EnsureMapping():
@@ -404,6 +461,8 @@ def test_EnsureMapping():
         with pytest.raises(ValueError):
             d = constraint(v)
 
+    # TODO test for_dataset() once we have a simple EnsurePathInDataset
+
 
 def test_EnsureGitRefName():
     assert EnsureGitRefName().short_description() == '(single-level) Git refname'
@@ -411,6 +470,14 @@ def test_EnsureGitRefName():
     assert EnsureGitRefName()('main') == 'main'
     # normalize is on by default
     assert EnsureGitRefName()('/main') == 'main'
+    with pytest.raises(ValueError):
+        EnsureGitRefName(normalize=False)('/main')
+    assert EnsureGitRefName(normalize=False)('main') == 'main'
+    # no empty
+    with pytest.raises(ValueError):
+        EnsureGitRefName()('')
+    with pytest.raises(ValueError):
+        EnsureGitRefName()(None)
     # be able to turn off onelevel
     with pytest.raises(ValueError):
         EnsureGitRefName(allow_onelevel=False)('main')
