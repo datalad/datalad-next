@@ -10,6 +10,7 @@
 
 __docformat__ = 'restructuredtext'
 
+import re
 
 from .api import Constraint
 from .utils import _type_str
@@ -139,22 +140,32 @@ class EnsureBool(Constraint):
 
 
 class EnsureStr(Constraint):
-    """Ensure an input is a string.
+    """Ensure an input is a string of some min. length and matching a pattern
 
-    No automatic conversion is attempted.
+    Pattern matching is optional and minimum length is zero (empty string is
+    OK).
+
+    No type conversion is performed.
     """
-    def __init__(self, min_len=0):
+    def __init__(self, min_len: int = 0, match: str = None):
         """
         Parameters
         ----------
         min_len: int, optional
            Minimal length for a string.
+        match:
+           Regular expression used to match any input value against.
+           Values not matching the expression will cause a
+           `ValueError` to be raised.
         """
         assert min_len >= 0
         self._min_len = min_len
-        super(EnsureStr, self).__init__()
+        self._match = match
+        super().__init__()
+        if match is not None:
+            self._match = re.compile(match)
 
-    def __call__(self, value):
+    def __call__(self, value) -> str:
         if not isinstance(value, (bytes, str)):
             # do not perform a blind conversion ala str(), as almost
             # anything can be converted and the result is most likely
@@ -163,13 +174,21 @@ class EnsureStr(Constraint):
         if len(value) < self._min_len:
             raise ValueError("%r is shorter than of minimal length %d"
                              % (value, self._min_len))
+        if self._match:
+            if not self._match.match(value):
+                raise ValueError(
+                    f'{value} does not match {self._match.pattern}')
         return value
 
     def long_description(self):
-        return 'value must be a string'
+        return 'must be a string{}'.format(
+            f' and match {self._match.pattern}' if self._match else '',
+        )
 
     def short_description(self):
-        return 'str'
+        return 'str{}'.format(
+            f'({self._match.pattern})' if self._match else '',
+        )
 
 
 # TODO possibly consolidate on EnsureStr from -gooey, which can take
