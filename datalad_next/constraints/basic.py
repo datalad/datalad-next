@@ -399,6 +399,8 @@ class EnsureRange(Constraint):
         """
         self._min = min
         self._max = max
+        if self._min == self._max == None:
+            raise ValueError('No range given, min == max == None')
         super(EnsureRange, self).__init__()
 
     def __call__(self, value):
@@ -411,12 +413,16 @@ class EnsureRange(Constraint):
         return value
 
     def long_description(self):
-        min_str = '-inf' if self._min is None else str(self._min)
-        max_str = 'inf' if self._max is None else str(self._max)
-        return 'value must be in range [%s, %s]' % (min_str, max_str)
+        return self.short_description()
 
     def short_description(self):
-        return None
+        if self._max is None:
+            return f'not less than {self._min}'
+        elif self._min is None:
+            return f'not greater than {self._max}'
+        else:
+            # it is inclusive, but spelling it out would be wordy
+            return f'between {self._min} and {self._max}'
 
 
 class EnsurePath(Constraint):
