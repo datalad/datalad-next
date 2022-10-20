@@ -9,6 +9,8 @@ from .api import aConstraint
 from .basic import (
     EnsureBool,
     EnsureChoice,
+    EnsureFloat,
+    EnsureInt,
     EnsureIterableOf,
     EnsureMapping,
     EnsureNone,
@@ -79,6 +81,16 @@ class EnsureParameterConstraint(EnsureMapping):
         return cls(value_constraint)
 
 
+# that mapping is NOT to be expanded!
+# it is a legacy leftover. It's usage triggers a DeprecationWarning
+_constraint_spec_map = {
+    'float': EnsureFloat(),
+    'int': EnsureInt(),
+    'bool': EnsureBool(),
+    'str': EnsureStr(),
+}
+
+
 def _get_comprehensive_constraint(
         param_spec: aParameter,
         default: Any,
@@ -88,6 +100,16 @@ def _get_comprehensive_constraint(
     # definitive per-item constraint, consider override
     # otherwise fall back on Parameter.constraints
     constraint = item_constraint_override or param_spec.constraints
+
+    if not (constraint is None or hasattr(constraint, '__call__')):
+        import warnings
+        warnings.warn("Literal constraint labels are no longer supported.",
+                      DeprecationWarning)
+        try:
+            return _constraint_spec_map[constraint]
+        except KeyError:
+            raise ValueError(
+                f"unsupported constraint specification '{constraint}'")
 
     if not constraint:
         if action in ('store_true', 'store_false'):

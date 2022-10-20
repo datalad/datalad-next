@@ -582,3 +582,11 @@ def test_EnsureParameterConstraint():
         item_constraint=EnsureStr(),
         nargs=1)
     assert c({'some': ['5']}) == dict(some=['5'])
+    # literal constraint label
+    # this is no longer supported, but still works: test until removed
+    c = EnsureParameterConstraint.from_parameter(
+        Parameter(), 2, item_constraint='float')
+    assert c('some=3') == dict(some=3.0)
+    with pytest.raises(ValueError):
+        EnsureParameterConstraint.from_parameter(
+            Parameter(), 2, item_constraint='unknown')
