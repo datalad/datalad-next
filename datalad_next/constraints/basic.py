@@ -565,6 +565,8 @@ class EnsureMapping(Constraint):
             if not len(value) == 2:
                 raise ValueError('key/value sequence does not have length 2')
             key, val = value
+        else:
+            raise ValueError(f'Unsupported data type for mapping: {value!r}')
 
         key = self._key_constraint(key)
         val = self._value_constraint(val)
