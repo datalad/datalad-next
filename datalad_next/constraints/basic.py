@@ -44,11 +44,7 @@ class EnsureDType(Constraint):
         self._dtype = dtype
 
     def __call__(self, value):
-        if hasattr(value, '__iter__') and \
-                not (isinstance(value, (bytes, str))):
-            return list(map(self._dtype, value))
-        else:
-            return self._dtype(value)
+        return self._dtype(value)
 
     def short_description(self):
         return _type_str(self._dtype)
@@ -76,6 +72,7 @@ class EnsureFloat(EnsureDType):
 class EnsureIterableOf(Constraint):
     """Ensure that an input is a list of a particular data type
     """
+    # TODO support a delimiter to be able to take str-lists?
     def __init__(self,
                  iter_type: type,
                  item_constraint: callable,

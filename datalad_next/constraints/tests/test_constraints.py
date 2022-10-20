@@ -50,18 +50,19 @@ def test_noconstraint():
     assert c(5) == 5
     assert c.short_description() == ''
 
+
 def test_int():
     c = EnsureInt()
     # this should always work
     assert c(7) == 7
     assert c(7.0) == 7
     assert c('7') == 7
-    assert c([7, 3]) == [7, 3]
+    # no automatic inspection of iterables, should use EnsureIterableOf
+    with pytest.raises(TypeError):
+        c([7, 3])
     # this should always fail
     with pytest.raises(ValueError):
         c('fail')
-    with pytest.raises(ValueError):
-        c([3, 'fail'])
     # this will also fail
     with pytest.raises(ValueError):
         c('17.0')
@@ -74,12 +75,12 @@ def test_float():
     assert c(7.0) == 7.0
     assert c(7) == 7.0
     assert c('7') == 7.0
-    assert c([7.0, '3.0']) == [7.0, 3.0]
+    # no automatic inspection of iterables, should use EnsureIterableOf
+    with pytest.raises(TypeError):
+        c([7.0, '3.0'])
     # this should always fail
     with pytest.raises(ValueError):
         c('fail')
-    with pytest.raises(ValueError):
-        c([3.0, 'fail'])
 
 
 def test_bool():
@@ -340,8 +341,6 @@ def test_constraints():
     assert c(6) == 6
     with pytest.raises(ValueError):
         c(4)
-
-
 
 
 def test_altconstraints():
