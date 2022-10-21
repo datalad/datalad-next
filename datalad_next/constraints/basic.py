@@ -387,7 +387,7 @@ class EnsureKeyChoice(EnsureChoice):
         return "value in '%s' must be one of %s" % (self._key, str(self._allowed),)
 
     def short_description(self):
-        return '%s:{%s}' % (self._key, ', '.join([str(c) for c in self._allowed]))
+        return '%s:{%s}' % (self._key, ', '.join([repr(c) for c in self._allowed]))
 
 
 class EnsureRange(Constraint):

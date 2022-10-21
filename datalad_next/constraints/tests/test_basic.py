@@ -184,6 +184,11 @@ def test_callable():
 
 def test_choice():
     c = EnsureChoice('choice1', 'choice2', None)
+    descr = c.long_description()
+    for i in ('choice1', 'choice2', 'CMD', 'PY'):
+        assert i in descr
+    # short is a "set" or repr()s
+    assert c.short_description() == "{'choice1', 'choice2', None}"
     # this should always work
     assert c('choice1') == 'choice1'
     assert c(None) is None
@@ -196,6 +201,10 @@ def test_choice():
 
 def test_keychoice():
     c = EnsureKeyChoice(key='some', values=('choice1', 'choice2', None))
+    descr = c.long_description()
+    for i in ('some', 'choice1', 'choice2'):
+        assert i in descr
+    assert c.short_description() == "some:{'choice1', 'choice2', None}"
     assert c({'some': 'choice1'}) == {'some': 'choice1'}
     assert c({'some': None}) == {'some': None}
     assert c({'some': None, 'ign': 'ore'}) == {'some': None, 'ign': 'ore'}
@@ -214,6 +223,8 @@ def test_keychoice():
 def test_range():
     with pytest.raises(ValueError):
         EnsureRange(min=None, max=None)
+    c = EnsureRange(max=7)
+    assert c.short_description() == 'not greater than 7'
     c = EnsureRange(min=3, max=7)
     # this should always work
     assert c(3.0) == 3.0
@@ -343,6 +354,9 @@ def test_EnsurePath(tmp_path):
     with pytest.raises(ValueError):
         assert c(target)
     assert c.short_description() == f'path that is parent-of {target}'
+    c = EnsurePath(ref=target, ref_is='stupid')
+    with pytest.raises(ValueError):
+        c('doesnotmatter')
 
 
 def test_EnsureMapping():
@@ -350,6 +364,9 @@ def test_EnsureMapping():
     true_value = False
 
     constraint = EnsureMapping(EnsureInt(), EnsureBool(), delimiter='::')
+    # called without a mapping type
+    with pytest.raises(ValueError):
+        constraint(true_key)
 
     assert 'mapping of int -> bool' in constraint.short_description()
 
