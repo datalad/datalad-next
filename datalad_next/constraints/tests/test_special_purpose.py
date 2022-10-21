@@ -120,9 +120,11 @@ def test_EnsureParameterConstraint():
     assert c({'some': ['5']}) == dict(some=['5'])
     # literal constraint label
     # this is no longer supported, but still works: test until removed
-    c = EnsureParameterConstraint.from_parameter(
-        Parameter(), 2, item_constraint='float')
+    with pytest.deprecated_call():
+        c = EnsureParameterConstraint.from_parameter(
+            Parameter(), 2, item_constraint='float')
     assert c('some=3') == dict(some=3.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), \
+            pytest.deprecated_call():
         EnsureParameterConstraint.from_parameter(
             Parameter(), 2, item_constraint='unknown')
