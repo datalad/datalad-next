@@ -30,6 +30,25 @@ class NoConstraint(Constraint):
         return value
 
 
+class EnsureValue(Constraint):
+    """Ensure an input is a particular value"""
+    def __init__(self, value):
+        super().__init__()
+        self._target_value = value
+
+    def __call__(self, value):
+        if value == self._target_value:
+            return value
+        else:
+            raise ValueError(f"value must be {self._target_value!r}")
+
+    def short_description(self):
+        return f'{self._target_value!r}'
+
+    def long_description(self):
+        return f'value must be {self.short_description()}'
+
+
 class EnsureDType(Constraint):
     """Ensure that an input (or several inputs) are of a particular data type.
     """
@@ -293,19 +312,10 @@ class EnsureStrPrefix(EnsureStr):
         return '{}...'.format(self._prefix)
 
 
-class EnsureNone(Constraint):
+class EnsureNone(EnsureValue):
     """Ensure an input is of value `None`"""
-    def __call__(self, value):
-        if value is None:
-            return None
-        else:
-            raise ValueError("value must be `None`")
-
-    def short_description(self):
-        return 'None'
-
-    def long_description(self):
-        return 'value must be `None`'
+    def __init__(self):
+        super().__init__(None)
 
 
 class EnsureCallable(Constraint):

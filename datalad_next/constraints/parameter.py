@@ -13,8 +13,8 @@ from .basic import (
     EnsureInt,
     EnsureIterableOf,
     EnsureMapping,
-    EnsureNone,
     EnsureStr,
+    EnsureValue,
     NoConstraint,
 )
 
@@ -169,12 +169,6 @@ def _get_comprehensive_constraint(
     try:
         constraint(default)
     except Exception:
-        # should be this TODO
-        #constraint = constraint | EnsureValue(default)
-        # for now
-        if default is None:
-            constraint = constraint | EnsureNone()
+        constraint = constraint | EnsureValue(default)
 
     return constraint
-
-

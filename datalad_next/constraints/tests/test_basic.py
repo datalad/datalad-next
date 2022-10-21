@@ -17,6 +17,7 @@ from ..basic import (
     EnsureListOf,
     EnsureTupleOf,
     EnsurePath,
+    EnsureValue,
     NoConstraint,
 )
 from ..utils import _type_str
@@ -143,8 +144,25 @@ def test_EnsureStrPrefix():
     assert c.long_description() == "value must start with 'some-'"
 
 
+def test_EnsureValue():
+    c = EnsureValue(5)
+    assert c.short_description() == '5'
+    # this should always work
+    assert c(5) == 5
+    # type mismatch
+    with pytest.raises(ValueError):
+        c('5')
+    # value mismatches
+    with pytest.raises(ValueError):
+        c('None')
+    with pytest.raises(ValueError):
+        c([])
+
+
+# special case of EnsureValue
 def test_none():
     c = EnsureNone()
+    assert c.short_description() == 'None'
     # this should always work
     assert c(None) is None
     # this should always fail
