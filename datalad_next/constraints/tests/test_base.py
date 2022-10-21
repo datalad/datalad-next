@@ -1,6 +1,6 @@
 import pytest
 
-from ..api import (
+from ..base import (
     Constraint,
     Constraints,
     AltConstraints,

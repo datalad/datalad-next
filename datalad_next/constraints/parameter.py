@@ -5,17 +5,19 @@ from typing import (
     TypeVar,
 )
 
-from .api import aConstraint
+from .base import aConstraint
 from .basic import (
     EnsureBool,
     EnsureChoice,
     EnsureFloat,
     EnsureInt,
-    EnsureIterableOf,
-    EnsureMapping,
     EnsureStr,
     EnsureValue,
     NoConstraint,
+)
+from .compound import (
+    EnsureIterableOf,
+    EnsureMapping,
 )
 
 if TYPE_CHECKING:  # pragma: no cover

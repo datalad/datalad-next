@@ -7,13 +7,15 @@ from .basic import (
     EnsureChoice,
     EnsureFloat,
     EnsureInt,
-    EnsureIterableOf,
     EnsureKeyChoice,
-    EnsureListOf,
-    EnsureMapping,
     EnsureNone,
     EnsurePath,
     EnsureStr,
     EnsureRange,
-    EnsureTupleOf
+)
+from .compound import (
+    EnsureIterableOf,
+    EnsureListOf,
+    EnsureTupleOf,
+    EnsureMapping,
 )

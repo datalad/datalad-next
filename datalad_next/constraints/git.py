@@ -1,4 +1,4 @@
-from .api import Constraint
+from .base import Constraint
 
 
 class EnsureGitRefName(Constraint):

@@ -93,7 +93,9 @@ class AltConstraints(_MultiConstraint):
         super(AltConstraints, self).__init__()
         # TODO Why is EnsureNone needed? Remove if possible
         from .basic import EnsureNone
-        self.constraints = [EnsureNone() if c is None else c for c in constraints]
+        self.constraints = [
+            EnsureNone() if c is None else c for c in constraints
+        ]
 
     def __or__(self, other):
         if isinstance(other, AltConstraints):
@@ -109,8 +111,8 @@ class AltConstraints(_MultiConstraint):
                 return c(value)
             except Exception as e:
                 e_list.append(e)
-        raise ValueError("all alternative constraints (%s) violated while testing value %r"
-                         % (self.constraints, value))
+        raise ValueError(
+            f"{value!r} voilated all possible constraints {self.constraints}")
 
     def long_description(self):
         return self._get_description('long_description', 'or')
@@ -139,7 +141,9 @@ class Constraints(_MultiConstraint):
         super(Constraints, self).__init__()
         # TODO Why is EnsureNone needed? Remove if possible
         from .basic import EnsureNone
-        self.constraints = [EnsureNone() if c is None else c for c in constraints]
+        self.constraints = [
+            EnsureNone() if c is None else c for c in constraints
+        ]
 
     def __and__(self, other):
         if isinstance(other, Constraints):
