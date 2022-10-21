@@ -71,8 +71,14 @@ def test_constraints():
 def test_altconstraints():
     # this should always work
     c = AltConstraints(EnsureFloat())
+    # passes the docs through
+    assert c.short_description() == EnsureFloat().short_description()
     assert c(7.0) == 7.0
     c = AltConstraints(EnsureFloat(), EnsureNone())
+    # wraps docs in parenthesis to help appreciate the scope of the
+    # OR'ing
+    assert c.short_description().startswith(
+        f'({EnsureFloat().short_description()}')
     assert c.short_description(), '(float or None)'
     assert c(7.0) == 7.0
     assert c(None) is None
