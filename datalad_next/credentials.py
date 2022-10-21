@@ -38,7 +38,7 @@ from datalad.interface.utils import (
     eval_results,
     generic_result_renderer,
 )
-from datalad.support.constraints import (
+from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,
     EnsureStr,

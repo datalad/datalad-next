@@ -45,7 +45,7 @@ import datalad_next.patches
 
 # register additional configuration items in datalad-core
 from datalad.support.extensions import register_config
-from datalad.support.constraints import EnsureBool
+from datalad_next.constraints import EnsureBool
 register_config(
     'datalad.credentials.repeat-secret-entry',
     'Require entering secrets twice for interactive specification?',

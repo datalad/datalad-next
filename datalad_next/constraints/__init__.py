@@ -12,6 +12,7 @@ from .basic import (
     EnsurePath,
     EnsureStr,
     EnsureRange,
+    NoConstraint,
 )
 from .compound import (
     EnsureIterableOf,

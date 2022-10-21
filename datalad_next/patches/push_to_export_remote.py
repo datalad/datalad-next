@@ -13,7 +13,7 @@ import datalad.core.distributed.push as push
 from datalad.distribution.dataset import Dataset
 from datalad.runner.exception import CommandError
 from datalad.support.annexrepo import AnnexRepo
-from datalad.support.constraints import EnsureChoice
+from datalad_next.constraints import EnsureChoice
 from datalad.support.exceptions import CapturedException
 from datalad.support.param import Parameter
 from datalad_next.credman import CredentialManager
