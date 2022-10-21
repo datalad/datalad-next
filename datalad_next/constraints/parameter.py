@@ -45,6 +45,10 @@ class EnsureParameterConstraint(EnsureMapping):
             delimiter='=',
         )
 
+    @property
+    def parameter_constraint(self):
+        return self._value_constraint
+
     @classmethod
     def from_parameter(
             cls,
