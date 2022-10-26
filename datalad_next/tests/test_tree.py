@@ -232,21 +232,16 @@ def get_tree_rendered_output(tree_cmd: list, exit_code: int = 0):
 
 
 @pytest.fixture(scope="class")
-def inject_path_no_ds(request, path_no_ds):
+def inject_path(request, path_ds, path_no_ds):
     """
-    Set ``path_no_ds`` fixture (root path of temp directory tree) as class
-    attribute, to make it available to all tests in the class
+    Set a path fixture (root path of temp directory tree) as class attribute,
+    to make it available to all tests in the class. The fixture is chosen based
+    on the class' ``tree_with_ds`` attribute.
     """
-    request.cls.path = path_no_ds
-
-
-@pytest.fixture(scope="class")
-def inject_path_ds(request, path_ds):
-    """
-    Set ``path_ds`` fixture (root path of temp directory tree) as class
-    attribute, to make it available to all tests in the class
-    """
-    request.cls.path = path_ds
+    if request.cls.tree_with_ds:
+        request.cls.path = path_ds
+    else:
+        request.cls.path = path_no_ds
 
 
 def format_param_ids(val) -> str:
@@ -302,6 +297,8 @@ def pytest_generate_tests(metafunc):
 
 # ================================= Tests =====================================
 
+
+@pytest.mark.usefixtures("inject_path")
 class TestTree:
     """Base class with tests that should run for multiple Tree
     configurations.
@@ -315,6 +312,7 @@ class TestTree:
       ``MATRIX``).
     """
     __test__ = False  # tells pytest to not collect tests in this class
+    tree_with_ds = False
     path = None  # will be set by the inject_* fixture to temp dir tree root
 
     # matrix of combinations of parameters to be tested and their
@@ -335,11 +333,11 @@ class TestTree:
     }
 
 
-@pytest.mark.usefixtures("inject_path_no_ds")
 class TestTreeWithoutDatasets(TestTree):
     """Test directory tree without any datasets"""
 
     __test__ = True
+    tree_with_ds = False
 
     MATRIX = [
     {
@@ -563,12 +561,11 @@ class TestTreeWithoutDatasets(TestTree):
                    for level in res["exhausted_levels"])
 
 
-@pytest.mark.usefixtures("inject_path_ds")
 class TestTreeWithDatasets(TestTreeWithoutDatasets):
     """Test directory tree with datasets"""
 
     __test__ = True
-
+    tree_with_ds = True
     # set `include_files` and `include_hidden` to False,
     # they should be already covered in `TestTreeWithoutDatasets`
     MATRIX = [
@@ -604,12 +601,11 @@ class TestTreeWithDatasets(TestTreeWithoutDatasets):
     ]
 
 
-@pytest.mark.usefixtures("inject_path_ds")
 class TestDatasetTree(TestTree):
     """Test dataset tree with max_dataset_depth parameter"""
 
     __test__ = True
-
+    tree_with_ds = True
     MATRIX = [
     {
         "dataset_depth": 0,
