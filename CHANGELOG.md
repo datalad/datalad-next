@@ -1,4 +1,12 @@
 
+# 0.6.3 (2022-10-26) -- Tests only
+
+## 🐛 Bug Fixes
+
+- Small change in the tests of the `tree` command for more robust behavior
+  across Python and pytest versions.
+  https://github.com/datalad/datalad-next/pull/117 (by @bpoldrack)
+
 # 0.6.2 (2022-10-14) -- Hidden secrets
 
 ## 🐛 Bug Fixes
