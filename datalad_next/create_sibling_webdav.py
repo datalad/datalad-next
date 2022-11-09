@@ -43,7 +43,7 @@ from datalad.interface.utils import (
 from datalad.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
-from datalad.support.constraints import (
+from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,
     EnsureStr,

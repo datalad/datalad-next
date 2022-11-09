@@ -207,7 +207,7 @@ from datalad.support.annexrepo import AnnexRepo
 from datalad.support.exceptions import CapturedException
 from datalad.support.external_versions import external_versions
 from datalad.support.gitrepo import GitRepo
-from datalad.support.constraints import EnsureInt
+from datalad_next.constraints import EnsureInt
 from datalad.ui import ui
 from datalad.utils import (
     on_windows,
