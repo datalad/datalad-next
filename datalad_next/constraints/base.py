@@ -112,7 +112,7 @@ class AltConstraints(_MultiConstraint):
             except Exception as e:
                 e_list.append(e)
         raise ValueError(
-            f"{value!r} voilated all possible constraints {self.constraints}")
+            f"{value!r} violated all possible constraints {self.constraints}")
 
     def long_description(self):
         return self._get_description('long_description', 'or')
