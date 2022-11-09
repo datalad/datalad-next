@@ -4,6 +4,8 @@ import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
+from datalad.utils import on_windows
+
 from ..basic import (
     EnsureInt,
     EnsureBool,
@@ -15,7 +17,6 @@ from ..compound import (
     EnsureMapping,
     EnsureGeneratorFromFileLike,
 )
-from ..formats import EnsureJSON
 
 
 # imported from ancient test code in datalad-core,
@@ -131,48 +132,21 @@ def test_EnsureGeneratorFromFileLike():
     c = constraint(StringIO("5::yes\n1234::BANG"))
     with pytest.raises(ValueError) as e:
         list(c)
-        assert 'be convertible to boolean' in str(e)
+    assert 'be convertible to boolean' in str(e)
 
     # read from STDIN
     with patch("sys.stdin", StringIO("5::yes\n1234::no")):
         assert list(constraint('-')) == [{5: True}, {1234: False}]
 
     # read from file
-    with NamedTemporaryFile('w+') as f:
-        f.write("5::yes\n1234::no")
-        f.seek(0)
-        assert list(constraint(f.name)) == [{5: True}, {1234: False}]
+    if not on_windows:
+        # on windows the write-rewind-test logic is not possible
+        # (PermissionError) -- too lazy to implement a workaround
+        with NamedTemporaryFile('w+') as f:
+            f.write("5::yes\n1234::no")
+            f.seek(0)
+            assert list(constraint(f.name)) == [{5: True}, {1234: False}]
 
     # invalid file
     with pytest.raises(ValueError) as e:
         list(constraint('pytestNOTHEREdatalad'))
-
-
-nested_json = """\
-{"name": "Alexa", "wins": [["two pair", "4♠"], ["two pair", "9♠"]]}
-"""
-nested_json_decoded = {
-    "name": "Alexa",
-    "wins": [["two pair", "4♠"],
-             ["two pair", "9♠"]],
-}
-invalid_json = """\
-{"name": BOOM!}
-"""
-
-
-def test_EnsureJSONLines():
-    constraint = EnsureGeneratorFromFileLike(EnsureJSON())
-
-    assert 'items of type "JSON" read from a file-like' \
-        ==  constraint.short_description()
-
-    # typical is "object", but any valid JSON value type must work
-    assert list(constraint(StringIO("5"))) == [5]
-    # unicode must work
-    uc = "ΔЙקم๗あ"
-    assert list(constraint(StringIO(f'"{uc}"'))) == [uc]
-    assert list(constraint(StringIO(nested_json))) == [nested_json_decoded]
-
-    with pytest.raises(ValueError) as e:
-        list(constraint(StringIO(f'{nested_json}\n{invalid_json}')))
