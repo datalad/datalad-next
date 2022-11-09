@@ -212,6 +212,11 @@ class EnsureGeneratorFromFileLike(Constraint):
             'read from a file-like'
 
     def __call__(self, value) -> Generator[Any, None, None]:
+        # we only support a single file-like source. If we happend to get
+        # a length-1 sequence (for technical reasons, such as argparse
+        # having collected the value), we unpack it.
+        if isinstance(value, (list, tuple)) and len(value) == 1:
+            value = value[0]
         opened_file = False
         if value == '-':
             value = sys.stdin
@@ -222,13 +227,16 @@ class EnsureGeneratorFromFileLike(Constraint):
                 raise ValueError(f'{value} is not an existing file')
             value = path.open()
             opened_file = True
+        return self._item_yielder(value, opened_file)
+
+    def _item_yielder(self, fp, close_file):
         try:
-            for line in value:
+            for line in fp:
                 yield self._item_constraint(
                     # splitlines() removes the newline at the end of the string
                     # that is left in by __iter__()
                     line.splitlines()[0]
                 )
         finally:
-            if opened_file:
-                value.close()
+            if close_file:
+                fp.close()
