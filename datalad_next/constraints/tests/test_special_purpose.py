@@ -10,7 +10,11 @@ from ..basic import (
     NoConstraint,
 )
 from ..compound import EnsureGeneratorFromFileLike
-from ..formats import EnsureJSON
+from ..formats import (
+    EnsureJSON,
+    EnsureURL,
+    EnsureParsedURL,
+)
 from ..git import (
     EnsureGitRefName,
 )
@@ -161,3 +165,86 @@ def test_EnsureJSONLines():
 
     with pytest.raises(ValueError) as e:
         list(constraint(StringIO(f'{nested_json}\n{invalid_json}')))
+
+
+url_testcases = {
+    "http://www.google.com": ['netloc','scheme',],
+    "https://www.google.com": ['netloc','scheme',],
+    "http://google.com": ['netloc','scheme',],
+    "https://google.com": ['netloc','scheme',],
+    "www.google.com": ['path',],
+    "google.com": ['path',],
+    "http://www.google.com/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "https://www.google.com/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "http://google.com/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "https://google.com/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "www.google.com/~as_db3.2123/134-1a": ['path',],
+    "google.com/~as_db3.2123/134-1a": ['path',],
+    # .co.uk top level
+    "http://www.google.co.uk": ['netloc','scheme',],
+    "https://www.google.co.uk": ['netloc','scheme',],
+    "http://google.co.uk": ['netloc','scheme',],
+    "https://google.co.uk": ['netloc','scheme',],
+    "www.google.co.uk": ['path',],
+    "google.co.uk": ['path',],
+    "http://www.google.co.uk/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "https://www.google.co.uk/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "http://google.co.uk/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "https://google.co.uk/~as_db3.2123/134-1a": ['netloc','path','scheme',],
+    "www.google.co.uk/~as_db3.2123/134-1a": ['path',],
+    "google.co.uk/~as_db3.2123/134-1a": ['path',],
+    "https://...": ['netloc', 'scheme',],
+    "https://..": ['netloc', 'scheme',],
+    "https://.": ['netloc', 'scheme',],
+    "file:///mike/was/here": ['path','scheme',],
+    "https://.google.com": ['netloc','scheme',],
+    "https://..google.com": ['netloc','scheme',],
+    "https://...google.com": ['netloc','scheme',],
+    "https://.google..com": ['netloc','scheme',],
+    "https://.google...com": ['netloc','scheme',],
+    "https://...google..com": ['netloc','scheme',],
+    "https://...google...com": ['netloc','scheme',],
+    ".google.com": ['path',],
+    ".google.co.": ['path',],
+    "https://google.co.": ['netloc','scheme',],
+}
+
+
+def test_EnsureURL():
+    assert EnsureURL().short_description() == 'URL'
+    assert EnsureURL(
+        required=['scheme', 'netloc']
+    ).short_description() == "URL with required ['scheme', 'netloc'] component(s)"
+    assert EnsureURL(
+        forbidden=['fragment']
+    ).short_description() == "URL with no ['fragment'] component(s)"
+    assert EnsureURL(
+        # yes, it need not make sense
+        required=['a'], forbidden=['b']
+    ).short_description() == "URL with required ['a'] and with no ['b'] component(s)"
+
+    any_url = EnsureURL()
+    for tc in url_testcases.keys():
+        any_url(tc)
+
+    for t in ['netloc', 'path', 'scheme']:
+        cnotag = EnsureURL(forbidden=[t])
+        cnotag_parsed = EnsureParsedURL(forbidden=[t])
+        for url, tags in url_testcases.items():
+            if t in tags:
+                with pytest.raises(ValueError) as e:
+                    cnotag(url)
+                assert f"forbidden '{t}'" in str(e)
+            else:
+                cnotag(url)
+                cnotag_parsed(url)
+        ctag = EnsureURL(required=[t])
+        ctag_parsed = EnsureParsedURL(required=[t])
+        for url, tags in url_testcases.items():
+            if t not in tags:
+                with pytest.raises(ValueError) as e:
+                    ctag(url)
+                assert f"missing '{t}'" in str(e)
+            else:
+                ctag(url)
+                ctag_parsed(url)
