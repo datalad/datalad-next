@@ -38,7 +38,7 @@ from datalad.interface.results import (
 from datalad.interface.utils import eval_results
 
 from datalad.local.subdatasets import Subdatasets
-from datalad.support.constraints import (
+from datalad_next.constraints import (
     EnsureNone,
     EnsureStr,
     EnsureInt,
