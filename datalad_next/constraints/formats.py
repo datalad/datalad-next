@@ -45,6 +45,8 @@ class EnsureURL(Constraint):
         return value
 
     def _validate_parsed(self, value: str) -> ParseResult:
+        if not isinstance(value, str):
+            raise ValueError('URL is not a string')
         parsed = urlparse(value, scheme='', allow_fragments=True)
         for r in (self._required or []):
             if not getattr(parsed, r, None):
