@@ -1,6 +1,12 @@
 """Constraints that wrap or contain other constraints"""
 
-from typing import Dict
+from pathlib import Path
+import sys
+from typing import (
+    Any,
+    Dict,
+    Generator,
+)
 
 from .base import (
     Constraint,
@@ -179,3 +185,50 @@ class EnsureMapping(Constraint):
             value=self._value_constraint.for_dataset(dataset),
             delimiter=self._delimiter,
         )
+
+
+class EnsureGeneratorFromFileLike(Constraint):
+    """Ensure a constraint for each item read from a file-like.
+
+    A given value can either be a file-like (the outcome of `open()`,
+    or `StringIO`), or `-` as an alias of STDIN, or a path to an
+    existing file to be read from.
+    """
+
+    def __init__(self, item_constraint: callable):
+        """
+        Parameters
+        ----------
+        item_constraint:
+          Each incoming item will be mapped through this callable
+          before being yielded by the generator.
+        """
+        self._item_constraint = item_constraint
+        super().__init__()
+
+    def short_description(self):
+        return \
+            f'items of type "{self._item_constraint.short_description()}" ' \
+            'read from a file-like'
+
+    def __call__(self, value) -> Generator[Any, None, None]:
+        opened_file = False
+        if value == '-':
+            value = sys.stdin
+        elif isinstance(value, (str, Path)):
+            # we covered the '-' special case, so this must be a Path
+            path = Path(value) if not isinstance(value, Path) else value
+            if not path.is_file():
+                raise ValueError(f'{value} is not an existing file')
+            value = path.open()
+            opened_file = True
+        try:
+            for line in value:
+                yield self._item_constraint(
+                    # splitlines() removes the newline at the end of the string
+                    # that is left in by __iter__()
+                    line.splitlines()[0]
+                )
+        finally:
+            if opened_file:
+                value.close()

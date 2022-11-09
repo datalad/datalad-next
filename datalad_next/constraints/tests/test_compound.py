@@ -1,4 +1,8 @@
+from inspect import isgenerator
+from io import StringIO
 import pytest
+from tempfile import NamedTemporaryFile
+from unittest.mock import patch
 
 from ..basic import (
     EnsureInt,
@@ -9,6 +13,7 @@ from ..compound import (
     EnsureListOf,
     EnsureTupleOf,
     EnsureMapping,
+    EnsureGeneratorFromFileLike,
 )
 
 
@@ -104,3 +109,39 @@ def test_EnsureMapping():
             d = constraint(v)
 
     # TODO test for_dataset() once we have a simple EnsurePathInDataset
+
+
+def test_EnsureGeneratorFromFileLike():
+    item_constraint = EnsureMapping(EnsureInt(), EnsureBool(), delimiter='::')
+    constraint = EnsureGeneratorFromFileLike(item_constraint)
+
+    assert 'items of type "mapping of int -> bool" read from a file-like' \
+        ==  constraint.short_description()
+
+    c = constraint(StringIO("5::yes\n1234::no\n"))
+    assert isgenerator(c)
+    assert list(c) == [{5: True}, {1234: False}]
+
+    # missing final newline is not a problem
+    c = constraint(StringIO("5::yes\n1234::no"))
+    assert list(c) == [{5: True}, {1234: False}]
+
+    # item constraint violation
+    c = constraint(StringIO("5::yes\n1234::BANG"))
+    with pytest.raises(ValueError) as e:
+        list(c)
+        assert 'be convertible to boolean' in str(e)
+
+    # read from STDIN
+    with patch("sys.stdin", StringIO("5::yes\n1234::no")):
+        assert list(constraint('-')) == [{5: True}, {1234: False}]
+
+    # read from file
+    with NamedTemporaryFile('w+') as f:
+        f.write("5::yes\n1234::no")
+        f.seek(0)
+        assert list(constraint(f.name)) == [{5: True}, {1234: False}]
+
+    # invalid file
+    with pytest.raises(ValueError) as e:
+        list(constraint('pytestNOTHEREdatalad'))
