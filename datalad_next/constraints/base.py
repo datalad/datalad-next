@@ -9,8 +9,8 @@ from typing import (
 if TYPE_CHECKING:  # pragma: no cover
     from datalad.distribution.dataset import Dataset
 
-aConstraint = TypeVar('aConstraint', bound='Constraint')
-aDataset = TypeVar('aDataset', bound='Dataset')
+ConstraintDerived = TypeVar('ConstraintDerived', bound='Constraint')
+DatasetDerived = TypeVar('DatasetDerived', bound='Dataset')
 
 
 class Constraint:
@@ -47,7 +47,7 @@ class Constraint:
         # used as a condensed primer for the parameter lists
         raise NotImplementedError("abstract class")
 
-    def for_dataset(self, dataset: aDataset) -> aConstraint:
+    def for_dataset(self, dataset: DatasetDerived) -> ConstraintDerived:
         """Return a constraint-variant for a specific dataset context
 
         The default implementation returns the unmodified, identical

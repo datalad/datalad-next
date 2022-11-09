@@ -10,7 +10,7 @@ from typing import (
 
 from .base import (
     Constraint,
-    aDataset,
+    DatasetDerived,
 )
 
 
@@ -178,7 +178,7 @@ class EnsureMapping(Constraint):
         val = self._value_constraint(val)
         return {key: val}
 
-    def for_dataset(self, dataset: aDataset):
+    def for_dataset(self, dataset: DatasetDerived):
         # tailor both constraints to the dataset and reuse delimiter
         return EnsureMapping(
             key=self._key_constraint.for_dataset(dataset),

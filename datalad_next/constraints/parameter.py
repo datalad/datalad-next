@@ -5,7 +5,7 @@ from typing import (
     TypeVar,
 )
 
-from .base import aConstraint
+from .base import ConstraintDerived
 from .basic import (
     EnsureBool,
     EnsureChoice,
@@ -36,7 +36,7 @@ class EnsureParameterConstraint(EnsureMapping):
     # valid parameter name for Python and CLI
     valid_param_name_regex = r'[^0-9][a-z0-0_]+'
 
-    def __init__(self, constraint: aConstraint):
+    def __init__(self, constraint: ConstraintDerived):
         super().__init__(
             key=EnsureStr(
                 match=EnsureParameterConstraint.valid_param_name_regex),
@@ -54,7 +54,7 @@ class EnsureParameterConstraint(EnsureMapping):
             cls,
             spec: aParameter,
             default: Any,
-            item_constraint: aConstraint = None,
+            item_constraint: ConstraintDerived = None,
             nargs: str or int = None) -> aEnsureParameterConstraint:
         """
         Parameters
@@ -100,7 +100,7 @@ _constraint_spec_map = {
 def _get_comprehensive_constraint(
         param_spec: aParameter,
         default: Any,
-        item_constraint_override: aConstraint = None,
+        item_constraint_override: ConstraintDerived = None,
         nargs_override: str or int = None):
     action = param_spec.cmd_kwargs.get('action')
     # definitive per-item constraint, consider override
