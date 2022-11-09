@@ -15,6 +15,7 @@ from ..compound import (
     EnsureMapping,
     EnsureGeneratorFromFileLike,
 )
+from ..formats import EnsureJSON
 
 
 # imported from ancient test code in datalad-core,
@@ -145,3 +146,33 @@ def test_EnsureGeneratorFromFileLike():
     # invalid file
     with pytest.raises(ValueError) as e:
         list(constraint('pytestNOTHEREdatalad'))
+
+
+nested_json = """\
+{"name": "Alexa", "wins": [["two pair", "4♠"], ["two pair", "9♠"]]}
+"""
+nested_json_decoded = {
+    "name": "Alexa",
+    "wins": [["two pair", "4♠"],
+             ["two pair", "9♠"]],
+}
+invalid_json = """\
+{"name": BOOM!}
+"""
+
+
+def test_EnsureJSONLines():
+    constraint = EnsureGeneratorFromFileLike(EnsureJSON())
+
+    assert 'items of type "JSON" read from a file-like' \
+        ==  constraint.short_description()
+
+    # typical is "object", but any valid JSON value type must work
+    assert list(constraint(StringIO("5"))) == [5]
+    # unicode must work
+    uc = "ΔЙקم๗あ"
+    assert list(constraint(StringIO(f'"{uc}"'))) == [uc]
+    assert list(constraint(StringIO(nested_json))) == [nested_json_decoded]
+
+    with pytest.raises(ValueError) as e:
+        list(constraint(StringIO(f'{nested_json}\n{invalid_json}')))
