@@ -1,3 +1,5 @@
+import pytest
+
 from io import StringIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -24,10 +26,9 @@ class CmdWithValidation(Interface):
     # this is of little relevance, no validation configured here
     _params_ = dict(spec=Parameter(args=('spec',), nargs='+'))
 
-    # TODO reduce code-duplication
     url_constraint = EnsureURL(required=['scheme'])
     url2path_constraint = EnsureMapping(
-        key=EnsureURL(required=['scheme']), value=EnsurePath(),
+        key=url_constraint, value=EnsurePath(),
         delimiter='\t'
     )
     spec_item_constraint = url2path_constraint | url_constraint \
@@ -128,4 +129,12 @@ def test_cmd_with_validation():
         )
         assert res['spec'] == target_url_path_maps
 
-
+    # and now something that fails
+    # TODO error reporting should be standardized (likely) on an explicit
+    # and dedicated exception type
+    # https://github.com/datalad/datalad/issues/7167
+    with pytest.raises(ValueError):
+        CmdWithValidation.__call__(
+            'unsupported',
+            return_type='item-or-list', result_renderer='disabled',
+        )
