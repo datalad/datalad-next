@@ -35,7 +35,11 @@ command_suite = (
             'TreeCommand',
             # command name (differs from lowercase command class name)
             'tree'
-        )
+        ),
+        (
+            'datalad_next.download_file', 'DownloadFile',
+            'download-file',
+        ),
     ]
 )
 

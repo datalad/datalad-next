@@ -22,6 +22,7 @@ High-level API commands
 
    create_sibling_webdav
    credentials
+   download_file
    tree
 
 
@@ -33,6 +34,7 @@ Command line reference
 
    generated/man/datalad-create-sibling-webdav
    generated/man/datalad-credentials
+   generated/man/datalad-download-file
    generated/man/datalad-tree
 
 
