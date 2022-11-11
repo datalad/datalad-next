@@ -10,6 +10,7 @@
    formats
    parameter
    git
+   dataset
 """
 
 # expose constraints with direct applicability, but not
