@@ -258,11 +258,11 @@ def test_EnsureDataset(tmp_path):
     # by default the installation state is not checked
     # this matches the behavior of the original implementation
     # from datalad-core
-    assert EnsureDataset()(tmp_path).pathobj == tmp_path
+    assert EnsureDataset()(tmp_path).ds.pathobj == tmp_path
 
-    # any dataset instance created from not-a-dataset-instance
+    # any return value created from not-a-dataset-instance
     # has the original argument as an attribute
-    assert EnsureDataset()(tmp_path).auto_instance_from_path == tmp_path
+    assert EnsureDataset()(tmp_path).original == tmp_path
 
     # but it can be turned on, and then yields the specific
     # exception that datalad-core's require_dataset() would
@@ -272,13 +272,13 @@ def test_EnsureDataset(tmp_path):
         EnsureDataset(installed=True)('/nothere_datalad_test')
 
     # we can also ensure absence
-    assert EnsureDataset(installed=False)(tmp_path).pathobj == tmp_path
+    assert EnsureDataset(installed=False)(tmp_path).ds.pathobj == tmp_path
 
     # absence detection with a dataset instance
     with pytest.raises(ValueError):
         EnsureDataset(installed=True)(
             # this provides the instance for testing
-            EnsureDataset()(tmp_path)
+            EnsureDataset()(tmp_path).ds
         )
 
     #
@@ -286,25 +286,12 @@ def test_EnsureDataset(tmp_path):
     #
 
     # create a dataset, making sure it did not exist before
-    ds = EnsureDataset(installed=False)(tmp_path).create()
-
-    # we suffer from a sideeffect of datalad's flyweight pattern for dataset
-    # and repo instances: there can only ever be one per unique path at the
-    # same time. This means that even when receiving a dataset instance
-    # it will have a conversation attribute, when that instance had it.
-    # it can also not be remove, because it would change semantics in
-    # all other contexts where that instance is in use.
-    assert hasattr(EnsureDataset()(ds), 'auto_instance_from_path')
-
-    # this is not the case, when starting from a Dataset() instance for a
-    # given path right away
-    from datalad.distribution.dataset import Dataset
-    assert not hasattr(
-        EnsureDataset()(Dataset(tmp_path / 'other')),
-        'auto_instance_from_path')
+    ds = EnsureDataset(installed=False)(tmp_path).ds.create()
+    assert EnsureDataset()(ds).ds == ds
+    assert EnsureDataset()(ds).original == ds
 
     # existence verified
-    assert EnsureDataset(installed=True)(ds).pathobj == tmp_path
+    assert EnsureDataset(installed=True)(ds).ds.pathobj == tmp_path
 
     # check presence detection with path
     with pytest.raises(ValueError):
