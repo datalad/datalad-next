@@ -16,7 +16,6 @@ from datalad.interface.base import (
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.support.param import Parameter
-from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints import (
     EnsureGeneratorFromFileLike,
     EnsureJSON,
@@ -26,6 +25,8 @@ from datalad_next.constraints import (
     EnsureURL,
     EnsureParsedURL,
 )
+from datalad_next.constraints.base import AltConstraints
+from datalad_next.constraints.dataset import EnsureDataset
 
 lgr = getLogger('datalad.local.download_file')
 
@@ -71,6 +72,7 @@ class DownloadFile(Interface):
     # validator for particular parameters
     _validators_ = dict(
         spec=spec_constraint,
+        dataset=EnsureDataset(installed=True),
     )
 
     # this is largely here for documentation and CLI parser building
@@ -92,9 +94,21 @@ class DownloadFile(Interface):
     ]
 
     @classmethod
-    def validate_args(cls, **kwargs) -> Dict:
+    def validate_args(cls: Interface, kwargs: Dict, at_default: set) -> Dict:
         validated = {}
         for argname, arg in kwargs.items():
+            if argname in at_default:
+                # do not validate any parameter where the value matches the
+                # default declared in the signature. Often these are just
+                # 'do-nothing' settings or have special meaning that need
+                # not be communicated to a user. Not validating them has
+                # two consequences:
+                # - the condition can simply be referred to as "default
+                #   behavior" regardless of complexity
+                # - a command implementation must always be able to handle
+                #   its own defaults directly, and cannot delegate a
+                #   default value handling to a constraint
+                continue
             validator = cls._validators_.get(argname, lambda x: x)
             # TODO option to validate all args despite failure
             try:
@@ -109,7 +123,8 @@ class DownloadFile(Interface):
     @eval_results
     def __call__(spec, *, dataset=None, force=None):
 
-        print("GOT", repr(list(spec)))
+        print("DS", repr(dataset))
+        print("SPEC", repr(list(spec)))
 
         yield get_status_dict(
             action='download_file',
