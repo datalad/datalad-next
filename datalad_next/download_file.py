@@ -4,7 +4,9 @@
 __docformat__ = 'restructuredtext'
 
 from logging import getLogger
+from pathlib import PurePosixPath
 from typing import Dict
+from urllib.parse import urlparse
 
 from datalad import cfg as dlcfg
 from datalad.distribution.dataset import (
@@ -145,7 +147,16 @@ class DownloadFile(Interface):
         cfg = dataset.ds if dataset else dlcfg
 
         for item in spec:
-            url, dest = _get_url_dest_path(item)
+            try:
+                url, dest = _get_url_dest_path(item)
+            except Exception as e:
+                yield get_status_dict(
+                    action='download_file',
+                    status='impossible',
+                    spec=item,
+                    exception=CapturedException(e),
+                )
+                continue
             # turn any path into an absolute path, considering a potential
             # dataset context
             dest = resolve_path(
@@ -194,8 +205,14 @@ def _get_url_dest_path(spec_item):
     if isinstance(spec_item, dict):
         return spec_item.popitem()
     else:
-        # TODO derive a destination path from the URL
-        raise
+        # derive a destination path from the URL.
+        # we take the last element of the 'path' component
+        # of the URL, or fail
+        parsed = urlparse(spec_item)
+        filename = PurePosixPath(parsed.path).name
+        if not filename:
+            raise ValueError('cannot derive file name from URL')
+        return spec_item, filename
 
 
 def _download_from_http(url, dest):
