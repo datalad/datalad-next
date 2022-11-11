@@ -17,6 +17,7 @@ from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.support.param import Parameter
 from datalad_next.constraints import (
+    EnsureChoice,
     EnsureGeneratorFromFileLike,
     EnsureJSON,
     EnsureListOf,
@@ -68,11 +69,16 @@ class DownloadFile(Interface):
         EnsureGeneratorFromFileLike(spec_item_constraint),
     )
 
+    force_choices = EnsureChoice('overwrite-existing')
+
     # Interface.validate_args() will inspect this dict for the presence of a
     # validator for particular parameters
     _validators_ = dict(
         spec=spec_constraint,
+        # if given, it must also exist as a source for configuration items
+        # and/or credentials
         dataset=EnsureDataset(installed=True),
+        force=force_choices | EnsureListOf(force_choices),
     )
 
     # this is largely here for documentation and CLI parser building
@@ -108,6 +114,11 @@ class DownloadFile(Interface):
                 # - a command implementation must always be able to handle
                 #   its own defaults directly, and cannot delegate a
                 #   default value handling to a constraint
+                #
+                # we must nevertheless pass any such default value through
+                # to make/keep them accessible to the general result handling
+                # code
+                validated[argname] = arg
                 continue
             validator = cls._validators_.get(argname, lambda x: x)
             # TODO option to validate all args despite failure
@@ -123,7 +134,8 @@ class DownloadFile(Interface):
     @eval_results
     def __call__(spec, *, dataset=None, force=None):
 
-        print("DS", repr(dataset))
+        print("DS", repr(dataset.ds))
+        print("FORCE", repr(force))
         print("SPEC", repr(list(spec)))
 
         yield get_status_dict(
