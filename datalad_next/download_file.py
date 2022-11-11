@@ -6,8 +6,10 @@ __docformat__ = 'restructuredtext'
 from logging import getLogger
 from typing import Dict
 
+from datalad import cfg as dlcfg
 from datalad.distribution.dataset import (
     datasetmethod,
+    resolve_path,
 )
 from datalad.interface.base import (
     Interface,
@@ -15,6 +17,7 @@ from datalad.interface.base import (
 )
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
+from datalad.support.exceptions import CapturedException
 from datalad.support.param import Parameter
 from datalad_next.constraints import (
     EnsureChoice,
@@ -138,12 +141,72 @@ class DownloadFile(Interface):
     @datasetmethod(name="download_file")
     @eval_results
     def __call__(spec, *, dataset=None, force=None):
+        # which config to inspect for credentials etc
+        cfg = dataset.ds if dataset else dlcfg
 
-        print("DS", repr(dataset.ds if dataset else dataset))
-        print("FORCE", repr(force))
-        print("SPEC", repr(list(spec)))
+        for item in spec:
+            url, dest = _get_url_dest_path(item)
+            # turn any path into an absolute path, considering a potential
+            # dataset context
+            dest = resolve_path(
+                dest,
+                ds=dataset.original if dataset else None,
+                ds_resolved=dataset.ds if dataset else None,
+            )
+            # TODO create parent directory if needed
+            # TODO check for dest-path conflicts
 
-        yield get_status_dict(
-            action='download_file',
-            status='ok',
-        )
+            # we know that any URL has a scheme
+            scheme = url.split('://')[0]
+            try:
+                if scheme in ('http', 'https'):
+                    _download_from_http(url, dest)
+                else:
+                    yield get_status_dict(
+                        action='download_file',
+                        status='error',
+                        message='Unsupported URL',
+                        url=url,
+                        path=dest,
+                    )
+                    continue
+
+                yield get_status_dict(
+                    action='download_file',
+                    status='ok',
+                    url=url,
+                    path=dest,
+                )
+            except Exception as e:
+                ce = CapturedException(e)
+                yield get_status_dict(
+                    action='download_file',
+                    status='error',
+                    message='Download failure',
+                    url=url,
+                    path=dest,
+                    exception=ce,
+                )
+
+
+def _get_url_dest_path(spec_item):
+    # we either have a string (single URL), or a mapping
+    if isinstance(spec_item, dict):
+        return spec_item.popitem()
+    else:
+        # TODO derive a destination path from the URL
+        raise
+
+
+def _download_from_http(url, dest):
+    # TODO move all of the following into a helper and implement
+    # 401 handling and credential retrieval here
+    import requests
+    # TODO wrap in progress report
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(dest, "wb") as f:
+            # TODO make chunksize a config item
+            for chunk in r.iter_content(chunk_size=16 * 1024):
+                # TODO compute hash simultaneously
+                f.write(chunk)
