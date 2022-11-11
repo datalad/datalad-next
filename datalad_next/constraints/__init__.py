@@ -1,3 +1,16 @@
+"""Data validation, coercion, and parameter documentation
+
+.. currentmodule:: datalad_next.constraints
+.. autosummary::
+   :toctree: generated
+
+   base
+   basic
+   compound
+   formats
+   parameter
+   git
+"""
 
 # expose constraints with direct applicability, but not
 # base and helper classes

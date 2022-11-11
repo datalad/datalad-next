@@ -44,6 +44,7 @@ Python utilities
    :toctree: generated
 
    credman
+   constraints
 
 
 Git remote helpers
