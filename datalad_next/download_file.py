@@ -46,7 +46,12 @@ class DownloadFile(Interface):
     # if given as a single string, we support tab-delimited items: URL\tpath
     url2path_constraint = EnsureMapping(
         key=url_constraint, value=EnsurePath(),
-        delimiter='\t'
+        delimiter='\t',
+        # we disallow length-2 sequences to be able to distinguish from
+        # a length-2 list of URLs.
+        # the key issue is the flexibility of EnsurePath -- pretty much
+        # anything could be a valid unix path
+        allow_length2_sequence=False,
     )
     # each specification items is either a mapping url->path, just a url, or a
     # JSON-encoded url->path mapping.  the order is complex-to-simple for the
@@ -134,7 +139,7 @@ class DownloadFile(Interface):
     @eval_results
     def __call__(spec, *, dataset=None, force=None):
 
-        print("DS", repr(dataset.ds))
+        print("DS", repr(dataset.ds if dataset else dataset))
         print("FORCE", repr(force))
         print("SPEC", repr(list(spec)))
 
