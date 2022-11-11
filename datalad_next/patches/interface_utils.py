@@ -12,7 +12,6 @@ from datalad.core.local.resulthooks import (
     run_jsonhook,
 )
 from datalad.interface import utils as mod_interface_utils
-from datalad.interface.base import get_allargs_as_kwargs
 from datalad.interface.results import known_result_xfms
 from datalad.interface.utils import (
     anInterface,
@@ -27,6 +26,53 @@ from datalad.support.exceptions import IncompleteResultsError
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
+
+
+# this is a replacement for datalad.interface.base.get_allargs_as_kwargs
+# it reports which arguments were at their respective defaults
+def get_allargs_as_kwargs(call, args, kwargs):
+    """Generate a kwargs dict from a call signature and ``*args``, ``**kwargs``
+
+    Basically resolving the argnames for all positional arguments, and
+    resolving the defaults for all kwargs that are not given in a kwargs
+    dict
+
+    Returns
+    -------
+    (dict, set)
+      The first return value is a mapping of argument names to their respective
+      values.
+      The second return value in the tuple is a set of argument names for
+      which the effective value is identical to the default declared in the
+      signature of the callable.
+    """
+    from datalad.utils import getargspec
+    argspec = getargspec(call, include_kwonlyargs=True)
+    defaults = argspec.defaults
+    nargs = len(argspec.args)
+    defaults = defaults or []  # ensure it is a list and not None
+    assert (nargs >= len(defaults))
+    # map any args to their name
+    argmap = list(zip(argspec.args[:len(args)], args))
+    kwargs_ = dict(argmap)
+    # map defaults of kwargs to their names (update below)
+    default_map = dict(zip(argspec.args[-len(defaults):], defaults))
+    for k, v in default_map.items():
+        if k not in kwargs_:
+            kwargs_[k] = v
+    # update with provided kwarg args
+    kwargs_.update(kwargs)
+    # determine which arguments still have values identical to their declared
+    # defaults
+    at_default = set(
+        k for k in kwargs_
+        if k in default_map and default_map[k] == kwargs_[k]
+    )
+    # XXX we cannot assert the following, because our own highlevel
+    # API commands support more kwargs than what is discoverable
+    # from their signature...
+    #assert (nargs == len(kwargs_))
+    return kwargs_, at_default
 
 
 # This function interface is taken from
@@ -59,7 +105,7 @@ def _execute_command_(
     # for result filters and validation
     # we need to produce a dict with argname/argvalue pairs for all args
     # incl. defaults and args given as positionals
-    allkwargs = get_allargs_as_kwargs(
+    allkwargs, at_default = get_allargs_as_kwargs(
         cmd,
         cmd_args,
         {**cmd_kwargs, **exec_kwargs},
@@ -67,7 +113,10 @@ def _execute_command_(
 
     # validate the complete parameterization
     if hasattr(interface, 'validate_args'):
-        allkwargs = interface.validate_args(**allkwargs)
+        allkwargs = interface.validate_args(
+            kwargs=allkwargs,
+            at_default=at_default,
+        )
 
     # look for potential override of logging behavior
     result_log_level = dlcfg.get('datalad.log.result-level', 'debug')
