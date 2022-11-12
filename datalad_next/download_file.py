@@ -4,7 +4,10 @@
 __docformat__ = 'restructuredtext'
 
 from logging import getLogger
-from pathlib import PurePosixPath
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 from typing import Dict
 from urllib.parse import urlparse
 
@@ -146,6 +149,14 @@ class DownloadFile(Interface):
         # which config to inspect for credentials etc
         cfg = dataset.ds if dataset else dlcfg
 
+        if isinstance(spec, (str, dict)):
+            # input validation allows for a non-list item, turn into
+            # list for uniform processing
+            spec = [spec]
+
+        # we are not running any tests upfront on the whole spec,
+        # because the spec can be a generator and consume from a
+        # long-running source (e.g. via stdin)
         for item in spec:
             try:
                 url, dest = _get_url_dest_path(item)
@@ -157,6 +168,18 @@ class DownloadFile(Interface):
                     exception=CapturedException(e),
                 )
                 continue
+
+            # we know that any URL has a scheme
+            scheme = url.split('://')[0]
+            if scheme not in ('http', 'https',):
+                yield get_status_dict(
+                    action='download_file',
+                    status='error',
+                    message='unsupported URL scheme',
+                    url=url,
+                )
+                continue
+
             # turn any path into an absolute path, considering a potential
             # dataset context
             dest = resolve_path(
@@ -164,24 +187,25 @@ class DownloadFile(Interface):
                 ds=dataset.original if dataset else None,
                 ds_resolved=dataset.ds if dataset else None,
             )
-            # TODO create parent directory if needed
-            # TODO check for dest-path conflicts
+            # make sure we can replace any existing target path later
+            # on. but do not remove here, we might not actually be
+            # able to download for other reasons
+            if _lexists(dest) and (
+                    not force or 'overwrite-existing' not in force):
+                yield get_status_dict(
+                    action='download_file',
+                    status='error',
+                    message='target path already exists',
+                    url=url,
+                    path=dest,
+                )
+                continue
 
-            # we know that any URL has a scheme
-            scheme = url.split('://')[0]
+            # create parent directory if needed
+            dest.parent.mkdir(parents=True, exist_ok=True)
+
             try:
-                if scheme in ('http', 'https'):
-                    _download_from_http(url, dest)
-                else:
-                    yield get_status_dict(
-                        action='download_file',
-                        status='error',
-                        message='Unsupported URL',
-                        url=url,
-                        path=dest,
-                    )
-                    continue
-
+                _urlscheme_handlers[scheme].download(url, dest)
                 yield get_status_dict(
                     action='download_file',
                     status='ok',
@@ -193,7 +217,7 @@ class DownloadFile(Interface):
                 yield get_status_dict(
                     action='download_file',
                     status='error',
-                    message='Download failure',
+                    message='download failure',
                     url=url,
                     path=dest,
                     exception=ce,
@@ -215,15 +239,35 @@ def _get_url_dest_path(spec_item):
         return spec_item, filename
 
 
-def _download_from_http(url, dest):
-    # TODO move all of the following into a helper and implement
-    # 401 handling and credential retrieval here
-    import requests
-    # TODO wrap in progress report
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        with open(dest, "wb") as f:
-            # TODO make chunksize a config item
-            for chunk in r.iter_content(chunk_size=16 * 1024):
-                # TODO compute hash simultaneously
-                f.write(chunk)
+def _lexists(path: Path):
+    try:
+        path.lstat()
+        return True
+    except FileNotFoundError:
+        return False
+
+
+class HttpOperations:
+    def download(self, from_url: str, to_path: Path):
+        # TODO implement 401 handling and credential retrieval here
+        # TODO when using/reusing a credential, disable follow redirect
+        # to prevent inappropriate leakage to other servers
+        return self._download(from_url, to_path)
+
+    def _download(self, from_url: str, to_path: Path):
+        import requests
+        # TODO wrap in progress report
+        with requests.get(from_url, stream=True) as r:
+            r.raise_for_status()
+            with open(to_path, "wb") as f:
+                # TODO make chunksize a config item
+                for chunk in r.iter_content(chunk_size=16 * 1024):
+                    # TODO compute hash simultaneously
+                    f.write(chunk)
+
+
+http_handler = HttpOperations()
+_urlscheme_handlers = dict(
+    http=http_handler,
+    https=http_handler,
+)
