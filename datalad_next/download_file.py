@@ -11,7 +11,7 @@ from pathlib import (
 from typing import Dict
 from urllib.parse import urlparse
 
-from datalad import cfg as dlcfg
+import datalad
 from datalad.distribution.dataset import (
     datasetmethod,
     resolve_path,
@@ -36,6 +36,7 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
+from datalad_next.http_support import HttpOperations
 
 lgr = getLogger('datalad.local.download_file')
 
@@ -147,7 +148,13 @@ class DownloadFile(Interface):
     @eval_results
     def __call__(spec, *, dataset=None, force=None):
         # which config to inspect for credentials etc
-        cfg = dataset.ds if dataset else dlcfg
+        cfg = dataset.ds if dataset else datalad.cfg
+
+        http_handler = HttpOperations(cfg)
+        _urlscheme_handlers = dict(
+            http=http_handler,
+            https=http_handler,
+        )
 
         if isinstance(spec, (str, dict)):
             # input validation allows for a non-list item, turn into
@@ -245,29 +252,3 @@ def _lexists(path: Path):
         return True
     except FileNotFoundError:
         return False
-
-
-class HttpOperations:
-    def download(self, from_url: str, to_path: Path):
-        # TODO implement 401 handling and credential retrieval here
-        # TODO when using/reusing a credential, disable follow redirect
-        # to prevent inappropriate leakage to other servers
-        return self._download(from_url, to_path)
-
-    def _download(self, from_url: str, to_path: Path):
-        import requests
-        # TODO wrap in progress report
-        with requests.get(from_url, stream=True) as r:
-            r.raise_for_status()
-            with open(to_path, "wb") as f:
-                # TODO make chunksize a config item
-                for chunk in r.iter_content(chunk_size=16 * 1024):
-                    # TODO compute hash simultaneously
-                    f.write(chunk)
-
-
-http_handler = HttpOperations()
-_urlscheme_handlers = dict(
-    http=http_handler,
-    https=http_handler,
-)

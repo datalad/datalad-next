@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import datalad
 from datalad.api import download_file
 from datalad.tests.utils_pytest import (
     assert_result_count,
@@ -7,6 +8,8 @@ from datalad.tests.utils_pytest import (
     with_tempfile,
 )
 from datalad.utils import chpwd
+
+from datalad_next.credman import CredentialManager
 
 from .utils import with_credential
 
@@ -71,6 +74,18 @@ def test_download_file(wdir=None, srvpath=None, srvurl=None):
 def test_download_file_auth(wdir=None, srvpath=None, srvurl=None):
     wdir = Path(wdir)
     srvpath = Path(srvpath)
-
     (srvpath / 'testfile.txt').write_text('test')
-    #download_file({f'{srvurl}testfile.txt': wdir})
+
+    # we have a credential, but there is nothing to discover from
+    # that we should use it for this request
+    assert_result_count(
+        download_file(f'{srvurl}nothere', on_failure='ignore'),
+        1, status='error', message='download failure')
+
+    # amend the test credential with the realm of the test server
+    credman = CredentialManager(datalad.cfg)
+    credman.set(test_cred[0], realm=f'{srvurl}Protected')
+
+    # now it must be able to auto-detect it
+    download_file({f'{srvurl}testfile.txt': wdir / 'download1.txt'})
+    assert (wdir / 'download1.txt').read_text() == 'test'
