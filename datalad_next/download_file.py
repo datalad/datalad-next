@@ -148,7 +148,7 @@ class DownloadFile(Interface):
     @eval_results
     def __call__(spec, *, dataset=None, force=None):
         # which config to inspect for credentials etc
-        cfg = dataset.ds if dataset else datalad.cfg
+        cfg = dataset.ds.config if dataset else datalad.cfg
 
         http_handler = HttpOperations(cfg)
         _urlscheme_handlers = dict(
