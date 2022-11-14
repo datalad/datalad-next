@@ -221,7 +221,12 @@ class CredentialManager(object):
             cred['_edited'] = True
         return cred
 
-    def set(self, name, _lastused=False, **kwargs):
+    def set(self,
+            name,
+            _lastused=False,
+            _suggested_name=None,
+            _context=None,
+            **kwargs):
         """Set credential properties and secret
 
         Presently, all supported backends require the specification of
@@ -240,11 +245,20 @@ class CredentialManager(object):
 
         Parameters
         ----------
-        name: str
-          Credential name
+        name: str or None
+          Credential name. If None, the name will be prompted for and setting
+          the credential is skipped if no name is provided.
         _lastused: bool, optional
           If set, automatically add an additional credential property
           ``'last-used'`` with the current timestamp in ISO 8601 format.
+        _suggested_name: str, optional
+          If `name` is None, this name (if given) is presented as a default
+          suggestion that can be accepted without having to enter it manually.
+          If this name suggestion conflicts with an existing credential, it
+          is ignored and not presented as a suggestion.
+        _context: str, optional
+          If given, will be included in the prompt for a missing credential
+          name to provide context for a user.
         **kwargs:
           Any number of credential property key/value pairs. Values of
           ``None`` indicate removal of a property from a credential.
@@ -253,9 +267,12 @@ class CredentialManager(object):
 
         Returns
         -------
-        dict
+        dict or None
           key/values of all modified credential properties with respect
-          to their previously recorded values.
+          to their previously recorded values. None is returned in case
+          a user did not enter a missing credential name. If a user entered
+          a credential name, it is included in the returned dictionary
+          under the 'name' key.
 
         Raises
         ------
@@ -266,6 +283,42 @@ class CredentialManager(object):
         ValueError
           When property names in kwargs are not syntax-compliant.
         """
+        updated = {}
+
+        if not name:
+            known_credentials = self._get_known_credential_names()
+            if _suggested_name in known_credentials:
+                # ignore name suggestion, conflicts with existing credential
+                _suggested_name = None
+            prompt = 'Enter a name to save the credential securely for ' \
+                     "future re-use, or 'skip' to not save the credential"
+            if _suggested_name:
+                prompt = f'{prompt}, or leave empty to accept the name ' \
+                         f'{_suggested_name!r}'
+            if _context:
+                prompt = f'{prompt} (context: {_context})'
+            while not name:
+                entered = self._ask_property('name', prompt=prompt)
+                if entered == 'skip':
+                    return
+                elif entered is None:
+                    # the user was no able to enter a value (non-interactive
+                    # session). we raise to not let this go unnoticed.
+                    raise ValueError('no credential name provided for setting')
+                elif not entered:
+                    if not _suggested_name:
+                        ui.message('Cannot proceed without a credential name')
+                        continue
+                    # otherwise take the default
+                    entered = _suggested_name
+                if entered in known_credentials:
+                    ui.message(
+                        f'A credential with the name {entered!r} already '
+                        'exists, please provide a different name.')
+                else:
+                    name = entered
+            updated['name'] = name
+
         # we strip internal properties, such as '_edited' automatically
         # forcing each caller to to this by hand is kinda pointless, if
         # they can never be stored anyway, and e.g. a previous `get()`
@@ -289,7 +342,7 @@ class CredentialManager(object):
         remove_props = [
             k for k, v in cred.items() if v is None and k != 'secret']
         self._unset_credprops_anyscope(name, remove_props)
-        updated = {k: None for k in remove_props}
+        updated.update(**{k: None for k in remove_props})
 
         # set non-secret props
         #
@@ -431,10 +484,7 @@ class CredentialManager(object):
           matching credential.
         """
         done = set()
-        known_credentials = set(
-            ('.'.join(k.split('.')[2:-1]), None) for k in self._cfg.keys()
-            if k.startswith('datalad.credential.')
-        )
+        known_credentials = set((n, None) for n in self._get_known_credential_names())
         from itertools import chain
         for name, type_hint in chain(
                 _yield_legacy_credential_names(),
@@ -500,9 +550,15 @@ class CredentialManager(object):
 
         return sorted(matches, key=get_sort_key, reverse=_reverse)
 
-
     # internal helpers
     #
+    def _get_known_credential_names(self) -> set:
+        known_credentials = set(
+            '.'.join(k.split('.')[2:-1]) for k in self._cfg.keys()
+            if k.startswith('datalad.credential.')
+        )
+        return known_credentials
+
     def _prompt(self, prompt):
         if not prompt:
             return

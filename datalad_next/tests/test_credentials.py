@@ -17,6 +17,7 @@ from ..credentials import (
     Credentials,
     normalize_specs,
 )
+from datalad.support.exceptions import IncompleteResultsError
 from datalad.support.keyring_ import MemoryKeyring
 from datalad.tests.utils_pytest import (
     assert_in,
@@ -102,10 +103,10 @@ def check_credentials_cli():
     with swallow_logs(new_level=logging.ERROR) as cml:
         # it is a shame that the error is not coming out on
         # stderr
-        run_main(['credentials', 'set'], exit_code=1)
+        run_main(['credentials', 'remove'], exit_code=1)
         cml.assert_logged('.*name must be provided')
     # catch missing `name` via Python call too
-    assert_raises(ValueError, cred, 'set', spec=[':mike'])
+    assert_raises(IncompleteResultsError, cred, 'set', spec=[':mike'])
     # no name and no property
     assert_raises(ValueError, cred, 'get')
 
