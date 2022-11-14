@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import Dict
 from urllib.parse import urlparse
 import requests
-from requests_toolbelt import (
-    user_agent,
-)
+from requests_toolbelt import user_agent
+from requests_toolbelt.downloadutils.tee import tee_to_file as requests_tee
 import www_authenticate
 
 import datalad
@@ -192,12 +191,10 @@ class HttpOperations:
 
     def _stream_download_from_request(self, r, to_path):
         # TODO wrap in progress report
-        # TODO use request_toolbelt.tee
-        with open(to_path, "wb") as f:
-            # TODO make chunksize a config item
-            for chunk in r.iter_content(chunk_size=16 * 1024):
-                # TODO compute hash simultaneously
-                f.write(chunk)
+        # TODO make chunksize a config item
+        for chunk in requests_tee(r, to_path):
+            # TODO compute hash simultaneously
+            pass
 
 
 class DataladAuth(requests.auth.AuthBase):
