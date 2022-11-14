@@ -221,7 +221,11 @@ class DataladAuth(requests.auth.AuthBase):
             # https://github.com/psf/requests/issues/3772 for background
             return r
         if 'www-authenticate' not in r.headers:
-            # no info on how to authenticate to react to
+            # no info on how to authenticate to react to, leave it as-is.
+            # this also catches any non-401-like error code (e.g. 429).
+            # doing this more loose check (rather then going for 401
+            # specifically) enables to support services that send
+            # www-authenticate with e.g. 403s
             return r
         # which auth schemes does the server support?
         auth_schemes = www_authenticate.parse(r.headers['www-authenticate'])
