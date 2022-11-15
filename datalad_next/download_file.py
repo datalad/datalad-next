@@ -33,6 +33,7 @@ from datalad_next.constraints import (
     EnsurePath,
     EnsureURL,
     EnsureParsedURL,
+    EnsureValue,
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
@@ -52,9 +53,10 @@ class DownloadFile(Interface):
     # stuff like local paths and file names from URLs
     url_constraint = EnsureURL(required=['scheme'])
     # other than a plain URL we take a mapping from a URL to a local path.
+    # The special value '-' is used to indicate stdout
     # if given as a single string, we support tab-delimited items: URL\tpath
     url2path_constraint = EnsureMapping(
-        key=url_constraint, value=EnsurePath(),
+        key=url_constraint, value=EnsureValue('-') | EnsurePath(),
         delimiter='\t',
         # we disallow length-2 sequences to be able to distinguish from
         # a length-2 list of URLs.
@@ -189,27 +191,17 @@ class DownloadFile(Interface):
 
             # turn any path into an absolute path, considering a potential
             # dataset context
-            dest = resolve_path(
-                dest,
-                ds=dataset.original if dataset else None,
-                ds_resolved=dataset.ds if dataset else None,
-            )
-            # make sure we can replace any existing target path later
-            # on. but do not remove here, we might not actually be
-            # able to download for other reasons
-            if _lexists(dest) and (
-                    not force or 'overwrite-existing' not in force):
+            try:
+                dest = _prep_dest_path(dest, dataset, force)
+            except ValueError as e:
                 yield get_status_dict(
                     action='download_file',
                     status='error',
-                    message='target path already exists',
+                    exception=CapturedException(e),
                     url=url,
                     path=dest,
                 )
                 continue
-
-            # create parent directory if needed
-            dest.parent.mkdir(parents=True, exist_ok=True)
 
             try:
                 _urlscheme_handlers[scheme].download(url, dest)
@@ -229,6 +221,27 @@ class DownloadFile(Interface):
                     path=dest,
                     exception=ce,
                 )
+
+
+def _prep_dest_path(dest, dataset, force):
+    if dest == '-':
+        # nothing to prep for stdout
+        return
+    dest = resolve_path(
+        dest,
+        ds=dataset.original if dataset else None,
+        ds_resolved=dataset.ds if dataset else None,
+    )
+    # make sure we can replace any existing target path later
+    # on. but do not remove here, we might not actually be
+    # able to download for other reasons
+    if _lexists(dest) and (
+            not force or 'overwrite-existing' not in force):
+        raise ValueError('target path already exists')
+
+    # create parent directory if needed
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    return dest
 
 
 def _get_url_dest_path(spec_item):

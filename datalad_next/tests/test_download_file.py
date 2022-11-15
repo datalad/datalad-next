@@ -41,7 +41,7 @@ def test_download_file(wdir=None, srvpath=None, srvurl=None):
     with chpwd(wdir):
         assert_result_count(
             download_file(f'{srvurl}testfile.txt', on_failure='ignore'),
-            1, status='error', message='target path already exists')
+            1, status='error', error_message='target path already exists')
 
     # works with explicit alternative filename
     with chpwd(wdir):

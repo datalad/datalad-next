@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import sys
 from typing import Dict
 from urllib.parse import urlparse
 import requests
 from requests_toolbelt import user_agent
-from requests_toolbelt.downloadutils.tee import tee_to_file as requests_tee
+from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
@@ -191,10 +192,16 @@ class HttpOperations:
 
     def _stream_download_from_request(self, r, to_path):
         # TODO wrap in progress report
-        # TODO make chunksize a config item
-        for chunk in requests_tee(r, to_path):
-            # TODO compute hash simultaneously
-            pass
+        fp = None
+        try:
+            fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')
+            # TODO make chunksize a config item
+            for chunk in requests_tee(r, fp):
+                # TODO compute hash simultaneously
+                pass
+        finally:
+            if fp and to_path is not None:
+                fp.close()
 
 
 class DataladAuth(requests.auth.AuthBase):
