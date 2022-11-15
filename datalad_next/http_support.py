@@ -217,10 +217,10 @@ class DataladAuth(requests.auth.AuthBase):
 
         # register hooks to be executed from a response to this
         # request is available
-        # 401 Unauthorized: look for a credential and try again
-        r.register_hook("response", self.handle_401)
         # Redirect: reset credentials to avoid leakage to other server
         r.register_hook("response", self.handle_redirect)
+        # 401 Unauthorized: look for a credential and try again
+        r.register_hook("response", self.handle_401)
         return r
 
     def handle_401(self, r, **kwargs):
@@ -268,6 +268,10 @@ class DataladAuth(requests.auth.AuthBase):
             # we got nothing, leave things as they are
             return r
 
+        # TODO add safety check. if a credential somehow contains
+        # information on its scope (i.e. only for github.com)
+        # prevent its use for other hosts -- maybe unless given explicitly.
+
         # TODO check what auth-scheme the credential can do and
         # select a matching one. If credential doesn't say, go
         # with first/any/all-one-by-one?
@@ -289,9 +293,16 @@ class DataladAuth(requests.auth.AuthBase):
                 f'{list(auth_schemes.keys())!r}')
 
     def handle_redirect(self, r, **kwargs):
-        if r.is_redirect:
-            # TODO reset current credential
-            pass
+        if r.is_redirect and self._credential:
+            og_p = urlparse(r.url)
+            rd_p = urlparse(r.headers.get('location'), '')
+            if og_p.netloc != rd_p.netloc or (
+                    rd_p.scheme == 'http' and og_p.scheme == 'https'):
+                lgr.debug(
+                    'URL redirect, discarded given credential %r '
+                    'to avoid leakage',
+                    self._credential)
+                self._credential = None
 
     def _authenticated_rerequest(
             self,

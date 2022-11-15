@@ -5,6 +5,7 @@ import datalad
 from datalad.api import download_file
 from datalad.tests.utils_pytest import (
     assert_result_count,
+    assert_status,
     serve_path_via_http,
     with_tempfile,
 )
@@ -19,6 +20,11 @@ hburl = 'http://httpbin.org'
 hbcred = (
     'hbcred',
     dict(user='mike', secret='dummy', realm=f'{hburl}/Fake Realm'),
+)
+hbsurl = 'https://httpbin.org'
+hbscred = (
+    'hbscred',
+    dict(user='mike', secret='dummy', realm=f'{hbsurl}/Fake Realm'),
 )
 
 
@@ -100,17 +106,17 @@ def test_download_file_auth(wdir=None, srvpath=None, srvurl=None):
 auth_ok_response = {"authenticated": True, "user": "mike"}
 
 
-@with_credential(hbcred[0], **hbcred[1])
+@with_credential(hbscred[0], **hbscred[1])
 def test_download_file_basic_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
     download_file(
-        {f'{hburl}/basic-auth/mike/dummy': '-'})
+        {f'{hbsurl}/basic-auth/mike/dummy': '-'})
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
-@with_credential(hbcred[0],
-                 **dict(hbcred[1],
+@with_credential(hbscred[0],
+                 **dict(hbscred[1],
                         realm='http://httpbin.org/me@kennethreitz.com'))
 def test_download_file_digest_auth(capsys):
     # consume stdout to make test self-contained
@@ -120,7 +126,7 @@ def test_download_file_digest_auth(capsys):
             # non-default algorithm
             '/digest-auth/auth/mike/dummy/SHA-256',
     ):
-        download_file({f'{hburl}{url_suffix}': '-'})
+        download_file({f'{hbsurl}{url_suffix}': '-'})
         assert json.loads(capsys.readouterr().out) == auth_ok_response
         # repeated reads do not accumulate
         assert capsys.readouterr().out == ''
@@ -128,10 +134,33 @@ def test_download_file_digest_auth(capsys):
 
 # the provided credential has the wrong 'realm' for auto-detection.
 # but chosing it explicitly must put things to work
-@with_credential(hbcred[0], **hbcred[1])
+@with_credential(hbscred[0], **hbscred[1])
 def test_download_file_explicit_credential(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
-    download_file({f'{hburl}/digest-auth/auth/mike/dummy': '-'},
-                  credential=hbcred[0])
+    download_file({f'{hbsurl}/digest-auth/auth/mike/dummy': '-'},
+                  credential=hbscred[0])
     assert json.loads(capsys.readouterr().out) == auth_ok_response
+
+
+@with_credential(hbscred[0], **hbscred[1])
+def test_download_file_auth_after_redirect(capsys):
+    # consume stdout to make test self-contained
+    capsys.readouterr()
+    download_file(
+        {f'{hbsurl}/redirect-to?url={hbsurl}/basic-auth/mike/dummy': '-'})
+    assert json.loads(capsys.readouterr().out) == auth_ok_response
+
+
+@with_credential(hbscred[0], **hbscred[1])
+def test_download_file_no_credential_leak_to_http(capsys):
+    redirect_url = f'{hburl}/basic-auth/mike/dummy'
+    res = download_file(
+        # redirect from https to http, must drop provideded credential
+        # to avoid leakage
+        {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
+        credential=hbscred[0],
+        on_failure='ignore')
+    assert_status('error', res)
+    assert '401' in res['error_message']
+    assert f' {redirect_url}' in res['error_message']
