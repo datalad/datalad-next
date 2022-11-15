@@ -124,3 +124,14 @@ def test_download_file_digest_auth(capsys):
         assert json.loads(capsys.readouterr().out) == auth_ok_response
         # repeated reads do not accumulate
         assert capsys.readouterr().out == ''
+
+
+# the provided credential has the wrong 'realm' for auto-detection.
+# but chosing it explicitly must put things to work
+@with_credential(hbcred[0], **hbcred[1])
+def test_download_file_explicit_credential(capsys):
+    # consume stdout to make test self-contained
+    capsys.readouterr()
+    download_file({f'{hburl}/digest-auth/auth/mike/dummy': '-'},
+                  credential=hbcred[0])
+    assert json.loads(capsys.readouterr().out) == auth_ok_response

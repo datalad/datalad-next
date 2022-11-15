@@ -95,6 +95,8 @@ class DownloadFile(Interface):
         # and/or credentials
         dataset=EnsureDataset(installed=True),
         force=force_choices | EnsureListOf(force_choices),
+        # TODO EnsureCredential
+        #credential=
     )
 
     # this is largely here for documentation and CLI parser building
@@ -110,6 +112,16 @@ class DownloadFile(Interface):
             args=("--force",),
             action='append',
             doc=""""""),
+        credential=Parameter(
+            args=("--credential",),
+            metavar='NAME',
+            doc="""name of a credential to be used for authorization. If no
+            credential is identified, the last-used credential for the
+            authentication realm associated with the download target will
+            be used. If there is no credential available yet, it will be
+            prompted for. Once used successfully, a prompt for entering
+            to save such a new credential will be presented.""",
+        ),
     )
 
     _examples_ = [
@@ -148,7 +160,7 @@ class DownloadFile(Interface):
     @staticmethod
     @datasetmethod(name="download_file")
     @eval_results
-    def __call__(spec, *, dataset=None, force=None):
+    def __call__(spec, *, dataset=None, force=None, credential=None):
         # which config to inspect for credentials etc
         cfg = dataset.ds.config if dataset else datalad.cfg
 
@@ -204,7 +216,11 @@ class DownloadFile(Interface):
                 continue
 
             try:
-                _urlscheme_handlers[scheme].download(url, dest)
+                _urlscheme_handlers[scheme].download(
+                    url,
+                    dest,
+                    credential=credential,
+                )
                 yield get_status_dict(
                     action='download_file',
                     status='ok',

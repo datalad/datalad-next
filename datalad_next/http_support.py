@@ -177,7 +177,7 @@ class HttpOperations:
             hdrs.update(headers)
         return hdrs
 
-    def download(self, from_url: str, to_path: Path):
+    def download(self, from_url: str, to_path: Path | None, credential: str = None):
         with requests.get(
                 from_url,
                 stream=True,
@@ -185,7 +185,7 @@ class HttpOperations:
                 # a new manager per request
                 # TODO optimize later to cache credentials per target
                 # similar to requests_toolbelt.auth.handler.AuthHandler
-                auth=DataladAuth(self._cfg),
+                auth=DataladAuth(self._cfg, credential=credential),
         ) as r:
             r.raise_for_status()
             self._stream_download_from_request(r, to_path)
@@ -205,8 +205,9 @@ class HttpOperations:
 
 
 class DataladAuth(requests.auth.AuthBase):
-    def __init__(self, cfg):
+    def __init__(self, cfg: CredentialManager, credential: str = None):
         self._credman = CredentialManager(cfg)
+        self._credential = credential
 
     def __call__(self, r):
         # TODO when using/reusing a credential, disable follow redirect
@@ -252,8 +253,8 @@ class DataladAuth(requests.auth.AuthBase):
         )
         # TODO make conditional when a credential is already known
         credname, cred = get_url_credential(
-            # TODO support explicit name
-            name=None,
+            # lookup by name if given
+            name=self._credential,
             credman=self._credman,
             # TODO say something about auth-type?
             prompt=f'Credential needed for access to {r.url}',
