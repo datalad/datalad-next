@@ -353,6 +353,9 @@ class DataladAuth(requests.auth.AuthBase):
                 r,
                 requests.auth.HTTPDigestAuth(cred['user'], cred['secret']),
                 **kwargs)
+        elif ascheme == 'bearer':
+            return self._authenticated_rerequest(
+                r, HTTPBearerTokenAuth(cred['secret']), **kwargs)
         else:
             raise NotImplementedError(
                 'Only unsupported HTTP auth schemes offered '
@@ -397,3 +400,15 @@ def _get_renewed_request(r: requests.models.Response
         prep._cookies, r.request, r.raw)
     prep.prepare_cookies(prep._cookies)
     return prep
+
+
+class HTTPBearerTokenAuth(requests.auth.AuthBase):
+    """Attaches HTTP Bearer Token Authentication to the given Request object.
+    """
+    def __init__(self, token):
+        super().__init__()
+        self.token = token
+
+    def __call__(self, r):
+        r.headers["Authorization"] = f'Bearer {self.token}'
+        return r

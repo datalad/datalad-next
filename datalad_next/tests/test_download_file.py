@@ -117,13 +117,16 @@ def test_download_file_basic_auth(capsys):
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
-@with_credential(hbscred[0], **hbscred[1])
+@with_credential('dummy', realm=f'{hbsurl}/', type='token', secret='very')
 def test_download_file_bearer_token_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
     download_file(
-        {f'{hbsurl}/basic-auth/mike/dummy': '-'})
-    assert json.loads(capsys.readouterr().out) == auth_ok_response
+        {f'{hbsurl}/bearer': '-'})
+    assert json.loads(capsys.readouterr().out) == {
+        'authenticated': True,
+        'token': 'very',
+    }
 
 
 @with_credential(hbscred[0],
