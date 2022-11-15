@@ -132,7 +132,7 @@ def get_auth_realm(url, auth_info, scheme=None):
     else:
         scheme, auth_info = auth_info.copy().popitem()
     # take any, but be satisfied with none too
-    realm = auth_info.get('realm', '')
+    realm = auth_info.get('realm') if auth_info else ''
     # a realm is supposed to indicate a validity scope of a credential
     # on a server. so we make sure to have the return realm identifier
     # actually indicate a server too, in order to make it suitable for
@@ -205,6 +205,12 @@ class HttpOperations:
 
 
 class DataladAuth(requests.auth.AuthBase):
+    _supported_auth_schemes = {
+        'basic': 'user_password',
+        'digest': 'user_password',
+        'bearer': 'token',
+    }
+
     def __init__(self, cfg: CredentialManager, credential: str = None):
         self._credman = CredentialManager(cfg)
         self._credential = credential
@@ -223,6 +229,84 @@ class DataladAuth(requests.auth.AuthBase):
         r.register_hook("response", self.handle_401)
         return r
 
+    def _get_credential(self, url, auth_schemes
+                        ) -> tuple[str | None, str | None, Dict | None]:
+        """Get a credential for access to `url` given server-supported schemes
+
+        If a particular credential to use was given to the `DataladAuth`
+        constructor it reported here.
+
+        In all other situations a credential will be looked up, based on
+        the access URL and the authentication schemes supported by the
+        host. The authentication schemes will be tested in the order in
+        which they are reported by the remote host.
+
+        If no matching credential can be identified, a prompt to enter
+        a credential is presented. The credential type will match, and be
+        used with the first authentication scheme that is both reported
+        by the host, and by this implementation.
+
+        The methods returns a 3-tuple. The first element is an identifier
+        for the authentication scheme ('basic', digest', etc.) to use
+        with the credential. The second item is the name for the reported
+        credential, and the third element is a dictionary with the
+        credential properties and its secret. Any of the three items can be
+        `None` if the respective information is not available.
+        """
+        if self._credential:
+            cred = self._credman.get(name=self._credential)
+            # this credential is scheme independent
+            return None, self._credential, cred
+
+        # no credential identified, find one
+        for ascheme in auth_schemes:
+            if ascheme not in DataladAuth._supported_auth_schemes:
+                # nothing we can handle
+                continue
+            ctype = DataladAuth._supported_auth_schemes[ascheme]
+            # get a realm ID for this authentication scheme
+            realm = get_auth_realm(url, auth_schemes, scheme=ascheme)
+            # ask for matching credentials
+            creds = self._credman.query(
+                _sortby='last-used',
+                type=ctype,
+                realm=realm,
+            )
+            if creds:
+                # we have matches, go with the last used one
+                name, cred = creds[0]
+                return ascheme, name, cred
+
+        # no success finding an existing credential, now ask, if possible
+        # pick a scheme that is supported by the server and by us
+        ascheme = [s for s in auth_schemes
+                   if s in DataladAuth._supported_auth_schemes]
+        if not ascheme:
+            # f-string OK, only executed on failure
+            lgr.debug(
+                'Only unsupported HTTP auth schemes offered '
+                f'{list(auth_schemes.keys())!r}')
+        # go with the first supported scheme
+        ascheme = ascheme[0]
+        ctype = DataladAuth._supported_auth_schemes[ascheme]
+
+        try:
+            cred = self._credman.get(
+                name=None,
+                _prompt=f'Credential needed for access to {url}',
+                _type_hint=ctype,
+                type=ctype,
+                # include the realm in the credential to avoid asking for it
+                # interactively (it is a server-specified property
+                # users would generally not know, if they do, they can use the
+                # `credentials` command upfront.
+                realm=get_auth_realm(url, auth_schemes)
+            )
+            return ascheme, None, cred
+        except Exception as e:
+            lgr.debug('Credential retrieval failed: %s', e)
+            return ascheme, None, None
+
     def handle_401(self, r, **kwargs):
         if not 400 <= r.status_code < 500:
             # fast return if this is no error, see
@@ -237,34 +321,9 @@ class DataladAuth(requests.auth.AuthBase):
             return r
         # which auth schemes does the server support?
         auth_schemes = www_authenticate.parse(r.headers['www-authenticate'])
-        # determine realm for credential lookup
-        # TODO make conditional when a credential is already known
-        realm = get_auth_realm(
-            # we continue with the effective URL reported in the
-            # response, i.e. after following all redirects. We use this
-            # for credential lookup and reporting to avoid
-            # misrepresenting the credential target to a user
-            # (site could maliciously redirect to an entirely different
-            # domain)
-            r.url,
-            auth_schemes,
-            # we will get the realm for the first item in `auth_schemes`
-            scheme=None,
-        )
-        # TODO make conditional when a credential is already known
-        credname, cred = get_url_credential(
-            # lookup by name if given
-            name=self._credential,
-            credman=self._credman,
-            # TODO say something about auth-type?
-            prompt=f'Credential needed for access to {r.url}',
-            # use the real for lookup
-            # TODO look for a matching auth_scheme property too
-            query_props=dict(realm=realm),
-            # TODO support something else than user/pass
-            #prompt_credential_type='user_password',
-        )
-        if cred is None:
+        ascheme, credname, cred = self._get_credential(r.url, auth_schemes)
+
+        if cred is None or 'secret' not in cred:
             # we got nothing, leave things as they are
             return r
 
@@ -272,17 +331,24 @@ class DataladAuth(requests.auth.AuthBase):
         # information on its scope (i.e. only for github.com)
         # prevent its use for other hosts -- maybe unless given explicitly.
 
-        # TODO check what auth-scheme the credential can do and
-        # select a matching one. If credential doesn't say, go
-        # with first/any/all-one-by-one?
-        # TODO check by credential type? Token for basic?
-        # TODO sort from most to least secure?
-        if 'basic' in auth_schemes:
+        if ascheme is None:
+            # if there is no authentication scheme identified, look at the
+            # credential, if it knows
+            ascheme = cred.get('http_auth_scheme')
+            # if it does not, go with the first supported scheme that matches
+            # the credential type, one is guaranteed to match
+            ascheme = [
+                c for c in auth_schemes
+                if c in DataladAuth._supported_auth_schemes
+                and cred.get('type') == DataladAuth._supported_auth_schemes[c]
+            ][0]
+
+        if ascheme == 'basic':
             return self._authenticated_rerequest(
                 r,
                 requests.auth.HTTPBasicAuth(cred['user'], cred['secret']),
                 **kwargs)
-        elif 'digest' in auth_schemes:
+        elif ascheme == 'digest':
             return self._authenticated_rerequest(
                 r,
                 requests.auth.HTTPDigestAuth(cred['user'], cred['secret']),
@@ -290,7 +356,7 @@ class DataladAuth(requests.auth.AuthBase):
         else:
             raise NotImplementedError(
                 'Only unsupported HTTP auth schemes offered '
-                f'{list(auth_schemes.keys())!r}')
+                f'{list(auth_schemes.keys())!r} need {ascheme!r}')
 
     def handle_redirect(self, r, **kwargs):
         if r.is_redirect and self._credential:
@@ -331,45 +397,3 @@ def _get_renewed_request(r: requests.models.Response
         prep._cookies, r.request, r.raw)
     prep.prepare_cookies(prep._cookies)
     return prep
-
-
-def get_url_credential(
-    name: str | None,
-    credman: CredentialManager,
-    # Should say what kind of credential and what for
-    prompt: str,
-    # used to query for a credential, even when a name is given
-    query_props: Dict = None,
-    # type hint for credential manager to ask for the right
-    # components
-    prompt_credential_type: str = 'user_password',
-) -> tuple[str | None, Dict | None]:
-
-    cred = None
-    if query_props:
-        creds = credman.query(_sortby='last-used', **query_props)
-        # TODO when a name is given, pick the one that matches the name
-        # (if any does), when multiple results are returned
-        if creds:
-            name, cred = creds[0]
-
-    if not cred:
-        kwargs = dict(
-            # name could be none
-            name=name,
-            _prompt=prompt,
-            type=prompt_credential_type,
-        )
-        # check if we know the realm, if so include in the credential, if not
-        # avoid asking for it interactively (it is a server-specified property
-        # users would generally not know, if they do, they can use the
-        # `credentials` command upfront.
-        realm = query_props.get('realm')
-        if realm:
-            kwargs['realm'] = realm
-        try:
-            cred = credman.get(**kwargs)
-        except Exception as e:
-            lgr.debug('Credential retrieval failed: %s', e)
-
-    return name, cred

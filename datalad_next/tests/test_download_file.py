@@ -19,12 +19,14 @@ test_cred = ('dltest-my&=http', 'datalad', 'secure')
 hburl = 'http://httpbin.org'
 hbcred = (
     'hbcred',
-    dict(user='mike', secret='dummy', realm=f'{hburl}/Fake Realm'),
+    dict(user='mike', secret='dummy', type='user_password',
+         realm=f'{hburl}/Fake Realm'),
 )
 hbsurl = 'https://httpbin.org'
 hbscred = (
     'hbscred',
-    dict(user='mike', secret='dummy', realm=f'{hbsurl}/Fake Realm'),
+    dict(user='mike', secret='dummy', type='user_password',
+         realm=f'{hbsurl}/Fake Realm'),
 )
 
 
@@ -115,9 +117,18 @@ def test_download_file_basic_auth(capsys):
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
+@with_credential(hbscred[0], **hbscred[1])
+def test_download_file_bearer_token_auth(capsys):
+    # consume stdout to make test self-contained
+    capsys.readouterr()
+    download_file(
+        {f'{hbsurl}/basic-auth/mike/dummy': '-'})
+    assert json.loads(capsys.readouterr().out) == auth_ok_response
+
+
 @with_credential(hbscred[0],
                  **dict(hbscred[1],
-                        realm='http://httpbin.org/me@kennethreitz.com'))
+                        realm='https://httpbin.org/me@kennethreitz.com'))
 def test_download_file_digest_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
@@ -162,5 +173,15 @@ def test_download_file_no_credential_leak_to_http(capsys):
         credential=hbscred[0],
         on_failure='ignore')
     assert_status('error', res)
-    assert '401' in res['error_message']
-    assert f' {redirect_url}' in res['error_message']
+    assert '401' in res[0]['error_message']
+    assert f' {redirect_url}' in res[0]['error_message']
+    # do the same again, but without the explicit credential,
+    # also must not work
+    # this is not the right test, though. What would be suitable
+    # is an authenticated request that then redirects
+    res = download_file(
+        # redirect from https to http, must drop provideded credential
+        # to avoid leakage
+        {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
+        on_failure='ignore')
+    assert_status('error', res)
