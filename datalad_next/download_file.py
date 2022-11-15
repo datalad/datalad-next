@@ -24,6 +24,7 @@ from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
 from datalad.support.exceptions import CapturedException
 from datalad.support.param import Parameter
+from datalad.utils import ensure_list
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureGeneratorFromFileLike,
@@ -97,6 +98,8 @@ class DownloadFile(Interface):
         force=force_choices | EnsureListOf(force_choices),
         # TODO EnsureCredential
         #credential=
+        # TODO EnsureHashAlgorithm
+        #hash=EnsureHashAlgorithm | EnsureIterableOf(EnsureHashAlgorithm)
     )
 
     # this is largely here for documentation and CLI parser building
@@ -122,6 +125,11 @@ class DownloadFile(Interface):
             prompted for. Once used successfully, a prompt for entering
             to save such a new credential will be presented.""",
         ),
+        hash=Parameter(
+            args=("--hash",),
+            action='append',
+            doc="""Name of a hashing algorithm supported by the Python
+            'hashlib' module."""),
     )
 
     _examples_ = [
@@ -160,7 +168,8 @@ class DownloadFile(Interface):
     @staticmethod
     @datasetmethod(name="download_file")
     @eval_results
-    def __call__(spec, *, dataset=None, force=None, credential=None):
+    def __call__(spec, *, dataset=None, force=None, credential=None,
+                 hash=None):
         # which config to inspect for credentials etc
         cfg = dataset.ds.config if dataset else datalad.cfg
 
@@ -216,17 +225,25 @@ class DownloadFile(Interface):
                 continue
 
             try:
-                _urlscheme_handlers[scheme].download(
+                download_props = _urlscheme_handlers[scheme].download(
                     url,
                     dest,
                     credential=credential,
+                    hash=ensure_list(hash),
                 )
-                yield get_status_dict(
+                res = get_status_dict(
                     action='download_file',
                     status='ok',
                     url=url,
                     path=dest,
                 )
+                # take the reported download properties (e.g. any computed
+                # hashes a a starting point, and overwrite any potentially
+                # conflicting keys with the standard ones)
+                res = dict(
+                    download_props,
+                    **res)
+                yield res
             except Exception as e:
                 ce = CapturedException(e)
                 yield get_status_dict(

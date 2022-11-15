@@ -50,10 +50,17 @@ def test_download_file(wdir=None, srvpath=None, srvurl=None):
     _prep_server(srvpath)
 
     # simple download, taking the target filename from the URL
+    # single-pass hashing with two algorithms
     with chpwd(wdir):
-        download_file(f'{srvurl}testfile.txt')
+        res = download_file(f'{srvurl}testfile.txt',
+                            hash=['md5', 'SHA256'],
+                            return_type='item-or-list')
 
     assert (wdir / 'testfile.txt').read_text() == 'test'
+    # keys for hashes keep user-provided captialization
+    assert res['md5'] == '098f6bcd4621d373cade4e832627b4f6'
+    assert res['SHA256'] == \
+        '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
 
     # doing it again fails due to overwrite detection
     with chpwd(wdir):

@@ -181,7 +181,8 @@ class HttpOperations:
     def download(self,
                  from_url: str,
                  to_path: Path | None,
-                 credential: str = None):
+                 credential: str = None,
+                 hash: str = None) -> Dict:
         # a new manager per request
         # TODO optimize later to cache credentials per target
         # similar to requests_toolbelt.auth.handler.AuthHandler
@@ -193,12 +194,25 @@ class HttpOperations:
                 auth=auth,
         ) as r:
             r.raise_for_status()
-            self._stream_download_from_request(r, to_path)
+            download_props = self._stream_download_from_request(
+                r, to_path, hash=hash)
         auth.save_entered_credential(
             context=f'download from {from_url}'
         )
+        return download_props
 
-    def _stream_download_from_request(self, r, to_path):
+    def _stream_download_from_request(
+            self, r, to_path, hash: list[str] = None) -> Dict:
+        if hash:
+            import hashlib
+            # yes, this will crash, if an invalid hash algorithm name
+            # is given
+            _hasher = []
+            for h in hash:
+                hr = getattr(hashlib, h.lower(), None)
+                if hr is None:
+                    raise ValueError(f'unsupported hash algorithm {h}')
+                _hasher.append(hr())
         progress_id = f'download_{r.url}_{to_path}'
         # get download size, but not every server provides it
         try:
@@ -215,6 +229,7 @@ class HttpOperations:
             noninteractive_level=logging.DEBUG,
         )
         fp = None
+        props = {}
         try:
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')
             # TODO make chunksize a config item
@@ -226,8 +241,13 @@ class HttpOperations:
                     increment=True,
                     noninteractive_level=logging.DEBUG,
                 )
-                # TODO compute hash simultaneously
-                pass
+                if hash:
+                    # compute hash simultaneously
+                    for h in _hasher:
+                        h.update(chunk)
+            if hash:
+                props.update(dict(zip(hash, [h.hexdigest() for h in _hasher])))
+            return props
         finally:
             if fp and to_path is not None:
                 fp.close()
