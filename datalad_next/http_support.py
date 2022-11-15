@@ -177,18 +177,25 @@ class HttpOperations:
             hdrs.update(headers)
         return hdrs
 
-    def download(self, from_url: str, to_path: Path | None, credential: str = None):
+    def download(self,
+                 from_url: str,
+                 to_path: Path | None,
+                 credential: str = None):
+        # a new manager per request
+        # TODO optimize later to cache credentials per target
+        # similar to requests_toolbelt.auth.handler.AuthHandler
+        auth = DataladAuth(self._cfg, credential=credential)
         with requests.get(
                 from_url,
                 stream=True,
                 headers=self.get_headers(),
-                # a new manager per request
-                # TODO optimize later to cache credentials per target
-                # similar to requests_toolbelt.auth.handler.AuthHandler
-                auth=DataladAuth(self._cfg, credential=credential),
+                auth=auth,
         ) as r:
             r.raise_for_status()
             self._stream_download_from_request(r, to_path)
+        auth.save_entered_credential(
+            context=f'download from {from_url}'
+        )
 
     def _stream_download_from_request(self, r, to_path):
         # TODO wrap in progress report
@@ -205,6 +212,19 @@ class HttpOperations:
 
 
 class DataladAuth(requests.auth.AuthBase):
+    """Requests-style authentication handler using DataLad credentials
+
+    Similar to request_toolbelt's `AuthHandler`, this is a meta
+    implementation that can be used with different actual authentication
+    schemes. In contrast to `AuthHandler`, a credential can not only be
+    specified directly, but credentials can be looked up based on the
+    target URL and the server-supported authentication schemes.
+
+    In addition to programmatic specification and automated lookup, manual
+    credential entry using interactive prompts is also supported.
+
+    At present, this implementation is not thread-safe.
+    """
     _supported_auth_schemes = {
         'basic': 'user_password',
         'digest': 'user_password',
@@ -214,6 +234,20 @@ class DataladAuth(requests.auth.AuthBase):
     def __init__(self, cfg: CredentialManager, credential: str = None):
         self._credman = CredentialManager(cfg)
         self._credential = credential
+        self._entered_credential = None
+
+    def save_entered_credential(self, suggested_name: str = None,
+                                context: str = None) -> Dict | None:
+        if self._entered_credential is None:
+            # nothing to do
+            return
+        return self._credman.set(
+            name=None,
+            _lastused=True,
+            _suggested_name=suggested_name,
+            _context=context,
+            **self._entered_credential
+        )
 
     def __call__(self, r):
         # TODO when using/reusing a credential, disable follow redirect
@@ -302,6 +336,7 @@ class DataladAuth(requests.auth.AuthBase):
                 # `credentials` command upfront.
                 realm=get_auth_realm(url, auth_schemes)
             )
+            self._entered_credential = cred
             return ascheme, None, cred
         except Exception as e:
             lgr.debug('Credential retrieval failed: %s', e)

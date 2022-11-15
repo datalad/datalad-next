@@ -258,7 +258,9 @@ class CredentialManager(object):
           is ignored and not presented as a suggestion.
         _context: str, optional
           If given, will be included in the prompt for a missing credential
-          name to provide context for a user.
+          name to provide context for a user. It should be  written to fit
+          into a parenthical statement after "Enter a name to save the
+          credential (...)", e.g. "for download from <URL>".
         **kwargs:
           Any number of credential property key/value pairs. Values of
           ``None`` indicate removal of a property from a credential.
@@ -290,13 +292,14 @@ class CredentialManager(object):
             if _suggested_name in known_credentials:
                 # ignore name suggestion, conflicts with existing credential
                 _suggested_name = None
-            prompt = 'Enter a name to save the credential securely for ' \
-                     "future re-use, or 'skip' to not save the credential"
+            prompt = 'Enter a name to save the credential '
+            if _context:
+                prompt = f'{prompt} ({_context})'
+            prompt = "securely for future re-use, " \
+                     "or 'skip' to not save the credential"
             if _suggested_name:
                 prompt = f'{prompt}, or leave empty to accept the name ' \
                          f'{_suggested_name!r}'
-            if _context:
-                prompt = f'{prompt} (context: {_context})'
             while not name:
                 entered = self._ask_property('name', prompt=prompt)
                 if entered == 'skip':

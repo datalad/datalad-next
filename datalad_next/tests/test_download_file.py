@@ -2,12 +2,16 @@ import json
 from pathlib import Path
 
 import datalad
-from datalad.api import download_file
+from datalad.api import (
+    credentials,
+    download_file,
+)
 from datalad.tests.utils_pytest import (
     assert_result_count,
     assert_status,
     serve_path_via_http,
     with_tempfile,
+    with_testsui,
 )
 from datalad.utils import chpwd
 
@@ -188,3 +192,39 @@ def test_download_file_no_credential_leak_to_http(capsys):
         {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
         on_failure='ignore')
     assert_status('error', res)
+
+
+@with_testsui(responses=[
+    'token123',
+    # after download, it asks for a name
+    'dataladtest_test_download_file_new_bearer_token',
+])
+def test_download_file_new_bearer_token(capsys):
+    try:
+        download_file({f'{hbsurl}/bearer': '-'})
+        # and it was saved under this name
+        assert_result_count(
+            credentials(
+                'get',
+                name='dataladtest_test_download_file_new_bearer_token'),
+            1, cred_secret='token123', cred_type='token',
+        )
+    finally:
+        credentials(
+            'remove',
+            name='dataladtest_test_download_file_new_bearer_token',
+        )
+
+
+@with_testsui(responses=[
+    'datalad_uniquetoken123',
+    # after download, it asks for a name, but skip to save
+    'skip',
+])
+def test_download_file_new_bearer_token_nosave(capsys):
+    download_file({f'{hbsurl}/bearer': '-'})
+    # and it was saved under this name
+    assert_result_count(
+        credentials('query', dict(secret='datalad_uniquetoken123')),
+        0,
+    )
