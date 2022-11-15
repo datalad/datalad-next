@@ -271,29 +271,34 @@ class DataladAuth(requests.auth.AuthBase):
         # select a matching one. If credential doesn't say, go
         # with first/any/all-one-by-one?
         # TODO check by credential type? Token for basic?
+        # TODO sort from most to least secure?
         if 'basic' in auth_schemes:
-            return self._basic_auth_rerequest(
+            return self._authenticated_rerequest(
                 r,
-                cred['user'],
-                cred['secret'],
+                requests.auth.HTTPBasicAuth(cred['user'], cred['secret']),
+                **kwargs)
+        elif 'digest' in auth_schemes:
+            return self._authenticated_rerequest(
+                r,
+                requests.auth.HTTPDigestAuth(cred['user'], cred['secret']),
                 **kwargs)
         else:
-            raise NotImplementedError('Unsupported HTTP auth scheme')
+            raise NotImplementedError(
+                'Only unsupported HTTP auth schemes offered '
+                f'{list(auth_schemes.keys())!r}')
 
     def handle_redirect(self, r, **kwargs):
         if r.is_redirect:
             # TODO reset current credential
             pass
 
-    def _basic_auth_rerequest(
+    def _authenticated_rerequest(
             self,
             response: requests.models.Response,
-            username: str,
-            password: str,
+            auth: requests.auth.AuthBase,
             **kwargs
     ) -> requests.models.Response:
         """Helper to rerun a request, but with basic auth added"""
-        auth = requests.auth.HTTPBasicAuth(username, password)
         prep = _get_renewed_request(response)
         auth(prep)
         _r = response.connection.send(prep, **kwargs)

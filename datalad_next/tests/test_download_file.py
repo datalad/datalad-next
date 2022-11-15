@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import datalad
@@ -14,6 +15,11 @@ from datalad_next.credman import CredentialManager
 from .utils import with_credential
 
 test_cred = ('dltest-my&=http', 'datalad', 'secure')
+hburl = 'http://httpbin.org'
+hbcred = (
+    'hbcred',
+    dict(user='mike', secret='dummy', realm=f'{hburl}/Fake Realm'),
+)
 
 
 def _get_paths(*args):
@@ -89,3 +95,32 @@ def test_download_file_auth(wdir=None, srvpath=None, srvurl=None):
     # now it must be able to auto-detect it
     download_file({f'{srvurl}testfile.txt': wdir / 'download1.txt'})
     assert (wdir / 'download1.txt').read_text() == 'test'
+
+
+auth_ok_response = {"authenticated": True, "user": "mike"}
+
+
+@with_credential(hbcred[0], **hbcred[1])
+def test_download_file_basic_auth(capsys):
+    # consume stdout to make test self-contained
+    capsys.readouterr()
+    download_file(
+        {f'{hburl}/basic-auth/mike/dummy': '-'})
+    assert json.loads(capsys.readouterr().out) == auth_ok_response
+
+
+@with_credential(hbcred[0],
+                 **dict(hbcred[1],
+                        realm='http://httpbin.org/me@kennethreitz.com'))
+def test_download_file_digest_auth(capsys):
+    # consume stdout to make test self-contained
+    capsys.readouterr()
+    for url_suffix in (
+            '/digest-auth/auth/mike/dummy',
+            # non-default algorithm
+            '/digest-auth/auth/mike/dummy/SHA-256',
+    ):
+        download_file({f'{hburl}{url_suffix}': '-'})
+        assert json.loads(capsys.readouterr().out) == auth_ok_response
+        # repeated reads do not accumulate
+        assert capsys.readouterr().out == ''
