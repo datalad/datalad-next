@@ -12,6 +12,7 @@ from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
+from datalad.log import log_progress
 
 from datalad_next.credman import CredentialManager
 
@@ -198,17 +199,42 @@ class HttpOperations:
         )
 
     def _stream_download_from_request(self, r, to_path):
-        # TODO wrap in progress report
+        progress_id = f'download_{r.url}_{to_path}'
+        # get download size, but not every server provides it
+        try:
+            expected_size = int(r.headers.get('content-length'))
+        except (ValueError, TypeError):
+            expected_size = None
+        log_progress(
+            lgr.info,
+            progress_id,
+            'Download %s to %s', r.url, to_path,
+            unit=' Bytes',
+            label='Downloading',
+            total=expected_size,
+            noninteractive_level=logging.DEBUG,
+        )
         fp = None
         try:
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')
             # TODO make chunksize a config item
             for chunk in requests_tee(r, fp):
+                log_progress(
+                    lgr.info, progress_id,
+                    'Downloaded chunk',
+                    update=len(chunk),
+                    increment=True,
+                    noninteractive_level=logging.DEBUG,
+                )
                 # TODO compute hash simultaneously
                 pass
         finally:
             if fp and to_path is not None:
                 fp.close()
+            log_progress(
+                lgr.info, progress_id, 'Finished download',
+                noninteractive_level=logging.DEBUG,
+            )
 
 
 class DataladAuth(requests.auth.AuthBase):
