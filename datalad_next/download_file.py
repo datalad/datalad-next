@@ -41,7 +41,7 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.http_support import HttpOperations
+from datalad_next.http_url_operations import HttpUrlOperations
 
 lgr = getLogger('datalad.local.download_file')
 
@@ -176,7 +176,7 @@ class DownloadFile(Interface):
         # which config to inspect for credentials etc
         cfg = dataset.ds.config if dataset else datalad.cfg
 
-        http_handler = HttpOperations(cfg)
+        http_handler = HttpUrlOperations(cfg)
         _urlscheme_handlers = dict(
             http=http_handler,
             https=http_handler,
