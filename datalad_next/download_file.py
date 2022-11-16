@@ -22,7 +22,10 @@ from datalad.interface.base import (
 )
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
-from datalad.support.exceptions import CapturedException
+from datalad.support.exceptions import (
+    CapturedException,
+    DownloadError,
+)
 from datalad.support.param import Parameter
 from datalad.utils import ensure_list
 from datalad_next.constraints import (
@@ -246,7 +249,7 @@ class DownloadFile(Interface):
                 yield res
             except Exception as e:
                 ce = CapturedException(e)
-                yield get_status_dict(
+                res = get_status_dict(
                     action='download_file',
                     status='error',
                     message='download failure',
@@ -254,6 +257,9 @@ class DownloadFile(Interface):
                     path=dest,
                     exception=ce,
                 )
+                if issubclass(type(e), DownloadError):
+                    res['status_code'] = e.status
+                yield res
 
 
 def _prep_dest_path(dest, dataset, force):

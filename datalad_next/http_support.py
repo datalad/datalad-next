@@ -13,6 +13,7 @@ import www_authenticate
 
 import datalad
 from datalad.log import log_progress
+from datalad.support.exceptions import DownloadError
 
 from datalad_next.credman import CredentialManager
 
@@ -193,7 +194,15 @@ class HttpOperations:
                 headers=self.get_headers(),
                 auth=auth,
         ) as r:
-            r.raise_for_status()
+            # fail visible for any non-OK outcome
+            try:
+                r.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                # wrap this into the datalad-standard, but keep the
+                # original exception linked
+                raise DownloadError(
+                    msg=str(e), status=e.response.status_code) from e
+
             download_props = self._stream_download_from_request(
                 r, to_path, hash=hash)
         auth.save_entered_credential(

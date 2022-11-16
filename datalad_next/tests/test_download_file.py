@@ -235,3 +235,11 @@ def test_download_file_new_bearer_token_nosave(capsys):
         credentials('query', dict(secret='datalad_uniquetoken123')),
         0,
     )
+
+
+# make sure a 404 is easily discoverable
+# https://github.com/datalad/datalad/issues/6545
+def test_download_file_404():
+    assert_result_count(
+        download_file(f'{hbsurl}/status/404', on_failure='ignore'),
+        1, status_code=404, status='error')
