@@ -292,10 +292,10 @@ class CredentialManager(object):
             if _suggested_name in known_credentials:
                 # ignore name suggestion, conflicts with existing credential
                 _suggested_name = None
-            prompt = 'Enter a name to save the credential '
+            prompt = 'Enter a name to save the credential'
             if _context:
                 prompt = f'{prompt} ({_context})'
-            prompt = "securely for future re-use, " \
+            prompt = f"{prompt} securely for future re-use, " \
                      "or 'skip' to not save the credential"
             if _suggested_name:
                 prompt = f'{prompt}, or leave empty to accept the name ' \
