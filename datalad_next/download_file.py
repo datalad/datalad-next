@@ -42,6 +42,7 @@ from datalad_next.constraints import (
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.http_url_operations import HttpUrlOperations
+from datalad_next.file_url_operations import FileUrlOperations
 
 lgr = getLogger('datalad.local.download_file')
 
@@ -180,6 +181,7 @@ class DownloadFile(Interface):
         _urlscheme_handlers = dict(
             http=http_handler,
             https=http_handler,
+            file=FileUrlOperations(cfg)
         )
 
         if isinstance(spec, (str, dict)):
@@ -204,7 +206,7 @@ class DownloadFile(Interface):
 
             # we know that any URL has a scheme
             scheme = url.split('://')[0]
-            if scheme not in ('http', 'https',):
+            if scheme not in _urlscheme_handlers.keys():
                 yield get_status_dict(
                     action='download_file',
                     status='error',
