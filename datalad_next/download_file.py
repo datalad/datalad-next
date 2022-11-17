@@ -46,6 +46,15 @@ from datalad_next.file_url_operations import FileUrlOperations
 
 lgr = getLogger('datalad.local.download_file')
 
+# define handlers for each supported URL scheme
+# extensions could patch their's in
+# TODO support proper entrypoint mechanism
+_urlscheme_handlers = dict(
+    http=HttpUrlOperations,
+    https=HttpUrlOperations,
+    file=FileUrlOperations,
+)
+
 
 @build_doc
 class DownloadFile(Interface):
@@ -177,17 +186,13 @@ class DownloadFile(Interface):
         # which config to inspect for credentials etc
         cfg = dataset.ds.config if dataset else datalad.cfg
 
-        http_handler = HttpUrlOperations(cfg)
-        _urlscheme_handlers = dict(
-            http=http_handler,
-            https=http_handler,
-            file=FileUrlOperations(cfg)
-        )
-
         if isinstance(spec, (str, dict)):
             # input validation allows for a non-list item, turn into
             # list for uniform processing
             spec = [spec]
+
+        # cache of already used handlers
+        url_handlers = dict()
 
         # we are not running any tests upfront on the whole spec,
         # because the spec can be a generator and consume from a
@@ -229,8 +234,14 @@ class DownloadFile(Interface):
                 )
                 continue
 
+            # reuse existing handler, they might already have an idea on
+            # authentication etc. from a previously processed URL
+            url_handler = url_handlers[scheme] if scheme in url_handlers \
+                else _urlscheme_handlers[scheme](cfg)
+            url_handlers[scheme] = url_handler
+
             try:
-                download_props = _urlscheme_handlers[scheme].download(
+                download_props = url_handler.download(
                     url,
                     dest,
                     credential=credential,
