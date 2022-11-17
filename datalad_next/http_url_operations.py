@@ -1,4 +1,4 @@
-"""Handler for operations, such as "download", on HTTP URLs"""
+"""Handler for operations, such as "download", on http(s):// URLs"""
 
 # allow for |-type UnionType declarations
 from __future__ import annotations
@@ -13,10 +13,10 @@ from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
-from datalad.log import log_progress
 from datalad.support.exceptions import DownloadError
 
 from datalad_next.requests_auth import DataladAuth
+from .url_operations import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.http_url_operations')
 
@@ -24,13 +24,10 @@ lgr = logging.getLogger('datalad.ext.next.http_url_operations')
 __all__ = ['HttpUrlOperations']
 
 
-class HttpUrlOperations:
+class HttpUrlOperations(UrlOperations):
     _headers = {
         'user-agent': user_agent('datalad', datalad.__version__),
     }
-
-    def __init__(self, cfg=None):
-        self._cfg = cfg or datalad.cfg
 
     def get_headers(self, headers: Dict = None) -> Dict:
         # start with the default
@@ -141,55 +138,30 @@ class HttpUrlOperations:
 
     def _stream_download_from_request(
             self, r, to_path, hash: list[str] = None) -> Dict:
-        if hash:
-            import hashlib
-            # yes, this will crash, if an invalid hash algorithm name
-            # is given
-            _hasher = []
-            for h in hash:
-                hr = getattr(hashlib, h.lower(), None)
-                if hr is None:
-                    raise ValueError(f'unsupported hash algorithm {h}')
-                _hasher.append(hr())
-        progress_id = f'download_{r.url}_{to_path}'
+        from_url = r.url
+        hasher = self._get_hasher(hash)
+        progress_id = self._get_progress_id(from_url, to_path)
         # get download size, but not every server provides it
         try:
             expected_size = int(r.headers.get('content-length'))
         except (ValueError, TypeError):
             expected_size = None
-        log_progress(
-            lgr.info,
-            progress_id,
-            'Download %s to %s', r.url, to_path,
-            unit=' Bytes',
-            label='Downloading',
-            total=expected_size,
-            noninteractive_level=logging.DEBUG,
-        )
+        self._progress_report_start(
+            progress_id, from_url, to_path, expected_size)
+
         fp = None
         props = {}
         try:
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')
             # TODO make chunksize a config item
             for chunk in requests_tee(r, fp):
-                log_progress(
-                    lgr.info, progress_id,
-                    'Downloaded chunk',
-                    update=len(chunk),
-                    increment=True,
-                    noninteractive_level=logging.DEBUG,
-                )
-                if hash:
-                    # compute hash simultaneously
-                    for h in _hasher:
-                        h.update(chunk)
-            if hash:
-                props.update(dict(zip(hash, [h.hexdigest() for h in _hasher])))
+                self._progress_report_update(progress_id, len(chunk))
+                # compute hash simultaneously
+                for h in hasher:
+                    h.update(chunk)
+            props.update(self._get_hash_report(hash, hasher))
             return props
         finally:
             if fp and to_path is not None:
                 fp.close()
-            log_progress(
-                lgr.info, progress_id, 'Finished download',
-                noninteractive_level=logging.DEBUG,
-            )
+            self._progress_report_stop(progress_id)

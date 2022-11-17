@@ -48,7 +48,9 @@ Python utilities
    credman
    constraints
    requests_auth
+   url_operations
    http_url_operations
+   file_url_operations
    http_helpers
    utils
 

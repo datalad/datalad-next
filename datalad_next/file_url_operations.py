@@ -13,9 +13,9 @@ from urllib import (
     parse,
 )
 
-import datalad
-from datalad.log import log_progress
 from datalad.support.exceptions import DownloadError
+
+from .url_operations import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.file_url_operations')
 
@@ -23,11 +23,7 @@ lgr = logging.getLogger('datalad.ext.next.file_url_operations')
 __all__ = ['FileUrlOperations']
 
 
-# TODO make abstract base class for File|HttpUrlOperations
-class FileUrlOperations:
-    def __init__(self, cfg=None):
-        self._cfg = cfg or datalad.cfg
-
+class FileUrlOperations(UrlOperations):
     def _file_url_to_path(self, url):
         assert url.startswith('file://')
         parsed = parse.urlparse(url)
@@ -44,11 +40,8 @@ class FileUrlOperations:
                  hash: str = None) -> Dict:
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
-        # TODO deduplicate with
-        # HttpUrlOperations._stream_download_from_request()
-        _hasher = self._get_hasher(hash)
-
-        progress_id = f'download_{from_url}_{to_path}'
+        hasher = self._get_hasher(hash)
+        progress_id = self._get_progress_id(from_url, to_path)
 
         dst_fp = None
         try:
@@ -60,15 +53,9 @@ class FileUrlOperations:
             props = {}
             dst_fp = sys.stdout.buffer if to_path is None \
                 else open(to_path, 'wb')
-            log_progress(
-                lgr.info,
-                progress_id,
-                'Download %s to %s', from_url, to_path,
-                unit=' Bytes',
-                label='Downloading',
-                total=expected_size,
-                noninteractive_level=logging.DEBUG,
-            )
+            self._progress_report_start(
+                progress_id, from_url, to_path, expected_size)
+
             with from_path.open('rb') as src_fp:
                 # Localize variable access to minimize overhead
                 src_fp_read = src_fp.read
@@ -78,18 +65,11 @@ class FileUrlOperations:
                     if not chunk:
                         break
                     dst_fp_write(chunk)
-                    log_progress(
-                        lgr.info, progress_id,
-                        'Downloaded chunk',
-                        update=len(chunk),
-                        increment=True,
-                        noninteractive_level=logging.DEBUG,
-                    )
+                    self._progress_report_update(progress_id, len(chunk))
                     # compute hash simultaneously
-                    for h in _hasher:
+                    for h in hasher:
                         h.update(chunk)
-            if hash:
-                props.update(dict(zip(hash, [h.hexdigest() for h in _hasher])))
+            props.update(self._get_hash_report(hash, hasher))
             return props
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
@@ -98,22 +78,4 @@ class FileUrlOperations:
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
-            log_progress(
-                lgr.info, progress_id, 'Finished download',
-                noninteractive_level=logging.DEBUG,
-            )
-
-    def _get_hasher(self, hash: list[str]) -> list:
-        if not hash:
-            return []
-
-        import hashlib
-        # yes, this will crash, if an invalid hash algorithm name
-        # is given
-        _hasher = []
-        for h in hash:
-            hr = getattr(hashlib, h.lower(), None)
-            if hr is None:
-                raise ValueError(f'unsupported hash algorithm {h}')
-            _hasher.append(hr())
-        return _hasher
+            self._progress_report_stop(progress_id)
