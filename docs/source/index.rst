@@ -47,6 +47,10 @@ Python utilities
 
    credman
    constraints
+   requests_auth
+   http_url_operations
+   http_helpers
+   utils
 
 
 Git remote helpers

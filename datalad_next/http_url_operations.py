@@ -1,3 +1,5 @@
+"""Handler for operations, such as "download", on HTTP URLs"""
+
 # allow for |-type UnionType declarations
 from __future__ import annotations
 

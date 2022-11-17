@@ -1,3 +1,5 @@
+"""Assorted utility functions"""
+
 import logging
 import os
 
