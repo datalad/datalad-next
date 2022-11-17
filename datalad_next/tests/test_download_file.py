@@ -243,3 +243,17 @@ def test_download_file_404():
     assert_result_count(
         download_file(f'{hbsurl}/status/404', on_failure='ignore'),
         1, status_code=404, status='error')
+
+
+def test_download_fileurl(tmp_path):
+    (tmp_path / 'src').mkdir()
+    dst_path = tmp_path / 'dst'
+    dst_path.mkdir()
+    testfile = tmp_path / 'src' / 'myfile.txt'
+    testfile.write_text('some content\n')
+
+    res = download_file(
+        {testfile.as_uri(): dst_path / 'target.txt'},
+        hash=['md5'],
+        return_type='item-or-list')
+    assert_result_count(res, 1, md5='eb9c2bf0eb63f3a7bc0ea37ef18aeba5')
