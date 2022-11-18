@@ -137,9 +137,6 @@ class SshCat:
             self._parsed.hostname,
             f"printf \"\1\2\3\"; ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}'; cat '{fpath}'",
         ])
-        # TODO we must adjust the buffer size of the ReadThread
-        # with the current default of 1024 bytes I get ~ 50MB/s throughput
-        # with 64 * 1024 I get 650MB/s
         return ThreadedRunner(
             cmd=cmd,
             protocol_class=_SshCatProtocol,
