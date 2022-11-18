@@ -1,3 +1,5 @@
+"""Assorted utility functions"""
+
 import logging
 import os
 
@@ -48,14 +50,12 @@ def get_specialremote_credential_properties(params):
     # no other way to do this specifically for each supported remote type
     remote_type = params.get('type')
     if remote_type == 'webdav':
-        from datalad_next.http_support import (
-            probe_url,
-            get_auth_realm,
-        )
+        from datalad_next.http_url_operations import HttpUrlOperations
+        from datalad_next.http_helpers import get_auth_realm
         url = params.get('url')
         if not url:
             return
-        url, urlprops = probe_url(url)
+        url, urlprops = HttpUrlOperations().probe_url(url)
         realm = get_auth_realm(url, urlprops.get('auth'))
         if realm:
             props['realm'] = realm
@@ -100,6 +100,7 @@ def update_specialremote_credential(
     try:
         credman.set(credname, _lastused=True, **credprops)
     except Exception as e:
+        from datalad.support.exceptions import CapturedException
         # we do not want to crash for any failure to store a
         # credential
         lgr.warn(

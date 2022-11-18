@@ -447,6 +447,7 @@ def _get_url_credential(name, url, credman):
       Credential name (possibly different from the input, when a credential
       was discovered based on the URL), and credential properties
     """
+    # TODO employ datalad_next.http_support.get_url_credential()
     cred = None
     credprops = {}
     if not name:

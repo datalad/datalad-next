@@ -22,6 +22,7 @@ High-level API commands
 
    create_sibling_webdav
    credentials
+   download
    tree
 
 
@@ -33,6 +34,7 @@ Command line reference
 
    generated/man/datalad-create-sibling-webdav
    generated/man/datalad-credentials
+   generated/man/datalad-download
    generated/man/datalad-tree
 
 
@@ -45,6 +47,13 @@ Python utilities
 
    credman
    constraints
+   requests_auth
+   url_operations
+   http_url_operations
+   file_url_operations
+   ssh_url_operations
+   http_helpers
+   utils
 
 
 Git remote helpers
