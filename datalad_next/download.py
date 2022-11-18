@@ -60,7 +60,34 @@ _urlscheme_handlers = dict(
 
 @build_doc
 class Download(Interface):
-    """Download from URLs"""
+    """Download from URLs
+
+    This command is the front-end to an extensible framework for performing
+    downloads from a variety of URL schemes. Built-in support for the schemes
+    'http', 'https', 'file', and 'ssh' is provided. Extension packages
+    may add additional support.
+
+    In contrast to other downloader tools, this command integrates with the
+    DataLad credential management and is able to auto-discover credentials.
+    If no credential is available, it automatically prompts for them, and
+    offers to store them for re-use after a successfull authentication.
+
+    Simultaneous hashing (checksumming) of downloaded content is supported
+    with user-specified algorithms.
+
+    The command can process any number of downloads (serially). it can read
+    download specifications from (command line) arguments, files, or STDIN.
+    It can deposit downloads to individual files, or stream to STDOUT.
+
+    Implementation and extensibility
+
+    Each URL scheme is processed by a dedicated handler. Additional
+    schemes can be supported by sub-classing
+    :class:`datalad_next.url_operations.UrlOperations` and implementing
+    the `download()` method. Extension packages can register new handlers,
+    by patching them into the `datalad_next.download._urlscheme_handlers`
+    registery dict.
+    """
     #
     # argument format specifications
     #
@@ -122,15 +149,34 @@ class Download(Interface):
     _params_ = dict(
         spec=Parameter(
             args=('spec',),
-            doc="""""",
+            metavar='<path>|<url>|<url-path-pair>',
+            doc="""Download sources and targets can be given in a variety of
+            formats: as a URL, or as a URL-path-pair that is mapping a source
+            URL to a dedicated download target path. Any number of URLs or
+            URL-path-pairs can be provided, either as an argument list, or
+            read from a file (one item per line). Such a specification input
+            file can be given as a path to an existing file (as a single
+            value, not as part of a URL-path-pair). When the special path
+            identifier '-' is used, the download is written to STDOUT.
+            A specification can also be read in JSON-lines encoding (each line
+            being a string with a URL or an object mapping a URL-string to a
+            path-string).  [PY: In addition, specifications can also be given
+            as a list or URLs, or as a list of dicts with a URL to
+            path mapping. Paths are supported in string form, or as `Path`
+            objects. PY]""",
             nargs='+'),
         dataset=Parameter(
             args=("-d", "--dataset"),
-            doc=""""""),
+            doc="""Dataset to be used as a configuration source. Beyond
+            reading configuration items, this command does not interact with
+            the dataset."""),
         force=Parameter(
             args=("--force",),
             action='append',
-            doc=""""""),
+            # TODO only here because datalad-core CLI generates docs from this
+            choices=force_choices._allowed,
+            doc="""By default, a target path for a download must not exist yet.
+            'force-overwrite' disabled this check."""),
         credential=Parameter(
             args=("--credential",),
             metavar='NAME',
@@ -144,11 +190,29 @@ class Download(Interface):
         hash=Parameter(
             args=("--hash",),
             action='append',
+            metavar='ALGORITHM',
             doc="""Name of a hashing algorithm supported by the Python
-            'hashlib' module."""),
+            'hashlib' module, e.g. 'md5' or 'sha256'.
+            [CMD: This option can be given more than once CMD]
+            """),
     )
 
     _examples_ = [
+        {'text': 'Download webpage to "myfile.txt"',
+         'code_cmd': 'datalad download "http://example.com myfile.txt"',
+         'code_py': 'download({"http://example.com": "myfile.txt"})'},
+        {'text': 'Read download specification from STDIN (e.g. JSON-lines)',
+         'code_cmd': 'datalad download -',
+         'code_py': 'download("-")'},
+        {'text':
+         'Simultaneously hash download, hexdigest reported in result record',
+         'code_cmd':
+         'datalad download --hash sha256 http://example.com/data.xml"',
+         'code_py':
+         'download("http://example.com/data.xml", hash=["sha256"])'},
+        {'text': 'Download from SSH server',
+         'code_cmd': 'datalad download "ssh://example.com/home/user/data.xml"',
+         'code_py': 'download("ssh://example.com/home/user/data.xml")'},
     ]
 
     @classmethod
