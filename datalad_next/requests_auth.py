@@ -39,12 +39,28 @@ class DataladAuth(requests.auth.AuthBase):
     }
 
     def __init__(self, cfg: CredentialManager, credential: str = None):
+        """
+        Parameters
+        ----------
+        cfg: CredentialManager
+          Credentials are looked up in this instance.
+        credential: str, optional
+          Name of a particular credential to be used for any operations.
+        """
         self._credman = CredentialManager(cfg)
         self._credential = credential
         self._entered_credential = None
 
     def save_entered_credential(self, suggested_name: str = None,
                                 context: str = None) -> Dict | None:
+        """Utility method to save a pending credential in the store
+
+        Pending credentials have been entered manually, and were subsequently
+        used successfully for authentication.
+
+        Saving a credential will prompt for entering a name to identify the
+        credentials.
+        """
         if self._entered_credential is None:
             # nothing to do
             return
@@ -57,8 +73,6 @@ class DataladAuth(requests.auth.AuthBase):
         )
 
     def __call__(self, r):
-        # TODO when using/reusing a credential, disable follow redirect
-        # to prevent inappropriate leakage to other servers
         # TODO support being called from multiple threads
         #self.init_per_thread_state()
 
@@ -150,6 +164,23 @@ class DataladAuth(requests.auth.AuthBase):
             return ascheme, None, None
 
     def handle_401(self, r, **kwargs):
+        """Callback that received any response to a request
+
+        Any non-4xx response or a response lacking a 'www-authenticate'
+        header is ignored.
+
+        Server-provided 'www-authenticated' challenges are inspected, and
+        corresponding credentials are looked-up (if needed) and subequently
+        tried in a re-request to the original URL after performing any
+        necessary actions to meet a given challenge. Such a re-request
+        is then using the same connection as the original request.
+
+        Particular challenges are implemented in dedicated classes, e.g.
+        :class:`requests.auth.HTTPBasicAuth`.
+
+        Credential look-up or entry is performed by
+        :meth:`datalad_next.requests_auth.DataladAuth._get_credential`.
+        """
         if not 400 <= r.status_code < 500:
             # fast return if this is no error, see
             # https://github.com/psf/requests/issues/3772 for background
@@ -204,6 +235,15 @@ class DataladAuth(requests.auth.AuthBase):
                 f'{list(auth_schemes.keys())!r} need {ascheme!r}')
 
     def handle_redirect(self, r, **kwargs):
+        """Callback that received any response to a request
+
+        Any non-redirect response is ignore.
+
+        This callback drops an explicitly set credential whenever
+        the redirect causes a non-encrypted connection to be used
+        after the original request was encrypted, or when the `netloc`
+        of the redirect differs from the original target.
+        """
         if r.is_redirect and self._credential:
             og_p = urlparse(r.url)
             rd_p = urlparse(r.headers.get('location'), '')
@@ -221,7 +261,7 @@ class DataladAuth(requests.auth.AuthBase):
             auth: requests.auth.AuthBase,
             **kwargs
     ) -> requests.models.Response:
-        """Helper to rerun a request, but with basic auth added"""
+        """Helper to rerun a request, but with authentication added"""
         prep = _get_renewed_request(response)
         auth(prep)
         _r = response.connection.send(prep, **kwargs)
