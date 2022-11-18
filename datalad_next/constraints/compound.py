@@ -134,7 +134,8 @@ class EnsureMapping(Constraint):
     def __init__(self,
                  key: Constraint,
                  value: Constraint,
-                 delimiter: str = ':'):
+                 delimiter: str = ':',
+                 allow_length2_sequence: bool = True):
         """
         Parameters
         ----------
@@ -149,6 +150,7 @@ class EnsureMapping(Constraint):
         self._key_constraint = key
         self._value_constraint = value
         self._delimiter = delimiter
+        self._allow_length2_sequence = allow_length2_sequence
 
     def short_description(self):
         return 'mapping of {} -> {}'.format(
@@ -167,7 +169,7 @@ class EnsureMapping(Constraint):
             elif len(value) > 1:
                 raise ValueError(f'{value} contains more than one key')
             key, val = value.copy().popitem()
-        elif isinstance(value, (list, tuple)):
+        elif self._allow_length2_sequence and isinstance(value, (list, tuple)):
             if not len(value) == 2:
                 raise ValueError('key/value sequence does not have length 2')
             key, val = value

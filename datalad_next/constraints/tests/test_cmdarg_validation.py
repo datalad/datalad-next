@@ -1,4 +1,5 @@
 import pytest
+from typing import Dict
 
 from io import StringIO
 from pathlib import Path
@@ -47,9 +48,26 @@ class CmdWithValidation(Interface):
 
     # validation helper, need not be a classmethod
     @classmethod
-    def validate_args(cls, **kwargs):
+    def validate_args(cls: Interface, kwargs: Dict, at_default: set) -> Dict:
         validated = {}
         for argname, arg in kwargs.items():
+            if argname in at_default:
+                # do not validate any parameter where the value matches the
+                # default declared in the signature. Often these are just
+                # 'do-nothing' settings or have special meaning that need
+                # not be communicated to a user. Not validating them has
+                # two consequences:
+                # - the condition can simply be referred to as "default
+                #   behavior" regardless of complexity
+                # - a command implementation must always be able to handle
+                #   its own defaults directly, and cannot delegate a
+                #   default value handling to a constraint
+                #
+                # we must nevertheless pass any such default value through
+                # to make/keep them accessible to the general result handling
+                # code
+                validated[argname] = arg
+                continue
             validator = cls._validators_.get(argname, lambda x: x)
             # TODO option to validate all args despite failure
             try:
@@ -63,13 +81,10 @@ class CmdWithValidation(Interface):
     @staticmethod
     @eval_results
     def __call__(spec):
-        # this would be done by the generic command call handling before the
-        # args even hits this method
-        validated = CmdWithValidation.validate_args(spec=spec)
         yield dict(
             action='cmd_with_validation',
             # list() consumes any potential generator
-            spec=list(validated['spec']),
+            spec=list(spec),
             status='ok',
         )
 

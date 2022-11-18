@@ -119,6 +119,7 @@ environment:
     - ID: CORE3
       DTS: >
         datalad.distribution
+      KEYWORDS: not test_invalid_args
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
       INSTALL_SYSPKGS: python3-virtualenv

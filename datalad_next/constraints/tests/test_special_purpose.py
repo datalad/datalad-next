@@ -10,6 +10,7 @@ from ..basic import (
     NoConstraint,
 )
 from ..compound import EnsureGeneratorFromFileLike
+from ..dataset import EnsureDataset
 from ..formats import (
     EnsureJSON,
     EnsureURL,
@@ -248,3 +249,60 @@ def test_EnsureURL():
             else:
                 ctag(url)
                 ctag_parsed(url)
+
+
+def test_EnsureDataset(tmp_path):
+    with pytest.raises(TypeError):
+        EnsureDataset()(None)
+
+    # by default the installation state is not checked
+    # this matches the behavior of the original implementation
+    # from datalad-core
+    assert EnsureDataset()(tmp_path).ds.pathobj == tmp_path
+
+    # any return value created from not-a-dataset-instance
+    # has the original argument as an attribute
+    assert EnsureDataset()(tmp_path).original == tmp_path
+
+    # but it can be turned on, and then yields the specific
+    # exception that datalad-core's require_dataset() would
+    # give
+    from datalad.support.exceptions import NoDatasetFound
+    with pytest.raises(NoDatasetFound):
+        EnsureDataset(installed=True)('/nothere_datalad_test')
+
+    # we can also ensure absence
+    assert EnsureDataset(installed=False)(tmp_path).ds.pathobj == tmp_path
+
+    # absence detection with a dataset instance
+    with pytest.raises(ValueError):
+        EnsureDataset(installed=True)(
+            # this provides the instance for testing
+            EnsureDataset()(tmp_path).ds
+        )
+
+    #
+    # tmp_path has a dataset from here
+    #
+
+    # create a dataset, making sure it did not exist before
+    ds = EnsureDataset(installed=False)(tmp_path).ds.create()
+    assert EnsureDataset()(ds).ds == ds
+    assert EnsureDataset()(ds).original == ds
+
+    # existence verified
+    assert EnsureDataset(installed=True)(ds).ds.pathobj == tmp_path
+
+    # check presence detection with path
+    with pytest.raises(ValueError):
+        EnsureDataset(installed=False)(tmp_path)
+    # check presence detection and with dataset instance
+    with pytest.raises(ValueError):
+        EnsureDataset(installed=False)(ds)
+
+    assert EnsureDataset().short_description() == '(path to) a Dataset'
+    assert EnsureDataset(
+        installed=True).short_description() == '(path to) an existing Dataset'
+    assert EnsureDataset(
+        installed=False).short_description() == \
+        '(path to) a non-existing Dataset'
