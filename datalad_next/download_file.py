@@ -70,10 +70,11 @@ class DownloadFile(Interface):
     url_constraint = EnsureURL(required=['scheme'])
     # other than a plain URL we take a mapping from a URL to a local path.
     # The special value '-' is used to indicate stdout
-    # if given as a single string, we support tab-delimited items: URL\tpath
+    # if given as a single string, we support single-space-delimited items:
+    # "<url> <path>"
     url2path_constraint = EnsureMapping(
         key=url_constraint, value=EnsureValue('-') | EnsurePath(),
-        delimiter='\t',
+        delimiter=' ',
         # we disallow length-2 sequences to be able to distinguish from
         # a length-2 list of URLs.
         # the key issue is the flexibility of EnsurePath -- pretty much

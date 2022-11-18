@@ -70,7 +70,7 @@ def test_download_file(wdir=None, srvpath=None, srvurl=None):
 
     # works with explicit alternative filename
     with chpwd(wdir):
-        download_file(f'{srvurl}testfile.txt\ttestfile2.txt')
+        download_file(f'{srvurl}testfile.txt testfile2.txt')
 
     assert (wdir / 'testfile2.txt').read_text() == 'test'
 
