@@ -4,7 +4,7 @@ from pathlib import Path
 import datalad
 from datalad.api import (
     credentials,
-    download_file,
+    download,
 )
 from datalad.tests.utils_pytest import (
     assert_result_count,
@@ -45,14 +45,14 @@ def _prep_server(path):
 @with_tempfile(mkdir=True)
 @with_tempfile(mkdir=True)
 @serve_path_via_http
-def test_download_file(wdir=None, srvpath=None, srvurl=None):
+def test_download(wdir=None, srvpath=None, srvurl=None):
     wdir, srvpath = _get_paths(wdir, srvpath)
     _prep_server(srvpath)
 
     # simple download, taking the target filename from the URL
     # single-pass hashing with two algorithms
     with chpwd(wdir):
-        res = download_file(f'{srvurl}testfile.txt',
+        res = download(f'{srvurl}testfile.txt',
                             hash=['md5', 'SHA256'],
                             return_type='item-or-list')
 
@@ -65,28 +65,28 @@ def test_download_file(wdir=None, srvpath=None, srvurl=None):
     # doing it again fails due to overwrite detection
     with chpwd(wdir):
         assert_result_count(
-            download_file(f'{srvurl}testfile.txt', on_failure='ignore'),
+            download(f'{srvurl}testfile.txt', on_failure='ignore'),
             1, status='error', error_message='target path already exists')
 
     # works with explicit alternative filename
     with chpwd(wdir):
-        download_file(f'{srvurl}testfile.txt testfile2.txt')
+        download(f'{srvurl}testfile.txt testfile2.txt')
 
     assert (wdir / 'testfile2.txt').read_text() == 'test'
 
     # no target path derivable
     assert_result_count(
-        download_file(f'{srvurl}', on_failure='ignore'),
+        download(f'{srvurl}', on_failure='ignore'),
         1, status='impossible')
 
     # unsupported url scheme
     assert_result_count(
-        download_file('dummy://mike/file', on_failure='ignore'),
+        download('dummy://mike/file', on_failure='ignore'),
         1, status='error', message='unsupported URL scheme')
 
     # non-existing download source
     assert_result_count(
-        download_file(f'{srvurl}nothere', on_failure='ignore'),
+        download(f'{srvurl}nothere', on_failure='ignore'),
         1, status='error', message='download failure')
 
 
@@ -96,7 +96,7 @@ def test_download_file(wdir=None, srvpath=None, srvurl=None):
 @with_tempfile(mkdir=True)
 @with_tempfile(mkdir=True)
 @serve_path_via_http(use_ssl=False, auth=test_cred[1:])
-def test_download_file_auth(wdir=None, srvpath=None, srvurl=None):
+def test_download_auth(wdir=None, srvpath=None, srvurl=None):
     wdir = Path(wdir)
     srvpath = Path(srvpath)
     (srvpath / 'testfile.txt').write_text('test')
@@ -104,7 +104,7 @@ def test_download_file_auth(wdir=None, srvpath=None, srvurl=None):
     # we have a credential, but there is nothing to discover from
     # that we should use it for this request
     assert_result_count(
-        download_file(f'{srvurl}nothere', on_failure='ignore'),
+        download(f'{srvurl}nothere', on_failure='ignore'),
         1, status='error', message='download failure')
 
     # amend the test credential with the realm of the test server
@@ -112,7 +112,7 @@ def test_download_file_auth(wdir=None, srvpath=None, srvurl=None):
     credman.set(test_cred[0], realm=f'{srvurl}Protected')
 
     # now it must be able to auto-detect it
-    download_file({f'{srvurl}testfile.txt': wdir / 'download1.txt'})
+    download({f'{srvurl}testfile.txt': wdir / 'download1.txt'})
     assert (wdir / 'download1.txt').read_text() == 'test'
 
 
@@ -120,19 +120,19 @@ auth_ok_response = {"authenticated": True, "user": "mike"}
 
 
 @with_credential(hbscred[0], **hbscred[1])
-def test_download_file_basic_auth(capsys):
+def test_download_basic_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
-    download_file(
+    download(
         {f'{hbsurl}/basic-auth/mike/dummy': '-'})
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
 @with_credential('dummy', realm=f'{hbsurl}/', type='token', secret='very')
-def test_download_file_bearer_token_auth(capsys):
+def test_download_bearer_token_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
-    download_file(
+    download(
         {f'{hbsurl}/bearer': '-'})
     assert json.loads(capsys.readouterr().out) == {
         'authenticated': True,
@@ -143,7 +143,7 @@ def test_download_file_bearer_token_auth(capsys):
 @with_credential(hbscred[0],
                  **dict(hbscred[1],
                         realm='https://httpbin.org/me@kennethreitz.com'))
-def test_download_file_digest_auth(capsys):
+def test_download_digest_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
     for url_suffix in (
@@ -151,7 +151,7 @@ def test_download_file_digest_auth(capsys):
             # non-default algorithm
             '/digest-auth/auth/mike/dummy/SHA-256',
     ):
-        download_file({f'{hbsurl}{url_suffix}': '-'})
+        download({f'{hbsurl}{url_suffix}': '-'})
         assert json.loads(capsys.readouterr().out) == auth_ok_response
         # repeated reads do not accumulate
         assert capsys.readouterr().out == ''
@@ -160,27 +160,27 @@ def test_download_file_digest_auth(capsys):
 # the provided credential has the wrong 'realm' for auto-detection.
 # but chosing it explicitly must put things to work
 @with_credential(hbscred[0], **hbscred[1])
-def test_download_file_explicit_credential(capsys):
+def test_download_explicit_credential(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
-    download_file({f'{hbsurl}/digest-auth/auth/mike/dummy': '-'},
+    download({f'{hbsurl}/digest-auth/auth/mike/dummy': '-'},
                   credential=hbscred[0])
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
 @with_credential(hbscred[0], **hbscred[1])
-def test_download_file_auth_after_redirect(capsys):
+def test_download_auth_after_redirect(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
-    download_file(
+    download(
         {f'{hbsurl}/redirect-to?url={hbsurl}/basic-auth/mike/dummy': '-'})
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
 @with_credential(hbscred[0], **hbscred[1])
-def test_download_file_no_credential_leak_to_http(capsys):
+def test_download_no_credential_leak_to_http(capsys):
     redirect_url = f'{hburl}/basic-auth/mike/dummy'
-    res = download_file(
+    res = download(
         # redirect from https to http, must drop provideded credential
         # to avoid leakage
         {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
@@ -193,7 +193,7 @@ def test_download_file_no_credential_leak_to_http(capsys):
     # also must not work
     # this is not the right test, though. What would be suitable
     # is an authenticated request that then redirects
-    res = download_file(
+    res = download(
         # redirect from https to http, must drop provideded credential
         # to avoid leakage
         {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
@@ -204,22 +204,22 @@ def test_download_file_no_credential_leak_to_http(capsys):
 @with_testsui(responses=[
     'token123',
     # after download, it asks for a name
-    'dataladtest_test_download_file_new_bearer_token',
+    'dataladtest_test_download_new_bearer_token',
 ])
-def test_download_file_new_bearer_token(capsys):
+def test_download_new_bearer_token(capsys):
     try:
-        download_file({f'{hbsurl}/bearer': '-'})
+        download({f'{hbsurl}/bearer': '-'})
         # and it was saved under this name
         assert_result_count(
             credentials(
                 'get',
-                name='dataladtest_test_download_file_new_bearer_token'),
+                name='dataladtest_test_download_new_bearer_token'),
             1, cred_secret='token123', cred_type='token',
         )
     finally:
         credentials(
             'remove',
-            name='dataladtest_test_download_file_new_bearer_token',
+            name='dataladtest_test_download_new_bearer_token',
         )
 
 
@@ -228,8 +228,8 @@ def test_download_file_new_bearer_token(capsys):
     # after download, it asks for a name, but skip to save
     'skip',
 ])
-def test_download_file_new_bearer_token_nosave(capsys):
-    download_file({f'{hbsurl}/bearer': '-'})
+def test_download_new_bearer_token_nosave(capsys):
+    download({f'{hbsurl}/bearer': '-'})
     # and it was saved under this name
     assert_result_count(
         credentials('query', dict(secret='datalad_uniquetoken123')),
@@ -239,20 +239,20 @@ def test_download_file_new_bearer_token_nosave(capsys):
 
 # make sure a 404 is easily discoverable
 # https://github.com/datalad/datalad/issues/6545
-def test_download_file_404():
+def test_download_404():
     assert_result_count(
-        download_file(f'{hbsurl}/status/404', on_failure='ignore'),
+        download(f'{hbsurl}/status/404', on_failure='ignore'),
         1, status_code=404, status='error')
 
 
-def test_download_fileurl(tmp_path):
+def test_downloadurl(tmp_path):
     (tmp_path / 'src').mkdir()
     dst_path = tmp_path / 'dst'
     dst_path.mkdir()
     testfile = tmp_path / 'src' / 'myfile.txt'
     testfile.write_text('some content')
 
-    res = download_file(
+    res = download(
         {testfile.as_uri(): dst_path / 'target.txt'},
         hash=['md5'],
         return_type='item-or-list')

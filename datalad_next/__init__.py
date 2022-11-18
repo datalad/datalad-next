@@ -37,8 +37,7 @@ command_suite = (
             'tree'
         ),
         (
-            'datalad_next.download_file', 'DownloadFile',
-            'download-file',
+            'datalad_next.download', 'Download', 'download',
         ),
     ]
 )

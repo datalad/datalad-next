@@ -45,7 +45,7 @@ from datalad_next.http_url_operations import HttpUrlOperations
 from datalad_next.file_url_operations import FileUrlOperations
 from datalad_next.ssh_url_operations import SshUrlOperations
 
-lgr = getLogger('datalad.local.download_file')
+lgr = getLogger('datalad.local.download')
 
 # define handlers for each supported URL scheme
 # extensions could patch their's in
@@ -59,8 +59,8 @@ _urlscheme_handlers = dict(
 
 
 @build_doc
-class DownloadFile(Interface):
-    """Download file"""
+class Download(Interface):
+    """Download from URLs"""
     #
     # argument format specifications
     #
@@ -182,7 +182,7 @@ class DownloadFile(Interface):
         return validated
 
     @staticmethod
-    @datasetmethod(name="download_file")
+    @datasetmethod(name="download")
     @eval_results
     def __call__(spec, *, dataset=None, force=None, credential=None,
                  hash=None):
@@ -205,7 +205,7 @@ class DownloadFile(Interface):
                 url, dest = _get_url_dest_path(item)
             except Exception as e:
                 yield get_status_dict(
-                    action='download_file',
+                    action='download',
                     status='impossible',
                     spec=item,
                     exception=CapturedException(e),
@@ -216,7 +216,7 @@ class DownloadFile(Interface):
             scheme = url.split('://')[0]
             if scheme not in _urlscheme_handlers.keys():
                 yield get_status_dict(
-                    action='download_file',
+                    action='download',
                     status='error',
                     message='unsupported URL scheme',
                     url=url,
@@ -229,7 +229,7 @@ class DownloadFile(Interface):
                 dest = _prep_dest_path(dest, dataset, force)
             except ValueError as e:
                 yield get_status_dict(
-                    action='download_file',
+                    action='download',
                     status='error',
                     exception=CapturedException(e),
                     url=url,
@@ -251,7 +251,7 @@ class DownloadFile(Interface):
                     hash=ensure_list(hash),
                 )
                 res = get_status_dict(
-                    action='download_file',
+                    action='download',
                     status='ok',
                     url=url,
                     path=dest,
@@ -266,7 +266,7 @@ class DownloadFile(Interface):
             except Exception as e:
                 ce = CapturedException(e)
                 res = get_status_dict(
-                    action='download_file',
+                    action='download',
                     status='error',
                     message='download failure',
                     url=url,
