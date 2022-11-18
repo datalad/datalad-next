@@ -250,10 +250,10 @@ def test_download_fileurl(tmp_path):
     dst_path = tmp_path / 'dst'
     dst_path.mkdir()
     testfile = tmp_path / 'src' / 'myfile.txt'
-    testfile.write_text('some content\n')
+    testfile.write_text('some content')
 
     res = download_file(
         {testfile.as_uri(): dst_path / 'target.txt'},
         hash=['md5'],
         return_type='item-or-list')
-    assert_result_count(res, 1, md5='eb9c2bf0eb63f3a7bc0ea37ef18aeba5')
+    assert_result_count(res, 1, md5='9893532233caff98cd083a116b013c0b')
