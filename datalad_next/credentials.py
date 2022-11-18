@@ -252,7 +252,7 @@ class Credentials(Interface):
         # `spec` could be many things, make uniform dict
         specs = normalize_specs(spec)
 
-        if action in ('set', 'remove') and not name:
+        if action == 'remove' and not name:
             raise ValueError(
                 f"Credential name must be provided for action {action!r}")
         if action == 'get' and not name and not spec:
@@ -281,11 +281,14 @@ class Credentials(Interface):
                     exception=CapturedException(e),
                 )
                 return
+            # pull name out of report, if entered manually
+            if not name and updated is not None:
+                name = updated.pop('name', None)
             yield get_status_dict(
                 action='credentials',
-                status='ok',
+                status='notneeded' if updated is None else 'ok',
                 name=name,
-                **_prefix_result_keys(updated),
+                **_prefix_result_keys(updated if updated else specs),
             )
         elif action == 'get':
             cred = credman.get(name=name, _prompt=prompt, **specs)

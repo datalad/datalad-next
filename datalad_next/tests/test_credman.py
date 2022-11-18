@@ -9,6 +9,7 @@
 """
 
 """
+import pytest
 from unittest.mock import patch
 
 from datalad.config import ConfigManager
@@ -24,8 +25,8 @@ from datalad.tests.utils_pytest import (
     assert_raises,
     eq_,
     neq_,
-    patch_config,
     with_tempfile,
+    with_testsui,
 )
 
 
@@ -110,6 +111,39 @@ def check_credmanager():
     # remove complete credential
     credman.remove('mycred')
     eq_(credman.get('mycred'), None)
+
+    # test prompting for a name when None is given
+    res = with_testsui(responses=['mycustomname'])(credman.set)(
+        None, secret='dummy', other='prop')
+    assert res == {'name': 'mycustomname', 'other': 'prop', 'secret': 'dummy'}
+
+    # test name prompt loop in case of a name collision
+    res = with_testsui(
+        responses=['mycustomname', 'mycustomname2'])(
+            credman.set)(
+        None, secret='dummy2', other='prop2')
+    assert res == {'name': 'mycustomname2', 'other': 'prop2',
+                   'secret': 'dummy2'}
+
+    # test skipping at prompt, smoke test _context arg
+    res = with_testsui(responses=['skip'])(credman.set)(
+        None, _context='for me', secret='dummy', other='prop')
+    assert res is None
+
+    # if no name is provided and none _can_ be entered -> raise
+    with pytest.raises(ValueError):
+        credman.set(None, secret='dummy', other='prop')
+
+    # accept suggested name
+    res = with_testsui(responses=[''])(credman.set)(
+        None, _suggested_name='auto1', secret='dummy', other='prop')
+    assert res == {'name': 'auto1', 'other': 'prop', 'secret': 'dummy'}
+
+    # a suggestion conflicting with an existing credential is like
+    # not making a suggestion at all
+    res = with_testsui(responses=['', 'auto2'])(credman.set)(
+        None, _suggested_name='auto1', secret='dummy', other='prop')
+    assert res == {'name': 'auto2', 'other': 'prop', 'secret': 'dummy'}
 
 
 @with_tempfile
