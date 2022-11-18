@@ -20,8 +20,9 @@ def get_auth_realm(url, auth_info, scheme=None):
     --------
     Robustly determine a realm identifier for any URL::
 
-       >>> url, props = probe_url('https://fz-juelich.sciebo.de/...')
-       >>> get_auth_realm(url, props.get('auth'))
+       > url, props = HttpUrlOperations().probe_url(
+             'https://fz-juelich.sciebo.de/...')
+       > get_auth_realm(url, props.get('auth'))
        'https://fz-juelich.sciebo.de/login'
 
     Parameters
