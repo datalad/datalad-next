@@ -43,6 +43,7 @@ from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.http_url_operations import HttpUrlOperations
 from datalad_next.file_url_operations import FileUrlOperations
+from datalad_next.ssh_url_operations import SshUrlOperations
 
 lgr = getLogger('datalad.local.download_file')
 
@@ -53,6 +54,7 @@ _urlscheme_handlers = dict(
     http=HttpUrlOperations,
     https=HttpUrlOperations,
     file=FileUrlOperations,
+    ssh=SshUrlOperations,
 )
 
 
