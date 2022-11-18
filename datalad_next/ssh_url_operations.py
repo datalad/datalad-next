@@ -27,11 +27,18 @@ __all__ = ['SshUrlOperations']
 
 
 class SshUrlOperations(UrlOperations):
-    """
-    For downloading files, only server that support execution of the commands
-    'printf', 'ls -nl', 'awk', and 'cat' are supported. This include a wide
+    """Handler for operations on `ssh://` URLs
+
+    For downloading files, only servers that support execution of the commands
+    'printf', 'ls -nl', 'awk', and 'cat' are supported. This includes a wide
     range of operating systems, including devices that provide these commands
     via the 'busybox' software.
+
+    .. note::
+       The present implementation does not support SSH connection multiplexing,
+       (re-)authentication is performed for each request. This limitation is
+       likely to be removed in the future, and connection multiplexing
+       supported where possible (non-Windows platforms).
     """
     def download(self,
                  from_url: str,
@@ -41,6 +48,14 @@ class SshUrlOperations(UrlOperations):
                  # to gain file access
                  credential: str = None,
                  hash: str = None) -> Dict:
+        """Download a file by streaming it through an SSH connection.
+
+        On the server-side, the file size is determined and sent. Afterwards
+        the file content is sent via `cat` to the SSH client.
+
+        See :meth:`datalad_next.url_operations.UrlOperations.download`
+        for parameter documentation.
+        """
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
         hasher = self._get_hasher(hash)

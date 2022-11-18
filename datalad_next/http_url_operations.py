@@ -25,6 +25,14 @@ __all__ = ['HttpUrlOperations']
 
 
 class HttpUrlOperations(UrlOperations):
+    """Handler for operations on `http(s)://` URLs
+
+    This handler is built on the `requests` package. For authentication, it
+    employes :class:`datalad_next.requests_auth.DataladAuth`, an adaptor that
+    consults the DataLad credential system in order to fulfill HTTP
+    authentication challenges.
+    """
+
     _headers = {
         'user-agent': user_agent('datalad', datalad.__version__),
     }
@@ -41,6 +49,11 @@ class HttpUrlOperations(UrlOperations):
                  to_path: Path | None,
                  credential: str = None,
                  hash: str = None) -> Dict:
+        """Download via HTTP GET request
+
+        See :meth:`datalad_next.url_operations.UrlOperations.download`
+        for parameter documentation.
+        """
         # a new manager per request
         # TODO optimize later to cache credentials per target
         # similar to requests_toolbelt.auth.handler.AuthHandler

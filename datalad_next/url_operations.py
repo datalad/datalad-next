@@ -14,15 +14,74 @@ lgr = logging.getLogger('datalad.ext.next.url_operations')
 
 
 class UrlOperations:
+    """Abstraction for operations on URLs
+
+    Support for specific URL schemes can be implemented via sub-classes.
+    Such classes must comply with the following conditions:
+
+    - Any configuration look-up must be performed with the `self._cfg`
+      member, which is guaranteed to be a `ConfigManager` instance.
+
+    - When downloads are to be supported, implement the `download()` method
+      and comply with the behavior described in its documentation.
+
+    This class provides a range of helper methods to aid computation of
+    hashes and progress reporting.
+    """
     def __init__(self, cfg=None):
+        """
+        Parameters
+        ----------
+        cfg: ConfigManager, optional
+          A config manager instance that implementations will consult for
+          any configuration items they may support.
+        """
         self._cfg = cfg or datalad.cfg
 
     def download(self,
                  from_url: str,
                  to_path: Path | None,
                  credential: str = None,
-                 hash: str = None) -> Dict:
-        """Download from a URL to a local file or stream to stdout"""
+                 hash: list[str] = None) -> Dict:
+        """Download from a URL to a local file or stream to stdout
+
+        Parameters
+        ----------
+        from_url: str
+          Valid URL with any scheme supported by a particular implementation.
+        to_path: Path or None
+          A local platform-native path or `None`. If `None` the downloaded
+          data is written to `stdout`, otherwise it is written to a file
+          at the given path. The path is assumed to not exist. Any existing
+          file will be oberwritten.
+        credential: str, optional
+          The name of a dedicated credential to be used for authentication
+          in order to perform the download. Particular implementations may
+          or may not require or support authentication. They also may or
+          may not support automatic credential lookup.
+        hash: list(algorithm_names), optional
+          If given, must be a list of hash algorithm names supported by the
+          `hashlib` module. A corresponding hash will be computed simultaenous
+          to the download (without reading the data twice), and included
+          in the return value.
+
+        Returns
+        -------
+        dict
+          A mapping of property names to values for the completed download.
+          If `hash` algorithm names are provided, a corresponding key for
+          each algorithm is included in this mapping, with the hexdigest
+          of the corresponding checksum as the value.
+
+        Raises
+        ------
+        DownloadError
+          This exception is raised on any download-related error, with
+          a summary of the underlying issues as its message. It carry
+          a status code (e.g. HTTP status code) as its `status` property.
+          Any underlying exception must be linked via the `__cause__`
+          property (e.g. `raise DownloadError(...) from ...`).
+        """
         raise NotImplementedError
 
     def _get_progress_id(self, from_url, to_path):

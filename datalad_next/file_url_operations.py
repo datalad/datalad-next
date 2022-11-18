@@ -5,7 +5,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from shutil import COPY_BUFSIZE
+try:
+    from shutil import COPY_BUFSIZE
+except ImportError:
+    # too old
+    from datalad.utils import on_windows
+    # from PY3.10
+    COPY_BUFSIZE = 1024 * 1024 if on_windows else 64 * 1024
 import sys
 from typing import Dict
 from urllib import (
@@ -24,6 +30,12 @@ __all__ = ['FileUrlOperations']
 
 
 class FileUrlOperations(UrlOperations):
+    """Handler for operations on `file://` URLs
+
+    Access to local data via file-scheme URLs is supported with the
+    same API and feature set as other URL-schemes (simultaneous
+    content hashing and progress reporting.
+    """
     def _file_url_to_path(self, url):
         assert url.startswith('file://')
         parsed = parse.urlparse(url)
@@ -38,6 +50,11 @@ class FileUrlOperations(UrlOperations):
                  # to gain file access
                  credential: str = None,
                  hash: str = None) -> Dict:
+        """Copy a local file to another location
+
+        See :meth:`datalad_next.url_operations.UrlOperations.download`
+        for parameter documentation.
+        """
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
         hasher = self._get_hasher(hash)

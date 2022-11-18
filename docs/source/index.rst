@@ -51,6 +51,7 @@ Python utilities
    url_operations
    http_url_operations
    file_url_operations
+   ssh_url_operations
    http_helpers
    utils
 
