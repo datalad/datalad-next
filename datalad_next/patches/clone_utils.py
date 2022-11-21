@@ -17,7 +17,6 @@ from datalad.core.distributed.clone import (
     _map_urls,
     decode_source_spec,
 )
-from datalad.distribution.dataset import Dataset
 from datalad.dochelpers import single_or_plural
 from datalad.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
@@ -33,6 +32,7 @@ from datalad.utils import (
     ensure_bool,
     rmtree,
 )
+from datalad_next.dataset import Dataset
 
 __docformat__ = 'restructuredtext'
 

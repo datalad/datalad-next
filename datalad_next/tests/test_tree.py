@@ -3,7 +3,6 @@ from pathlib import Path
 from os import sep
 
 import pytest
-from datalad.distribution.dataset import Dataset
 from datalad.cli.tests.test_main import run_main
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.tests.utils_pytest import (
@@ -23,6 +22,8 @@ from datalad.utils import (
     chpwd
 )
 from datalad.ui import ui
+
+from datalad_next.dataset import Dataset
 
 from ..tree import (
     Tree,

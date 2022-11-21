@@ -27,7 +27,6 @@ from datalad.interface.base import (
 from datalad.support.exceptions import CapturedException
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
-    datasetmethod,
     EnsureDataset,
     require_dataset,
 )
@@ -38,6 +37,7 @@ from datalad.interface.utils import (
     eval_results,
     generic_result_renderer,
 )
+from datalad_next.dataset import datasetmethod
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,

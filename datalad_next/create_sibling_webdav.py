@@ -20,10 +20,12 @@ from urllib.parse import (
     urlunparse,
 )
 
-from datalad.distribution.dataset import (
+from datalad_next.dataset import (
     Dataset,
-    EnsureDataset,
     datasetmethod,
+)
+from datalad.distribution.dataset import (
+    EnsureDataset,
     require_dataset,
 )
 from datalad.distribution.utils import _yield_ds_w_matching_siblings

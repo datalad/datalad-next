@@ -27,11 +27,7 @@ from datalad.support.exceptions import (
     NoDatasetFound
 )
 from datalad.support.param import Parameter
-from datalad.distribution.dataset import (
-    datasetmethod,
-    require_dataset,
-    Dataset,
-)
+from datalad.distribution.dataset import require_dataset
 from datalad.interface.results import (
     get_status_dict,
 )
@@ -46,6 +42,10 @@ from datalad_next.constraints import (
 )
 from datalad.utils import get_dataset_root
 from datalad.ui import ui
+from datalad_next.dataset import (
+    Dataset,
+    datasetmethod,
+)
 
 lgr = logging.getLogger('datalad.local.tree')
 

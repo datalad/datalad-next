@@ -13,7 +13,6 @@ from urllib.parse import urlparse
 
 import datalad
 from datalad.distribution.dataset import (
-    datasetmethod,
     resolve_path,
 )
 from datalad.interface.base import (
@@ -41,6 +40,7 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
+from datalad_next.dataset import datasetmethod
 from datalad_next.http_url_operations import HttpUrlOperations
 from datalad_next.file_url_operations import FileUrlOperations
 from datalad_next.ssh_url_operations import SshUrlOperations

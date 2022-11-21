@@ -14,11 +14,7 @@ __docformat__ = 'restructuredtext'
 import logging
 
 from datalad import cfg as dlcfg
-from datalad.distribution.dataset import (
-    Dataset,
-    datasetmethod,
-    require_dataset,
-)
+from datalad.distribution.dataset import require_dataset
 from datalad.interface.base import (
     build_doc,
 )
@@ -40,6 +36,10 @@ from datalad.support.exceptions import (
 )
 from datalad.utils import (
     ensure_list,
+)
+from datalad_next.dataset import (
+    Dataset,
+    datasetmethod,
 )
 
 lgr = logging.getLogger('datalad.local.configuration')
