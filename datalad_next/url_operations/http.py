@@ -45,7 +45,7 @@ class HttpUrlOperations(UrlOperations):
         return hdrs
 
     def sniff(self, url: str, *, credential: str = None) -> Dict:
-        auth = DataladAuth(self._cfg, credential=credential)
+        auth = DataladAuth(self.cfg, credential=credential)
         with requests.head(
                 url,
                 headers=self.get_headers(),
@@ -91,7 +91,7 @@ class HttpUrlOperations(UrlOperations):
         # a new manager per request
         # TODO optimize later to cache credentials per target
         # similar to requests_toolbelt.auth.handler.AuthHandler
-        auth = DataladAuth(self._cfg, credential=credential)
+        auth = DataladAuth(self.cfg, credential=credential)
         with requests.get(
                 from_url,
                 stream=True,

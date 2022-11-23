@@ -19,8 +19,8 @@ class UrlOperations:
     Support for specific URL schemes can be implemented via sub-classes.
     Such classes must comply with the following conditions:
 
-    - Any configuration look-up must be performed with the `self._cfg`
-      member, which is guaranteed to be a `ConfigManager` instance.
+    - Any configuration look-up must be performed with the `self.cfg`
+      property, which is guaranteed to be a `ConfigManager` instance.
 
     - When downloads are to be supported, implement the `download()` method
       and comply with the behavior described in its documentation.
@@ -36,7 +36,14 @@ class UrlOperations:
           A config manager instance that implementations will consult for
           any configuration items they may support.
         """
-        self._cfg = cfg or datalad.cfg
+        self._cfg = cfg
+
+    @property
+    def cfg(self):
+
+        if self._cfg is None:
+            self._cfg = datalad.cfg
+        return self._cfg
 
     def sniff(self, url: str, *, credential: str = None) -> Dict:
         """Gather information on a URL target, without downloading it
