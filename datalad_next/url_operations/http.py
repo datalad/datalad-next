@@ -44,7 +44,7 @@ class HttpUrlOperations(UrlOperations):
             hdrs.update(headers)
         return hdrs
 
-    def sniff(self, url: str, credential: str = None) -> Dict:
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
         auth = DataladAuth(self._cfg, credential=credential)
         with requests.head(
                 url,
@@ -80,6 +80,7 @@ class HttpUrlOperations(UrlOperations):
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  credential: str = None,
                  hash: str = None) -> Dict:
         """Download via HTTP GET request

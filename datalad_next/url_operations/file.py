@@ -42,7 +42,7 @@ class FileUrlOperations(UrlOperations):
         path = request.url2pathname(parsed.path)
         return Path(path)
 
-    def sniff(self, url: str, credential: str = None) -> Dict:
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
         # filter out internals
         return {
             k: v for k, v in self._sniff(url, credential).items()
@@ -63,6 +63,7 @@ class FileUrlOperations(UrlOperations):
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access

@@ -304,7 +304,7 @@ class Download(Interface):
             # reuse existing handler, they might already have an idea on
             # authentication etc. from a previously processed URL
             url_handler = url_handlers[scheme] if scheme in url_handlers \
-                else _urlscheme_handlers[scheme](cfg)
+                else _urlscheme_handlers[scheme](cfg=cfg)
             url_handlers[scheme] = url_handler
 
             try:

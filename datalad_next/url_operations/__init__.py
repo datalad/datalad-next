@@ -28,7 +28,7 @@ class UrlOperations:
     This class provides a range of helper methods to aid computation of
     hashes and progress reporting.
     """
-    def __init__(self, cfg=None):
+    def __init__(self, *, cfg=None):
         """
         Parameters
         ----------
@@ -38,7 +38,7 @@ class UrlOperations:
         """
         self._cfg = cfg or datalad.cfg
 
-    def sniff(self, url: str, credential: str = None) -> Dict:
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         Returns
@@ -63,6 +63,7 @@ class UrlOperations:
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  credential: str = None,
                  hash: list[str] = None) -> Dict:
         """Download from a URL to a local file or stream to stdout

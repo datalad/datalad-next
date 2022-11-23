@@ -43,7 +43,7 @@ class SshUrlOperations(UrlOperations):
     _stat_cmd = "printf \"\1\2\3\"; ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}'"
     _cat_cmd = "cat '{fpath}'"
 
-    def sniff(self, url: str, credential: str = None) -> Dict:
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
         try:
             props = self._sniff(
                 url,
@@ -100,6 +100,7 @@ class SshUrlOperations(UrlOperations):
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access
