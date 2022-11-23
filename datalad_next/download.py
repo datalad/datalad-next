@@ -41,21 +41,10 @@ from datalad_next.constraints import (
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.dataset import datasetmethod
-from datalad_next.url_operations.http import HttpUrlOperations
-from datalad_next.url_operations.file import FileUrlOperations
-from datalad_next.url_operations.ssh import SshUrlOperations
+from datalad_next.url_operations.any import AnyUrlOperations
 
 lgr = getLogger('datalad.local.download')
 
-# define handlers for each supported URL scheme
-# extensions could patch their's in
-# TODO support proper entrypoint mechanism
-_urlscheme_handlers = dict(
-    http=HttpUrlOperations,
-    https=HttpUrlOperations,
-    file=FileUrlOperations,
-    ssh=SshUrlOperations,
-)
 
 
 @build_doc
@@ -259,7 +248,7 @@ class Download(Interface):
             spec = [spec]
 
         # cache of already used handlers
-        url_handlers = dict()
+        url_handler = AnyUrlOperations(cfg=cfg)
 
         # we are not running any tests upfront on the whole spec,
         # because the spec can be a generator and consume from a
@@ -277,8 +266,7 @@ class Download(Interface):
                 continue
 
             # we know that any URL has a scheme
-            scheme = url.split('://')[0]
-            if scheme not in _urlscheme_handlers.keys():
+            if not url_handler.is_supported_url(url):
                 yield get_status_dict(
                     action='download',
                     status='error',
@@ -300,12 +288,6 @@ class Download(Interface):
                     path=dest,
                 )
                 continue
-
-            # reuse existing handler, they might already have an idea on
-            # authentication etc. from a previously processed URL
-            url_handler = url_handlers[scheme] if scheme in url_handlers \
-                else _urlscheme_handlers[scheme](cfg=cfg)
-            url_handlers[scheme] = url_handler
 
             try:
                 download_props = url_handler.download(
