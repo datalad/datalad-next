@@ -44,6 +44,39 @@ class HttpUrlOperations(UrlOperations):
             hdrs.update(headers)
         return hdrs
 
+    def sniff(self, url: str, credential: str = None) -> Dict:
+        auth = DataladAuth(self._cfg, credential=credential)
+        with requests.head(
+                url,
+                headers=self.get_headers(),
+                auth=auth,
+                # we want to match the `get` behavior explicitly
+                # in order to arrive at the final URL after any
+                # redirects that get would also end up with
+                allow_redirects=True,
+        ) as r:
+            # fail visible for any non-OK outcome
+            try:
+                r.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                # wrap this into the datalad-standard, but keep the
+                # original exception linked
+                raise AccessFailedError(
+                    msg=str(e), status=e.response.status_code) from e
+            props = {
+                # standardize on lower-case header keys.
+                # also prefix anything other than 'content-length' to make
+                # room for future standardizations
+                k.lower() if k.lower() == 'content-length' else f'http-{k.lower()}':
+                v
+                for k, v in r.headers.items()
+            }
+            props['url'] = r.url
+        auth.save_entered_credential(
+            context=f'sniffing {url}'
+        )
+        return props
+
     def download(self,
                  from_url: str,
                  to_path: Path | None,

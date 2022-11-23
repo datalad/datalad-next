@@ -38,6 +38,28 @@ class UrlOperations:
         """
         self._cfg = cfg or datalad.cfg
 
+    def sniff(self, url: str, credential: str = None) -> Dict:
+        """Gather information on a URL target, without downloading it
+
+        Returns
+        -------
+        dict
+          A mapping of property names to values of the URL target. The
+          particular composition of properties depends on the specific
+          URL. A standard property is 'content-length', indicating the
+          size of a download.
+
+        Raises
+        ------
+        AccessFailedError
+          This exception is raised on any error, with a summary of the
+          underlying issues as its message. It carry a status code (e.g. HTTP
+          status code) as its `status` property.  Any underlying exception must
+          be linked via the `__cause__` property (e.g. `raise
+          AccessFailedError(...) from ...`).
+        """
+        raise NotImplementedError
+
     def download(self,
                  from_url: str,
                  to_path: Path | None,
