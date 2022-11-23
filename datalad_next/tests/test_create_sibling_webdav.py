@@ -22,9 +22,6 @@ from datalad.api import (
     clone,
     create_sibling_webdav,
 )
-from datalad.distribution.dataset import (
-    Dataset,
-)
 from datalad.tests.utils_pytest import (
     with_tempfile,
     with_tree
@@ -33,6 +30,7 @@ from datalad_next.tests.utils import (
     serve_path_via_webdav,
     with_credential,
 )
+from datalad_next.dataset import Dataset
 
 from ..create_sibling_webdav import _get_url_credential
 

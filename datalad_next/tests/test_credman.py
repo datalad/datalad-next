@@ -13,7 +13,6 @@ import pytest
 from unittest.mock import patch
 
 from datalad.config import ConfigManager
-from datalad.distribution.dataset import Dataset
 from ..credman import (
     CredentialManager,
     _get_cred_cfg_var,
@@ -28,6 +27,7 @@ from datalad.tests.utils_pytest import (
     with_tempfile,
     with_testsui,
 )
+from datalad_next.dataset import Dataset
 
 
 def test_credmanager():

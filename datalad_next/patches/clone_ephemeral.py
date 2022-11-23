@@ -4,7 +4,6 @@ __docformat__ = 'restructuredtext'
 
 import logging
 
-from datalad.distribution.dataset import Dataset
 from datalad.support.exceptions import CapturedException
 from datalad.support.gitrepo import GitRepo
 from datalad.support.network import RI
@@ -14,6 +13,7 @@ from datalad.utils import (
     rmtree,
 )
 
+from datalad_next.dataset import Dataset
 from datalad_next.patches import clone as mod_clone
 
 lgr = logging.getLogger('datalad.core.distributed.clone')

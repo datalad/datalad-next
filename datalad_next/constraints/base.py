@@ -7,7 +7,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from datalad.distribution.dataset import Dataset
+    from datalad_next.dataset import Dataset
 
 ConstraintDerived = TypeVar('ConstraintDerived', bound='Constraint')
 DatasetDerived = TypeVar('DatasetDerived', bound='Dataset')
