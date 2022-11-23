@@ -16,7 +16,7 @@ import datalad
 from datalad.support.exceptions import DownloadError
 
 from datalad_next.requests_auth import DataladAuth
-from .url_operations import UrlOperations
+from . import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.http_url_operations')
 

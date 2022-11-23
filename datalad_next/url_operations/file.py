@@ -21,7 +21,7 @@ from urllib import (
 
 from datalad.support.exceptions import DownloadError
 
-from .url_operations import UrlOperations
+from . import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.file_url_operations')
 
@@ -80,7 +80,7 @@ class FileUrlOperations(UrlOperations):
 
         dst_fp = None
         try:
-            props = self.sniff(from_url, credential=credential)
+            props = self._sniff(from_url, credential=credential)
             from_path = props['_path']
             expected_size = props['content-length']
             dst_fp = sys.stdout.buffer if to_path is None \

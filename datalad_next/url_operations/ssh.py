@@ -18,7 +18,7 @@ from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
 from datalad.support.exceptions import DownloadError
 
-from .url_operations import UrlOperations
+from . import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.ssh_url_operations')
 

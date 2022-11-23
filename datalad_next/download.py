@@ -41,9 +41,9 @@ from datalad_next.constraints import (
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.dataset import datasetmethod
-from datalad_next.http_url_operations import HttpUrlOperations
-from datalad_next.file_url_operations import FileUrlOperations
-from datalad_next.ssh_url_operations import SshUrlOperations
+from datalad_next.url_operations.http import HttpUrlOperations
+from datalad_next.url_operations.file import FileUrlOperations
+from datalad_next.url_operations.ssh import SshUrlOperations
 
 lgr = getLogger('datalad.local.download')
 
