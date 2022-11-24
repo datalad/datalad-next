@@ -12,7 +12,6 @@
 import logging
 from unittest.mock import patch
 
-from datalad.cli.tests.test_main import run_main
 from ..credentials import (
     Credentials,
     normalize_specs,
@@ -24,6 +23,7 @@ from datalad_next.tests.utils import (
     assert_in_results,
     assert_raises,
     eq_,
+    run_main,
     swallow_logs,
     with_testsui,
 )

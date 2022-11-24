@@ -3,9 +3,8 @@ from pathlib import Path
 from os import sep
 
 import pytest
-from datalad.cli.tests.test_main import run_main
-from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad_next.tests.utils import (
+    BasicGitTestRepo,
     assert_raises,
     assert_str_equal,
     with_tree,
@@ -14,7 +13,8 @@ from datalad_next.tests.utils import (
     skip_wo_symlink_capability,
     skip_if_on_windows,
     ok_good_symlink,
-    ok_broken_symlink
+    ok_broken_symlink,
+    run_main,
 )
 from datalad_next.utils import (
     rmtemp,

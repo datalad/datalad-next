@@ -5,7 +5,6 @@ from unittest.mock import (
 )
 from urllib.parse import quote as urlquote
 
-from datalad.cli.tests.test_main import run_main
 from datalad_next.tests.utils import (
     assert_equal,
     assert_in,
@@ -15,6 +14,7 @@ from datalad_next.tests.utils import (
     assert_status,
     eq_,
     ok_,
+    run_main,
     serve_path_via_webdav,
     with_credential,
     with_tempfile,
