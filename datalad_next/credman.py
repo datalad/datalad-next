@@ -17,7 +17,7 @@ import logging
 import re
 
 import datalad
-from datalad.support.exceptions import (
+from datalad_next.exceptions import (
     CapturedException,
     CommandError,
 )

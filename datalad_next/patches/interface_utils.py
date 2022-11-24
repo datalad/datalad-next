@@ -21,7 +21,7 @@ from datalad.interface.utils import (
     xfm_result,
     _process_results,
 )
-from datalad.support.exceptions import IncompleteResultsError
+from datalad_next.exceptions import IncompleteResultsError
 
 
 # use same logger as -core

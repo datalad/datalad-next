@@ -35,7 +35,8 @@ class EnsureGitRefName(Constraint):
             # simple, do here
             raise ValueError('refname must not be empty')
 
-        from datalad.runner import GitRunner, CommandError, StdOutCapture
+        from datalad.runner import GitRunner, StdOutCapture
+        from datalad_next.exceptions import CommandError
         runner = GitRunner()
         cmd = ['git', 'check-ref-format']
         cmd.append('--allow-onelevel'

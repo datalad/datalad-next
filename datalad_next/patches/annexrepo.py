@@ -4,7 +4,7 @@ import re
 from unittest.mock import patch
 
 from datalad.support.annexrepo import AnnexRepo
-from datalad.support.exceptions import (
+from datalad_next.exceptions import (
     CommandError,
 )
 from datalad.utils import ensure_list

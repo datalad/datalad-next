@@ -19,7 +19,7 @@ from urllib import (
     parse,
 )
 
-from datalad.support.exceptions import DownloadError
+from datalad_next.exceptions import DownloadError
 
 from . import UrlOperations
 

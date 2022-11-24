@@ -21,7 +21,7 @@ from datalad.interface.base import (
 )
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import eval_results
-from datalad.support.exceptions import (
+from datalad_next.exceptions import (
     CapturedException,
     DownloadError,
 )

@@ -199,12 +199,14 @@ from urllib.parse import (
 from datalad.consts import PRE_INIT_COMMIT_SHA
 from datalad.core.local.repo import repo_from_path
 from datalad.runner import (
-    CommandError,
     NoCapture,
     StdOutCapture,
 )
 from datalad.support.annexrepo import AnnexRepo
-from datalad.support.exceptions import CapturedException
+from datalad_next.exceptions import (
+    CapturedException,
+    CommandError,
+)
 from datalad.support.external_versions import external_versions
 from datalad.support.gitrepo import GitRepo
 from datalad_next.constraints import EnsureInt

@@ -100,7 +100,7 @@ def update_specialremote_credential(
     try:
         credman.set(credname, _lastused=True, **credprops)
     except Exception as e:
-        from datalad.support.exceptions import CapturedException
+        from datalad_next.exceptions import CapturedException
         # we do not want to crash for any failure to store a
         # credential
         lgr.warn(

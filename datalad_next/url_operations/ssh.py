@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 from datalad.runner import StdOutCapture
 from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
-from datalad.support.exceptions import DownloadError
+from datalad_next.exceptions import DownloadError
 
 from . import UrlOperations
 

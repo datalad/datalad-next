@@ -18,7 +18,6 @@ from datalad.api import (
     Dataset,
     clone,
 )
-from datalad.runner import CommandError
 from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
@@ -31,6 +30,7 @@ from datalad.tests.utils_pytest import (
     with_tempfile,
 )
 from datalad.utils import on_windows
+from datalad_next.exceptions import CommandError
 from datalad_next.tests.utils import (
     serve_path_via_webdav,
     with_credential,

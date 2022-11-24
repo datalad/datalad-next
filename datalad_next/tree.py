@@ -22,7 +22,7 @@ from datalad.interface.base import (
     Interface,
     build_doc,
 )
-from datalad.support.exceptions import (
+from datalad_next.exceptions import (
     CapturedException,
     NoDatasetFound
 )

@@ -50,7 +50,7 @@ from datalad_next.constraints import (
     EnsureNone,
     EnsureStr,
 )
-from datalad.support.exceptions import CapturedException
+from datalad_next.exceptions import CapturedException
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_properties,

@@ -13,7 +13,7 @@ from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
-from datalad.support.exceptions import DownloadError
+from datalad_next.exceptions import DownloadError
 
 from datalad_next.requests_auth import DataladAuth
 from . import UrlOperations

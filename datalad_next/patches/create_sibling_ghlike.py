@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 from datalad.distributed.create_sibling_ghlike import _GitHubLike
 from datalad.downloaders.http import DEFAULT_USER_AGENT
-from datalad.support.exceptions import CapturedException
+from datalad_next.exceptions import CapturedException
 from datalad_next.credman import CredentialManager
 
 # use same logger as -core
