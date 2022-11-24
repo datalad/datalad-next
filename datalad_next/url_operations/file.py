@@ -9,7 +9,7 @@ try:
     from shutil import COPY_BUFSIZE
 except ImportError:
     # too old
-    from datalad.utils import on_windows
+    from datalad_next.utils import on_windows
     # from PY3.10
     COPY_BUFSIZE = 1024 * 1024 if on_windows else 64 * 1024
 import sys

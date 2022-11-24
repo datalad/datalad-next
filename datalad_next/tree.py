@@ -40,7 +40,7 @@ from datalad_next.constraints import (
     EnsureInt,
     EnsureRange,
 )
-from datalad.utils import get_dataset_root
+from datalad_next.utils import get_dataset_root
 from datalad.ui import ui
 from datalad_next.dataset import (
     Dataset,

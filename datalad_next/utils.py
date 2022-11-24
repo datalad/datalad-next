@@ -3,6 +3,23 @@
 import logging
 import os
 
+from datalad.utils import (
+    Path,
+    check_symlink_capability,
+    chpwd,
+    ensure_bool,
+    ensure_list,
+    get_dataset_root,
+    getargspec,
+    knows_annex,
+    make_tempfile,
+    on_windows,
+    optional_args,
+    rmtemp,
+    rmtree,
+    swallow_outputs,
+)
+
 lgr = logging.getLogger('datalad.utils')
 
 
@@ -101,6 +118,7 @@ def update_specialremote_credential(
         credman.set(credname, _lastused=True, **credprops)
     except Exception as e:
         from datalad_next.exceptions import CapturedException
+
         # we do not want to crash for any failure to store a
         # credential
         lgr.warn(

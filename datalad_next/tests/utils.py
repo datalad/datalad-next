@@ -35,7 +35,7 @@ from datalad.tests.utils_pytest import (
     with_testsui,
     with_tree,
 )
-from datalad.utils import optional_args
+from datalad_next.utils import optional_args
 
 lgr = logging.getLogger("datalad.tests.utils")
 

@@ -31,7 +31,7 @@ from datalad_next.tests.utils import (
     serve_path_via_webdav,
     with_credential,
 )
-from datalad.utils import on_windows
+from datalad_next.utils import on_windows
 from datalad_next.exceptions import CommandError
 from ..datalad_annex import get_initremote_params_from_url
 

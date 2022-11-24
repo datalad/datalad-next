@@ -4,7 +4,7 @@ import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
-from datalad.utils import on_windows
+from datalad_next.utils import on_windows
 
 from ..basic import (
     EnsureInt,

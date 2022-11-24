@@ -30,7 +30,7 @@ from datalad.support.network import (
     is_url,
 )
 from datalad.distribution.utils import _get_flexible_source_candidates
-from datalad.utils import (
+from datalad_next.utils import (
     ensure_bool,
     rmtree,
 )

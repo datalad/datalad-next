@@ -14,7 +14,7 @@ from datalad_next.tests.utils import (
     with_tempfile,
     with_testsui,
 )
-from datalad.utils import chpwd
+from datalad_next.utils import chpwd
 
 from datalad_next.credman import CredentialManager
 

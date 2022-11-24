@@ -17,7 +17,7 @@ from datalad.core.distributed.clone import (
 from datalad.interface.results import get_status_dict
 from datalad.support.annexrepo import AnnexRepo
 from datalad_next.exceptions import CapturedException
-from datalad.utils import (
+from datalad_next.utils import (
     knows_annex,
     rmtree,
 )

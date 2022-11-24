@@ -26,7 +26,7 @@ from datalad_next.exceptions import (
     DownloadError,
 )
 from datalad.support.param import Parameter
-from datalad.utils import ensure_list
+from datalad_next.utils import ensure_list
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureGeneratorFromFileLike,

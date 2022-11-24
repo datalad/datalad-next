@@ -46,7 +46,7 @@ def get_allargs_as_kwargs(call, args, kwargs):
       which the effective value is identical to the default declared in the
       signature of the callable.
     """
-    from datalad.utils import getargspec
+    from datalad_next.utils import getargspec
     argspec = getargspec(call, include_kwonlyargs=True)
     defaults = argspec.defaults
     nargs = len(argspec.args)

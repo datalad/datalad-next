@@ -16,7 +16,7 @@ from datalad_next.tests.utils import (
     ok_good_symlink,
     ok_broken_symlink
 )
-from datalad.utils import (
+from datalad_next.utils import (
     rmtemp,
     make_tempfile,
     chpwd
