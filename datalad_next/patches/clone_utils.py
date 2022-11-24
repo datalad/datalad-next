@@ -18,7 +18,7 @@ from datalad.core.distributed.clone import (
     decode_source_spec,
 )
 from datalad.dochelpers import single_or_plural
-from datalad.log import log_progress
+from datalad_next.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad_next.exceptions import (
     CapturedException,
