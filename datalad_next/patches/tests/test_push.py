@@ -1,4 +1,4 @@
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     DEFAULT_REMOTE,
     assert_result_count,
     with_tempfile,

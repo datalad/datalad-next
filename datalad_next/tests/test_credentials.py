@@ -19,7 +19,7 @@ from ..credentials import (
 )
 from datalad_next.exceptions import IncompleteResultsError
 from datalad.support.keyring_ import MemoryKeyring
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     assert_in,
     assert_in_results,
     assert_raises,

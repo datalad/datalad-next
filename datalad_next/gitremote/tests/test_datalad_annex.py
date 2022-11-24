@@ -18,7 +18,7 @@ from datalad.api import (
     Dataset,
     clone,
 )
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
     assert_raises,
@@ -28,13 +28,11 @@ from datalad.tests.utils_pytest import (
     rmtree,
     serve_path_via_http,
     with_tempfile,
-)
-from datalad.utils import on_windows
-from datalad_next.exceptions import CommandError
-from datalad_next.tests.utils import (
     serve_path_via_webdav,
     with_credential,
 )
+from datalad.utils import on_windows
+from datalad_next.exceptions import CommandError
 from ..datalad_annex import get_initremote_params_from_url
 
 

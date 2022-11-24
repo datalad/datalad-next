@@ -5,7 +5,7 @@ from os import sep
 import pytest
 from datalad.cli.tests.test_main import run_main
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     assert_raises,
     assert_str_equal,
     with_tree,

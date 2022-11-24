@@ -1,11 +1,11 @@
 from pathlib import Path
 from webdav3.client import Client as DAVClient
 
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     ok_,
     with_tempfile,
+    serve_path_via_webdav,
 )
-from datalad_next.tests.utils import serve_path_via_webdav
 
 webdav_cred = ('datalad', 'secure')
 
