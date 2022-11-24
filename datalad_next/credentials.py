@@ -24,7 +24,7 @@ from datalad.interface.base import (
     Interface,
     build_doc,
 )
-from datalad.support.exceptions import CapturedException
+from datalad_next.exceptions import CapturedException
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
     EnsureDataset,

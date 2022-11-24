@@ -13,10 +13,10 @@ from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
-from datalad.support.exceptions import DownloadError
+from datalad_next.exceptions import DownloadError
 
 from datalad_next.requests_auth import DataladAuth
-from .url_operations import UrlOperations
+from . import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.http_url_operations')
 
@@ -44,9 +44,43 @@ class HttpUrlOperations(UrlOperations):
             hdrs.update(headers)
         return hdrs
 
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
+        auth = DataladAuth(self.cfg, credential=credential)
+        with requests.head(
+                url,
+                headers=self.get_headers(),
+                auth=auth,
+                # we want to match the `get` behavior explicitly
+                # in order to arrive at the final URL after any
+                # redirects that get would also end up with
+                allow_redirects=True,
+        ) as r:
+            # fail visible for any non-OK outcome
+            try:
+                r.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                # wrap this into the datalad-standard, but keep the
+                # original exception linked
+                raise AccessFailedError(
+                    msg=str(e), status=e.response.status_code) from e
+            props = {
+                # standardize on lower-case header keys.
+                # also prefix anything other than 'content-length' to make
+                # room for future standardizations
+                k.lower() if k.lower() == 'content-length' else f'http-{k.lower()}':
+                v
+                for k, v in r.headers.items()
+            }
+            props['url'] = r.url
+        auth.save_entered_credential(
+            context=f'sniffing {url}'
+        )
+        return props
+
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  credential: str = None,
                  hash: str = None) -> Dict:
         """Download via HTTP GET request
@@ -57,7 +91,7 @@ class HttpUrlOperations(UrlOperations):
         # a new manager per request
         # TODO optimize later to cache credentials per target
         # similar to requests_toolbelt.auth.handler.AuthHandler
-        auth = DataladAuth(self._cfg, credential=credential)
+        auth = DataladAuth(self.cfg, credential=credential)
         with requests.get(
                 from_url,
                 stream=True,

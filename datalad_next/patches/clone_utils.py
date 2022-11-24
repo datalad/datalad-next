@@ -20,8 +20,10 @@ from datalad.core.distributed.clone import (
 from datalad.dochelpers import single_or_plural
 from datalad.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
-from datalad.support.exceptions import CapturedException
-from datalad.runner.exception import CommandError
+from datalad_next.exceptions import (
+    CapturedException,
+    CommandError,
+)
 from datalad.support.gitrepo import GitRepo
 from datalad.support.network import (
     get_local_file_url,

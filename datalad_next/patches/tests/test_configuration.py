@@ -8,7 +8,7 @@ from datalad.api import (
     Dataset,
     configuration,
 )
-from datalad.support.exceptions import IncompleteResultsError
+from datalad_next.exceptions import IncompleteResultsError
 
 # run all -core tests
 from datalad.local.tests.test_configuration import *

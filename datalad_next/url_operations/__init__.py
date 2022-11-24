@@ -19,8 +19,8 @@ class UrlOperations:
     Support for specific URL schemes can be implemented via sub-classes.
     Such classes must comply with the following conditions:
 
-    - Any configuration look-up must be performed with the `self._cfg`
-      member, which is guaranteed to be a `ConfigManager` instance.
+    - Any configuration look-up must be performed with the `self.cfg`
+      property, which is guaranteed to be a `ConfigManager` instance.
 
     - When downloads are to be supported, implement the `download()` method
       and comply with the behavior described in its documentation.
@@ -28,7 +28,7 @@ class UrlOperations:
     This class provides a range of helper methods to aid computation of
     hashes and progress reporting.
     """
-    def __init__(self, cfg=None):
+    def __init__(self, *, cfg=None):
         """
         Parameters
         ----------
@@ -36,11 +36,41 @@ class UrlOperations:
           A config manager instance that implementations will consult for
           any configuration items they may support.
         """
-        self._cfg = cfg or datalad.cfg
+        self._cfg = cfg
+
+    @property
+    def cfg(self):
+
+        if self._cfg is None:
+            self._cfg = datalad.cfg
+        return self._cfg
+
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
+        """Gather information on a URL target, without downloading it
+
+        Returns
+        -------
+        dict
+          A mapping of property names to values of the URL target. The
+          particular composition of properties depends on the specific
+          URL. A standard property is 'content-length', indicating the
+          size of a download.
+
+        Raises
+        ------
+        AccessFailedError
+          This exception is raised on any error, with a summary of the
+          underlying issues as its message. It carry a status code (e.g. HTTP
+          status code) as its `status` property.  Any underlying exception must
+          be linked via the `__cause__` property (e.g. `raise
+          AccessFailedError(...) from ...`).
+        """
+        raise NotImplementedError
 
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  credential: str = None,
                  hash: list[str] = None) -> Dict:
         """Download from a URL to a local file or stream to stdout

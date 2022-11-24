@@ -31,9 +31,7 @@ from datalad.local.configuration import (
     _set,
     _unset,
 )
-from datalad.support.exceptions import (
-    NoDatasetFound,
-)
+from datalad_next.exceptions import NoDatasetFound
 from datalad.utils import (
     ensure_list,
 )

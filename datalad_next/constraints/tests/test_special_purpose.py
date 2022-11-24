@@ -267,7 +267,7 @@ def test_EnsureDataset(tmp_path):
     # but it can be turned on, and then yields the specific
     # exception that datalad-core's require_dataset() would
     # give
-    from datalad.support.exceptions import NoDatasetFound
+    from datalad_next.exceptions import NoDatasetFound
     with pytest.raises(NoDatasetFound):
         EnsureDataset(installed=True)('/nothere_datalad_test')
 

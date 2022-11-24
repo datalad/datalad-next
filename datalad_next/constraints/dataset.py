@@ -2,7 +2,7 @@
 
 from pathlib import PurePath
 
-from datalad.support.exceptions import NoDatasetFound
+from datalad_next.exceptions import NoDatasetFound
 
 from .base import Constraint
 

@@ -19,9 +19,9 @@ from urllib import (
     parse,
 )
 
-from datalad.support.exceptions import DownloadError
+from datalad_next.exceptions import DownloadError
 
-from .url_operations import UrlOperations
+from . import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.file_url_operations')
 
@@ -42,9 +42,28 @@ class FileUrlOperations(UrlOperations):
         path = request.url2pathname(parsed.path)
         return Path(path)
 
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
+        # filter out internals
+        return {
+            k: v for k, v in self._sniff(url, credential).items()
+            if not k.startswith('_')
+        }
+
+    def _sniff(self, url: str, credential: str = None) -> Dict:
+        # turn url into a native path
+        from_path = self._file_url_to_path(url)
+        # if anything went wrong with the conversion, or we lack
+        # permissions: die here
+        size = from_path.stat().st_size
+        return {
+            'content-length': size,
+            '_path': from_path,
+        }
+
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access
@@ -62,12 +81,9 @@ class FileUrlOperations(UrlOperations):
 
         dst_fp = None
         try:
-            # turn url into a native path
-            from_path = self._file_url_to_path(from_url)
-            # if anything went wrong with the conversion, or we lack
-            # permissions: die here
-            expected_size = from_path.stat().st_size
-            props = {}
+            props = self._sniff(from_url, credential=credential)
+            from_path = props['_path']
+            expected_size = props['content-length']
             dst_fp = sys.stdout.buffer if to_path is None \
                 else open(to_path, 'wb')
             self._progress_report_start(

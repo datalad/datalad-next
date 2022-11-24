@@ -16,9 +16,9 @@ from urllib.parse import urlparse
 from datalad.runner import StdOutCapture
 from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
-from datalad.support.exceptions import DownloadError
+from datalad_next.exceptions import DownloadError
 
-from .url_operations import UrlOperations
+from . import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.ssh_url_operations')
 
@@ -40,9 +40,67 @@ class SshUrlOperations(UrlOperations):
        likely to be removed in the future, and connection multiplexing
        supported where possible (non-Windows platforms).
     """
+    _stat_cmd = "printf \"\1\2\3\"; ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}'"
+    _cat_cmd = "cat '{fpath}'"
+
+    def sniff(self, url: str, *, credential: str = None) -> Dict:
+        try:
+            props = self._sniff(
+                url,
+                cmd=SshUrlOperations._stat_cmd,
+            )
+        except Exception as e:
+            raise AccessFailedError(str(e)) from e
+
+        return {k: v for k, v in props.items() if not k.startswith('_')}
+
+    def _sniff(self, url: str, cmd: str) -> Dict:
+        # any stream must start with this magic marker, or we do not
+        # recognize what is happening
+        # after this marker, the server will send the size of the
+        # to-be-downloaded file in bytes, followed by another magic
+        # b'\1', and the file content after that
+        need_magic = b'\1\2\3'
+        expected_size_str = b''
+        expected_size = None
+
+        ssh_cat = SshCat(url)
+        stream = ssh_cat.run(cmd)
+        for chunk in stream:
+            if need_magic:
+                expected_magic = need_magic[:min(len(need_magic),
+                                                 len(chunk))]
+                incoming_magic = chunk[:len(need_magic)]
+                # does the incoming data have the remaining magic bytes?
+                if incoming_magic != expected_magic:
+                    raise ValueError("magic missing")
+                # reduce (still missing) magic, if any
+                need_magic = need_magic[len(expected_magic):]
+                # strip magic from input
+                chunk = chunk[len(expected_magic):]
+            if chunk and expected_size is None:
+                # we have incoming data left and
+                # we have not yet consumed the size info
+                size_data = chunk.split(b'\1', maxsplit=1)
+                expected_size_str += size_data[0]
+                if len(size_data) > 1:
+                    # this is not only size info, but we found the start of
+                    # the data
+                    expected_size = int(expected_size_str)
+                    chunk = size_data[1]
+            if expected_size:
+                props = {
+                    'content-length': expected_size,
+                    '_stream': chain([chunk], stream) if chunk else stream,
+                }
+                return props
+            # there should be no data left to process, or something went wrong
+            assert not chunk
+
     def download(self,
                  from_url: str,
                  to_path: Path | None,
+                 *,
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access
@@ -63,50 +121,21 @@ class SshUrlOperations(UrlOperations):
 
         dst_fp = None
 
-        # any stream must start with this magic marker, or we do not
-        # recognize what is happening
-        # after this marker, the server will send the size of the
-        # to-be-downloaded file in bytes, followed by another magic
-        # b'\1', and the file content after that
-        need_magic = b'\1\2\3'
-        expected_size_str = b''
-        expected_size = None
-
         try:
-            props = {}
-            ssh_cat = SshCat(from_url)
+            props = self._sniff(
+                from_url,
+                cmd=f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}',
+            )
+            stream = props.pop('_stream')
+            expected_size = props['content-length']
             dst_fp = sys.stdout.buffer if to_path is None \
                 else open(to_path, 'wb')
             # Localize variable access to minimize overhead
             dst_fp_write = dst_fp.write
-            for chunk in ssh_cat.run():
-                if need_magic:
-                    expected_magic = need_magic[:min(len(need_magic),
-                                                     len(chunk))]
-                    incoming_magic = chunk[:len(need_magic)]
-                    # does the incoming data have the remaining magic bytes?
-                    if incoming_magic != expected_magic:
-                        raise ValueError("magic missing")
-                    # reduce (still missing) magic, if any
-                    need_magic = need_magic[len(expected_magic):]
-                    # strip magic from input
-                    chunk = chunk[len(expected_magic):]
-                if chunk and expected_size is None:
-                    # we have incoming data left and
-                    # we have not yet consumed the size info
-                    size_data = chunk.split(b'\1', maxsplit=1)
-                    expected_size_str += size_data[0]
-                    if len(size_data) > 1:
-                        # this is not only size info, but we found the start of
-                        # the data
-                        expected_size = int(expected_size_str)
-                        chunk = size_data[1]
-                        # download can start
-                        self._progress_report_start(
-                            progress_id, from_url, to_path, expected_size)
-                if not expected_size:
-                    # if we do not yet have the size info
-                    continue
+            # download can start
+            self._progress_report_start(
+                progress_id, from_url, to_path, expected_size)
+            for chunk in stream:
                 # write data
                 dst_fp_write(chunk)
                 # compute hash simultaneously
@@ -143,14 +172,14 @@ class SshCat:
         assert self._parsed.path
         self.ssh_args: list[str] = list(additional_ssh_args)
 
-    def run(self) -> Any | Generator:
+    def run(self, payload_cmd) -> Any | Generator:
         fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
         cmd.extend([
             '-e', 'none',
             self._parsed.hostname,
-            f"printf \"\1\2\3\"; ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}'; cat '{fpath}'",
+            payload_cmd.format(fpath=fpath),
         ])
         return ThreadedRunner(
             cmd=cmd,

@@ -4,7 +4,7 @@ __docformat__ = 'restructuredtext'
 
 import logging
 
-from datalad.support.exceptions import CapturedException
+from datalad_next.exceptions import CapturedException
 from datalad.support.gitrepo import GitRepo
 from datalad.support.network import RI
 from datalad.utils import (

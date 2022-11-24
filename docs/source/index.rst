@@ -49,11 +49,13 @@ Python utilities
    constraints
    requests_auth
    url_operations
-   http_url_operations
-   file_url_operations
-   ssh_url_operations
+   url_operations.any
+   url_operations.file
+   url_operations.http
+   url_operations.ssh
    http_helpers
    utils
+   exceptions
 
 
 Git remote helpers
