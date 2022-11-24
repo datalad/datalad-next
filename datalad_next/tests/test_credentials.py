@@ -17,8 +17,8 @@ from ..credentials import (
     normalize_specs,
 )
 from datalad_next.exceptions import IncompleteResultsError
-from datalad.support.keyring_ import MemoryKeyring
 from datalad_next.tests.utils import (
+    MemoryKeyring,
     assert_in,
     assert_in_results,
     assert_raises,

@@ -17,8 +17,8 @@ from ..credman import (
     CredentialManager,
     _get_cred_cfg_var,
 )
-from datalad.support.keyring_ import MemoryKeyring
 from datalad_next.tests.utils import (
+    MemoryKeyring,
     assert_in,
     assert_not_in,
     assert_raises,
