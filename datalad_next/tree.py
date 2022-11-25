@@ -18,9 +18,11 @@ from functools import (
 from os import readlink
 from pathlib import Path
 
-from datalad.interface.base import (
+from datalad_next.interface import (
     Interface,
     build_doc,
+    eval_results,
+    get_status_dict,
 )
 from datalad_next.exceptions import (
     CapturedException,
@@ -28,10 +30,6 @@ from datalad_next.exceptions import (
 )
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import require_dataset
-from datalad.interface.results import (
-    get_status_dict,
-)
-from datalad.interface.utils import eval_results
 
 from datalad.local.subdatasets import Subdatasets
 from datalad_next.constraints import (

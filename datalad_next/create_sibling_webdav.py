@@ -28,19 +28,16 @@ from datalad.distribution.dataset import (
     EnsureDataset,
     require_dataset,
 )
-from datalad.distribution.utils import _yield_ds_w_matching_siblings
-from datalad.interface.base import (
+from datalad_next.interface import (
     Interface,
     build_doc,
+    eval_results,
+    generic_result_renderer,
+    get_status_dict,
 )
 from datalad.interface.common_opts import (
     recursion_flag,
     recursion_limit
-)
-from datalad.interface.results import get_status_dict
-from datalad.interface.utils import (
-    generic_result_renderer,
-    eval_results,
 )
 from datalad_next.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
@@ -55,6 +52,7 @@ from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_properties,
     update_specialremote_credential,
+    _yield_ds_w_matching_siblings,
 )
 
 
