@@ -1,4 +1,4 @@
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     assert_in_results,
     assert_raises,
     chpwd,

@@ -42,7 +42,7 @@ from datalad.interface.utils import (
     generic_result_renderer,
     eval_results,
 )
-from datalad.log import log_progress
+from datalad_next.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
 from datalad_next.constraints import (

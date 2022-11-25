@@ -1,11 +1,11 @@
 import logging
 import io
 
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     assert_raises,
     eq_,
 )
-from datalad.utils import swallow_outputs
+from datalad_next.utils import swallow_outputs
 
 from ..base import (
     BackendError,

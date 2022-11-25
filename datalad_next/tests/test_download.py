@@ -6,18 +6,18 @@ from datalad.api import (
     credentials,
     download,
 )
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     assert_result_count,
     assert_status,
     serve_path_via_http,
+    with_credential,
     with_tempfile,
     with_testsui,
 )
-from datalad.utils import chpwd
+from datalad_next.utils import chpwd
 
 from datalad_next.credman import CredentialManager
 
-from .utils import with_credential
 
 test_cred = ('dltest-my&=http', 'datalad', 'secure')
 hburl = 'http://httpbin.org'

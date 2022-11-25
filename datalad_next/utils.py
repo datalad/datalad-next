@@ -3,6 +3,23 @@
 import logging
 import os
 
+from datalad.utils import (
+    Path,
+    check_symlink_capability,
+    chpwd,
+    ensure_bool,
+    ensure_list,
+    get_dataset_root,
+    getargspec,
+    knows_annex,
+    make_tempfile,
+    on_windows,
+    optional_args,
+    rmtemp,
+    rmtree,
+    swallow_outputs,
+)
+
 lgr = logging.getLogger('datalad.utils')
 
 
@@ -50,8 +67,8 @@ def get_specialremote_credential_properties(params):
     # no other way to do this specifically for each supported remote type
     remote_type = params.get('type')
     if remote_type == 'webdav':
-        from datalad_next.url_operations.http import HttpUrlOperations
         from datalad_next.http_helpers import get_auth_realm
+        from datalad_next.url_operations.http import HttpUrlOperations
         url = params.get('url')
         if not url:
             return
@@ -101,6 +118,7 @@ def update_specialremote_credential(
         credman.set(credname, _lastused=True, **credprops)
     except Exception as e:
         from datalad_next.exceptions import CapturedException
+
         # we do not want to crash for any failure to store a
         # credential
         lgr.warn(

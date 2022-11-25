@@ -3,12 +3,10 @@ import logging
 import re
 
 import datalad.core.distributed.push as mod_push
-from datalad.log import log_progress
+from datalad_next.log import log_progress
 from datalad.runner.exception import CommandError
 from datalad.support.annexrepo import AnnexRepo
-from datalad.utils import (
-    ensure_list,
-)
+from datalad_next.utils import ensure_list
 from datalad_next.dataset import Dataset
 
 

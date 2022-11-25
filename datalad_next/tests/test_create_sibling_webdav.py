@@ -5,8 +5,7 @@ from unittest.mock import (
 )
 from urllib.parse import quote as urlquote
 
-from datalad.cli.tests.test_main import run_main
-from datalad.tests.utils_pytest import (
+from datalad_next.tests.utils import (
     assert_equal,
     assert_in,
     assert_in_results,
@@ -15,20 +14,17 @@ from datalad.tests.utils_pytest import (
     assert_status,
     eq_,
     ok_,
+    run_main,
+    serve_path_via_webdav,
+    with_credential,
+    with_tempfile,
+    with_tree
 )
 import pytest
 
 from datalad.api import (
     clone,
     create_sibling_webdav,
-)
-from datalad.tests.utils_pytest import (
-    with_tempfile,
-    with_tree
-)
-from datalad_next.tests.utils import (
-    serve_path_via_webdav,
-    with_credential,
 )
 from datalad_next.dataset import Dataset
 

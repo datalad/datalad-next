@@ -7,10 +7,9 @@ from datalad.support.annexrepo import AnnexRepo
 from datalad_next.exceptions import (
     CommandError,
 )
-from datalad.utils import ensure_list
-
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
+    ensure_list,
     get_specialremote_credential_envpatch,
     get_specialremote_param_dict,
     get_specialremote_credential_properties,

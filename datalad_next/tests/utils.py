@@ -1,12 +1,44 @@
-from functools import wraps
 import logging
+from functools import wraps
 from pathlib import Path
 
-from datalad.utils import optional_args
+# all datalad-core test utils needed for datalad-next
 from datalad.tests.utils_pytest import (
+    DEFAULT_BRANCH,
+    DEFAULT_REMOTE,
     SkipTest,
+    assert_equal,
+    assert_false,
+    assert_in,
+    assert_in_results,
+    assert_not_in,
+    assert_raises,
+    assert_result_count,
+    assert_status,
+    assert_str_equal,
+    assert_true,
     attr,
+    chpwd,
+    eq_,
+    get_deeply_nested_structure,
+    neq_,
+    ok_,
+    ok_broken_symlink,
+    ok_exists,
+    ok_good_symlink,
+    rmtree,
+    serve_path_via_http,
+    skip_if_on_windows,
+    skip_wo_symlink_capability,
+    swallow_logs,
+    with_tempfile,
+    with_testsui,
+    with_tree,
 )
+from datalad.tests.test_utils_testrepos import BasicGitTestRepo
+from datalad.cli.tests.test_main import run_main
+from datalad.support.keyring_ import MemoryKeyring
+from datalad_next.utils import optional_args
 
 lgr = logging.getLogger("datalad.tests.utils")
 

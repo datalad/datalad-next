@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict
 
 import datalad
-from datalad.log import log_progress
+from datalad_next.log import log_progress
 
 lgr = logging.getLogger('datalad.ext.next.url_operations')
 

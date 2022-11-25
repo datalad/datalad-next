@@ -211,7 +211,7 @@ from datalad.support.external_versions import external_versions
 from datalad.support.gitrepo import GitRepo
 from datalad_next.constraints import EnsureInt
 from datalad.ui import ui
-from datalad.utils import (
+from datalad_next.utils import (
     on_windows,
     rmtree,
 )

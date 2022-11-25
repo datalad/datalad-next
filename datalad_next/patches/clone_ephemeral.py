@@ -7,7 +7,7 @@ import logging
 from datalad_next.exceptions import CapturedException
 from datalad.support.gitrepo import GitRepo
 from datalad.support.network import RI
-from datalad.utils import (
+from datalad_next.utils import (
     Path,
     check_symlink_capability,
     rmtree,
