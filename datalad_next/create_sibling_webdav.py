@@ -28,7 +28,6 @@ from datalad.distribution.dataset import (
     EnsureDataset,
     require_dataset,
 )
-from datalad.distribution.utils import _yield_ds_w_matching_siblings
 from datalad_next.interface import (
     Interface,
     build_doc,
@@ -53,6 +52,7 @@ from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_properties,
     update_specialremote_credential,
+    _yield_ds_w_matching_siblings,
 )
 
 

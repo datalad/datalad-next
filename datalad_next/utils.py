@@ -19,6 +19,8 @@ from datalad.utils import (
     rmtree,
     swallow_outputs,
 )
+from datalad.distribution.utils import _yield_ds_w_matching_siblings
+from datalad.support.external_versions import external_versions
 
 lgr = logging.getLogger('datalad.utils')
 
