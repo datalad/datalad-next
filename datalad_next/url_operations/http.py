@@ -13,7 +13,11 @@ from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
-from datalad_next.exceptions import DownloadError
+from datalad_next.exceptions import (
+    AccessFailedError,
+    UrlTargetNotFound,
+    DownloadError,
+)
 
 from datalad_next.requests_auth import DataladAuth
 from . import UrlOperations
@@ -45,6 +49,19 @@ class HttpUrlOperations(UrlOperations):
         return hdrs
 
     def sniff(self, url: str, *, credential: str = None) -> Dict:
+        """Gather information on a URL target, without downloading it
+
+        See :meth:`datalad_next.url_operations.UrlOperations.sniff`
+        for parameter documentation.
+
+        Raises
+        ------
+        AccessFailedError
+        UrlTargetNotFound
+          Raises `AccessFailedError` for connection errors, and
+          `UrlTargetNotFound` for download targets found absent after a
+          connection was established successfully.
+        """
         auth = DataladAuth(self.cfg, credential=credential)
         with requests.head(
                 url,
@@ -61,8 +78,13 @@ class HttpUrlOperations(UrlOperations):
             except requests.exceptions.RequestException as e:
                 # wrap this into the datalad-standard, but keep the
                 # original exception linked
-                raise AccessFailedError(
-                    msg=str(e), status=e.response.status_code) from e
+                if e.response.status_code == 404:
+                    # special case reporting for a 404
+                    raise UrlTargetNotFound(
+                        from_url, status=e.response.status_code) from e
+                else:
+                    raise AccessFailedError(
+                        msg=str(e), status=e.response.status_code) from e
             props = {
                 # standardize on lower-case header keys.
                 # also prefix anything other than 'content-length' to make
@@ -75,6 +97,13 @@ class HttpUrlOperations(UrlOperations):
         auth.save_entered_credential(
             context=f'sniffing {url}'
         )
+        if 'content-length' in props:
+            # make an effort to return size in bytes as int
+            try:
+                props['content-length'] = int(props['content-length'])
+            except (TypeError, ValueError):
+                # but be resonably robust against unexpected responses
+                pass
         return props
 
     def download(self,
@@ -87,6 +116,14 @@ class HttpUrlOperations(UrlOperations):
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
         for parameter documentation.
+
+        Raises
+        ------
+        AccessFailedError
+        UrlTargetNotFound
+          Raises `AccessFailedError` for connection errors, and
+          `UrlTargetNotFound` for download targets found absent after a
+          connection was established successfully.
         """
         # a new manager per request
         # TODO optimize later to cache credentials per target
@@ -104,8 +141,13 @@ class HttpUrlOperations(UrlOperations):
             except requests.exceptions.RequestException as e:
                 # wrap this into the datalad-standard, but keep the
                 # original exception linked
-                raise DownloadError(
-                    msg=str(e), status=e.response.status_code) from e
+                if e.response.status_code == 404:
+                    # special case reporting for a 404
+                    raise UrlTargetNotFound(
+                        from_url, status=e.response.status_code) from e
+                else:
+                    raise AccessFailedError(
+                        msg=str(e), status=e.response.status_code) from e
 
             download_props = self._stream_download_from_request(
                 r, to_path, hash=hash)

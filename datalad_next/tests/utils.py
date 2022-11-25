@@ -29,6 +29,7 @@ from datalad.tests.utils_pytest import (
     rmtree,
     serve_path_via_http,
     skip_if_on_windows,
+    skip_ssh,
     skip_wo_symlink_capability,
     swallow_logs,
     with_tempfile,

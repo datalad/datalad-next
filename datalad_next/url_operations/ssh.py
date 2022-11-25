@@ -16,7 +16,12 @@ from urllib.parse import urlparse
 from datalad.runner import StdOutCapture
 from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
-from datalad_next.exceptions import DownloadError
+from datalad_next.exceptions import (
+    AccessFailedError,
+    CommandError,
+    DownloadError,
+    UrlTargetNotFound,
+)
 
 from . import UrlOperations
 
@@ -40,17 +45,42 @@ class SshUrlOperations(UrlOperations):
        likely to be removed in the future, and connection multiplexing
        supported where possible (non-Windows platforms).
     """
-    _stat_cmd = "printf \"\1\2\3\"; ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}'"
+    # first try ls'ing the path, and catch a missing path with a dedicated 244
+    # exit code, to be able to distinguish the original exit=2 that ls-call
+    # from a later exit=2 from awk in case of a "fatal error".
+    # when executed through ssh, only a missing file would yield 244, while
+    # a conenction error or other problem unrelated to the present of a file
+    # would a different error code (255 in case of a connection error)
+    _stat_cmd = "printf \"\1\2\3\"; ls '{fpath}' &> /dev/null " \
+                "&& ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}' " \
+                "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
     def sniff(self, url: str, *, credential: str = None) -> Dict:
+        """Gather information on a URL target, without downloading it
+
+        See :meth:`datalad_next.url_operations.UrlOperations.sniff`
+        for parameter documentation.
+
+        Raises
+        ------
+        AccessFailedError
+        UrlTargetNotFound
+          Raises `AccessFailedError` for connection errors, and
+          `UrlTargetNotFound` for download targets found absent after a
+          connection was established successfully.
+        """
         try:
             props = self._sniff(
                 url,
                 cmd=SshUrlOperations._stat_cmd,
             )
-        except Exception as e:
-            raise AccessFailedError(str(e)) from e
+        except CommandError as e:
+            if e.code == 244:
+                # this is the special code for a file-not-found
+                raise UrlTargetNotFound(url) from e
+            else:
+                raise AccessFailedError(str(e)) from e
 
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
@@ -73,7 +103,8 @@ class SshUrlOperations(UrlOperations):
                 incoming_magic = chunk[:len(need_magic)]
                 # does the incoming data have the remaining magic bytes?
                 if incoming_magic != expected_magic:
-                    raise ValueError("magic missing")
+                    raise RuntimeError(
+                        "Protocol error: report header not received")
                 # reduce (still missing) magic, if any
                 need_magic = need_magic[len(expected_magic):]
                 # strip magic from input
@@ -113,6 +144,14 @@ class SshUrlOperations(UrlOperations):
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
         for parameter documentation.
+
+        Raises
+        ------
+        AccessFailedError
+        UrlTargetNotFound
+          Raises `AccessFailedError` for connection errors, and
+          `UrlTargetNotFound` for download targets found absent after a
+          connection was established successfully.
         """
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
@@ -144,10 +183,14 @@ class SshUrlOperations(UrlOperations):
                 self._progress_report_update(progress_id, len(chunk))
             props.update(self._get_hash_report(hash, hasher))
             return props
-        except Exception as e:
-            # wrap this into the datalad-standard, but keep the
-            # original exception linked
-            raise DownloadError(msg=str(e)) from e
+        except CommandError as e:
+            if e.code == 244:
+                # this is the special code for a file-not-found
+                raise UrlTargetNotFound(from_url) from e
+            else:
+                # wrap this into the datalad-standard, but keep the
+                # original exception linked
+                raise AccessFailedError(msg=str(e)) from e
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()

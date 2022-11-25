@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 try:
     from shutil import COPY_BUFSIZE
-except ImportError:
+except ImportError:  # pragma: no cover
     # too old
     from datalad_next.utils import on_windows
     # from PY3.10
@@ -19,7 +19,7 @@ from urllib import (
     parse,
 )
 
-from datalad_next.exceptions import DownloadError
+from datalad_next.exceptions import UrlTargetNotFound
 
 from . import UrlOperations
 
@@ -43,6 +43,16 @@ class FileUrlOperations(UrlOperations):
         return Path(path)
 
     def sniff(self, url: str, *, credential: str = None) -> Dict:
+        """Gather information on a URL target, without downloading it
+
+        See :meth:`datalad_next.url_operations.UrlOperations.sniff`
+        for parameter documentation.
+
+        Raises
+        ------
+        UrlTargetNotFound
+          Raises `UrlTargetNotFound` for download targets found absent.
+        """
         # filter out internals
         return {
             k: v for k, v in self._sniff(url, credential).items()
@@ -54,7 +64,10 @@ class FileUrlOperations(UrlOperations):
         from_path = self._file_url_to_path(url)
         # if anything went wrong with the conversion, or we lack
         # permissions: die here
-        size = from_path.stat().st_size
+        try:
+            size = from_path.stat().st_size
+        except FileNotFoundError as e:
+            raise UrlTargetNotFound(url) from e
         return {
             'content-length': size,
             '_path': from_path,
@@ -73,6 +86,11 @@ class FileUrlOperations(UrlOperations):
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
         for parameter documentation.
+
+        Raises
+        ------
+        UrlTargetNotFound
+          Raises `UrlTargetNotFound` for download targets found absent.
         """
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
@@ -107,7 +125,7 @@ class FileUrlOperations(UrlOperations):
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
-            raise DownloadError(msg=str(e)) from e
+            raise UrlTargetNotFound(msg=str(e)) from e
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()

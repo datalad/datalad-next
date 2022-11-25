@@ -4,8 +4,17 @@ from datalad.runner import CommandError
 from datalad.support.exceptions import (
     AccessDeniedError,
     AccessFailedError,
-    NoDatasetFound,
     CapturedException,
-    IncompleteResultsError,
     DownloadError,
+    IncompleteResultsError,
+    NoDatasetFound,
+    TargetFileAbsent,
 )
+
+# derive from TargetFileAbsent as the closest equivalent in datalad-core
+class UrlTargetNotFound(TargetFileAbsent):
+    """A connection request succeeded in principle, but target was not found
+
+    Equivalent of an HTTP404 response.
+    """
+    pass
