@@ -15,14 +15,12 @@ import logging
 
 from datalad import cfg as dlcfg
 from datalad.distribution.dataset import require_dataset
-from datalad.interface.base import (
+from datalad_next.interface import (
     build_doc,
+    eval_results,
+    get_status_dict,
 )
 from datalad.interface.common_cfg import definitions as cfg_defs
-from datalad.interface.results import get_status_dict
-from datalad.interface.utils import (
-    eval_results,
-)
 from datalad.local import configuration as conf_mod
 from datalad.local.configuration import (
     config_actions,

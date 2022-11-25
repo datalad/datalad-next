@@ -20,22 +20,18 @@ from datalad_next.credman import (
     CredentialManager,
     verify_property_names,
 )
-from datalad.interface.base import (
+from datalad_next.interface import (
     Interface,
     build_doc,
+    eval_results,
+    generic_result_renderer,
+    get_status_dict,
 )
 from datalad_next.exceptions import CapturedException
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
     EnsureDataset,
     require_dataset,
-)
-from datalad.interface.results import (
-    get_status_dict,
-)
-from datalad.interface.utils import (
-    eval_results,
-    generic_result_renderer,
 )
 from datalad_next.dataset import datasetmethod
 from datalad_next.constraints import (

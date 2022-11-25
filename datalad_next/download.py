@@ -15,12 +15,12 @@ import datalad
 from datalad.distribution.dataset import (
     resolve_path,
 )
-from datalad.interface.base import (
+from datalad_next.interface import (
     Interface,
     build_doc,
+    eval_results,
+    get_status_dict,
 )
-from datalad.interface.results import get_status_dict
-from datalad.interface.utils import eval_results
 from datalad_next.exceptions import (
     CapturedException,
     DownloadError,

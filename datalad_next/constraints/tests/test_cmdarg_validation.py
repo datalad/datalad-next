@@ -6,11 +6,11 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
-from datalad.interface.base import (
+from datalad_next.interface import (
     Interface,
+    Parameter,
+    eval_results,
 )
-from datalad.interface.utils import eval_results
-from datalad.support.param import Parameter
 from datalad_next.utils import on_windows
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints import (
