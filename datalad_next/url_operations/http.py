@@ -81,7 +81,7 @@ class HttpUrlOperations(UrlOperations):
                 if e.response.status_code == 404:
                     # special case reporting for a 404
                     raise UrlTargetNotFound(
-                        from_url, status=e.response.status_code) from e
+                        url, status=e.response.status_code) from e
                 else:
                     raise AccessFailedError(
                         msg=str(e), status=e.response.status_code) from e
