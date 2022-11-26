@@ -64,6 +64,11 @@ class UrlOperations:
           status code) as its `status` property.  Any underlying exception must
           be linked via the `__cause__` property (e.g. `raise
           AccessFailedError(...) from ...`).
+        UrlTargetNotFound
+          Implementations that can distinguish a general "connection error"
+          from an absent download target raise `AccessFailedError` for
+          connection errors, and `UrlTargetNotFound` for download targets
+          found absent after a conenction was established successfully.
         """
         raise NotImplementedError
 
@@ -111,6 +116,12 @@ class UrlOperations:
           a status code (e.g. HTTP status code) as its `status` property.
           Any underlying exception must be linked via the `__cause__`
           property (e.g. `raise DownloadError(...) from ...`).
+        AccessFailedError
+        UrlTargetNotFound
+          Implementations that can distinguish a general "connection error"
+          from an absent download target raise `AccessFailedError` for
+          connection errors, and `UrlTargetNotFound` for download targets
+          found absent after a conenction was established successfully.
         """
         raise NotImplementedError
 
