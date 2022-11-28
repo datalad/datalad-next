@@ -1,4 +1,7 @@
+import io
+import locale
 import pytest
+import sys
 from datalad_next.exceptions import (
     AccessFailedError,
     UrlTargetNotFound,
@@ -6,7 +9,7 @@ from datalad_next.exceptions import (
 from ..file import FileUrlOperations
 
 
-def test_file_url_operations(tmp_path):
+def test_file_url_download(tmp_path):
     test_path = tmp_path / 'myfile'
     test_url = test_path.as_uri()
     ops = FileUrlOperations()
@@ -30,3 +33,36 @@ def test_file_url_operations(tmp_path):
     test_path.unlink()
     with pytest.raises(UrlTargetNotFound):
         ops.download(test_url, download_path)
+
+
+def test_file_url_upload(tmp_path, monkeypatch):
+    payload = 'payload'
+    payload_file = tmp_path / 'payload'
+    test_upload_path = tmp_path / 'myfile'
+    test_upload_url = test_upload_path.as_uri()
+    ops = FileUrlOperations()
+    # missing source file
+    # standard exception, makes no sense to go custom thinks mih
+    with pytest.raises(FileNotFoundError):
+        ops.upload(payload_file, test_upload_url)
+    # no empty targets lying around
+    assert not test_upload_path.exists()
+
+    # now again
+    payload_file.write_text(payload)
+    props = ops.upload(payload_file, test_upload_url, hash=['md5'])
+    assert test_upload_path.read_text() == 'payload'
+    assert props['content-length'] == len(payload)
+    assert props['md5'] == '321c3cf486ed509164edec1e1981fec8'
+
+    # upload from STDIN
+    from_stdin_url = (tmp_path / 'missingdir' / 'from_stdin').as_uri()
+    with monkeypatch.context() as m:
+        m.setattr(sys, 'stdin',
+                  io.TextIOWrapper(io.BytesIO(
+                      bytes(payload, encoding='utf-8'))))
+        props = ops.upload(None, from_stdin_url, hash=['md5'])
+        assert props['md5'] == '321c3cf486ed509164edec1e1981fec8'
+        assert props['content-length'] == len(payload)
+
+    # TODO test missing write permissons

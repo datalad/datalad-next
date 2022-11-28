@@ -236,7 +236,11 @@ class HttpUrlOperations(UrlOperations):
         except (ValueError, TypeError):
             expected_size = None
         self._progress_report_start(
-            progress_id, from_url, to_path, expected_size)
+            progress_id,
+            ('Download %s to %s', from_url, to_path),
+            'downloading',
+            expected_size,
+        )
 
         fp = None
         props = {}
@@ -244,7 +248,8 @@ class HttpUrlOperations(UrlOperations):
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')
             # TODO make chunksize a config item
             for chunk in requests_tee(r, fp):
-                self._progress_report_update(progress_id, len(chunk))
+                self._progress_report_update(
+                    progress_id, ('Downloaded chunk',), len(chunk))
                 # compute hash simultaneously
                 for h in hasher:
                     h.update(chunk)
@@ -253,4 +258,4 @@ class HttpUrlOperations(UrlOperations):
         finally:
             if fp and to_path is not None:
                 fp.close()
-            self._progress_report_stop(progress_id)
+            self._progress_report_stop(progress_id, ('Finished download',))

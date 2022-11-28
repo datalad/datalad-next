@@ -173,14 +173,19 @@ class SshUrlOperations(UrlOperations):
             dst_fp_write = dst_fp.write
             # download can start
             self._progress_report_start(
-                progress_id, from_url, to_path, expected_size)
+                progress_id,
+                ('Download %s to %s', from_url, to_path),
+                'downloading',
+                expected_size,
+            )
             for chunk in stream:
                 # write data
                 dst_fp_write(chunk)
                 # compute hash simultaneously
                 for h in hasher:
                     h.update(chunk)
-                self._progress_report_update(progress_id, len(chunk))
+                self._progress_report_update(
+                    progress_id, ('Downloaded chunk',), len(chunk))
             props.update(self._get_hash_report(hash, hasher))
             return props
         except CommandError as e:
@@ -194,7 +199,7 @@ class SshUrlOperations(UrlOperations):
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
-            self._progress_report_stop(progress_id)
+            self._progress_report_stop(progress_id, ('Finished download',))
 
 
 class _SshCatProtocol(StdOutCapture, GeneratorMixIn):

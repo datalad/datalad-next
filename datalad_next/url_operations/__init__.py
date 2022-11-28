@@ -88,7 +88,7 @@ class UrlOperations:
           A local platform-native path or `None`. If `None` the downloaded
           data is written to `stdout`, otherwise it is written to a file
           at the given path. The path is assumed to not exist. Any existing
-          file will be oberwritten.
+          file will be overwritten.
         credential: str, optional
           The name of a dedicated credential to be used for authentication
           in order to perform the download. Particular implementations may
@@ -125,32 +125,79 @@ class UrlOperations:
         """
         raise NotImplementedError
 
-    def _get_progress_id(self, from_url, to_path):
-        return f'download_{from_url}_{to_path}'
+    def upload(self,
+               from_path: Path | None,
+               to_url: str,
+               *,
+               credential: str = None,
+               hash: list[str] = None) -> Dict:
+        """Upload from a local file or stream to a URL
 
-    def _progress_report_start(self, pid, from_url, to_path, expected_size):
+        Parameters
+        ----------
+        from_path: Path or None
+          A local platform-native path or `None`. If `None` the upload
+          data is read from `stdin`, otherwise it is read from a file
+          at the given path.
+        to_url: str
+          Valid URL with any scheme supported by a particular implementation.
+          The target is assumed to not conflict with existing content, and
+          may be overwritten.
+        credential: str, optional
+          The name of a dedicated credential to be used for authentication
+          in order to perform the upload. Particular implementations may
+          or may not require or support authentication. They also may or
+          may not support automatic credential lookup.
+        hash: list(algorithm_names), optional
+          If given, must be a list of hash algorithm names supported by the
+          `hashlib` module. A corresponding hash will be computed simultaenous
+          to the upload (without reading the data twice), and included
+          in the return value.
+
+        Returns
+        -------
+        dict
+          A mapping of property names to values for the completed upload.
+          If `hash` algorithm names are provided, a corresponding key for
+          each algorithm is included in this mapping, with the hexdigest
+          of the corresponding checksum as the value.
+
+        Raises
+        ------
+        FileNotFoundError
+          If the source file cannot be found.
+        """
+        raise NotImplementedError
+
+    def _get_progress_id(self, from_id: str, to_id: str):
+        return f'progress_transport_{from_id}_{to_id}'
+
+    def _progress_report_start(self,
+                               pid: str,
+                               log_msg: tuple,
+                               label: str,
+                               expected_size: int | None):
         log_progress(
             lgr.info,
             pid,
-            'Download %s to %s', from_url, to_path,
+            *log_msg,
             unit=' Bytes',
-            label='Downloading',
+            label=label,
             total=expected_size,
             noninteractive_level=logging.DEBUG,
         )
 
-    def _progress_report_update(self, pid, increment):
+    def _progress_report_update(self, pid: str, log_msg: tuple, increment: int):
         log_progress(
-            lgr.info, pid,
-            'Downloaded chunk',
+            lgr.info, pid, *log_msg,
             update=increment,
             increment=True,
             noninteractive_level=logging.DEBUG,
         )
 
-    def _progress_report_stop(self, pid):
+    def _progress_report_stop(self, pid: str, log_msg: tuple):
         log_progress(
-            lgr.info, pid, 'Finished download',
+            lgr.info, pid, *log_msg,
             noninteractive_level=logging.DEBUG,
         )
 
