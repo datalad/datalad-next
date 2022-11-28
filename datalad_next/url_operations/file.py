@@ -82,7 +82,7 @@ class FileUrlOperations(UrlOperations):
                  # to gain file access
                  credential: str = None,
                  hash: str = None) -> Dict:
-        """Copy a local file to another location
+        """Copy a file:// URL target to a local path
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
         for parameter documentation.
@@ -92,11 +92,6 @@ class FileUrlOperations(UrlOperations):
         UrlTargetNotFound
           Raises `UrlTargetNotFound` for download targets found absent.
         """
-        # this is pretty much shutil.copyfileobj() with the necessary
-        # wrapping to perform hashing and progress reporting
-        hasher = self._get_hasher(hash)
-        progress_id = self._get_progress_id(from_url, to_path)
-
         dst_fp = None
         try:
             props = self._sniff(from_url, credential=credential)
@@ -104,24 +99,19 @@ class FileUrlOperations(UrlOperations):
             expected_size = props['content-length']
             dst_fp = sys.stdout.buffer if to_path is None \
                 else open(to_path, 'wb')
-            self._progress_report_start(
-                progress_id, from_url, to_path, expected_size)
 
             with from_path.open('rb') as src_fp:
-                # Localize variable access to minimize overhead
-                src_fp_read = src_fp.read
-                dst_fp_write = dst_fp.write
-                while True:
-                    chunk = src_fp_read(COPY_BUFSIZE)
-                    if not chunk:
-                        break
-                    dst_fp_write(chunk)
-                    self._progress_report_update(progress_id, len(chunk))
-                    # compute hash simultaneously
-                    for h in hasher:
-                        h.update(chunk)
-            props.update(self._get_hash_report(hash, hasher))
-            return props
+                props.update(self._copyfp(
+                    src_fp,
+                    dst_fp,
+                    expected_size,
+                    hash,
+                    start_log=('Download %s to %s', from_url, to_path),
+                    update_log=('Downloaded chunk',),
+                    finish_log=('Finished download',),
+                    progress_label='downloading',
+                ))
+                return props
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
@@ -129,4 +119,97 @@ class FileUrlOperations(UrlOperations):
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
-            self._progress_report_stop(progress_id)
+
+    def upload(self,
+               from_path: Path | None,
+               to_url: str,
+               *,
+               credential: str = None,
+               hash: list[str] = None) -> Dict:
+        """Copy a local file to a file:// URL target
+
+        Any missing parent directories of the URL target are created as
+        necessary.
+
+        See :meth:`datalad_next.url_operations.UrlOperations.upload`
+        for parameter documentation.
+
+        Raises
+        ------
+        FileNotFoundError
+          If the source file cannot be found.
+        """
+        # get the size, or die if inaccessible
+        props = {}
+        if from_path:
+            expected_size = from_path.stat().st_size
+            props['content-length'] = expected_size
+        else:
+            expected_size = None
+        to_path = self._file_url_to_path(to_url)
+        # create parent dir(s) as necessary
+        to_path.parent.mkdir(exist_ok=True, parents=True)
+        src_fp = None
+        try:
+            src_fp = sys.stdin.buffer if from_path is None \
+                else open(from_path, 'rb')
+            with to_path.open('wb') as dst_fp:
+                props.update(self._copyfp(
+                    src_fp,
+                    dst_fp,
+                    expected_size,
+                    hash,
+                    start_log=('Upload %s to %s', from_path, to_url),
+                    update_log=('Uploaded chunk',),
+                    finish_log=('Finished upload',),
+                    progress_label='uploading',
+                ))
+                return props
+        finally:
+            if src_fp and from_path is not None:
+                src_fp.close()
+
+    def _copyfp(self,
+                src_fp: file,
+                dst_fp: file,
+                expected_size: int,
+                hash: list[str] | None,
+                start_log: tuple,
+                update_log: tuple,
+                finish_log: tuple,
+                progress_label: str,
+    ) -> dict:
+        # this is pretty much shutil.copyfileobj() with the necessary
+        # wrapping to perform hashing and progress reporting
+        hasher = self._get_hasher(hash)
+        progress_id = self._get_progress_id(id(src_fp), id(src_fp))
+
+        # Localize variable access to minimize overhead
+        src_fp_read = src_fp.read
+        dst_fp_write = dst_fp.write
+
+        props = {}
+        self._progress_report_start(
+            progress_id, start_log, progress_label, expected_size)
+        copy_size = 0
+        try:
+            while True:
+                chunk = src_fp_read(COPY_BUFSIZE)
+                if not chunk:
+                    break
+                dst_fp_write(chunk)
+                chunk_size = len(chunk)
+                self._progress_report_update(
+                    progress_id, update_log, chunk_size)
+                # compute hash simultaneously
+                for h in hasher:
+                    h.update(chunk)
+                copy_size += chunk_size
+            props.update(self._get_hash_report(hash, hasher))
+            # return how much was copied. we could compare with
+            # `expected_size` and error on mismatch, but not all
+            # sources can provide that (e.g. stdin)
+            props['content-length'] = copy_size
+            return props
+        finally:
+            self._progress_report_stop(progress_id, finish_log)
