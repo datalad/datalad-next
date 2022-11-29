@@ -5,13 +5,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-try:
-    from shutil import COPY_BUFSIZE
-except ImportError:  # pragma: no cover
-    # too old
-    from datalad_next.utils import on_windows
-    # from PY3.10
-    COPY_BUFSIZE = 1024 * 1024 if on_windows else 64 * 1024
 import sys
 from typing import Dict
 from urllib import (
@@ -19,6 +12,7 @@ from urllib import (
     parse,
 )
 
+from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.exceptions import UrlTargetNotFound
 
 from . import UrlOperations
