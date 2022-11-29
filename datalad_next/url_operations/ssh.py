@@ -13,9 +13,15 @@ from typing import (
 )
 from urllib.parse import urlparse
 
+from queue import Queue
+from datalad.runner.runner import WitlessRunner
+from datalad.runner.coreprotocols import NoCapture
+
 from datalad.runner import StdOutCapture
 from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
+
+from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.exceptions import (
     AccessFailedError,
     CommandError,
@@ -94,8 +100,8 @@ class SshUrlOperations(UrlOperations):
         expected_size_str = b''
         expected_size = None
 
-        ssh_cat = SshCat(url)
-        stream = ssh_cat.run(cmd)
+        ssh_cat = _SshCat(url)
+        stream = ssh_cat.run(cmd, protocol=_StdOutCaptureGeneratorProtocol)
         for chunk in stream:
             if need_magic:
                 expected_magic = need_magic[:min(len(need_magic),
@@ -201,18 +207,91 @@ class SshUrlOperations(UrlOperations):
                 dst_fp.close()
             self._progress_report_stop(progress_id, ('Finished download',))
 
+    def upload(self,
+               from_path: Path | None,
+               to_url: str,
+               *,
+               credential: str = None,
+               hash: list[str] = None) -> Dict:
+        """Upload a file by streaming it through an SSH connection.
 
-class _SshCatProtocol(StdOutCapture, GeneratorMixIn):
-    def __init__(self, done_future=None, encoding=None):
-        StdOutCapture.__init__(self, done_future, encoding)
-        GeneratorMixIn.__init__(self, )
+        It, more or less, runs `ssh <host> 'cat > <path>'.
 
-    def pipe_data_received(self, fd: int, data: bytes):
-        assert fd == 1
-        self.send_result(data)
+        See :meth:`datalad_next.url_operations.UrlOperations.upload`
+        for parameter documentation.
+
+        Raises
+        ------
+        ...
+        """
+        # die right away, if we lack read permissions or there is no file
+        expected_size = from_path.stat().st_size
+
+        hasher = self._get_hasher(hash)
+
+        # we limit the queue to few items in order to `make queue.put()`
+        # block relatively quickly, and thereby have the progress report
+        # actually track the upload, and not just the feeding of the
+        # queue
+        upload_queue = Queue(maxsize=2)
+
+        ssh_cat = _SshCat(to_url)
+        try:
+            stream = ssh_cat.run(
+                # leave special exit code when writing fails, but not the
+                # general SSH access
+                #'cat > {fpath} || exit 244',
+                'cat > {fpath}',
+                protocol=_NoCaptureGeneratorProtocol,
+                stdin=upload_queue,
+            )
+        except CommandError as e:
+            if e.code == 244:
+                raise UrlTargetNotFound(to_url) from e
+            else:
+                raise AccessFailedError(str(e)) from e
+
+        props = {}
+        upload_size = 0
+        progress_id = self._get_progress_id(from_path, to_url)
+        with from_path.open("rb") as src_fp:
+            # file is open, we can start progress tracking
+            self._progress_report_start(
+                progress_id,
+                ('Upload %s to %s', from_path, to_url),
+                'uploading',
+                expected_size,
+            )
+            try:
+                while True:
+                    chunk = src_fp.read(COPY_BUFSIZE)
+                    if chunk == b'':
+                        break
+                    chunk_size = len(chunk)
+                    # compute hash simultaneously
+                    for h in hasher:
+                        h.update(chunk)
+                    # we are just putting stuff in the queue, and rely on
+                    # its maxsize to cause it to block the next call to
+                    # have the progress reports be anyhow valid
+                    upload_queue.put(chunk)
+                    self._progress_report_update(
+                        progress_id, ('Uploaded chunk',), chunk_size)
+                    upload_size += chunk_size
+                # we're done, close queue
+                upload_queue.put(None)
+            finally:
+                self._progress_report_stop(progress_id, ('Finished upload',))
+
+            props.update(self._get_hash_report(hash, hasher))
+            # return how much was copied. we could compare with
+            # `expected_size` and error on mismatch, but not all
+            # sources can provide that (e.g. stdin)
+            props['content-length'] = upload_size
+            return props
 
 
-class SshCat:
+class _SshCat:
     def __init__(self, url: str, *additional_ssh_args):
         self._parsed = urlparse(url)
         # make sure the essential pieces exist
@@ -220,7 +299,8 @@ class SshCat:
         assert self._parsed.path
         self.ssh_args: list[str] = list(additional_ssh_args)
 
-    def run(self, payload_cmd) -> Any | Generator:
+    def run(self, payload_cmd: str, protocol, stdin: Queue | None = None,
+    ) -> Any | Generator:
         fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
@@ -231,6 +311,30 @@ class SshCat:
         ])
         return ThreadedRunner(
             cmd=cmd,
-            protocol_class=_SshCatProtocol,
-            stdin=None,
+            protocol_class=protocol,
+            stdin=stdin,
         ).run()
+
+
+#
+# Below are generic generator protocols that should be provided
+# upstream
+#
+class _NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
+    def __init__(self, done_future=None, encoding=None):
+        NoCapture.__init__(self, done_future, encoding)
+        GeneratorMixIn.__init__(self, )
+
+    def pipe_data_received(self, fd: int, data: bytes):
+        assert fd == 1
+        self.send_result(data)
+
+
+class _StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
+    def __init__(self, done_future=None, encoding=None):
+        StdOutCapture.__init__(self, done_future, encoding)
+        GeneratorMixIn.__init__(self, )
+
+    def pipe_data_received(self, fd: int, data: bytes):
+        assert fd == 1
+        self.send_result(data)

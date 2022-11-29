@@ -15,7 +15,7 @@ from ..ssh import SshUrlOperations
 # SshUrlOperations does not work against a windows server
 # and the test uses 'localhost' as target
 @skip_ssh
-def test_ssh_url_operations(tmp_path, monkeypatch):
+def test_ssh_url_download(tmp_path, monkeypatch):
     test_path = tmp_path / 'myfile'
     test_url = f'ssh://localhost{test_path}'
     ops = SshUrlOperations()
@@ -53,3 +53,27 @@ def test_ssh_url_operations(tmp_path, monkeypatch):
     # this is different for a general connection error
     with pytest.raises(AccessFailedError):
         ops.download(f'ssh://localhostnotaround{test_path}', download_path)
+
+
+# path magic inside the test is posix only
+@skip_if_on_windows
+# SshUrlOperations does not work against a windows server
+# and the test uses 'localhost' as target
+@skip_ssh
+def test_ssh_url_upload(tmp_path, monkeypatch):
+    payload = 'surprise!'
+    payload_path = tmp_path / 'payload'
+    upload_path = tmp_path / 'subdir' / 'myfile'
+    upload_url = f'ssh://localhost{upload_path}'
+    ops = SshUrlOperations()
+
+    # standard error if local source is not around
+    with pytest.raises(FileNotFoundError):
+        ops.upload(payload_path, upload_url)
+
+    payload_path.write_text(payload)
+    # TODO this should fail (parent dir for the upload missing)
+    ops.upload(payload_path, upload_url)
+    # TODO this just verifies that the above call should have failed
+    # because it did
+    assert upload_path.read_text() == payload
