@@ -196,7 +196,6 @@ from urllib.parse import (
     urlparse,
 )
 
-from datalad.consts import PRE_INIT_COMMIT_SHA
 from datalad.core.local.repo import repo_from_path
 from datalad.runner import (
     NoCapture,
@@ -216,6 +215,7 @@ from datalad_next.utils import (
     rmtree,
 )
 
+from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_envpatch,
