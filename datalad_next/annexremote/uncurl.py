@@ -166,6 +166,7 @@ Tips
 When multiple match expressions are defined, it is recommended to use unique
 names for each match-group to avoid collisions.
 """
+from __future__ import annotations
 
 from functools import partial
 import json
