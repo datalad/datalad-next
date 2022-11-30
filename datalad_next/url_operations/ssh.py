@@ -325,10 +325,6 @@ class _NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
         NoCapture.__init__(self, done_future, encoding)
         GeneratorMixIn.__init__(self, )
 
-    def pipe_data_received(self, fd: int, data: bytes):
-        assert fd == 1
-        self.send_result(data)
-
 
 class _StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
     def __init__(self, done_future=None, encoding=None):
