@@ -13,7 +13,11 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-from queue import Queue
+from queue import (
+    Full,
+    Queue,
+)
+
 from datalad.runner.protocol import WitlessProtocol
 from datalad.runner.coreprotocols import NoCapture
 
@@ -248,7 +252,6 @@ class SshUrlOperations(UrlOperations):
         # queue
         upload_queue = Queue(maxsize=2)
 
-        timeout = None
         ssh_cat = _SshCat(to_url)
         ssh_runner_generator = ssh_cat.run(
             # leave special exit code when writing fails, but not the
@@ -297,9 +300,9 @@ class SshUrlOperations(UrlOperations):
                     raise UrlTargetNotFound(to_url) from e
                 else:
                     raise AccessFailedError(str(e)) from e
-            except TimeoutError:
+            except (TimeoutError, Full):
                 ssh_runner_generator.runner.process.kill()
-                raise
+                raise TimeoutError
             finally:
                 self._progress_report_stop(progress_id, ('Finished upload',))
 
