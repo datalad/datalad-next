@@ -14,7 +14,7 @@ from typing import (
 from urllib.parse import urlparse
 
 from queue import Queue
-from datalad.runner.runner import WitlessRunner
+from datalad.runner.protocol import WitlessProtocol
 from datalad.runner.coreprotocols import NoCapture
 
 from datalad.runner import StdOutCapture
@@ -235,25 +235,20 @@ class SshUrlOperations(UrlOperations):
         # queue
         upload_queue = Queue(maxsize=2)
 
+        timeout = None
         ssh_cat = _SshCat(to_url)
-        try:
-            stream = ssh_cat.run(
-                # leave special exit code when writing fails, but not the
-                # general SSH access
-                #'cat > {fpath} || exit 244',
-                'cat > {fpath}',
-                protocol=_NoCaptureGeneratorProtocol,
-                stdin=upload_queue,
-            )
-        except CommandError as e:
-            if e.code == 244:
-                raise UrlTargetNotFound(to_url) from e
-            else:
-                raise AccessFailedError(str(e)) from e
+        ssh_runner_generator = ssh_cat.run(
+            # leave special exit code when writing fails, but not the
+            # general SSH access
+            'cat > {fpath} || exit 244',
+            protocol=_NoCaptureGeneratorProtocol,
+            stdin=upload_queue,
+            timeout=timeout,
+        )
 
         props = {}
         upload_size = 0
-        progress_id = self._get_progress_id(from_path, to_url)
+        progress_id = self._get_progress_id(str(from_path), to_url)
         with from_path.open("rb") as src_fp:
             # file is open, we can start progress tracking
             self._progress_report_start(
@@ -263,7 +258,7 @@ class SshUrlOperations(UrlOperations):
                 expected_size,
             )
             try:
-                while True:
+                while ssh_runner_generator.runner.process.poll() is None:
                     chunk = src_fp.read(COPY_BUFSIZE)
                     if chunk == b'':
                         break
@@ -274,14 +269,29 @@ class SshUrlOperations(UrlOperations):
                     # we are just putting stuff in the queue, and rely on
                     # its maxsize to cause it to block the next call to
                     # have the progress reports be anyhow valid
-                    upload_queue.put(chunk)
+                    upload_queue.put(chunk, timeout=timeout)
                     self._progress_report_update(
                         progress_id, ('Uploaded chunk',), chunk_size)
                     upload_size += chunk_size
                 # we're done, close queue
-                upload_queue.put(None)
+                upload_queue.put(None, timeout=timeout)
+
+                # Exhaust the generator, that might raise CommandError
+                # or TimeoutError, if timeout was not `None`.
+                tuple(ssh_runner_generator)
+            except CommandError as e:
+                if e.code == 244:
+                    raise UrlTargetNotFound(to_url) from e
+                else:
+                    raise AccessFailedError(str(e)) from e
+            except TimeoutError:
+                ssh_runner_generator.runner.process.kill()
+                raise
             finally:
                 self._progress_report_stop(progress_id, ('Finished upload',))
+
+            assert ssh_runner_generator.return_code == 0, "Unexpected ssh " \
+                f"return value: {ssh_runner_generator.return_code}"
 
             props.update(self._get_hash_report(hash, hasher))
             # return how much was copied. we could compare with
@@ -299,8 +309,12 @@ class _SshCat:
         assert self._parsed.path
         self.ssh_args: list[str] = list(additional_ssh_args)
 
-    def run(self, payload_cmd: str, protocol, stdin: Queue | None = None,
-    ) -> Any | Generator:
+    def run(self,
+            payload_cmd: str,
+            protocol: type[WitlessProtocol],
+            stdin: Queue | None = None,
+            timeout: float | None = None,
+            ) -> Any | Generator:
         fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
@@ -313,6 +327,7 @@ class _SshCat:
             cmd=cmd,
             protocol_class=protocol,
             stdin=stdin,
+            timeout=timeout,
         ).run()
 
 
@@ -323,14 +338,20 @@ class _SshCat:
 class _NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
     def __init__(self, done_future=None, encoding=None):
         NoCapture.__init__(self, done_future, encoding)
-        GeneratorMixIn.__init__(self, )
+        GeneratorMixIn.__init__(self)
+
+    def timeout(self, fd):
+        raise TimeoutError(f"Runner timeout: process has not terminated yet")
 
 
 class _StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
     def __init__(self, done_future=None, encoding=None):
         StdOutCapture.__init__(self, done_future, encoding)
-        GeneratorMixIn.__init__(self, )
+        GeneratorMixIn.__init__(self)
 
     def pipe_data_received(self, fd: int, data: bytes):
         assert fd == 1
         self.send_result(data)
+
+    def timeout(self, fd):
+        raise TimeoutError(f"Runner timeout {fd}")
