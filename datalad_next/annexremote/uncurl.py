@@ -1,50 +1,170 @@
 """
-Goals
+*uncurl* git-annex external special remote
+==========================================
 
-- Keep deposited data accessible without having to update (also deposited)
-  datalad datasets
+This implementation is a git-annex accessible interface to datalad-next's URL
+operations framework. It serves two main purposes:
 
-Identifiers can only come from URLs.
+1. Combine git-annex's capabilities of registering and accessing file content
+   via URLs with DataLad's access credential management and (additional or
+   alternative) transport protocol implementations.
 
-Q: are the standard identifiers (dsid, annex uuid) any good? They would never work
-in a template with checkurl(). But they would work, when uploading existing keys.
+2. Minimize the maintenance effort for datasets (primarily) composed from
+   content that is remotely accessible via URLs from systems other than
+   Datalad or git-annex in the event of an infrastructure transition
+   (e.g. moving to a different technical system or a different data
+   organization on a storage system).
 
-Setup
 
-It is enough to simply enable the remote in a dataset. But this is a special case
-similar to what the `datalad` special remote is doing. It can be used to
-employ this special remote as a download helper with datalad protocol and
-credential support.
+Download helper with credential management support
+--------------------------------------------------
 
-However, typically one would want to define a `match` expression to limit the
-handling of URL to a particular host, or data structures on one or more hosts.
+The simplest way to use this remote is to initialize it without any particular
+configuration::
 
-When different access methods are required to read from vs write to the same
-location, as second uncurl remote with sameas= must be configured.
+    $ git annex initremote uncurl type=external externaltype=uncurl encryption=none
+    initremote uncurl ok
+    (recording state in git...)
 
-Configuration
+Once initialized, or later enabled in a clone, ``git-annex addurl`` will check
+with the *uncurl* remote whether it can handle a particular URL, and will let
+the remote perform the download in case of positive response. By default, the
+remote will claim any URLs with a scheme that the local datalad-next
+installation supports. This always includes ``file://``, ``http://``, and
+``https://``, but is extensible, and a particular installation may also support
+``ssh://`` (by default when openssh is installed), or other schemes.
 
-- `remote.<remotename>.uncurl-url`
-- `remote.<remotename>.uncurl-match`
+With this setup, download requests now use DataLad's credential system for
+authentication. DataLad will automatically lookup matching credentials, prompt
+for manual entry if none are found, and offer to store them securely for later
+use after having used them successfully::
 
-Built-in URL components
+    $ git annex addurl http://httpbin.org/basic-auth/myuser/mypassword
+    Credential needed for access to http://httpbin.org/basic-auth/myuser/mypassword
+    user: myuser
+    password: 
+    password (repeat): 
+    Enter a name to save the credential
+    (sniffing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
+    re-use, or 'skip' to not save the credential
+    name: httpbin-dummy
 
-- `datalad_dsid` - the DataLad dataset ID (UUID)
-- `annex_dirhash` - "mixed" variant of the two level hash for a particular key
+    addurl http://httpbin.org/basic-auth/myuser/mypassword (from uncurl) (to ...) 
+    ok
+    (recording state in git...)
+
+By adding files via downloads from URLs in this fashion, datasets can be built
+that track information across a range of locations/services, using a possibly
+heterogeneous set of access methods.
+
+Transforming recorded URLs
+--------------------------
+
+The main benefit of using *uncurl* is, however, only revealed when the original
+snapshot of where data used to be accessible becomes invalid, maybe because
+data were moved to a different storage system, or simply a different host.
+
+This would typically require an update of each, now broken, access URL. For
+datasets with thousands or even millions of files this can be an expensive
+operation. For data portal operators providing a large number of datasets it is
+even more tedious.
+
+*uncurl* enables programmatic, on-access URL rewriting. This is similar, in
+spirit, to Git's ``url.<base>.insteadOf`` URL modification feature. However,
+modification possibilities reach substantially beyond replacing a base URL.
+
+This feature is based on two customizable settings: 1) a *URL template*; and
+2) a *set of match expressions* that extract additional identifiers
+from any recorded access URL for an annex key.
+
+Here is an example: Let's say a file in a dataset has a recorded access URL
+of::
+
+    https://data.example.org/c542/s7612_figure1.pdf
+
+We can let *uncurl* know that ``c542`` is actually an identifier for a
+particular collection of items in this data store. Likewise ``s7612`` is an
+identifier of a particular item in that collection, and ``figure1.pdf`` is the
+name of a component in that collection item. The following Python regular
+expression can be used to "decompose" the above URL into these semantic
+components::
+
+  (?P<site>https://[^/]+)/(?P<collection>c[^/]+)/(?P<item>s[^/]+)_(?P<component>.*)$
+
+This expression is not the most readable, but it basically chunks the URL
+into segments of ``(?P<name>...)``, so-called named groups (see a
+`live demo of this expression <https://www.debuggex.com/r/Aa1yua-awXBuqZ39>`__).
+
+This expression, and additional ones like it, can set as a configuration
+parameter of an *uncurl* remote setup. Extending the configuration established
+by the ``initremote`` call above::
+
+    $ git annex enableremote uncurl \\
+        'match=(?P<site>https://[^/]+)/(?P<collection>c[^/]+)/(?P<item>s[^/]+)_(?P<component>.*)$'
+
+The last argument is quoted to prevent it from being processed by the shell.
+
+With the match expression configured, URL rewriting can be enabled by declaring
+a URL template as another configuration item. The URL template uses the `Python
+Format String Syntax
+<https://docs.python.org/3/library/string.html#format-string-syntax>`__. If the
+new URL for the file above is now
+``http://newsite.net/ex-archive/c542_s7612_figure1.pdf``, we can declare
+the following URL template to have *uncurl* go to the new site::
+
+    http://newsite.net/ex-archive/{collection}_{item}_{component}
+
+This template references the identifiers of the named groups we defined in the
+match expression. Again, the URL template can be set via ``git annex
+enableremote``::
+
+    $ git annex enableremote uncurl \\
+        'url=http://newsite.net/ex-archive/{collection}_{item}_{component}'
+
+There is no need to separate the ``enableremote`` calls. Both configuration can
+be given at the same time. In fact, they can also be given to ``initremote``
+immediately.
+
+The three identifiers ``site``, ``collection``, ``item``, and ``component`` are
+actually a custom addition to a standard set of identifiers that are available
+for composing URLs via a template.
+
+- ``datalad_dsid`` - the DataLad dataset ID (UUID)
+- ``annex_dirhash`` - "mixed" variant of the two level hash for a particular key
   (uses POSIX directory separators, and included a trailing separator)
-- `annex_dirhash_lower` - "lower case" variant of the two level hash for a
+- ``annex_dirhash_lower`` - "lower case" variant of the two level hash for a
   particular key (uses POSIX directory separators, and included a trailing
   separator)
-- `annex_key` - git-annex key name for a request
-- `annex_remoteuuid` - UUID of the special remote (location) used by git-annex
-- `git_remotename` - Name of the Git remote for the uncurl special remote
+- ``annex_key`` - git-annex key name for a request
+- ``annex_remoteuuid`` - UUID of the special remote (location) used by git-annex
+- ``git_remotename`` - Name of the Git remote for the uncurl special remote
 
-Additional components can be defined by configuring `match` expression
-configurations that are evaluated on each recorded URL for any given git-annex
-key. It is recommended that each `match` expression uses unique match group
-identifiers to avoid value conflicts.
 
-https://docs.python.org/3/library/string.html#format-string-syntax
+Configuration overrides
+-----------------------
+
+Both match expressions and the URL template can also be configured in a dataset's
+configuration (committed branch configuration, or any Git configuration scope
+(local, global, system) using the following configuration item names:
+
+- ``remote.<remotename>.uncurl-url``
+- ``remote.<remotename>.uncurl-match``
+
+where ``<remotename>`` is the name of the special remote in the dataset.
+
+A URL template provided via configuration *overrides* one defined in the special
+remote setup via ``init/enableremote``.
+
+Match expressions defined as configuration items *extend* the set of match
+expressions that may be included in the special remote setup via
+``init/enableremote``. The ``remote.<remotename>.uncurl-match`` configuration
+item can be set as often as necessary (which one match expression each).
+
+Tips
+----
+
+When multiple match expressions are defined, it is recommended to use unique
+names for each match-group to avoid collisions.
 """
 
 from functools import partial
