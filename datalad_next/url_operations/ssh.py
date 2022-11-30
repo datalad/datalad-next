@@ -230,6 +230,13 @@ class SshUrlOperations(UrlOperations):
         ------
         ...
         """
+
+        if from_path is None:
+            raise ValueError(
+                "SshUrlOperations.upload() does not yet support "
+                "uploading from stdin"
+            )
+
         # die right away, if we lack read permissions or there is no file
         expected_size = from_path.stat().st_size
 
