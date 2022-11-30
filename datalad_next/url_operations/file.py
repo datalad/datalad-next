@@ -36,7 +36,11 @@ class FileUrlOperations(UrlOperations):
         path = request.url2pathname(parsed.path)
         return Path(path)
 
-    def sniff(self, url: str, *, credential: str = None) -> Dict:
+    def sniff(self,
+              url: str,
+              *,
+              credential: str | None = None,
+              timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
@@ -53,7 +57,7 @@ class FileUrlOperations(UrlOperations):
             if not k.startswith('_')
         }
 
-    def _sniff(self, url: str, credential: str = None) -> Dict:
+    def _sniff(self, url: str, credential: str | None = None) -> Dict:
         # turn url into a native path
         from_path = self._file_url_to_path(url)
         # if anything went wrong with the conversion, or we lack
@@ -74,8 +78,9 @@ class FileUrlOperations(UrlOperations):
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access
-                 credential: str = None,
-                 hash: str = None) -> Dict:
+                 credential: str | None = None,
+                 hash: list[str] | None = None,
+                 timeout: float | None = None) -> Dict:
         """Copy a file:// URL target to a local path
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
@@ -118,8 +123,9 @@ class FileUrlOperations(UrlOperations):
                from_path: Path | None,
                to_url: str,
                *,
-               credential: str = None,
-               hash: list[str] = None) -> Dict:
+               credential: str | None = None,
+               hash: list[str] | None = None,
+               timeout: float | None = None) -> Dict:
         """Copy a local file to a file:// URL target
 
         Any missing parent directories of the URL target are created as
