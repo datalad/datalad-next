@@ -80,3 +80,23 @@ def test_ssh_url_upload(tmp_path, monkeypatch):
     # because it did
     with pytest.raises(FileNotFoundError):
         assert upload_path.read_text() == payload
+
+
+def test_ssh_url_upload_timeout(tmp_path, monkeypatch):
+    payload = 'surprise!'
+    payload_path = tmp_path / 'payload'
+    payload_path.write_text(payload)
+
+    upload_url = f'ssh://localhost/not_used'
+    ssh_url_ops = SshUrlOperations()
+
+    def mocked_popen(*args, **kwargs):
+        from subprocess import Popen
+        args = (['sleep', '3'],) + args[1:]
+        return Popen(*args, **kwargs)
+
+    with monkeypatch.context() as mp_ctx:
+        import datalad
+        mp_ctx.setattr(datalad.runner.nonasyncrunner, "Popen", mocked_popen)
+        with pytest.raises(TimeoutError):
+            ssh_url_ops.upload(payload_path, upload_url, timeout=1)
