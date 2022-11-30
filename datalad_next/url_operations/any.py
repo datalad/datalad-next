@@ -75,7 +75,11 @@ class AnyUrlOperations(UrlOperations):
         scheme = self._get_url_scheme(url)
         return scheme in _urlscheme_handlers.keys()
 
-    def sniff(self, url: str, *, credential: str = None) -> Dict:
+    def sniff(self,
+              url: str,
+              *,
+              credential: str | None = None,
+              timeout: float | None = None) -> Dict:
         """Call `*UrlOperations.sniff()` for the respective URL scheme"""
         return self._get_handler(url).sniff(url, credential=credential)
 
@@ -83,8 +87,9 @@ class AnyUrlOperations(UrlOperations):
                  from_url: str,
                  to_path: Path | None,
                  *,
-                 credential: str = None,
-                 hash: str = None) -> Dict:
+                 credential: str | None = None,
+                 hash: list[str] | None = None,
+                 timeout: float | None = None) -> Dict:
         """Call `*UrlOperations.download()` for the respective URL scheme"""
         return self._get_handler(from_url).download(
             from_url, to_path, credential=credential, hash=hash)

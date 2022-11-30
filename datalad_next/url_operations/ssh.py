@@ -62,7 +62,11 @@ class SshUrlOperations(UrlOperations):
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
-    def sniff(self, url: str, *, credential: str = None) -> Dict:
+    def sniff(self,
+              url: str,
+              *,
+              credential: str | None = None,
+              timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
@@ -141,8 +145,9 @@ class SshUrlOperations(UrlOperations):
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access
-                 credential: str = None,
-                 hash: str = None) -> Dict:
+                 credential: str | None = None,
+                 hash: str | None = None,
+                 timeout: float | None = None) -> Dict:
         """Download a file by streaming it through an SSH connection.
 
         On the server-side, the file size is determined and sent. Afterwards
@@ -211,8 +216,9 @@ class SshUrlOperations(UrlOperations):
                from_path: Path | None,
                to_url: str,
                *,
-               credential: str = None,
-               hash: list[str] = None) -> Dict:
+               credential: str | None = None,
+               hash: list[str] | None = None,
+               timeout: float | None = None) -> Dict:
         """Upload a file by streaming it through an SSH connection.
 
         It, more or less, runs `ssh <host> 'cat > <path>'.
@@ -313,8 +319,7 @@ class _SshCat:
             payload_cmd: str,
             protocol: type[WitlessProtocol],
             stdin: Queue | None = None,
-            timeout: float | None = None,
-            ) -> Any | Generator:
+            timeout: float | None = None) -> Any | Generator:
         fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)

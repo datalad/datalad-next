@@ -41,14 +41,18 @@ class HttpUrlOperations(UrlOperations):
         'user-agent': user_agent('datalad', datalad.__version__),
     }
 
-    def get_headers(self, headers: Dict = None) -> Dict:
+    def get_headers(self, headers: Dict | None = None) -> Dict:
         # start with the default
         hdrs = dict(HttpUrlOperations._headers)
         if headers is not None:
             hdrs.update(headers)
         return hdrs
 
-    def sniff(self, url: str, *, credential: str = None) -> Dict:
+    def sniff(self,
+              url: str,
+              *,
+              credential: str | None = None,
+              timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
@@ -110,8 +114,9 @@ class HttpUrlOperations(UrlOperations):
                  from_url: str,
                  to_path: Path | None,
                  *,
-                 credential: str = None,
-                 hash: str = None) -> Dict:
+                 credential: str | None = None,
+                 hash: list[str] | None = None,
+                 timeout: float | None = None) -> Dict:
         """Download via HTTP GET request
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
@@ -226,7 +231,7 @@ class HttpUrlOperations(UrlOperations):
         return req.url, props
 
     def _stream_download_from_request(
-            self, r, to_path, hash: list[str] = None) -> Dict:
+            self, r, to_path, hash: list[str] | None = None) -> Dict:
         from_url = r.url
         hasher = self._get_hasher(hash)
         progress_id = self._get_progress_id(from_url, to_path)
