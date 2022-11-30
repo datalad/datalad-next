@@ -1,4 +1,5 @@
 import pytest
+
 from datalad_next.exceptions import (
     AccessFailedError,
     UrlTargetNotFound,
@@ -73,7 +74,9 @@ def test_ssh_url_upload(tmp_path, monkeypatch):
 
     payload_path.write_text(payload)
     # TODO this should fail (parent dir for the upload missing)
-    ops.upload(payload_path, upload_url)
+    with pytest.raises(UrlTargetNotFound):
+        ops.upload(payload_path, upload_url)
     # TODO this just verifies that the above call should have failed
     # because it did
-    assert upload_path.read_text() == payload
+    with pytest.raises(FileNotFoundError):
+        assert upload_path.read_text() == payload
