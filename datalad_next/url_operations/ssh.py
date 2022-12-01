@@ -42,7 +42,7 @@ __all__ = ['SshUrlOperations']
 
 
 class SshUrlOperations(UrlOperations):
-    """Handler for operations on `ssh://` URLs
+    """Handler for operations on ``ssh://`` URLs
 
     For downloading files, only servers that support execution of the commands
     'printf', 'ls -nl', 'awk', and 'cat' are supported. This includes a wide
@@ -225,7 +225,7 @@ class SshUrlOperations(UrlOperations):
                timeout: float | None = None) -> Dict:
         """Upload a file by streaming it through an SSH connection.
 
-        It, more or less, runs `ssh <host> 'cat > <path>'.
+        It, more or less, runs `ssh <host> 'cat > <path>'`.
 
         See :meth:`datalad_next.url_operations.UrlOperations.upload`
         for parameter documentation.
