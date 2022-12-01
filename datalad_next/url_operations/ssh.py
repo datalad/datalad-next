@@ -4,18 +4,29 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 import sys
+from itertools import chain
+from pathlib import Path
+from queue import (
+    Full,
+    Queue,
+)
 from typing import (
     Any,
     Dict,
     Generator,
+    IO,
 )
 from urllib.parse import urlparse
+
+from datalad.runner.protocol import WitlessProtocol
+from datalad.runner.coreprotocols import NoCapture
 
 from datalad.runner import StdOutCapture
 from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
+
+from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.exceptions import (
     AccessFailedError,
     CommandError,
@@ -32,7 +43,7 @@ __all__ = ['SshUrlOperations']
 
 
 class SshUrlOperations(UrlOperations):
-    """Handler for operations on `ssh://` URLs
+    """Handler for operations on ``ssh://`` URLs
 
     For downloading files, only servers that support execution of the commands
     'printf', 'ls -nl', 'awk', and 'cat' are supported. This includes a wide
@@ -56,7 +67,11 @@ class SshUrlOperations(UrlOperations):
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
-    def sniff(self, url: str, *, credential: str = None) -> Dict:
+    def sniff(self,
+              url: str,
+              *,
+              credential: str | None = None,
+              timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
@@ -94,8 +109,8 @@ class SshUrlOperations(UrlOperations):
         expected_size_str = b''
         expected_size = None
 
-        ssh_cat = SshCat(url)
-        stream = ssh_cat.run(cmd)
+        ssh_cat = _SshCat(url)
+        stream = ssh_cat.run(cmd, protocol=_StdOutCaptureGeneratorProtocol)
         for chunk in stream:
             if need_magic:
                 expected_magic = need_magic[:min(len(need_magic),
@@ -135,8 +150,9 @@ class SshUrlOperations(UrlOperations):
                  # unused, but theoretically could be used to
                  # obtain escalated/different privileges on a system
                  # to gain file access
-                 credential: str = None,
-                 hash: str = None) -> Dict:
+                 credential: str | None = None,
+                 hash: str | None = None,
+                 timeout: float | None = None) -> Dict:
         """Download a file by streaming it through an SSH connection.
 
         On the server-side, the file size is determined and sent. Afterwards
@@ -201,18 +217,128 @@ class SshUrlOperations(UrlOperations):
                 dst_fp.close()
             self._progress_report_stop(progress_id, ('Finished download',))
 
+    def upload(self,
+               from_path: Path | None,
+               to_url: str,
+               *,
+               credential: str | None = None,
+               hash: list[str] | None = None,
+               timeout: float | None = None) -> Dict:
+        """Upload a file by streaming it through an SSH connection.
 
-class _SshCatProtocol(StdOutCapture, GeneratorMixIn):
-    def __init__(self, done_future=None, encoding=None):
-        StdOutCapture.__init__(self, done_future, encoding)
-        GeneratorMixIn.__init__(self, )
+        It, more or less, runs `ssh <host> 'cat > <path>'`.
 
-    def pipe_data_received(self, fd: int, data: bytes):
-        assert fd == 1
-        self.send_result(data)
+        See :meth:`datalad_next.url_operations.UrlOperations.upload`
+        for parameter documentation.
+
+        Raises
+        ------
+        ...
+        """
+
+        if from_path is None:
+            source_name = '<STDIN>'
+            return self._perform_upload(
+                src_fp=sys.stdin.buffer,
+                source_name=source_name,
+                to_url=to_url,
+                hash_names=hash,
+                expected_size=None,
+                timeout=timeout,
+            )
+        else:
+            # die right away, if we lack read permissions or there is no file
+            with from_path.open("rb") as src_fp:
+                return self._perform_upload(
+                    src_fp=src_fp,
+                    source_name=from_path,
+                    to_url=to_url,
+                    hash_names=hash,
+                    expected_size=from_path.stat().st_size,
+                    timeout=timeout,
+                )
+
+    def _perform_upload(self,
+                        src_fp: IO,
+                        source_name: str,
+                        to_url: str,
+                        hash_names: list[str] | None,
+                        expected_size: int | None,
+                        timeout: int | None) -> dict:
+
+        hasher = self._get_hasher(hash_names)
+
+        # we limit the queue to few items in order to `make queue.put()`
+        # block relatively quickly, and thereby have the progress report
+        # actually track the upload, and not just the feeding of the
+        # queue
+        upload_queue = Queue(maxsize=2)
+
+        ssh_cat = _SshCat(to_url)
+        ssh_runner_generator = ssh_cat.run(
+            # leave special exit code when writing fails, but not the
+            # general SSH access
+            'cat > {fpath} || exit 244',
+            protocol=_NoCaptureGeneratorProtocol,
+            stdin=upload_queue,
+            timeout=timeout,
+        )
+
+        # file is open, we can start progress tracking
+        progress_id = self._get_progress_id(source_name, to_url)
+        self._progress_report_start(
+            progress_id,
+            ('Upload %s to %s', source_name, to_url),
+            'uploading',
+            expected_size,
+        )
+        try:
+            upload_size = 0
+            while ssh_runner_generator.runner.process.poll() is None:
+                chunk = src_fp.read(COPY_BUFSIZE)
+                if chunk == b'':
+                    break
+                chunk_size = len(chunk)
+                # compute hash simultaneously
+                for h in hasher:
+                    h.update(chunk)
+                # we are just putting stuff in the queue, and rely on
+                # its maxsize to cause it to block the next call to
+                # have the progress reports be anyhow valid
+                upload_queue.put(chunk, timeout=timeout)
+                self._progress_report_update(
+                    progress_id, ('Uploaded chunk',), chunk_size)
+                upload_size += chunk_size
+            # we're done, close queue
+            upload_queue.put(None, timeout=timeout)
+
+            # Exhaust the generator, that might raise CommandError
+            # or TimeoutError, if timeout was not `None`.
+            tuple(ssh_runner_generator)
+        except CommandError as e:
+            if e.code == 244:
+                raise UrlTargetNotFound(to_url) from e
+            else:
+                raise AccessFailedError(str(e)) from e
+        except (TimeoutError, Full):
+            ssh_runner_generator.runner.process.kill()
+            raise TimeoutError
+        finally:
+            self._progress_report_stop(progress_id, ('Finished upload',))
+
+        assert ssh_runner_generator.return_code == 0, "Unexpected ssh " \
+            f"return value: {ssh_runner_generator.return_code}"
+
+        return {
+            **self._get_hash_report(hash_names, hasher),
+            # return how much was copied. we could compare with
+            # `expected_size` and error on mismatch, but not all
+            # sources can provide that (e.g. stdin)
+            'content-length': upload_size
+        }
 
 
-class SshCat:
+class _SshCat:
     def __init__(self, url: str, *additional_ssh_args):
         self._parsed = urlparse(url)
         # make sure the essential pieces exist
@@ -220,7 +346,11 @@ class SshCat:
         assert self._parsed.path
         self.ssh_args: list[str] = list(additional_ssh_args)
 
-    def run(self, payload_cmd) -> Any | Generator:
+    def run(self,
+            payload_cmd: str,
+            protocol: type[WitlessProtocol],
+            stdin: Queue | None = None,
+            timeout: float | None = None) -> Any | Generator:
         fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
@@ -231,6 +361,33 @@ class SshCat:
         ])
         return ThreadedRunner(
             cmd=cmd,
-            protocol_class=_SshCatProtocol,
-            stdin=None,
+            protocol_class=protocol,
+            stdin=stdin,
+            timeout=timeout,
         ).run()
+
+
+#
+# Below are generic generator protocols that should be provided
+# upstream
+#
+class _NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
+    def __init__(self, done_future=None, encoding=None):
+        NoCapture.__init__(self, done_future, encoding)
+        GeneratorMixIn.__init__(self)
+
+    def timeout(self, fd):
+        raise TimeoutError(f"Runner timeout: process has not terminated yet")
+
+
+class _StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
+    def __init__(self, done_future=None, encoding=None):
+        StdOutCapture.__init__(self, done_future, encoding)
+        GeneratorMixIn.__init__(self)
+
+    def pipe_data_received(self, fd: int, data: bytes):
+        assert fd == 1
+        self.send_result(data)
+
+    def timeout(self, fd):
+        raise TimeoutError(f"Runner timeout {fd}")

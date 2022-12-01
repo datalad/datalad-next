@@ -45,7 +45,11 @@ class UrlOperations:
             self._cfg = datalad.cfg
         return self._cfg
 
-    def sniff(self, url: str, *, credential: str = None) -> Dict:
+    def sniff(self,
+              url: str,
+              *,
+              credential: str | None = None,
+              timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         Returns
@@ -68,7 +72,10 @@ class UrlOperations:
           Implementations that can distinguish a general "connection error"
           from an absent download target raise `AccessFailedError` for
           connection errors, and `UrlTargetNotFound` for download targets
-          found absent after a conenction was established successfully.
+          found absent after a connection was established successfully.
+        TimeoutError
+          If `timeout` is given and the operation does not complete within the
+          number of seconds that a specified by `timeout`.
         """
         raise NotImplementedError
 
@@ -76,8 +83,9 @@ class UrlOperations:
                  from_url: str,
                  to_path: Path | None,
                  *,
-                 credential: str = None,
-                 hash: list[str] = None) -> Dict:
+                 credential: str | None = None,
+                 hash: list[str] | None = None,
+                 timeout: float | None = None) -> Dict:
         """Download from a URL to a local file or stream to stdout
 
         Parameters
@@ -99,6 +107,10 @@ class UrlOperations:
           `hashlib` module. A corresponding hash will be computed simultaenous
           to the download (without reading the data twice), and included
           in the return value.
+        timeout: float, optional
+          If given, specifies a timeout in seconds. If the operation is not
+          completed within this time, it will raise a `TimeoutError`-exception.
+          If timeout is None, the operation will never timeout.
 
         Returns
         -------
@@ -122,6 +134,9 @@ class UrlOperations:
           from an absent download target raise `AccessFailedError` for
           connection errors, and `UrlTargetNotFound` for download targets
           found absent after a conenction was established successfully.
+        TimeoutError
+          If `timeout` is given and the operation does not complete within the
+          number of seconds that a specified by `timeout`.
         """
         raise NotImplementedError
 
@@ -129,8 +144,9 @@ class UrlOperations:
                from_path: Path | None,
                to_url: str,
                *,
-               credential: str = None,
-               hash: list[str] = None) -> Dict:
+               credential: str | None = None,
+               hash: list[str] | None = None,
+               timeout: float | None = None) -> Dict:
         """Upload from a local file or stream to a URL
 
         Parameters
@@ -153,6 +169,10 @@ class UrlOperations:
           `hashlib` module. A corresponding hash will be computed simultaenous
           to the upload (without reading the data twice), and included
           in the return value.
+        timeout: float, optional
+          If given, specifies a timeout in seconds. If the operation is not
+          completed within this time, it will raise a `TimeoutError`-exception.
+          If timeout is None, the operation will never timeout.
 
         Returns
         -------
@@ -166,6 +186,9 @@ class UrlOperations:
         ------
         FileNotFoundError
           If the source file cannot be found.
+        TimeoutError
+          If `timeout` is given and the operation does not complete within the
+          number of seconds that a specified by `timeout`.
         """
         raise NotImplementedError
 
@@ -201,7 +224,7 @@ class UrlOperations:
             noninteractive_level=logging.DEBUG,
         )
 
-    def _get_hasher(self, hash: list[str]) -> list:
+    def _get_hasher(self, hash: list[str] | None) -> list[callable]:
         if not hash:
             return []
 
@@ -216,7 +239,9 @@ class UrlOperations:
             _hasher.append(hr())
         return _hasher
 
-    def _get_hash_report(self, hash_names: list[str], hashers: list) -> Dict:
+    def _get_hash_report(self,
+                         hash_names: list[str] | None,
+                         hashers: list) -> Dict:
         if not hash_names:
             return {}
         else:

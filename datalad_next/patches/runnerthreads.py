@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import logging
-try:
-    from shutil import COPY_BUFSIZE
-except ImportError:
-    # too old
-    from datalad_next.utils import on_windows
-    # from PY3.10
-    COPY_BUFSIZE = 1024 * 1024 if on_windows else 64 * 1024
+
 from datalad.runner import runnerthreads as mod_runnerthreads
+
+from datalad_next.consts import COPY_BUFSIZE
 
 # use same logger as -core, looks weird but is correct
 lgr = logging.getLogger('datalad.runner.runnerthreads')

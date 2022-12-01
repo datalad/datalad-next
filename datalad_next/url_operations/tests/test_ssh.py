@@ -1,4 +1,7 @@
+import io
+
 import pytest
+
 from datalad_next.exceptions import (
     AccessFailedError,
     UrlTargetNotFound,
@@ -15,7 +18,7 @@ from ..ssh import SshUrlOperations
 # SshUrlOperations does not work against a windows server
 # and the test uses 'localhost' as target
 @skip_ssh
-def test_ssh_url_operations(tmp_path, monkeypatch):
+def test_ssh_url_download(tmp_path, monkeypatch):
     test_path = tmp_path / 'myfile'
     test_url = f'ssh://localhost{test_path}'
     ops = SshUrlOperations()
@@ -53,3 +56,70 @@ def test_ssh_url_operations(tmp_path, monkeypatch):
     # this is different for a general connection error
     with pytest.raises(AccessFailedError):
         ops.download(f'ssh://localhostnotaround{test_path}', download_path)
+
+
+# path magic inside the test is posix only
+@skip_if_on_windows
+# SshUrlOperations does not work against a windows server
+# and the test uses 'localhost' as target
+@skip_ssh
+def test_ssh_url_upload(tmp_path, monkeypatch):
+    payload = 'surprise!'
+    payload_path = tmp_path / 'payload'
+    upload_path = tmp_path / 'subdir' / 'myfile'
+    upload_url = f'ssh://localhost{upload_path}'
+    ops = SshUrlOperations()
+
+    # standard error if local source is not around
+    with pytest.raises(FileNotFoundError):
+        ops.upload(payload_path, upload_url)
+
+    payload_path.write_text(payload)
+    # TODO this should fail (parent dir for the upload missing)
+    with pytest.raises(UrlTargetNotFound):
+        ops.upload(payload_path, upload_url)
+    # TODO this just verifies that the above call should have failed
+    # because it did
+    with pytest.raises(FileNotFoundError):
+        assert upload_path.read_text() == payload
+
+
+# SshUrlOperations does not work against a windows server
+# and the test uses 'localhost' as target
+@skip_ssh
+def test_ssh_url_upload_from_stdin(tmp_path, monkeypatch):
+    payload = 'surprise!'
+    upload_path = tmp_path / 'uploaded.txt'
+    upload_url = f'ssh://localhost{upload_path}'
+    ops = SshUrlOperations()
+
+    class StdinBufferMock:
+        def __init__(self, byte_stream: bytes):
+            self.buffer = io.BytesIO(byte_stream)
+
+    with monkeypatch.context() as mp_ctx:
+        mp_ctx.setattr('sys.stdin', StdinBufferMock(payload.encode()))
+        ops.upload(None, upload_url)
+
+    assert upload_path.exists()
+    assert upload_path.read_text() == payload
+
+
+def test_ssh_url_upload_timeout(tmp_path, monkeypatch):
+    payload = 'surprise!'
+    payload_path = tmp_path / 'payload'
+    payload_path.write_text(payload)
+
+    upload_url = f'ssh://localhost/not_used'
+    ssh_url_ops = SshUrlOperations()
+
+    def mocked_popen(*args, **kwargs):
+        from subprocess import Popen
+        args = (['sleep', '3'],) + args[1:]
+        return Popen(*args, **kwargs)
+
+    with monkeypatch.context() as mp_ctx:
+        import datalad
+        mp_ctx.setattr(datalad.runner.nonasyncrunner, "Popen", mocked_popen)
+        with pytest.raises(TimeoutError):
+            ssh_url_ops.upload(payload_path, upload_url, timeout=1)
