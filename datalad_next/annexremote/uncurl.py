@@ -15,6 +15,11 @@ operations framework. It serves two main purposes:
    (e.g. moving to a different technical system or a different data
    organization on a storage system).
 
+Requirements
+------------
+
+This special remote implementation requires git-annex version 8.20210127 (or
+later) to be available.
 
 Download helper with credential management support
 --------------------------------------------------
@@ -56,6 +61,13 @@ use after having used them successfully::
 By adding files via downloads from URLs in this fashion, datasets can be built
 that track information across a range of locations/services, using a possibly
 heterogeneous set of access methods.
+
+This feature is very similar to the ``datalad`` special remote implementation
+included in the core DataLad package. The difference here is that alternative
+implementations of downloaders are employed and the ``datalad-next`` credential
+system is used instead of the "providers" mechanism from DataLad's core
+package.
+
 
 Transforming recorded URLs
 --------------------------
