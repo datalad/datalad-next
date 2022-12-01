@@ -3,6 +3,7 @@ import pytest
 import re
 
 from datalad_next.tests.utils import (
+    skip_if_on_windows,
     with_tempfile,
     with_tree,
 )
@@ -161,6 +162,9 @@ def test_uncurl(wdir=None, archive_path=None):
     dsca(['fsck', '-q', '-f', 'myuncurl'])
 
 
+# RIA tooling is not working for this test on windows
+# https://github.com/datalad/datalad/issues/7212
+@skip_if_on_windows
 def test_uncurl_ria_access(tmp_path):
     """
     - create dataset with test file and push into RIA store
@@ -223,7 +227,9 @@ def test_uncurl_ria_access(tmp_path):
 
     # now we drop the key...
     ds.drop(target_fname, **res_kwargs)
-    assert not (ds.pathobj / target_fname).exists()
+    assert not ds.status(
+        target_fname, annex='availability', return_type='item-or-list',
+        **res_kwargs)['has_content']
     # ...and we move the RIA store to break the recorded
     # URL (simulating an infrastructure change)
     (tmp_path / 'ria').rename(tmp_path / 'ria_moved')
@@ -246,7 +252,9 @@ def test_uncurl_ria_access(tmp_path):
 
     # but we can also do without hard-coding anything, so let's drop again
     ds.drop(target_fname, **res_kwargs)
-    assert not (ds.pathobj / target_fname).exists()
+    assert not ds.status(
+        target_fname, annex='availability', return_type='item-or-list',
+        **res_kwargs)['has_content']
 
     # for that we need to add a match expression that can "understand"
     # the original URL. All we need is to distinguish the old base path
