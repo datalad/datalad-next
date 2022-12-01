@@ -79,6 +79,16 @@ Git-annex backends
    xdlra
 
 
+Git-annex special remotes
+-------------------------
+
+.. currentmodule:: datalad_next.annexremote
+.. autosummary::
+   :toctree: generated
+
+   uncurl
+
+
 Indices and tables
 ==================
 
