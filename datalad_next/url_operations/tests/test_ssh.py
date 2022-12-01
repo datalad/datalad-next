@@ -1,3 +1,5 @@
+import io
+
 import pytest
 
 from datalad_next.exceptions import (
@@ -80,6 +82,27 @@ def test_ssh_url_upload(tmp_path, monkeypatch):
     # because it did
     with pytest.raises(FileNotFoundError):
         assert upload_path.read_text() == payload
+
+
+# SshUrlOperations does not work against a windows server
+# and the test uses 'localhost' as target
+@skip_ssh
+def test_ssh_url_upload_from_stdin(tmp_path, monkeypatch):
+    payload = 'surprise!'
+    upload_path = tmp_path / 'uploaded.txt'
+    upload_url = f'ssh://localhost{upload_path}'
+    ops = SshUrlOperations()
+
+    class StdinBufferMock:
+        def __init__(self, byte_stream: bytes):
+            self.buffer = io.BytesIO(byte_stream)
+
+    with monkeypatch.context() as mp_ctx:
+        mp_ctx.setattr('sys.stdin', StdinBufferMock(payload.encode()))
+        ops.upload(None, upload_url)
+
+    assert upload_path.exists()
+    assert upload_path.read_text() == payload
 
 
 def test_ssh_url_upload_timeout(tmp_path, monkeypatch):

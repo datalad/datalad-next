@@ -224,7 +224,7 @@ class UrlOperations:
             noninteractive_level=logging.DEBUG,
         )
 
-    def _get_hasher(self, hash: list[str] | None) -> list:
+    def _get_hasher(self, hash: list[str] | None) -> list[callable]:
         if not hash:
             return []
 

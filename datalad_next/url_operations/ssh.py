@@ -4,19 +4,20 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 import sys
-from typing import (
-    Any,
-    Dict,
-    Generator,
-)
-from urllib.parse import urlparse
-
+from itertools import chain
+from pathlib import Path
 from queue import (
     Full,
     Queue,
 )
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    IO,
+)
+from urllib.parse import urlparse
 
 from datalad.runner.protocol import WitlessProtocol
 from datalad.runner.coreprotocols import NoCapture
@@ -236,15 +237,36 @@ class SshUrlOperations(UrlOperations):
         """
 
         if from_path is None:
-            raise ValueError(
-                "SshUrlOperations.upload() does not yet support "
-                "uploading from stdin"
+            source_name = '<STDIN>'
+            return self._perform_upload(
+                src_fp=sys.stdin.buffer,
+                source_name=source_name,
+                to_url=to_url,
+                hash_names=hash,
+                expected_size=None,
+                timeout=timeout,
             )
+        else:
+            # die right away, if we lack read permissions or there is no file
+            with from_path.open("rb") as src_fp:
+                return self._perform_upload(
+                    src_fp=src_fp,
+                    source_name=from_path,
+                    to_url=to_url,
+                    hash_names=hash,
+                    expected_size=from_path.stat().st_size,
+                    timeout=timeout,
+                )
 
-        # die right away, if we lack read permissions or there is no file
-        expected_size = from_path.stat().st_size
+    def _perform_upload(self,
+                        src_fp: IO,
+                        source_name: str,
+                        to_url: str,
+                        hash_names: list[str] | None,
+                        expected_size: int | None,
+                        timeout: int | None) -> dict:
 
-        hasher = self._get_hasher(hash)
+        hasher = self._get_hasher(hash_names)
 
         # we limit the queue to few items in order to `make queue.put()`
         # block relatively quickly, and thereby have the progress report
@@ -262,59 +284,58 @@ class SshUrlOperations(UrlOperations):
             timeout=timeout,
         )
 
-        props = {}
-        upload_size = 0
-        progress_id = self._get_progress_id(str(from_path), to_url)
-        with from_path.open("rb") as src_fp:
-            # file is open, we can start progress tracking
-            self._progress_report_start(
-                progress_id,
-                ('Upload %s to %s', from_path, to_url),
-                'uploading',
-                expected_size,
-            )
-            try:
-                while ssh_runner_generator.runner.process.poll() is None:
-                    chunk = src_fp.read(COPY_BUFSIZE)
-                    if chunk == b'':
-                        break
-                    chunk_size = len(chunk)
-                    # compute hash simultaneously
-                    for h in hasher:
-                        h.update(chunk)
-                    # we are just putting stuff in the queue, and rely on
-                    # its maxsize to cause it to block the next call to
-                    # have the progress reports be anyhow valid
-                    upload_queue.put(chunk, timeout=timeout)
-                    self._progress_report_update(
-                        progress_id, ('Uploaded chunk',), chunk_size)
-                    upload_size += chunk_size
-                # we're done, close queue
-                upload_queue.put(None, timeout=timeout)
+        # file is open, we can start progress tracking
+        progress_id = self._get_progress_id(source_name, to_url)
+        self._progress_report_start(
+            progress_id,
+            ('Upload %s to %s', source_name, to_url),
+            'uploading',
+            expected_size,
+        )
+        try:
+            upload_size = 0
+            while ssh_runner_generator.runner.process.poll() is None:
+                chunk = src_fp.read(COPY_BUFSIZE)
+                if chunk == b'':
+                    break
+                chunk_size = len(chunk)
+                # compute hash simultaneously
+                for h in hasher:
+                    h.update(chunk)
+                # we are just putting stuff in the queue, and rely on
+                # its maxsize to cause it to block the next call to
+                # have the progress reports be anyhow valid
+                upload_queue.put(chunk, timeout=timeout)
+                self._progress_report_update(
+                    progress_id, ('Uploaded chunk',), chunk_size)
+                upload_size += chunk_size
+            # we're done, close queue
+            upload_queue.put(None, timeout=timeout)
 
-                # Exhaust the generator, that might raise CommandError
-                # or TimeoutError, if timeout was not `None`.
-                tuple(ssh_runner_generator)
-            except CommandError as e:
-                if e.code == 244:
-                    raise UrlTargetNotFound(to_url) from e
-                else:
-                    raise AccessFailedError(str(e)) from e
-            except (TimeoutError, Full):
-                ssh_runner_generator.runner.process.kill()
-                raise TimeoutError
-            finally:
-                self._progress_report_stop(progress_id, ('Finished upload',))
+            # Exhaust the generator, that might raise CommandError
+            # or TimeoutError, if timeout was not `None`.
+            tuple(ssh_runner_generator)
+        except CommandError as e:
+            if e.code == 244:
+                raise UrlTargetNotFound(to_url) from e
+            else:
+                raise AccessFailedError(str(e)) from e
+        except (TimeoutError, Full):
+            ssh_runner_generator.runner.process.kill()
+            raise TimeoutError
+        finally:
+            self._progress_report_stop(progress_id, ('Finished upload',))
 
-            assert ssh_runner_generator.return_code == 0, "Unexpected ssh " \
-                f"return value: {ssh_runner_generator.return_code}"
+        assert ssh_runner_generator.return_code == 0, "Unexpected ssh " \
+            f"return value: {ssh_runner_generator.return_code}"
 
-            props.update(self._get_hash_report(hash, hasher))
+        return {
+            **self._get_hash_report(hash_names, hasher),
             # return how much was copied. we could compare with
             # `expected_size` and error on mismatch, but not all
             # sources can provide that (e.g. stdin)
-            props['content-length'] = upload_size
-            return props
+            'content-length': upload_size
+        }
 
 
 class _SshCat:
