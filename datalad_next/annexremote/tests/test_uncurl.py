@@ -241,8 +241,9 @@ def test_uncurl_ria_access(tmp_path):
     # fix it via an access URL config,
     # point directly via a hard-coded dataset ID
     # NOTE: last line is no f-string!
-    url_tmpl = f'{(tmp_path / "ria_moved").as_uri()}/{srcds.id[:3]}/{srcds.id[3:]}' \
-        + '/annex/objects/{annex_dirhash}/{annex_key}/{annex_key}'
+    url_tmpl = (
+        tmp_path / "ria_moved" / srcds.id[:3] / srcds.id[3:]
+        ).as_uri() + '/annex/objects/{annex_dirhash}/{annex_key}/{annex_key}'
     ds.configuration(
         'set', f'remote.myuncurl.uncurl-url={url_tmpl}', **res_kwargs)
     # confirm checkpresent acknowledges this
@@ -266,7 +267,7 @@ def test_uncurl_ria_access(tmp_path):
         'file://(?P<basepath>.*)/(?P<dsdir>[^/]+/[^/]+)/annex/objects/.*$',
         **res_kwargs)
     # NOTE: last line is no f-string!
-    url_tmpl = f'{(tmp_path / "ria_moved").as_uri()}' \
+    url_tmpl = (tmp_path / "ria_moved").as_uri() \
         + '/{dsdir}/annex/objects/{annex_dirhash}/{annex_key}/{annex_key}'
     ds.configuration(
         'set', f'remote.myuncurl.uncurl-url={url_tmpl}', **res_kwargs)
