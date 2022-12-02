@@ -8,10 +8,15 @@ from datalad_next.tests.utils import (
     with_tree,
 )
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.exceptions import IncompleteResultsError
+from datalad_next.exceptions import (
+    CommandError,
+    DownloadError,
+    IncompleteResultsError,
+)
 from datalad_next.url_operations.any import AnyUrlOperations
 
 from ..uncurl import (
+    RemoteError,
     UncurlRemote,
     UnsupportedRequest,
 )
@@ -40,18 +45,34 @@ class NoOpAnnex:
         pass
 
 
-def test_uncurl_store(tmp_path):
-    # not yet
-    r = UncurlRemote(NoOpAnnex())
-    with pytest.raises(UnsupportedRequest):
-        r.transfer_store(None, None)
-
-
 def test_uncurl_remove(tmp_path):
     # not yet
     r = UncurlRemote(NoOpAnnex())
     with pytest.raises(UnsupportedRequest):
         r.remove(None)
+
+
+def test_uncurl_transfer_store():
+    r = UncurlRemote(NoOpAnnex())
+    # whenever there is not template configured
+    with pytest.raises(UnsupportedRequest):
+        r.transfer_store(None, None)
+
+
+def test_uncurl_checktretrieve():
+
+    def handler(url):
+        raise DownloadError()
+
+    def get_urls(key):
+        return 'some'
+
+    r = UncurlRemote(NoOpAnnex())
+    r.get_key_urls = get_urls
+
+    # we raise the correct RemoteError and not the underlying DownloadError
+    with pytest.raises(RemoteError):
+        r._check_retrieve('somekey', handler, ('blow', 'here'))
 
 
 def test_uncurl_claimurl(tmp_path):
