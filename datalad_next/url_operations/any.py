@@ -81,7 +81,8 @@ class AnyUrlOperations(UrlOperations):
               credential: str | None = None,
               timeout: float | None = None) -> Dict:
         """Call `*UrlOperations.sniff()` for the respective URL scheme"""
-        return self._get_handler(url).sniff(url, credential=credential)
+        return self._get_handler(url).sniff(
+            url, credential=credential, timeout=timeout)
 
     def download(self,
                  from_url: str,
@@ -92,4 +93,5 @@ class AnyUrlOperations(UrlOperations):
                  timeout: float | None = None) -> Dict:
         """Call `*UrlOperations.download()` for the respective URL scheme"""
         return self._get_handler(from_url).download(
-            from_url, to_path, credential=credential, hash=hash)
+            from_url, to_path, credential=credential, hash=hash,
+            timeout=timeout)
