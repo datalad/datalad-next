@@ -75,13 +75,14 @@ def test_ssh_url_upload(tmp_path, monkeypatch):
         ops.upload(payload_path, upload_url)
 
     payload_path.write_text(payload)
-    # TODO this should fail (parent dir for the upload missing)
-    with pytest.raises(UrlTargetNotFound):
-        ops.upload(payload_path, upload_url)
-    # TODO this just verifies that the above call should have failed
-    # because it did
-    with pytest.raises(FileNotFoundError):
-        assert upload_path.read_text() == payload
+    # upload creates parent dirs, so the next just works.
+    # this may seem strange for SSH, but FILE does it too.
+    # likewise an HTTP upload is also not required to establish
+    # server-side preconditions first.
+    # this functionality is not about about exposing a full
+    # remote FS abstraction -- just upload
+    ops.upload(payload_path, upload_url)
+    assert upload_path.read_text() == payload
 
 
 # SshUrlOperations does not work against a windows server

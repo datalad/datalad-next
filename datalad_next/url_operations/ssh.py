@@ -6,7 +6,10 @@ from __future__ import annotations
 import logging
 import sys
 from itertools import chain
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 from queue import (
     Full,
     Queue,
@@ -278,7 +281,7 @@ class SshUrlOperations(UrlOperations):
         ssh_runner_generator = ssh_cat.run(
             # leave special exit code when writing fails, but not the
             # general SSH access
-            'cat > {fpath} || exit 244',
+            "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244",
             protocol=_NoCaptureGeneratorProtocol,
             stdin=upload_queue,
             timeout=timeout,
@@ -357,7 +360,10 @@ class _SshCat:
         cmd.extend([
             '-e', 'none',
             self._parsed.hostname,
-            payload_cmd.format(fpath=fpath),
+            payload_cmd.format(
+                fdir=str(PurePosixPath(fpath).parent),
+                fpath=fpath,
+            ),
         ])
         return ThreadedRunner(
             cmd=cmd,
