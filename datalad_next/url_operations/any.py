@@ -95,3 +95,15 @@ class AnyUrlOperations(UrlOperations):
         return self._get_handler(from_url).download(
             from_url, to_path, credential=credential, hash=hash,
             timeout=timeout)
+
+    def upload(self,
+               from_path: Path | None,
+               to_url: str,
+               *,
+               credential: str | None = None,
+               hash: list[str] | None = None,
+               timeout: float | None = None) -> Dict:
+        """Call `*UrlOperations.upload()` for the respective URL scheme"""
+        return self._get_handler(to_url).upload(
+            from_path, to_url, credential=credential, hash=hash,
+            timeout=timeout)
