@@ -195,6 +195,7 @@ from datalad.dataset.gitrepo import GitRepo
 from datalad_next.exceptions import (
     CapturedException,
     DownloadError,
+    UrlTargetNotFound,
 )
 from datalad_next.url_operations.any import AnyUrlOperations
 from datalad_next.utils import ensure_list
@@ -451,6 +452,10 @@ class UncurlRemote(SpecialRemote):
                 handler(url)
                 # we succeeded, no need to try again
                 return True
+            except UrlTargetNotFound:
+                # general system access worked, but at the key location is nothing
+                # to be found
+                return False
             except DownloadError as e:
                 # TODO subject to change due to
                 # https://github.com/datalad/datalad-next/issues/154
