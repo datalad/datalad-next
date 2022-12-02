@@ -2,7 +2,9 @@ from pathlib import Path
 import pytest
 import re
 
+from datalad_next.utils import on_windows
 from datalad_next.tests.utils import (
+    skip_ssh,
     skip_if_on_windows,
     with_tempfile,
     with_tree,
@@ -286,14 +288,86 @@ def test_uncurl_ria_access(tmp_path):
         'set',
         'remote.myuncurl.uncurl-match='
         'file://(?P<basepath>.*)/(?P<dsdir>[^/]+/[^/]+)/annex/objects/.*$',
-        **res_kwargs)
+        scope='local', **res_kwargs)
     # NOTE: last line is no f-string!
     url_tmpl = (tmp_path / "ria_moved").as_uri() \
         + '/{dsdir}/annex/objects/{annex_dirhash}/{annex_key}/{annex_key}'
     ds.configuration(
-        'set', f'remote.myuncurl.uncurl-url={url_tmpl}', **res_kwargs)
+        'set', f'remote.myuncurl.uncurl-url={url_tmpl}',
+        scope='local', **res_kwargs)
     # confirm checkpresent acknowledges this
     dsca(['fsck', '-q', '-f', 'myuncurl'])
     # confirm transfer_retrieve acknowledges this
     ds.get(target_fname, **res_kwargs)
     assert (ds.pathobj / target_fname).read_text() == testfile_content
+
+
+def test_uncurl_store(tmp_path):
+    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+    testfile = ds.pathobj / 'testfile1.txt'
+    testfile_content = 'uppytyup!'
+    testfile.write_text(testfile_content)
+    ds.save(**res_kwargs)
+    dsca = ds.repo.call_annex
+    # init the remote with a template that places keys in the same structure
+    # as annex/objects within a bare remote repo
+    dsca(['initremote', 'myuncurl'] + std_initargs + [
+        # intentional double-braces at the end to get templates into the template
+        f'url={(tmp_path / "upload").as_uri()}/{{annex_dirhash_lower}}{{annex_key}}/{{annex_key}}',
+    ])
+    # store file at remote
+    dsca(['copy', '-t', 'myuncurl', str(testfile)])
+    # let remote verify presence
+    dsca(['fsck', '-q', '-f', 'myuncurl'])
+    # doublecheck
+    testfile_props = ds.status(testfile, annex='basic',
+                               return_type='item-or-list', **res_kwargs)
+    assert (tmp_path / "upload" / testfile_props['hashdirlower'] /
+            testfile_props['key'] / testfile_props['key']
+        ).read_text() == testfile_content
+    # we have no URLs recorded
+    assert all(not v['urls']
+               for v in ds.repo.whereis(str(testfile), output='full').values())
+    # yet we can retrieve via uncurl, because local key properties are enough
+    # to fill the template
+    ds.drop(testfile, **res_kwargs)
+    assert not ds.status(
+        testfile, annex='availability', return_type='item-or-list',
+        **res_kwargs)['has_content']
+    dsca(['copy', '-f', 'myuncurl', str(testfile)])
+    assert testfile.read_text() == testfile_content
+
+    if on_windows:
+        # remaining bits assume POSIX FS
+        return
+
+    ds.config.set(
+        'remote.myuncurl.uncurl-url',
+        # same as above, but root with no write-permissions
+        'file:///youshallnotpass/{annex_dirhash_lower}{annex_key}/{annex_key}',
+        scope='local',
+    )
+    with pytest.raises(CommandError):
+        dsca(['fsck', '-q', '-f', 'myuncurl'])
+    with pytest.raises(CommandError) as exc:
+        dsca(['copy', '-t', 'myuncurl', str(testfile)])
+
+
+@skip_ssh
+def test_uncurl_store_via_ssh(tmp_path):
+    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+    testfile = ds.pathobj / 'testfile1.txt'
+    testfile_content = 'uppytyup!'
+    testfile.write_text(testfile_content)
+    ds.save(**res_kwargs)
+    dsca = ds.repo.call_annex
+    # init the remote with a template that places keys in the same structure
+    # as annex/objects within a bare remote repo
+    dsca(['initremote', 'myuncurl'] + std_initargs + [
+        # intentional double-braces at the end to get templates into the template
+        f'url={(tmp_path / "upload").as_uri().replace("file://", "ssh://localhost")}/{{annex_key}}',
+    ])
+    # store file at remote
+    dsca(['copy', '-t', 'myuncurl', str(testfile)])
+    # let remote verify presence
+    dsca(['fsck', '-q', '-f', 'myuncurl'])
