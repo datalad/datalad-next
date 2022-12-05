@@ -152,6 +152,16 @@ for composing URLs via a template.
 - ``git_remotename`` - Name of the Git remote for the uncurl special remote
 
 
+Uploading content
+-----------------
+
+The *uncurl* special remote can upload file content or store annex keys
+via supported URL schemes whenever a URL template is define. At minimum,
+storing at ``file://`` and ``ssh://`` URLs is supported. But other URL
+scheme handlers with upload support may be available at a local DataLad
+installation.
+
+
 Configuration overrides
 -----------------------
 
@@ -195,6 +205,7 @@ from datalad.dataset.gitrepo import GitRepo
 from datalad_next.exceptions import (
     CapturedException,
     DownloadError,
+    UrlTargetNotFound,
 )
 from datalad_next.url_operations.any import AnyUrlOperations
 from datalad_next.utils import ensure_list
@@ -363,12 +374,26 @@ class UncurlRemote(SpecialRemote):
             ('find', 'at'),
         )
 
+    def transfer_store(self, key, filename):
+        if not self.url_tmpl:
+           raise UnsupportedRequest(
+                'Remote cannot store content without a URL template')
+        url = self.get_key_urls(key)
+        # we have a rewriting template, so we expect exactly one URL
+        assert len(url) == 1
+        url = url[0]
+        try:
+            self.url_handler.upload(
+                from_path=Path(filename),
+                to_url=url,
+            )
+        except Exception as e:
+            # we need to raise RemoteError whenever we could not store
+            raise RemoteError from e
+
     #
     # unsupported (yet)
     #
-    def transfer_store(self, key, filename):
-        raise UnsupportedRequest('"uncurl" remote cannot store content')
-
     def remove(self, key):
         raise UnsupportedRequest('"uncurl" remote cannot remove content')
 
@@ -451,6 +476,10 @@ class UncurlRemote(SpecialRemote):
                 handler(url)
                 # we succeeded, no need to try again
                 return True
+            except UrlTargetNotFound:
+                # general system access worked, but at the key location is nothing
+                # to be found
+                return False
             except DownloadError as e:
                 # TODO subject to change due to
                 # https://github.com/datalad/datalad-next/issues/154
