@@ -133,7 +133,7 @@ class UrlOperations:
           Implementations that can distinguish a general "connection error"
           from an absent download target raise `AccessFailedError` for
           connection errors, and `UrlTargetNotFound` for download targets
-          found absent after a conenction was established successfully.
+          found absent after a connection was established successfully.
         TimeoutError
           If `timeout` is given and the operation does not complete within the
           number of seconds that a specified by `timeout`.
@@ -191,6 +191,46 @@ class UrlOperations:
           number of seconds that a specified by `timeout`.
         """
         raise NotImplementedError
+
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Delete a resource identified by a URL
+
+        Parameters
+        ----------
+        url: str
+          Valid URL with any scheme supported by a particular implementation.
+        credential: str, optional
+          The name of a dedicated credential to be used for authentication
+          in order to perform the deletion. Particular implementations may
+          or may not require or support authentication. They also may or
+          may not support automatic credential lookup.
+        timeout: float, optional
+          If given, specifies a timeout in seconds. If the operation is not
+          completed within this time, it will raise a `TimeoutError`-exception.
+          If timeout is None, the operation will never timeout.
+
+        Returns
+        -------
+        dict
+          A mapping of property names to values for the deletion.
+
+        Raises
+        ------
+        UrlTargetNotFound
+          Implementations that can distinguish a general "connection error"
+          from an absent target raise `AccessFailedError` for
+          connection errors, and `UrlTargetNotFound` for download targets
+          found absent after a connection was established successfully.
+        TimeoutError
+          If `timeout` is given and the operation does not complete within the
+          number of seconds that a specified by `timeout`.
+        """
+        raise NotImplementedError
+
 
     def _get_progress_id(self, from_id: str, to_id: str):
         return f'progress_transport_{from_id}_{to_id}'
