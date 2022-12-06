@@ -11,8 +11,6 @@ from urllib import (
     parse,
 )
 
-from datalad_next.exceptions import DownloadError
-
 from .http import HttpUrlOperations
 from .file import FileUrlOperations
 from .ssh import SshUrlOperations

@@ -12,7 +12,7 @@ from datalad_next.tests.utils import (
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.exceptions import (
     CommandError,
-    DownloadError,
+    UrlOperationsRemoteError,
     IncompleteResultsError,
 )
 from datalad_next.url_operations.any import AnyUrlOperations
@@ -20,7 +20,6 @@ from datalad_next.url_operations.any import AnyUrlOperations
 from ..uncurl import (
     RemoteError,
     UncurlRemote,
-    UnsupportedRequest,
 )
 
 
@@ -73,7 +72,7 @@ def test_uncurl_transfer_store_no_tmpl():
 def test_uncurl_checktretrieve():
 
     def handler(url):
-        raise DownloadError()
+        raise UrlOperationsRemoteError(url)
 
     def get_urls(key):
         return 'some'
@@ -81,7 +80,8 @@ def test_uncurl_checktretrieve():
     r = UncurlRemote(NoOpAnnex())
     r.get_key_urls = get_urls
 
-    # we raise the correct RemoteError and not the underlying DownloadError
+    # we raise the correct RemoteError and not the underlying
+    # UrlOperationsRemoteError
     with pytest.raises(RemoteError):
         r._check_retrieve('somekey', handler, ('blow', 'here'))
 

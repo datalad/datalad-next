@@ -2,7 +2,7 @@ import logging
 
 from datalad.distribution import siblings as mod_siblings
 from datalad.support.annexrepo import AnnexRepo
-from datalad_next.exceptions import (
+from datalad.support.exceptions import (
     AccessDeniedError,
     AccessFailedError,
     CapturedException,

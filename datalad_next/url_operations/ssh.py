@@ -31,14 +31,13 @@ from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
 
 from datalad_next.consts import COPY_BUFSIZE
-from datalad_next.exceptions import (
-    AccessFailedError,
-    CommandError,
-    DownloadError,
-    UrlTargetNotFound,
-)
+from datalad_next.exceptions import CommandError
 
-from . import UrlOperations
+from . import (
+    UrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
+)
 
 lgr = logging.getLogger('datalad.ext.next.ssh_url_operations')
 
@@ -79,15 +78,7 @@ class SshUrlOperations(UrlOperations):
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
-        for parameter documentation.
-
-        Raises
-        ------
-        AccessFailedError
-        UrlTargetNotFound
-          Raises `AccessFailedError` for connection errors, and
-          `UrlTargetNotFound` for download targets found absent after a
-          connection was established successfully.
+        for parameter documentation and exception behavior.
         """
         try:
             props = self._sniff(
@@ -97,9 +88,9 @@ class SshUrlOperations(UrlOperations):
         except CommandError as e:
             if e.code == 244:
                 # this is the special code for a file-not-found
-                raise UrlTargetNotFound(url) from e
+                raise UrlOperationsResourceUnknown(url) from e
             else:
-                raise AccessFailedError(str(e)) from e
+                raise UrlOperationsRemoteError(url, message=str(e)) from e
 
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
@@ -163,15 +154,7 @@ class SshUrlOperations(UrlOperations):
         the file content is sent via `cat` to the SSH client.
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
-        for parameter documentation.
-
-        Raises
-        ------
-        AccessFailedError
-        UrlTargetNotFound
-          Raises `AccessFailedError` for connection errors, and
-          `UrlTargetNotFound` for download targets found absent after a
-          connection was established successfully.
+        for parameter documentation and exception behavior.
         """
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
@@ -211,11 +194,11 @@ class SshUrlOperations(UrlOperations):
         except CommandError as e:
             if e.code == 244:
                 # this is the special code for a file-not-found
-                raise UrlTargetNotFound(from_url) from e
+                raise UrlOperationsResourceUnknown(from_url) from e
             else:
                 # wrap this into the datalad-standard, but keep the
                 # original exception linked
-                raise AccessFailedError(msg=str(e)) from e
+                raise UrlOperationsRemoteError(from_url, message=str(e)) from e
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
@@ -233,11 +216,7 @@ class SshUrlOperations(UrlOperations):
         It, more or less, runs `ssh <host> 'cat > <path>'`.
 
         See :meth:`datalad_next.url_operations.UrlOperations.upload`
-        for parameter documentation.
-
-        Raises
-        ------
-        ...
+        for parameter documentation and exception behavior.
         """
 
         if from_path is None:
@@ -321,9 +300,9 @@ class SshUrlOperations(UrlOperations):
             tuple(ssh_runner_generator)
         except CommandError as e:
             if e.code == 244:
-                raise UrlTargetNotFound(to_url) from e
+                raise UrlOperationsResourceUnknown(to_url) from e
             else:
-                raise AccessFailedError(str(e)) from e
+                raise UrlOperationsRemoteError(to_url, message=str(e)) from e
         except (TimeoutError, Full):
             ssh_runner_generator.runner.process.kill()
             raise TimeoutError

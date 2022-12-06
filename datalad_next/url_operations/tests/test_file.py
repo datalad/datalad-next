@@ -2,11 +2,12 @@ import io
 import locale
 import pytest
 import sys
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
+
+from ..file import (
+    FileUrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
 )
-from ..file import FileUrlOperations
 
 
 def test_file_url_download(tmp_path):
@@ -14,7 +15,7 @@ def test_file_url_download(tmp_path):
     test_url = test_path.as_uri()
     ops = FileUrlOperations()
     # no target file (yet), precise exception
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.sniff(test_url)
     # now put something at the target location
     test_path.write_text('surprise!')
@@ -31,7 +32,7 @@ def test_file_url_download(tmp_path):
 
     # remove source and try again
     test_path.unlink()
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.download(test_url, download_path)
 
 
@@ -74,14 +75,14 @@ def test_file_url_delete(tmp_path):
     test_url = test_path.as_uri()
     ops = FileUrlOperations()
     # missing file
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.delete(test_url)
 
     # place file
     test_path.write_text(payload)
     assert test_path.read_text() == payload
     # try deleting a non-empty dir
-    with pytest.raises(AccessFailedError):
+    with pytest.raises(UrlOperationsRemoteError):
         ops.delete(test_path.parent.as_uri())
 
     # file deletion works

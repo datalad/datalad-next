@@ -13,12 +13,12 @@ from urllib import (
 )
 
 from datalad_next.consts import COPY_BUFSIZE
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
-)
 
-from . import UrlOperations
+from . import (
+    UrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
+)
 
 lgr = logging.getLogger('datalad.ext.next.file_url_operations')
 
@@ -47,12 +47,12 @@ class FileUrlOperations(UrlOperations):
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
-        for parameter documentation.
+        for parameter documentation and exception behavior.
 
         Raises
         ------
-        UrlTargetNotFound
-          Raises `UrlTargetNotFound` for download targets found absent.
+        UrlOperationsResourceUnknown
+          For access targets found absent.
         """
         # filter out internals
         return {
@@ -68,7 +68,7 @@ class FileUrlOperations(UrlOperations):
         try:
             size = from_path.stat().st_size
         except FileNotFoundError as e:
-            raise UrlTargetNotFound(url) from e
+            raise UrlOperationsResourceUnknown(url) from e
         return {
             'content-length': size,
             '_path': from_path,
@@ -87,12 +87,12 @@ class FileUrlOperations(UrlOperations):
         """Copy a file:// URL target to a local path
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
-        for parameter documentation.
+        for parameter documentation and exception behavior.
 
         Raises
         ------
-        UrlTargetNotFound
-          Raises `UrlTargetNotFound` for download targets found absent.
+        UrlOperationsResourceUnknown
+          For download targets found absent.
         """
         dst_fp = None
         try:
@@ -114,10 +114,16 @@ class FileUrlOperations(UrlOperations):
                     progress_label='downloading',
                 ))
                 return props
+        except PermissionError:
+            # would be a local issue, pass-through
+            raise
+        except UrlOperationsResourceUnknown:
+            # would come from sniff(), pass_through
+            raise
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
-            raise UrlTargetNotFound(msg=str(e)) from e
+            raise UrlOperationsRemoteError(from_url, message=str(e)) from e
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
@@ -135,7 +141,7 @@ class FileUrlOperations(UrlOperations):
         necessary.
 
         See :meth:`datalad_next.url_operations.UrlOperations.upload`
-        for parameter documentation.
+        for parameter documentation and exception behavior.
 
         Raises
         ------
@@ -168,6 +174,12 @@ class FileUrlOperations(UrlOperations):
                     progress_label='uploading',
                 ))
                 return props
+        except FileNotFoundError as e:
+            raise UrlOperationsResourceUnknown(url) from e
+        except Exception as e:
+            # wrap this into the datalad-standard, but keep the
+            # original exception linked
+            raise UrlOperationsRemoteError(from_url, message=str(e)) from e
         finally:
             if src_fp and from_path is not None:
                 src_fp.close()
@@ -183,27 +195,27 @@ class FileUrlOperations(UrlOperations):
         to be empty.
 
         See :meth:`datalad_next.url_operations.UrlOperations.delete`
-        for parameter documentation.
+        for parameter documentation and exception behavior.
 
         Raises
         ------
-        todo
+        UrlOperationsResourceUnknown
+          For deletion targets found absent.
         """
         path = self._file_url_to_path(url)
         try:
             path.unlink(missing_ok=False)
         except FileNotFoundError as e:
-            raise UrlTargetNotFound(msg=str(e)) from e
+            raise UrlOperationsResourceUnknown(url) from e
         except IsADirectoryError:
             try:
                 path.rmdir()
-            except OSError as e:
-                # TODO convert to UrlOperationsRemoteError
-                raise AccessFailedError from e
+            except Exception as e:
+                raise UrlOperationsRemoteError(url, message=str(e)) from e
         except Exception as e:
-            # TODO convert to UrlOperationsRemoteError
-            raise AccessFailedError from e
-
+            # wrap this into the datalad-standard, but keep the
+            # original exception linked
+            raise UrlOperationsRemoteError(url, message=str(e)) from e
 
     def _copyfp(self,
                 src_fp: file,

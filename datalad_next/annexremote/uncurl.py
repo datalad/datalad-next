@@ -216,8 +216,8 @@ from datalad.dataset.gitrepo import GitRepo
 
 from datalad_next.exceptions import (
     CapturedException,
-    DownloadError,
-    UrlTargetNotFound,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
 )
 from datalad_next.url_operations.any import AnyUrlOperations
 from datalad_next.utils import ensure_list
@@ -354,9 +354,7 @@ class UncurlRemote(SpecialRemote):
         try:
             urlprops = self.url_handler.sniff(url)
             return True
-        except DownloadError as e:
-            # TODO untested and subject to change due to
-            # https://github.com/datalad/datalad-next/issues/154
+        except UrlOperationsRemoteError as e:
             # leave a trace in the logs
             CapturedException(e)
             return False
@@ -404,7 +402,7 @@ class UncurlRemote(SpecialRemote):
                 lambda to_url: self.url_handler.delete(url=to_url),
                 'refuses to delete',
             )
-        except UrlTargetNotFound as e:
+        except UrlOperationsResourceUnknown as e:
             self.message(
                 'f{key} not found at the remote, skipping', type='debug')
 
@@ -487,14 +485,12 @@ class UncurlRemote(SpecialRemote):
                 handler(url)
                 # we succeeded, no need to try again
                 return True
-            except UrlTargetNotFound:
+            except UrlOperationsResourceUnknown:
                 # general system access worked, but at the key location is nothing
                 # to be found
                 return False
-            except DownloadError as e:
-                # TODO subject to change due to
-                # https://github.com/datalad/datalad-next/issues/154
-                # TODO return False if we can be sure that the remote
+            except UrlOperationsRemoteError as e:
+                # return False only if we could be sure that the remote
                 # system works properly and just the key is not around
                 ce = CapturedException(e)
                 self.message(
@@ -513,7 +509,7 @@ class UncurlRemote(SpecialRemote):
         url = url[0]
         try:
             handler(to_url=url)
-        except UrlTargetNotFound:
+        except UrlOperationsResourceUnknown:
             # pass-through, would happen when removing a non-existing key,
             # which git-annex wants to be a OK thing to happen.
             # handler in callers

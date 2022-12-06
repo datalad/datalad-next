@@ -1,11 +1,12 @@
 from pathlib import Path
 import pytest
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
-)
+
 from datalad_next.tests.utils import with_credential
-from ..http import HttpUrlOperations
+from ..http import (
+    HttpUrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
+)
 
 
 hbsurl = 'https://httpbin.org'
@@ -25,7 +26,7 @@ def test_http_url_operations(tmp_path):
     assert props['url'] == target_url
     # same again, but credentials are wrong
     target_url = f'{hbsurl}/basic-auth/mike/WRONG'
-    with pytest.raises(AccessFailedError):
+    with pytest.raises(UrlOperationsRemoteError):
         ops.sniff(f'{hbsurl}/redirect-to?url={target_url}')
     # make sure we get the size info
     assert ops.sniff(f'{hbsurl}/bytes/63')['content-length'] == 63
@@ -38,7 +39,7 @@ def test_http_url_operations(tmp_path):
     assert (tmp_path / 'mydownload').read_text() == 'HTTPBIN is awesome'
 
     # 404s
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.sniff(f'{hbsurl}/status/404')
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.download(f'{hbsurl}/status/404', tmp_path / 'dontmatter')
