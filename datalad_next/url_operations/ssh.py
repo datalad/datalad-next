@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import sys
 from itertools import chain
 from pathlib import (
@@ -368,7 +369,7 @@ class _SshCat:
         return ThreadedRunner(
             cmd=cmd,
             protocol_class=protocol,
-            stdin=stdin,
+            stdin=subprocess.DEVNULL if stdin is None else stdin,
             timeout=timeout,
         ).run()
 
