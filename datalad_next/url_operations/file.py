@@ -13,7 +13,10 @@ from urllib import (
 )
 
 from datalad_next.consts import COPY_BUFSIZE
-from datalad_next.exceptions import UrlTargetNotFound
+from datalad_next.exceptions import (
+    AccessFailedError,
+    UrlTargetNotFound,
+)
 
 from . import UrlOperations
 

@@ -66,3 +66,28 @@ def test_file_url_upload(tmp_path, monkeypatch):
         assert props['content-length'] == len(payload)
 
     # TODO test missing write permissons
+
+def test_file_url_delete(tmp_path):
+    payload = 'payload'
+    test_path = tmp_path / 'subdir' / 'myfile'
+    test_path.parent.mkdir()
+    test_url = test_path.as_uri()
+    ops = FileUrlOperations()
+    # missing file
+    with pytest.raises(UrlTargetNotFound):
+        ops.delete(test_url)
+
+    # place file
+    test_path.write_text(payload)
+    assert test_path.read_text() == payload
+    # try deleting a non-empty dir
+    with pytest.raises(AccessFailedError):
+        ops.delete(test_path.parent.as_uri())
+
+    # file deletion works
+    ops.delete(test_url)
+    assert not test_path.exists()
+
+    # empty dir deletion works too
+    ops.delete(test_path.parent.as_uri())
+    assert not test_path.parent.exists()
