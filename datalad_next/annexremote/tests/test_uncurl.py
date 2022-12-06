@@ -423,4 +423,4 @@ def test_uncurl_testremote(tmp_path):
          # file://<basepath>/key
          + [f'url=file://{tmp_path / "remotepath"} / {{annex_key}}'])
     # not running with --fast to also cover key chunking
-    dsca(['testremote', 'myuncurl'])
+    dsca(['testremote', '--quiet', 'myuncurl'])

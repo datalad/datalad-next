@@ -146,7 +146,7 @@ class HttpUrlOperations(UrlOperations):
                         from_url, status_code=e.response.status_code) from e
                 else:
                     raise UrlOperationsRemoteError(
-                        url, message=str(e), status_code=e.response.status_code
+                        from_url, message=str(e), status_code=e.response.status_code
                         ) from e
 
             download_props = self._stream_download_from_request(

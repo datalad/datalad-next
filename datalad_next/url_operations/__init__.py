@@ -345,8 +345,25 @@ class UrlOperations:
 
 class UrlOperationsRemoteError(Exception):
     def __init__(self, url, message=None, status_code: Any = None):
-        # TODO implement!
-        pass
+        # use base exception feature to store all arguments in a tuple
+        # and have named properties to access them
+        super().__init__(
+            url,
+            message,
+            status_code,
+        )
+
+    @property
+    def url(self):
+        return self.args[0]
+
+    @property
+    def message(self):
+        return self.args[1]
+
+    @property
+    def status_code(self):
+        return self.args[2]
 
 
 class UrlOperationsResourceUnknown(UrlOperationsRemoteError):
@@ -367,8 +384,8 @@ class UrlOperationsAuthenticationError(UrlOperationsInteractionError):
                  credential: dict | None = None,
                  message: str | None = None,
                  status_code: Any = None):
-        # TODO implement!
-        pass
+        super().__init__(url, message=message, status_code=status_code)
+        self.credential = credential
 
 
 class UrlOperationsAuthorizationError(UrlOperationsRemoteError):
@@ -377,5 +394,5 @@ class UrlOperationsAuthorizationError(UrlOperationsRemoteError):
                  credential: dict | None = None,
                  message: str | None = None,
                  status_code: Any = None):
-        # TODO implement!
-        pass
+        super().__init__(url, message=message, status_code=status_code)
+        self.credential = credential
