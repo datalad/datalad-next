@@ -114,5 +114,5 @@ class AnyUrlOperations(UrlOperations):
                credential: str | None = None,
                timeout: float | None = None) -> Dict:
         """Call `*UrlOperations.delete()` for the respective URL scheme"""
-        return self._get_handler(to_url).delete(
+        return self._get_handler(url).delete(
             url, credential=credential, timeout=timeout)

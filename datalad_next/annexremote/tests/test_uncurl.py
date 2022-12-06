@@ -47,18 +47,27 @@ class NoOpAnnex:
         pass
 
 
-def test_uncurl_remove(tmp_path):
-    # not yet
+def test_uncurl_remove_no_tmpl(tmp_path):
+    # without a template configured we refuse to remove anything
+    # for the simple reason that it may not be clear what is being
+    # removed at all. We could only iterate over all recorded URLs
+    # and wipe out the key from "the internet". This is, however,
+    # a rather unexpected thing to do from a user perspective --
+    # who would expect a single key instance "at the uncurl remote"
+    # to be removed. The best proxy we have for this expectation
+    # is a URL tmpl being configured, pointing to such a single
+    # location
     r = UncurlRemote(NoOpAnnex())
-    with pytest.raises(UnsupportedRequest):
+    with pytest.raises(RemoteError):
         r.remove(None)
 
 
-def test_uncurl_transfer_store():
+def test_uncurl_transfer_store_no_tmpl():
     r = UncurlRemote(NoOpAnnex())
+    r.url_handler = AnyUrlOperations()
     # whenever there is not template configured
-    with pytest.raises(UnsupportedRequest):
-        r.transfer_store(None, None)
+    with pytest.raises(RemoteError):
+        r.transfer_store(None, '')
 
 
 def test_uncurl_checktretrieve():
@@ -371,3 +380,47 @@ def test_uncurl_store_via_ssh(tmp_path):
     dsca(['copy', '-t', 'myuncurl', str(testfile)])
     # let remote verify presence
     dsca(['fsck', '-q', '-f', 'myuncurl'])
+
+
+def test_uncurl_remove(tmp_path):
+    testfile = tmp_path / 'testdeposit' / 'testfile1.txt'
+    testfile_content = 'uppytyup!'
+    testfile.parent.mkdir()
+    testfile.write_text(testfile_content)
+    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+    dsca = ds.repo.call_annex
+    # init without URL template
+    dsca(['initremote', 'myuncurl'] + std_initargs)
+    # add the testdeposit by URL
+    target_fname = ds.pathobj / 'target1.txt'
+    dsca(['addurl', '--file', str(target_fname), testfile.as_uri()])
+    # it will not drop without a URL tmpl
+    # see test_uncurl_remove_no_tmpl() for rational
+    with pytest.raises(CommandError):
+        dsca(['drop', '-f', 'myuncurl', str(target_fname)])
+    assert testfile.read_text() == testfile_content
+
+    # now make it possible
+    # use the simplest possible match expression
+    ds.configuration(
+        'set',
+        'remote.myuncurl.uncurl-match=file://(?P<allofit>.*)$',
+        scope='local', **res_kwargs)
+    # and the presence of a tmpl enables deletion
+    ds.configuration(
+        'set', 'remote.myuncurl.uncurl-url=file://{allofit}',
+        scope='local', **res_kwargs)
+    dsca(['drop', '-f', 'myuncurl', str(target_fname)])
+    assert not testfile.exists()
+
+
+# >30s
+def test_uncurl_testremote(tmp_path):
+    "Point git-annex's testremote at uncurl"
+    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+    dsca = ds.repo.call_annex
+    dsca(['initremote', 'myuncurl'] + std_initargs
+         # file://<basepath>/key
+         + [f'url=file://{tmp_path / "remotepath"} / {{annex_key}}'])
+    # not running with --fast to also cover key chunking
+    dsca(['testremote', 'myuncurl'])

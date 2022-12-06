@@ -169,6 +169,39 @@ class FileUrlOperations(UrlOperations):
             if src_fp and from_path is not None:
                 src_fp.close()
 
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Delete the target of a file:// URL
+
+        The target can be a file or a directory. If it is a directory, it has
+        to be empty.
+
+        See :meth:`datalad_next.url_operations.UrlOperations.delete`
+        for parameter documentation.
+
+        Raises
+        ------
+        todo
+        """
+        path = self._file_url_to_path(url)
+        try:
+            path.unlink(missing_ok=False)
+        except FileNotFoundError as e:
+            raise UrlTargetNotFound(msg=str(e)) from e
+        except IsADirectoryError:
+            try:
+                path.rmdir()
+            except OSError as e:
+                # TODO convert to UrlOperationsRemoteError
+                raise AccessFailedError from e
+        except Exception as e:
+            # TODO convert to UrlOperationsRemoteError
+            raise AccessFailedError from e
+
+
     def _copyfp(self,
                 src_fp: file,
                 dst_fp: file,
