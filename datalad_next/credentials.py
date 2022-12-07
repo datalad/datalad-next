@@ -30,8 +30,10 @@ from datalad_next.interface import (
 from datalad_next.exceptions import CapturedException
 from datalad.support.param import Parameter
 from datalad.distribution.dataset import (
-    EnsureDataset,
-    require_dataset,
+    # this does nothing but provide documentation
+    # only kept here until this command is converted to
+    # pre-call parameter validation
+    EnsureDataset as NoOpEnsureDataset,
 )
 from datalad_next.dataset import datasetmethod
 from datalad_next.constraints import (
@@ -39,6 +41,7 @@ from datalad_next.constraints import (
     EnsureNone,
     EnsureStr,
 )
+from datalad_next.constraints.dataset import EnsureDataset
 
 lgr = logging.getLogger('datalad.local.credentials')
 
@@ -160,7 +163,7 @@ class Credentials(Interface):
             args=("-d", "--dataset"),
             doc="""specify a dataset whose configuration to inspect
             rather than the global (user) settings""",
-            constraints=EnsureDataset() | EnsureNone()),
+            constraints=NoOpEnsureDataset() | EnsureNone()),
         action=Parameter(
             args=("action",),
             nargs='?',
@@ -257,11 +260,11 @@ class Credentials(Interface):
                 "property specification is provided")
 
         # which config manager to use: global or from dataset
-        cfg = require_dataset(
-            dataset,
+        cfg = EnsureDataset(
             # we do not actually need it
-            check_installed=False,
-            purpose='manage credentials').config if dataset else dlcfg
+            installed=None,
+            purpose='manage credentials',
+        )(dataset).ds.config if dataset else dlcfg
 
         credman = CredentialManager(cfg)
 
