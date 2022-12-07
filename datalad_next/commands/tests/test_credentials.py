@@ -84,7 +84,8 @@ def test_credentials():
 def test_errorhandling_smoketest():
     callcfg = dict(on_failure='ignore', result_renderer='disabled')
 
-    with patch('datalad_next.credentials.CredentialManager', BrokenCredentialManager):
+    with patch('datalad_next.commands.credentials.CredentialManager',
+               BrokenCredentialManager):
         cred = Credentials()
         assert_in_results(
             cred('set', name='dummy', **callcfg),

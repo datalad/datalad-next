@@ -18,7 +18,7 @@ from functools import (
 from os import readlink
 from pathlib import Path
 
-from datalad_next.interface import (
+from datalad_next.commands import (
     Interface,
     build_doc,
     eval_results,

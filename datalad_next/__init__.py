@@ -15,13 +15,13 @@ command_suite = (
         # specification of a command, any number of commands can be defined
         (
             # importable module that contains the command implementation
-            'datalad_next.credentials',
+            'datalad_next.commands.credentials',
             # name of the command class implementation in above module
             'Credentials',
         ),
         (
             # importable module that contains the command implementation
-            'datalad_next.create_sibling_webdav',
+            'datalad_next.commands.create_sibling_webdav',
             # name of the command class implementation in above module
             'CreateSiblingWebDAV',
             # we gotta make this explicit, or the build_support code will
@@ -30,14 +30,14 @@ command_suite = (
         ),
         (
             # importable module that contains the command implementation
-            'datalad_next.tree',
+            'datalad_next.commands.tree',
             # name of the command class implementation in above module
             'TreeCommand',
             # command name (differs from lowercase command class name)
             'tree'
         ),
         (
-            'datalad_next.download', 'Download', 'download',
+            'datalad_next.commands.download', 'Download', 'download',
         ),
     ]
 )

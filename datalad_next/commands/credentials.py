@@ -20,7 +20,7 @@ from datalad_next.credman import (
     CredentialManager,
     verify_property_names,
 )
-from datalad_next.interface import (
+from datalad_next.commands import (
     Interface,
     build_doc,
     eval_results,
