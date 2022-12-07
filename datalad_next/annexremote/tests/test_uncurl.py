@@ -421,6 +421,6 @@ def test_uncurl_testremote(tmp_path):
     dsca = ds.repo.call_annex
     dsca(['initremote', 'myuncurl'] + std_initargs
          # file://<basepath>/key
-         + [f'url=file://{tmp_path / "remotepath"} / {{annex_key}}'])
+         + [f'url=file://{tmp_path / "remotepath"}/{{annex_key}}'])
     # not running with --fast to also cover key chunking
     dsca(['testremote', '--quiet', 'myuncurl'])
