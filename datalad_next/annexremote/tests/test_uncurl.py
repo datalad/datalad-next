@@ -422,5 +422,10 @@ def test_uncurl_testremote(tmp_path):
     dsca(['initremote', 'myuncurl'] + std_initargs
          # file://<basepath>/key
          + [f'url=file://{tmp_path / "remotepath"}/{{annex_key}}'])
-    # not running with --fast to also cover key chunking
-    dsca(['testremote', '--quiet', 'myuncurl'])
+    # Temporarily disable this until
+    # https://github.com/datalad/datalad-dataverse/issues/127
+    # is sorted out. Possibly via
+    # https://git-annex.branchable.com/bugs/testremote_is_not_honoring_--backend
+    if not on_windows:
+        # not running with --fast to also cover key chunking
+        dsca(['testremote', '--quiet', 'myuncurl'])
