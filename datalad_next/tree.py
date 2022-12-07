@@ -29,7 +29,6 @@ from datalad_next.exceptions import (
     NoDatasetFound
 )
 from datalad.support.param import Parameter
-from datalad.distribution.dataset import require_dataset
 
 from datalad.local.subdatasets import Subdatasets
 from datalad_next.constraints import (
@@ -38,6 +37,7 @@ from datalad_next.constraints import (
     EnsureInt,
     EnsureRange,
 )
+from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import get_dataset_root
 from datalad.ui import ui
 from datalad_next.dataset import (
@@ -1217,7 +1217,7 @@ class DatasetNode(_TreeNode):
         super().__init__(*args, **kwargs)
 
         try:
-            self.ds = require_dataset(self.path, check_installed=False)
+            self.ds = EnsureDataset(installed=None)(self.path).ds
             self.is_installed = self.ds.is_installed()
             self.ds_depth, self.ds_absolute_depth = self.calculate_dataset_depth()
         except Exception as ex:

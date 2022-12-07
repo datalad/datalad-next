@@ -25,8 +25,10 @@ from datalad_next.dataset import (
     datasetmethod,
 )
 from datalad.distribution.dataset import (
-    EnsureDataset,
-    require_dataset,
+    # this does nothing but provide documentation
+    # only kept here until this command is converted to
+    # pre-call parameter validation
+    EnsureDataset as NoOpEnsureDataset,
 )
 from datalad_next.interface import (
     Interface,
@@ -47,6 +49,7 @@ from datalad_next.constraints import (
     EnsureNone,
     EnsureStr,
 )
+from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.exceptions import CapturedException
 from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
@@ -156,7 +159,7 @@ class CreateSiblingWebDAV(Interface):
             doc="""specify the dataset to process.  If
             no dataset is given, an attempt is made to identify the dataset
             based on the current working directory""",
-            constraints=EnsureDataset() | EnsureNone()),
+            constraints=NoOpEnsureDataset() | EnsureNone()),
         name=Parameter(
             args=('-s', '--name',),
             metavar='NAME',
@@ -299,10 +302,8 @@ class CreateSiblingWebDAV(Interface):
             # leads to unresolvable, circular dependency with publish-depends
             raise ValueError("sibling names must not be equal")
 
-        ds = require_dataset(
-            dataset,
-            check_installed=True,
-            purpose='create WebDAV sibling(s)')
+        ds = EnsureDataset(
+            installed=True, purpose='create WebDAV sibling(s)')(dataset).ds
 
         res_kwargs = dict(
             action='create_sibling_webdav',
