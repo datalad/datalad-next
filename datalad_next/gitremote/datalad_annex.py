@@ -215,15 +215,15 @@ from datalad_next.utils import (
     rmtree,
 )
 
-from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.credman import CredentialManager
 from datalad_next.utils import (
+    CredentialManager,
     get_specialremote_credential_envpatch,
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
     specialremote_credential_envmap,
     update_specialremote_credential,
 )
+from datalad_next.utils.consts import PRE_INIT_COMMIT_SHA
 
 lgr = logging.getLogger('datalad.gitremote.datalad_annex')
 

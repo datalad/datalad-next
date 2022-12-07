@@ -16,7 +16,7 @@ from datalad_next.tests.utils import (
 )
 from datalad_next.utils import chpwd
 
-from datalad_next.credman import CredentialManager
+from datalad_next.utils import CredentialManager
 
 
 test_cred = ('dltest-my&=http', 'datalad', 'secure')

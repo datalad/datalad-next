@@ -9,10 +9,10 @@ from urllib.parse import urlparse
 import requests
 import www_authenticate
 
-from datalad_next.credman import CredentialManager
-from datalad_next.http_helpers import get_auth_realm
+from datalad_next.utils import CredentialManager
+from datalad_next.utils.http_helpers import get_auth_realm
 
-lgr = logging.getLogger('datalad.ext.next.requests_auth')
+lgr = logging.getLogger('datalad.ext.next.utils.requests_auth')
 
 
 __all__ = ['DataladAuth', 'HTTPBearerTokenAuth']

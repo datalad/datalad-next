@@ -14,7 +14,7 @@ from datalad.core.distributed.clone import (
     postclone_check_head,
     postclone_checkout_commit,
 )
-from datalad_next.interface import get_status_dict
+from datalad_next.commands import get_status_dict
 from datalad.support.annexrepo import AnnexRepo
 from datalad_next.exceptions import CapturedException
 from datalad_next.utils import (

@@ -15,7 +15,7 @@ import logging
 
 from datalad import cfg as dlcfg
 from datalad.distribution.dataset import require_dataset
-from datalad_next.interface import (
+from datalad_next.commands import (
     build_doc,
     eval_results,
     get_status_dict,

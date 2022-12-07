@@ -30,7 +30,7 @@ from datalad.distribution.dataset import (
     # pre-call parameter validation
     EnsureDataset as NoOpEnsureDataset,
 )
-from datalad_next.interface import (
+from datalad_next.commands import (
     Interface,
     build_doc,
     eval_results,
@@ -41,7 +41,7 @@ from datalad.interface.common_opts import (
     recursion_flag,
     recursion_limit
 )
-from datalad_next.log import log_progress
+from datalad_next.utils import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad.support.param import Parameter
 from datalad_next.constraints import (
@@ -51,7 +51,7 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.exceptions import CapturedException
-from datalad_next.credman import CredentialManager
+from datalad_next.utils import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_properties,
     update_specialremote_credential,

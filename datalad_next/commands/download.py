@@ -15,7 +15,7 @@ import datalad
 from datalad.distribution.dataset import (
     resolve_path,
 )
-from datalad_next.interface import (
+from datalad_next.commands import (
     Interface,
     build_doc,
     eval_results,

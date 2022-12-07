@@ -45,17 +45,17 @@ Python utilities
 .. autosummary::
    :toctree: generated
 
-   credman
    constraints
-   requests_auth
+   exceptions
    url_operations
    url_operations.any
    url_operations.file
    url_operations.http
    url_operations.ssh
-   http_helpers
    utils
-   exceptions
+   utils.credman
+   utils.http_helpers
+   utils.requests_auth
 
 
 Git remote helpers
@@ -71,7 +71,7 @@ Git remote helpers
 Git-annex backends
 ------------------
 
-.. currentmodule:: datalad_next.backend
+.. currentmodule:: datalad_next.annexbackend
 .. autosummary::
    :toctree: generated
 

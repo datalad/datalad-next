@@ -18,7 +18,6 @@ from datalad.core.distributed.clone import (
     decode_source_spec,
 )
 from datalad.dochelpers import single_or_plural
-from datalad_next.log import log_progress
 from datalad.support.annexrepo import AnnexRepo
 from datalad_next.exceptions import (
     CapturedException,
@@ -32,6 +31,7 @@ from datalad.support.network import (
 from datalad.distribution.utils import _get_flexible_source_candidates
 from datalad_next.utils import (
     ensure_bool,
+    log_progress,
     rmtree,
 )
 from datalad_next.dataset import Dataset

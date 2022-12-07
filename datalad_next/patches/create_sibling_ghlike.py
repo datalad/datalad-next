@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from datalad.distributed.create_sibling_ghlike import _GitHubLike
 from datalad.downloaders.http import DEFAULT_USER_AGENT
 from datalad_next.exceptions import CapturedException
-from datalad_next.credman import CredentialManager
+from datalad_next.utils import CredentialManager
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.distributed.create_sibling_ghlike')

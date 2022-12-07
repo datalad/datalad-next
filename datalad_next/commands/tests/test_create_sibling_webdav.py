@@ -182,9 +182,9 @@ def test_http_warning(path=None):
     ds = Dataset(path).create()
     url = "http://localhost:33322/abc"
 
-    with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
-         patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
-         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
+    with patch("datalad_next.commands.create_sibling_webdav._get_url_credential") as gur_mock, \
+         patch("datalad_next.commands.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
+         patch("datalad_next.commands.create_sibling_webdav.lgr") as lgr_mock:
 
         csw_mock.return_value = iter([])
         gur_mock.return_value = None
@@ -222,9 +222,9 @@ def test_credential_handling(path=None):
 
     ds = Dataset(path).create()
     url = "https://localhost:22334/abc"
-    with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
-         patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
-         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
+    with patch("datalad_next.commands.create_sibling_webdav._get_url_credential") as gur_mock, \
+         patch("datalad_next.commands.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
+         patch("datalad_next.commands.create_sibling_webdav.lgr") as lgr_mock:
 
         csw_mock.return_value = iter([])
 
@@ -272,9 +272,9 @@ def test_unused_storage_name_warning(path=None):
     ds = Dataset(path).create()
     url = "https://localhost:22334/abc"
 
-    with patch("datalad_next.create_sibling_webdav._get_url_credential") as gur_mock, \
-         patch("datalad_next.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
-         patch("datalad_next.create_sibling_webdav.lgr") as lgr_mock:
+    with patch("datalad_next.commands.create_sibling_webdav._get_url_credential") as gur_mock, \
+         patch("datalad_next.commands.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
+         patch("datalad_next.commands.create_sibling_webdav.lgr") as lgr_mock:
 
         csw_mock.return_value = iter([])
         gur_mock.return_value = None
@@ -309,7 +309,7 @@ def test_get_url_credential():
 
         get = query
 
-    with patch("datalad_next.create_sibling_webdav."
+    with patch("datalad_next.commands.create_sibling_webdav."
                "get_specialremote_credential_properties") as gscp_mock:
 
         # Expect credentials to be derived from WebDAV-url if no credential

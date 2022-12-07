@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
-from datalad_next.interface import (
+from datalad_next.commands import (
     Interface,
     Parameter,
     eval_results,
