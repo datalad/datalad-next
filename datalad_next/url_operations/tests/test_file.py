@@ -90,5 +90,7 @@ def test_file_url_delete(tmp_path):
     assert not test_path.exists()
 
     # empty dir deletion works too
+    # confirm it is indeed empty
+    assert not list(test_path.parent.iterdir())
     ops.delete(test_path.parent.as_uri())
     assert not test_path.parent.exists()
