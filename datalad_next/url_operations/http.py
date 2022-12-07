@@ -13,14 +13,13 @@ from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
-    DownloadError,
-)
 
 from datalad_next.requests_auth import DataladAuth
-from . import UrlOperations
+from . import (
+    UrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
+)
 
 lgr = logging.getLogger('datalad.ext.next.http_url_operations')
 
@@ -56,15 +55,12 @@ class HttpUrlOperations(UrlOperations):
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.sniff`
-        for parameter documentation.
+        for parameter documentation and exception behavior.
 
         Raises
         ------
-        AccessFailedError
-        UrlTargetNotFound
-          Raises `AccessFailedError` for connection errors, and
-          `UrlTargetNotFound` for download targets found absent after a
-          connection was established successfully.
+        UrlOperationsResourceUnknown
+          For access targets found absent.
         """
         auth = DataladAuth(self.cfg, credential=credential)
         with requests.head(
@@ -84,11 +80,12 @@ class HttpUrlOperations(UrlOperations):
                 # original exception linked
                 if e.response.status_code == 404:
                     # special case reporting for a 404
-                    raise UrlTargetNotFound(
-                        url, status=e.response.status_code) from e
+                    raise UrlOperationsResourceUnknown(
+                        url, status_code=e.response.status_code) from e
                 else:
-                    raise AccessFailedError(
-                        msg=str(e), status=e.response.status_code) from e
+                    raise UrlOperationsRemoteError(
+                        url, message=str(e), status_code=e.response.status_code
+                        ) from e
             props = {
                 # standardize on lower-case header keys.
                 # also prefix anything other than 'content-length' to make
@@ -120,15 +117,12 @@ class HttpUrlOperations(UrlOperations):
         """Download via HTTP GET request
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
-        for parameter documentation.
+        for parameter documentation and exception behavior.
 
         Raises
         ------
-        AccessFailedError
-        UrlTargetNotFound
-          Raises `AccessFailedError` for connection errors, and
-          `UrlTargetNotFound` for download targets found absent after a
-          connection was established successfully.
+        UrlOperationsResourceUnknown
+          For download targets found absent.
         """
         # a new manager per request
         # TODO optimize later to cache credentials per target
@@ -148,11 +142,12 @@ class HttpUrlOperations(UrlOperations):
                 # original exception linked
                 if e.response.status_code == 404:
                     # special case reporting for a 404
-                    raise UrlTargetNotFound(
-                        from_url, status=e.response.status_code) from e
+                    raise UrlOperationsResourceUnknown(
+                        from_url, status_code=e.response.status_code) from e
                 else:
-                    raise AccessFailedError(
-                        msg=str(e), status=e.response.status_code) from e
+                    raise UrlOperationsRemoteError(
+                        from_url, message=str(e), status_code=e.response.status_code
+                        ) from e
 
             download_props = self._stream_download_from_request(
                 r, to_path, hash=hash)

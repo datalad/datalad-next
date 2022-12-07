@@ -23,7 +23,7 @@ from datalad_next.interface import (
 )
 from datalad_next.exceptions import (
     CapturedException,
-    DownloadError,
+    UrlOperationsRemoteError,
 )
 from datalad.support.param import Parameter
 from datalad_next.utils import ensure_list
@@ -319,8 +319,8 @@ class Download(Interface):
                     path=dest,
                     exception=ce,
                 )
-                if issubclass(type(e), DownloadError):
-                    res['status_code'] = e.status
+                if issubclass(type(e), UrlOperationsRemoteError):
+                    res['status_code'] = e.status_code
                 yield res
 
 

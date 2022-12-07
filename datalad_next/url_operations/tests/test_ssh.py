@@ -2,15 +2,15 @@ import io
 
 import pytest
 
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
-)
 from datalad_next.tests.utils import (
     skip_ssh,
     skip_if_on_windows,
 )
-from ..ssh import SshUrlOperations
+from ..ssh import (
+    SshUrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
+)
 
 
 # path magic inside the test is posix only
@@ -23,10 +23,10 @@ def test_ssh_url_download(tmp_path, monkeypatch):
     test_url = f'ssh://localhost{test_path}'
     ops = SshUrlOperations()
     # no target file (yet), precise exception
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.sniff(test_url)
     # this is different for a general connection error
-    with pytest.raises(AccessFailedError):
+    with pytest.raises(UrlOperationsRemoteError):
         ops.sniff(f'ssh://localhostnotaround{test_path}')
     # now put something at the target location
     test_path.write_text('surprise!')
@@ -51,10 +51,10 @@ def test_ssh_url_download(tmp_path, monkeypatch):
 
     # remove source and try again
     test_path.unlink()
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.download(test_url, download_path)
     # this is different for a general connection error
-    with pytest.raises(AccessFailedError):
+    with pytest.raises(UrlOperationsRemoteError):
         ops.download(f'ssh://localhostnotaround{test_path}', download_path)
 
 

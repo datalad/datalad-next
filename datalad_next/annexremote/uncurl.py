@@ -151,15 +151,27 @@ for composing URLs via a template.
 - ``annex_remoteuuid`` - UUID of the special remote (location) used by git-annex
 - ``git_remotename`` - Name of the Git remote for the uncurl special remote
 
+.. note::
+   The URL template must "resolve" to a complete and valid URL. This cannot
+   be verified at configuration time, because even the URL scheme could be a
+   dynamic setting.
 
 Uploading content
 -----------------
 
 The *uncurl* special remote can upload file content or store annex keys
-via supported URL schemes whenever a URL template is define. At minimum,
-storing at ``file://`` and ``ssh://`` URLs is supported. But other URL
+via supported URL schemes whenever a URL template is defined. At minimum,
+storing at ``file://`` and ``ssh://`` URLs are supported. But other URL
 scheme handlers with upload support may be available at a local DataLad
 installation.
+
+
+Deleting content
+----------------
+
+As for uploading, deleting content is only permitted with a configured
+URL template. Moreover, it also depends on the delete operation being
+supported for a particular URL scheme.
 
 
 Configuration overrides
@@ -204,8 +216,8 @@ from datalad.dataset.gitrepo import GitRepo
 
 from datalad_next.exceptions import (
     CapturedException,
-    DownloadError,
-    UrlTargetNotFound,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
 )
 from datalad_next.url_operations.any import AnyUrlOperations
 from datalad_next.utils import ensure_list
@@ -342,9 +354,7 @@ class UncurlRemote(SpecialRemote):
         try:
             urlprops = self.url_handler.sniff(url)
             return True
-        except DownloadError as e:
-            # TODO untested and subject to change due to
-            # https://github.com/datalad/datalad-next/issues/154
+        except UrlOperationsRemoteError as e:
             # leave a trace in the logs
             CapturedException(e)
             return False
@@ -375,27 +385,26 @@ class UncurlRemote(SpecialRemote):
         )
 
     def transfer_store(self, key, filename):
-        if not self.url_tmpl:
-           raise UnsupportedRequest(
-                'Remote cannot store content without a URL template')
-        url = self.get_key_urls(key)
-        # we have a rewriting template, so we expect exactly one URL
-        assert len(url) == 1
-        url = url[0]
-        try:
-            self.url_handler.upload(
-                from_path=Path(filename),
-                to_url=url,
-            )
-        except Exception as e:
-            # we need to raise RemoteError whenever we could not store
-            raise RemoteError from e
+        return self._store_delete(
+            key,
+            partial(self.url_handler.upload, from_path=Path(filename)),
+            'cannot store',
+        )
 
-    #
-    # unsupported (yet)
-    #
     def remove(self, key):
-        raise UnsupportedRequest('"uncurl" remote cannot remove content')
+        try:
+            return self._store_delete(
+                key,
+                # we have to map parameter names to be able to use a common
+                # helper with transfer_store(), because UrlOperations.upload()
+                # needs to get the URL as a second argument, hence we need
+                # to pass parameters as keyword-args
+                lambda to_url: self.url_handler.delete(url=to_url),
+                'refuses to delete',
+            )
+        except UrlOperationsResourceUnknown as e:
+            self.message(
+                'f{key} not found at the remote, skipping', type='debug')
 
     #
     # helpers
@@ -476,14 +485,12 @@ class UncurlRemote(SpecialRemote):
                 handler(url)
                 # we succeeded, no need to try again
                 return True
-            except UrlTargetNotFound:
+            except UrlOperationsResourceUnknown:
                 # general system access worked, but at the key location is nothing
                 # to be found
                 return False
-            except DownloadError as e:
-                # TODO subject to change due to
-                # https://github.com/datalad/datalad-next/issues/154
-                # TODO return False if we can be sure that the remote
+            except UrlOperationsRemoteError as e:
+                # return False only if we could be sure that the remote
                 # system works properly and just the key is not around
                 ce = CapturedException(e)
                 self.message(
@@ -491,6 +498,25 @@ class UncurlRemote(SpecialRemote):
                     type='debug')
         raise RemoteError(
             f'Failed to {action[0]} {key!r} {action[1]} any of {urls!r}')
+
+    def _store_delete(self, key, handler, action: str):
+        if not self.url_tmpl:
+           raise RemoteError(
+                f'Remote {action} content without a configured URL template')
+        url = self.get_key_urls(key)
+        # we have a rewriting template, so we expect exactly one URL
+        assert len(url) == 1
+        url = url[0]
+        try:
+            handler(to_url=url)
+        except UrlOperationsResourceUnknown:
+            # pass-through, would happen when removing a non-existing key,
+            # which git-annex wants to be a OK thing to happen.
+            # handler in callers
+            raise
+        except Exception as e:
+            # we need to raise RemoteError whenever we could not perform
+            raise RemoteError from e
 
 
 _sniff2checkurl_map = {

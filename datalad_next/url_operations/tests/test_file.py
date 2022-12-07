@@ -2,11 +2,14 @@ import io
 import locale
 import pytest
 import sys
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
+
+from datalad_next.utils import on_linux
+
+from ..file import (
+    FileUrlOperations,
+    UrlOperationsRemoteError,
+    UrlOperationsResourceUnknown,
 )
-from ..file import FileUrlOperations
 
 
 def test_file_url_download(tmp_path):
@@ -14,7 +17,7 @@ def test_file_url_download(tmp_path):
     test_url = test_path.as_uri()
     ops = FileUrlOperations()
     # no target file (yet), precise exception
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.sniff(test_url)
     # now put something at the target location
     test_path.write_text('surprise!')
@@ -31,7 +34,7 @@ def test_file_url_download(tmp_path):
 
     # remove source and try again
     test_path.unlink()
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.download(test_url, download_path)
 
 
@@ -66,3 +69,34 @@ def test_file_url_upload(tmp_path, monkeypatch):
         assert props['content-length'] == len(payload)
 
     # TODO test missing write permissons
+
+def test_file_url_delete(tmp_path):
+    payload = 'payload'
+    test_path = tmp_path / 'subdir' / 'myfile'
+    test_path.parent.mkdir()
+    test_url = test_path.as_uri()
+    ops = FileUrlOperations()
+    # missing file
+    with pytest.raises(UrlOperationsResourceUnknown):
+        ops.delete(test_url)
+
+    # place file
+    test_path.write_text(payload)
+    assert test_path.read_text() == payload
+    # try deleting a non-empty dir
+    with pytest.raises(UrlOperationsRemoteError):
+        ops.delete(test_path.parent.as_uri())
+
+    # file deletion works
+    ops.delete(test_url)
+    assert not test_path.exists()
+
+    # both windows and mac give incomprehensible AccessDenied
+    # errors on appveyor, although the directory is confirmed
+    # to be empty
+    if on_linux:
+        # empty dir deletion works too
+        # confirm it is indeed empty
+        assert not list(test_path.parent.iterdir())
+        ops.delete(test_path.parent.as_uri())
+        assert not test_path.parent.exists()

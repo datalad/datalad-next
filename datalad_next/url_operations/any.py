@@ -11,8 +11,6 @@ from urllib import (
     parse,
 )
 
-from datalad_next.exceptions import DownloadError
-
 from .http import HttpUrlOperations
 from .file import FileUrlOperations
 from .ssh import SshUrlOperations
@@ -107,3 +105,12 @@ class AnyUrlOperations(UrlOperations):
         return self._get_handler(to_url).upload(
             from_path, to_url, credential=credential, hash=hash,
             timeout=timeout)
+
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Call `*UrlOperations.delete()` for the respective URL scheme"""
+        return self._get_handler(url).delete(
+            url, credential=credential, timeout=timeout)

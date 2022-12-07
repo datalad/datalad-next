@@ -62,17 +62,26 @@ class UrlOperations:
 
         Raises
         ------
-        AccessFailedError
-          This exception is raised on any error, with a summary of the
-          underlying issues as its message. It carry a status code (e.g. HTTP
-          status code) as its `status` property.  Any underlying exception must
-          be linked via the `__cause__` property (e.g. `raise
-          AccessFailedError(...) from ...`).
-        UrlTargetNotFound
-          Implementations that can distinguish a general "connection error"
-          from an absent download target raise `AccessFailedError` for
-          connection errors, and `UrlTargetNotFound` for download targets
-          found absent after a connection was established successfully.
+        UrlOperationsRemoteError
+          This exception is raised on any access-related error on the remote
+          side, with a summary of the underlying issues as its message.
+          It may carry a status code (e.g. HTTP status code) as its
+          ``status_code`` property.
+          Any underlying exception must be linked via the `__cause__`
+          property (e.g. `raise UrlOperationsRemoteError(...) from ...`).
+        UrlOperationsInteractionError
+        UrlOperationsAuthenticationError
+        UrlOperationsAuthorizationError
+        UrlOperationsResourceUnknown
+          Implementations that can distinguish several remote error types
+          beyond indication a general ``UrlOperationsRemoteError``:
+          ``UrlOperationsInteractionError`` general issues in communicating
+          with the remote side; ``UrlOperationsAuthenticationError`` for
+          errors related to (failed) authentication at the remote;
+          ``UrlOperationsAuthorizationError`` for (lack of) authorizating
+          to access a particular resource of perform a particular operation;
+          ``UrlOperationsResourceUnknown`` if the target of an operation
+          does not exist.
         TimeoutError
           If `timeout` is given and the operation does not complete within the
           number of seconds that a specified by `timeout`.
@@ -122,18 +131,26 @@ class UrlOperations:
 
         Raises
         ------
-        DownloadError
-          This exception is raised on any download-related error, with
-          a summary of the underlying issues as its message. It carry
-          a status code (e.g. HTTP status code) as its `status` property.
+        UrlOperationsRemoteError
+          This exception is raised on any deletion-related error on the remote
+          side, with a summary of the underlying issues as its message.
+          It may carry a status code (e.g. HTTP status code) as its
+          ``status_code`` property.
           Any underlying exception must be linked via the `__cause__`
-          property (e.g. `raise DownloadError(...) from ...`).
-        AccessFailedError
-        UrlTargetNotFound
-          Implementations that can distinguish a general "connection error"
-          from an absent download target raise `AccessFailedError` for
-          connection errors, and `UrlTargetNotFound` for download targets
-          found absent after a conenction was established successfully.
+          property (e.g. `raise UrlOperationsRemoteError(...) from ...`).
+        UrlOperationsInteractionError
+        UrlOperationsAuthenticationError
+        UrlOperationsAuthorizationError
+        UrlOperationsResourceUnknown
+          Implementations that can distinguish several remote error types
+          beyond indication a general ``UrlOperationsRemoteError``:
+          ``UrlOperationsInteractionError`` general issues in communicating
+          with the remote side; ``UrlOperationsAuthenticationError`` for
+          errors related to (failed) authentication at the remote;
+          ``UrlOperationsAuthorizationError`` for (lack of) authorizating
+          to access a particular resource of perform a particular operation;
+          ``UrlOperationsResourceUnknown`` if the target of an operation
+          does not exist.
         TimeoutError
           If `timeout` is given and the operation does not complete within the
           number of seconds that a specified by `timeout`.
@@ -186,11 +203,86 @@ class UrlOperations:
         ------
         FileNotFoundError
           If the source file cannot be found.
+        UrlOperationsRemoteError
+          This exception is raised on any deletion-related error on the remote
+          side, with a summary of the underlying issues as its message.
+          It may carry a status code (e.g. HTTP status code) as its
+          ``status_code`` property.
+          Any underlying exception must be linked via the `__cause__`
+          property (e.g. `raise UrlOperationsRemoteError(...) from ...`).
+        UrlOperationsInteractionError
+        UrlOperationsAuthenticationError
+        UrlOperationsAuthorizationError
+        UrlOperationsResourceUnknown
+          Implementations that can distinguish several remote error types
+          beyond indication a general ``UrlOperationsRemoteError``:
+          ``UrlOperationsInteractionError`` general issues in communicating
+          with the remote side; ``UrlOperationsAuthenticationError`` for
+          errors related to (failed) authentication at the remote;
+          ``UrlOperationsAuthorizationError`` for (lack of) authorizating
+          to access a particular resource of perform a particular operation;
+          ``UrlOperationsResourceUnknown`` if the target of an operation
+          does not exist.
         TimeoutError
           If `timeout` is given and the operation does not complete within the
           number of seconds that a specified by `timeout`.
         """
         raise NotImplementedError
+
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Delete a resource identified by a URL
+
+        Parameters
+        ----------
+        url: str
+          Valid URL with any scheme supported by a particular implementation.
+        credential: str, optional
+          The name of a dedicated credential to be used for authentication
+          in order to perform the deletion. Particular implementations may
+          or may not require or support authentication. They also may or
+          may not support automatic credential lookup.
+        timeout: float, optional
+          If given, specifies a timeout in seconds. If the operation is not
+          completed within this time, it will raise a `TimeoutError`-exception.
+          If timeout is None, the operation will never timeout.
+
+        Returns
+        -------
+        dict
+          A mapping of property names to values for the deletion.
+
+        Raises
+        ------
+        UrlOperationsRemoteError
+          This exception is raised on any deletion-related error on the remote
+          side, with a summary of the underlying issues as its message.
+          It may carry a status code (e.g. HTTP status code) as its
+          ``status_code`` property.
+          Any underlying exception must be linked via the `__cause__`
+          property (e.g. `raise UrlOperationsRemoteError(...) from ...`).
+        UrlOperationsInteractionError
+        UrlOperationsAuthenticationError
+        UrlOperationsAuthorizationError
+        UrlOperationsResourceUnknown
+          Implementations that can distinguish several remote error types
+          beyond indication a general ``UrlOperationsRemoteError``:
+          ``UrlOperationsInteractionError`` general issues in communicating
+          with the remote side; ``UrlOperationsAuthenticationError`` for
+          errors related to (failed) authentication at the remote;
+          ``UrlOperationsAuthorizationError`` for (lack of) authorizating
+          to access a particular resource of perform a particular operation;
+          ``UrlOperationsResourceUnknown`` if the target of an operation
+          does not exist.
+        TimeoutError
+          If `timeout` is given and the operation does not complete within the
+          number of seconds that a specified by `timeout`.
+        """
+        raise NotImplementedError
+
 
     def _get_progress_id(self, from_id: str, to_id: str):
         return f'progress_transport_{from_id}_{to_id}'
@@ -246,3 +338,61 @@ class UrlOperations:
             return {}
         else:
             return dict(zip(hash_names, [h.hexdigest() for h in hashers]))
+
+#
+# Exceptions to be used by all handlers
+#
+
+class UrlOperationsRemoteError(Exception):
+    def __init__(self, url, message=None, status_code: Any = None):
+        # use base exception feature to store all arguments in a tuple
+        # and have named properties to access them
+        super().__init__(
+            url,
+            message,
+            status_code,
+        )
+
+    @property
+    def url(self):
+        return self.args[0]
+
+    @property
+    def message(self):
+        return self.args[1]
+
+    @property
+    def status_code(self):
+        return self.args[2]
+
+
+class UrlOperationsResourceUnknown(UrlOperationsRemoteError):
+    """A connection request succeeded in principle, but target was not found
+
+    Equivalent of an HTTP404 response.
+    """
+    pass
+
+
+class UrlOperationsInteractionError(UrlOperationsRemoteError):
+    pass
+
+
+class UrlOperationsAuthenticationError(UrlOperationsInteractionError):
+    def __init__(self,
+                 url: str,
+                 credential: dict | None = None,
+                 message: str | None = None,
+                 status_code: Any = None):
+        super().__init__(url, message=message, status_code=status_code)
+        self.credential = credential
+
+
+class UrlOperationsAuthorizationError(UrlOperationsRemoteError):
+    def __init__(self,
+                 url: str,
+                 credential: dict | None = None,
+                 message: str | None = None,
+                 status_code: Any = None):
+        super().__init__(url, message=message, status_code=status_code)
+        self.credential = credential

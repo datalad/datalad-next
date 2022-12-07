@@ -13,6 +13,7 @@ from datalad.utils import (
     getargspec,
     knows_annex,
     make_tempfile,
+    on_linux,
     on_windows,
     optional_args,
     rmtemp,

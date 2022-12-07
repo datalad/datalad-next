@@ -1,7 +1,6 @@
 import pytest
-from datalad_next.exceptions import (
-    AccessFailedError,
-    UrlTargetNotFound,
+from .. import (
+    UrlOperationsResourceUnknown,
 )
 from ..any import AnyUrlOperations
 
@@ -11,7 +10,7 @@ def test_any_url_operations(tmp_path):
     test_url = test_path.as_uri()
     ops = AnyUrlOperations()
     # no target file (yet), precise exception
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.sniff(test_url)
     # now put something at the target location
     test_path.write_text('surprise!')
@@ -28,7 +27,7 @@ def test_any_url_operations(tmp_path):
 
     # remove source and try again
     test_path.unlink()
-    with pytest.raises(UrlTargetNotFound):
+    with pytest.raises(UrlOperationsResourceUnknown):
         ops.download(test_url, download_path)
 
     # try some obscure URL scheme
