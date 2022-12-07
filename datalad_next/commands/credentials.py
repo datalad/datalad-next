@@ -16,7 +16,7 @@ import logging
 from datalad import (
     cfg as dlcfg,
 )
-from datalad_next.credman import (
+from datalad_next.utils.credman import (
     CredentialManager,
     verify_property_names,
 )

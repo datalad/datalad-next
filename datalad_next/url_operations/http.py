@@ -14,14 +14,14 @@ import www_authenticate
 
 import datalad
 
-from datalad_next.requests_auth import DataladAuth
+from datalad_next.utils.requests_auth import DataladAuth
 from . import (
     UrlOperations,
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
 )
 
-lgr = logging.getLogger('datalad.ext.next.http_url_operations')
+lgr = logging.getLogger('datalad.ext.next.url_operations.http')
 
 
 __all__ = ['HttpUrlOperations']
@@ -31,8 +31,8 @@ class HttpUrlOperations(UrlOperations):
     """Handler for operations on `http(s)://` URLs
 
     This handler is built on the `requests` package. For authentication, it
-    employes :class:`datalad_next.requests_auth.DataladAuth`, an adaptor that
-    consults the DataLad credential system in order to fulfill HTTP
+    employes :class:`datalad_next.utils.requests_auth.DataladAuth`, an adaptor
+    that consults the DataLad credential system in order to fulfill HTTP
     authentication challenges.
     """
 

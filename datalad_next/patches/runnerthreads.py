@@ -4,7 +4,7 @@ import logging
 
 from datalad.runner import runnerthreads as mod_runnerthreads
 
-from datalad_next.consts import COPY_BUFSIZE
+from datalad_next.utils.consts import COPY_BUFSIZE
 
 # use same logger as -core, looks weird but is correct
 lgr = logging.getLogger('datalad.runner.runnerthreads')

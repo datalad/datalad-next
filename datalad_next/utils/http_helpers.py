@@ -7,7 +7,7 @@ import logging
 from urllib.parse import urlparse
 
 
-lgr = logging.getLogger('datalad.ext.next.http_helpers')
+lgr = logging.getLogger('datalad.ext.next.utils.http_helpers')
 
 
 __all__ = ['get_auth_realm']

@@ -39,7 +39,10 @@ from datalad.tests.utils_pytest import (
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.cli.tests.test_main import run_main
 from datalad.support.keyring_ import MemoryKeyring
-from datalad_next.utils import optional_args
+from datalad_next.utils import (
+    CredentialManager,
+    optional_args,
+)
 
 lgr = logging.getLogger("datalad.tests.utils")
 
@@ -149,7 +152,6 @@ def with_credential(name, **kwargs):
     def with_credential_decorator(fx):
         @wraps(fx)
         def _with_credential(*dargs, **dkw):
-            from datalad_next.credman import CredentialManager
             credman = CredentialManager()
             # retrieve anything that might be conflicting with the
             # to-be-deployed credential

@@ -30,8 +30,8 @@ from datalad.runner import StdOutCapture
 from datalad.runner.protocol import GeneratorMixIn
 from datalad.runner.nonasyncrunner import ThreadedRunner
 
-from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.exceptions import CommandError
+from datalad_next.utils.consts import COPY_BUFSIZE
 
 from . import (
     UrlOperations,

@@ -15,9 +15,9 @@ from datalad.support.annexrepo import AnnexRepo
 from datalad_next.constraints import EnsureChoice
 from datalad_next.exceptions import CapturedException
 from datalad.support.param import Parameter
-from datalad_next.credman import CredentialManager
 from datalad_next.dataset import Dataset
 from datalad_next.utils import (
+    CredentialManager,
     get_specialremote_credential_envpatch,
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
