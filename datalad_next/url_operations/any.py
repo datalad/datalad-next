@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import re
 from typing import Dict
 from urllib import (
     request,
@@ -16,17 +17,17 @@ from .file import FileUrlOperations
 from .ssh import SshUrlOperations
 from . import UrlOperations
 
-lgr = logging.getLogger('datalad.ext.next.any_url_operations')
+lgr = logging.getLogger('datalad.ext.next.url_operations.any')
 
 
 __all__ = ['AnyUrlOperations']
 
-# define handlers for each supported URL scheme
+# define handlers for each supported URL pattern
+# the key in this dict is a regex match expression.
 # extensions could patch their's in
 # TODO support proper entrypoint mechanism
-_urlscheme_handlers = dict(
+_url_handlers = dict(
     http=HttpUrlOperations,
-    https=HttpUrlOperations,
     file=FileUrlOperations,
     ssh=SshUrlOperations,
 )
@@ -35,8 +36,10 @@ _urlscheme_handlers = dict(
 class AnyUrlOperations(UrlOperations):
     """Handler for operations on any supported URLs
 
-    The methods inspect the scheme of a given URL and call the corresponding
-    methods for the `UrlOperations` implementation for that URL scheme.
+    The methods inspect a given URL and call the corresponding
+    methods for the `UrlOperations` implementation that matches the URL best.
+    The "best match" is the match expression of a registered URL handler
+    that yields the longest match against the given URL.
 
     Parameter identity and semantics are unchanged with respect to the
     underlying implementations. See their documentation for details.
@@ -47,31 +50,41 @@ class AnyUrlOperations(UrlOperations):
     """
     def __init__(self, cfg=None):
         super().__init__(cfg=cfg)
+        self._url_handlers = {
+            re.compile(k): v for k, v in _url_handlers.items()
+        }
         # cache of already used handlers
-        self._url_handlers = dict()
+        self._url_handler_cache = dict()
 
     def _get_handler(self, url: str) -> UrlOperations:
-        scheme = self._get_url_scheme(url)
-        try:
-            # reuse existing handler, they might already have an idea on
-            # authentication etc. from a previously processed URL
-            url_handler = (
-                self._url_handlers[scheme]
-                if scheme in self._url_handlers
-                else _urlscheme_handlers[scheme](cfg=self.cfg)
-            )
-        except KeyError:
-            raise ValueError(f'unsupported URL scheme {scheme!r}')
-        self._url_handlers[scheme] = url_handler
+        # match URL against all registered handlers and get the one with the
+        # longest (AKA best) match
+        longest_match = 0
+        best_match = None
+        for r in self._url_handlers:
+            m = r.match(url)
+            if not m:
+                continue
+            length = m.end() - m.start()
+            if length > longest_match:
+                best_match = r
+                longest_match = length
+
+        if best_match is None:
+            raise ValueError(f'unsupported URL {url!r}')
+
+        # reuse existing handler, they might already have an idea on
+        # authentication etc. from a previously processed URL
+        url_handler = (
+            self._url_handler_cache[best_match]
+            if best_match in self._url_handler_cache
+            else self._url_handlers[best_match](cfg=self.cfg)
+        )
+        self._url_handler_cache[best_match] = url_handler
         return url_handler
 
-    def _get_url_scheme(self, url) -> str:
-        return url.split('://')[0]
-
     def is_supported_url(self, url) -> bool:
-        # we require that any URL has a scheme
-        scheme = self._get_url_scheme(url)
-        return scheme in _urlscheme_handlers.keys()
+        return any(r.match(url) for r in self._url_handlers)
 
     def sniff(self,
               url: str,

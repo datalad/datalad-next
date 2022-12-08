@@ -2,7 +2,24 @@ import pytest
 from .. import (
     UrlOperationsResourceUnknown,
 )
-from ..any import AnyUrlOperations
+from ..any import (
+    _url_handlers,
+    AnyUrlOperations,
+    HttpUrlOperations,
+    FileUrlOperations,
+)
+
+
+def test_get_best_url_handler(monkeypatch):
+    ops = AnyUrlOperations()
+    assert type(ops._get_handler('https://example.com')) == HttpUrlOperations
+    # it will report the "longest-matching" Handler
+    # we create a non-sensicle FileUrlOperations record to test that
+    with monkeypatch.context() as m:
+        m.setitem(_url_handlers, 'https://ex.*\.co', FileUrlOperations)
+        # the handlers are sucked into the class, so we need a new instance
+        ops = AnyUrlOperations()
+        assert type(ops._get_handler('https://example.com')) == FileUrlOperations
 
 
 def test_any_url_operations(tmp_path):
