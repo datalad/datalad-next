@@ -204,7 +204,7 @@ class FileUrlOperations(UrlOperations):
         """
         path = self._file_url_to_path(url)
         try:
-            path.unlink(missing_ok=False)
+            path.unlink()
         except FileNotFoundError as e:
             raise UrlOperationsResourceUnknown(url) from e
         except IsADirectoryError:
