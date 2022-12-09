@@ -5,6 +5,7 @@ from datalad.distribution.dataset import (
     # pre-call parameter validation
     EnsureDataset as NoOpEnsureDataset,
     datasetmethod,
+    resolve_path,
 )
 from datalad.dataset.gitrepo import GitRepo as LeanGitRepo
 
