@@ -21,7 +21,7 @@ from datalad_next.utils import (
     knows_annex,
     rmtree,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 from .clone_utils import (
     _check_autoenable_special_remotes,

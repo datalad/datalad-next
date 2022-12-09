@@ -20,7 +20,7 @@ from urllib.parse import (
     urlunparse,
 )
 
-from datalad_next.dataset import (
+from datalad_next.datasets import (
     Dataset,
     datasetmethod,
 )

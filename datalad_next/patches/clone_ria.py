@@ -10,7 +10,7 @@ from datalad.core.distributed.clone import (
     postclonecfg_ria,
 )
 
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 from datalad_next.patches import clone as mod_clone
 

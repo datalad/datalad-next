@@ -61,7 +61,7 @@ Python utilities
 Git remote helpers
 ------------------
 
-.. currentmodule:: datalad_next.gitremote
+.. currentmodule:: datalad_next.gitremotes
 .. autosummary::
    :toctree: generated
 
@@ -71,7 +71,7 @@ Git remote helpers
 Git-annex backends
 ------------------
 
-.. currentmodule:: datalad_next.annexbackend
+.. currentmodule:: datalad_next.annexbackends
 .. autosummary::
    :toctree: generated
 
@@ -82,7 +82,7 @@ Git-annex backends
 Git-annex special remotes
 -------------------------
 
-.. currentmodule:: datalad_next.annexremote
+.. currentmodule:: datalad_next.annexremotes
 .. autosummary::
    :toctree: generated
 

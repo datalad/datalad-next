@@ -27,7 +27,7 @@ from datalad_next.tests.utils import (
     with_tempfile,
     with_testsui,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 
 def test_credmanager():

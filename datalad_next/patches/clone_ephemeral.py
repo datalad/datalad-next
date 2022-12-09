@@ -13,7 +13,7 @@ from datalad_next.utils import (
     rmtree,
 )
 
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 from datalad_next.patches import clone as mod_clone
 
 lgr = logging.getLogger('datalad.core.distributed.clone')

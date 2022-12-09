@@ -26,7 +26,7 @@ from datalad.api import (
     clone,
     create_sibling_webdav,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 from ..create_sibling_webdav import _get_url_credential
 

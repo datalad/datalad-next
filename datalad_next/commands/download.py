@@ -40,7 +40,7 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.dataset import datasetmethod
+from datalad_next.datasets import datasetmethod
 from datalad_next.url_operations.any import AnyUrlOperations
 
 lgr = getLogger('datalad.local.download')

@@ -8,7 +8,7 @@ from datalad.core.distributed.clone import Clone
 # run all -core tests, because with _push() we patched a central piece
 from datalad.core.distributed.tests.test_push import *
 
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 
 # we override this specific test, because the original behavior is no longer

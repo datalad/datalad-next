@@ -23,7 +23,7 @@ from datalad_next.utils import (
 )
 from datalad.ui import ui
 
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 from ..tree import (
     Tree,

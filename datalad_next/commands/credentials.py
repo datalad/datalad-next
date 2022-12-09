@@ -35,7 +35,7 @@ from datalad.distribution.dataset import (
     # pre-call parameter validation
     EnsureDataset as NoOpEnsureDataset,
 )
-from datalad_next.dataset import datasetmethod
+from datalad_next.datasets import datasetmethod
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,

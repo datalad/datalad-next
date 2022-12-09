@@ -34,7 +34,7 @@ from datalad_next.utils import (
     log_progress,
     rmtree,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 __docformat__ = 'restructuredtext'
 

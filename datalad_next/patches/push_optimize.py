@@ -9,7 +9,7 @@ from datalad_next.utils import (
     ensure_list,
     log_progress,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')
