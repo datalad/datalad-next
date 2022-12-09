@@ -21,7 +21,7 @@ from datalad_next.utils import (
     make_tempfile,
     chpwd
 )
-from datalad.ui import ui
+from datalad_next.uis import ui_switcher as ui
 
 from datalad_next.datasets import Dataset
 

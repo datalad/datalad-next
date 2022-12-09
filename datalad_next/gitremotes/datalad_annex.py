@@ -208,7 +208,7 @@ from datalad_next.exceptions import (
 )
 from datalad.support.gitrepo import GitRepo
 from datalad_next.constraints import EnsureInt
-from datalad.ui import ui
+from datalad_next.uis import ui_switcher as ui
 from datalad_next.utils import (
     external_versions,
     on_windows,

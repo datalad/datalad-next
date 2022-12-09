@@ -21,7 +21,7 @@ from datalad_next.exceptions import (
     CapturedException,
     CommandError,
 )
-from datalad.ui import ui
+from datalad_next.uis import ui_switcher as ui
 
 lgr = logging.getLogger('datalad.credman')
 

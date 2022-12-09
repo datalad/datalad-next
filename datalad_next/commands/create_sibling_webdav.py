@@ -418,7 +418,7 @@ class CreateSiblingWebDAV(Interface):
 
     @staticmethod
     def custom_result_renderer(res, **kwargs):
-        from datalad.ui import ui
+        from datalad_next.uis import ui_switcher as ui
         from os.path import relpath
         import datalad.support.ansi_colors as ac
 
