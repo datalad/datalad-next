@@ -17,6 +17,7 @@ from datalad.distribution.dataset import (
 )
 from datalad_next.commands import (
     Interface,
+    Parameter,
     build_doc,
     eval_results,
     get_status_dict,
@@ -25,7 +26,6 @@ from datalad_next.exceptions import (
     CapturedException,
     UrlOperationsRemoteError,
 )
-from datalad.support.param import Parameter
 from datalad_next.utils import ensure_list
 from datalad_next.constraints import (
     EnsureChoice,

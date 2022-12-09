@@ -2,7 +2,7 @@ from io import StringIO
 import pathlib
 import pytest
 
-from datalad.support.param import Parameter
+from datalad_next.commands import Parameter
 
 from ..basic import (
     EnsureInt,

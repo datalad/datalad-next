@@ -21,7 +21,7 @@ from .compound import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from datalad.support.param import Parameter
+    from datalad_next.commands import Parameter
 
 aEnsureParameterConstraint = TypeVar(
     'aEnsureParameterConstraint',

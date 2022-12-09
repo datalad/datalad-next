@@ -14,7 +14,7 @@ from datalad.runner.exception import CommandError
 from datalad.support.annexrepo import AnnexRepo
 from datalad_next.constraints import EnsureChoice
 from datalad_next.exceptions import CapturedException
-from datalad.support.param import Parameter
+from datalad_next.commands import Parameter
 from datalad_next.datasets import Dataset
 from datalad_next.utils import (
     CredentialManager,

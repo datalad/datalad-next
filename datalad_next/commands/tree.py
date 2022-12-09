@@ -20,6 +20,7 @@ from pathlib import Path
 
 from datalad_next.commands import (
     Interface,
+    Parameter,
     build_doc,
     eval_results,
     get_status_dict,
@@ -28,7 +29,6 @@ from datalad_next.exceptions import (
     CapturedException,
     NoDatasetFound
 )
-from datalad.support.param import Parameter
 
 from datalad.local.subdatasets import Subdatasets
 from datalad_next.constraints import (
