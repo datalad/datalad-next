@@ -22,13 +22,8 @@ from urllib.parse import (
 
 from datalad_next.datasets import (
     Dataset,
+    NoOpEnsureDataset,
     datasetmethod,
-)
-from datalad.distribution.dataset import (
-    # this does nothing but provide documentation
-    # only kept here until this command is converted to
-    # pre-call parameter validation
-    EnsureDataset as NoOpEnsureDataset,
 )
 from datalad_next.commands import (
     Interface,

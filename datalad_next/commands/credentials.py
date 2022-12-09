@@ -30,13 +30,10 @@ from datalad_next.commands import (
     get_status_dict,
 )
 from datalad_next.exceptions import CapturedException
-from datalad.distribution.dataset import (
-    # this does nothing but provide documentation
-    # only kept here until this command is converted to
-    # pre-call parameter validation
-    EnsureDataset as NoOpEnsureDataset,
+from datalad_next.datasets import (
+    NoOpEnsureDataset,
+    datasetmethod,
 )
-from datalad_next.datasets import datasetmethod
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,
