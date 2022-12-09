@@ -212,7 +212,7 @@ from urllib.parse import urlparse
 # and even that we only need to get a `ConfigManager` instance.
 # If that class would support a plain path argument, we could
 # avoid it entirely
-from datalad.dataset.gitrepo import GitRepo
+from datalad_next.datasets import LeanGitRepo
 
 from datalad_next.exceptions import (
     CapturedException,
@@ -257,7 +257,7 @@ class UncurlRemote(SpecialRemote):
         # that remote
         remotename = self.annex.getgitremotename()
         # get the repo to gain access to its config
-        self.repo = GitRepo(self.annex.getgitdir())
+        self.repo = LeanGitRepo(self.annex.getgitdir())
         # check the config for a URL template setting
         self.url_tmpl = self.repo.cfg.get(
             f'remote.{remotename}.uncurl-url', '')
