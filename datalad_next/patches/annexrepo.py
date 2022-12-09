@@ -3,7 +3,7 @@ import os
 import re
 from unittest.mock import patch
 
-from datalad.support.annexrepo import AnnexRepo
+from datalad_next.datasets import LegacyAnnexRepo as AnnexRepo
 from datalad_next.exceptions import (
     CommandError,
 )

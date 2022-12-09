@@ -12,11 +12,9 @@ from typing import Dict
 from urllib.parse import urlparse
 
 import datalad
-from datalad.distribution.dataset import (
-    resolve_path,
-)
 from datalad_next.commands import (
     Interface,
+    Parameter,
     build_doc,
     eval_results,
     get_status_dict,
@@ -25,7 +23,6 @@ from datalad_next.exceptions import (
     CapturedException,
     UrlOperationsRemoteError,
 )
-from datalad.support.param import Parameter
 from datalad_next.utils import ensure_list
 from datalad_next.constraints import (
     EnsureChoice,
@@ -40,7 +37,10 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.dataset import datasetmethod
+from datalad_next.datasets import (
+    datasetmethod,
+    resolve_path,
+)
 from datalad_next.url_operations.any import AnyUrlOperations
 
 lgr = getLogger('datalad.local.download')

@@ -18,12 +18,14 @@ from datalad.core.distributed.clone import (
     decode_source_spec,
 )
 from datalad.dochelpers import single_or_plural
-from datalad.support.annexrepo import AnnexRepo
+from datalad_next.datasets import (
+    LegacyAnnexRepo as AnnexRepo,
+    LegacyGitRepo as GitRepo,
+)
 from datalad_next.exceptions import (
     CapturedException,
     CommandError,
 )
-from datalad.support.gitrepo import GitRepo
 from datalad.support.network import (
     get_local_file_url,
     is_url,
@@ -34,7 +36,7 @@ from datalad_next.utils import (
     log_progress,
     rmtree,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import Dataset
 
 __docformat__ = 'restructuredtext'
 

@@ -4,12 +4,14 @@ import re
 
 import datalad.core.distributed.push as mod_push
 from datalad.runner.exception import CommandError
-from datalad.support.annexrepo import AnnexRepo
 from datalad_next.utils import (
     ensure_list,
     log_progress,
 )
-from datalad_next.dataset import Dataset
+from datalad_next.datasets import (
+    LegacyAnnexRepo as AnnexRepo,
+    Dataset,
+)
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')

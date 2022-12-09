@@ -22,20 +22,18 @@ from datalad_next.utils.credman import (
 )
 from datalad_next.commands import (
     Interface,
+    Parameter,
+    Parameter,
     build_doc,
     eval_results,
     generic_result_renderer,
     get_status_dict,
 )
 from datalad_next.exceptions import CapturedException
-from datalad.support.param import Parameter
-from datalad.distribution.dataset import (
-    # this does nothing but provide documentation
-    # only kept here until this command is converted to
-    # pre-call parameter validation
-    EnsureDataset as NoOpEnsureDataset,
+from datalad_next.datasets import (
+    NoOpEnsureDataset,
+    datasetmethod,
 )
-from datalad_next.dataset import datasetmethod
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,

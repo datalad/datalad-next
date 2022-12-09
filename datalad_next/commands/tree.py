@@ -20,6 +20,7 @@ from pathlib import Path
 
 from datalad_next.commands import (
     Interface,
+    Parameter,
     build_doc,
     eval_results,
     get_status_dict,
@@ -28,7 +29,6 @@ from datalad_next.exceptions import (
     CapturedException,
     NoDatasetFound
 )
-from datalad.support.param import Parameter
 
 from datalad.local.subdatasets import Subdatasets
 from datalad_next.constraints import (
@@ -39,8 +39,8 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import get_dataset_root
-from datalad.ui import ui
-from datalad_next.dataset import (
+from datalad_next.uis import ui_switcher as ui
+from datalad_next.datasets import (
     Dataset,
     datasetmethod,
 )
@@ -331,7 +331,7 @@ class TreeCommand(Interface):
 
             │   │   ├── path_dir_level3
         """
-        from datalad.support import ansi_colors
+        from datalad_next.uis import ansi_colors
 
         # get values from result record
         node_type = res["type"]

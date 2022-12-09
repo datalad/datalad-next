@@ -20,18 +20,15 @@ from urllib.parse import (
     urlunparse,
 )
 
-from datalad_next.dataset import (
+from datalad_next.datasets import (
+    LegacyGitRepo as AnnexRepo,
     Dataset,
+    NoOpEnsureDataset,
     datasetmethod,
-)
-from datalad.distribution.dataset import (
-    # this does nothing but provide documentation
-    # only kept here until this command is converted to
-    # pre-call parameter validation
-    EnsureDataset as NoOpEnsureDataset,
 )
 from datalad_next.commands import (
     Interface,
+    Parameter,
     build_doc,
     eval_results,
     generic_result_renderer,
@@ -42,8 +39,6 @@ from datalad.interface.common_opts import (
     recursion_limit
 )
 from datalad_next.utils import log_progress
-from datalad.support.annexrepo import AnnexRepo
-from datalad.support.param import Parameter
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,
@@ -418,9 +413,11 @@ class CreateSiblingWebDAV(Interface):
 
     @staticmethod
     def custom_result_renderer(res, **kwargs):
-        from datalad.ui import ui
+        from datalad_next.uis import (
+            ansi_colors as ac,
+            ui_switcher as ui,
+        )
         from os.path import relpath
-        import datalad.support.ansi_colors as ac
 
         if res['status'] != 'ok' or 'sibling_webdav' not in res['action'] or \
                 res['type'] != 'sibling':

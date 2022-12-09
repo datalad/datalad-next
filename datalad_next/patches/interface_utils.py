@@ -144,7 +144,7 @@ def _execute_command_(
     dataset_arg = allkwargs.get('dataset', None)
     ds = None
     if dataset_arg is not None:
-        from datalad_next.dataset import Dataset
+        from datalad_next.datasets import Dataset
         if isinstance(dataset_arg, Dataset):
             ds = dataset_arg
         else:
