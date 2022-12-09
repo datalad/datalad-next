@@ -413,9 +413,11 @@ class CreateSiblingWebDAV(Interface):
 
     @staticmethod
     def custom_result_renderer(res, **kwargs):
-        from datalad_next.uis import ui_switcher as ui
+        from datalad_next.uis import (
+            ansi_colors as ac,
+            ui_switcher as ui,
+        )
         from os.path import relpath
-        import datalad.support.ansi_colors as ac
 
         if res['status'] != 'ok' or 'sibling_webdav' not in res['action'] or \
                 res['type'] != 'sibling':

@@ -331,7 +331,7 @@ class TreeCommand(Interface):
 
             │   │   ├── path_dir_level3
         """
-        from datalad.support import ansi_colors
+        from datalad_next.uis import ansi_colors
 
         # get values from result record
         node_type = res["type"]
