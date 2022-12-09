@@ -201,7 +201,7 @@ from datalad.runner import (
     NoCapture,
     StdOutCapture,
 )
-from datalad.support.annexrepo import AnnexRepo
+from datalad_next.datasets import LegacyAnnexRepo as AnnexRepo
 from datalad_next.exceptions import (
     CapturedException,
     CommandError,

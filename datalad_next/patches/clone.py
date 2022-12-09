@@ -15,13 +15,15 @@ from datalad.core.distributed.clone import (
     postclone_checkout_commit,
 )
 from datalad_next.commands import get_status_dict
-from datalad.support.annexrepo import AnnexRepo
 from datalad_next.exceptions import CapturedException
 from datalad_next.utils import (
     knows_annex,
     rmtree,
 )
-from datalad_next.datasets import Dataset
+from datalad_next.datasets import (
+    LegacyAnnexRepo as AnnexRepo,
+    Dataset,
+)
 
 from .clone_utils import (
     _check_autoenable_special_remotes,

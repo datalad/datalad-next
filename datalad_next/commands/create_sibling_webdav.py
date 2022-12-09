@@ -21,6 +21,7 @@ from urllib.parse import (
 )
 
 from datalad_next.datasets import (
+    LegacyGitRepo as AnnexRepo,
     Dataset,
     NoOpEnsureDataset,
     datasetmethod,
@@ -38,7 +39,6 @@ from datalad.interface.common_opts import (
     recursion_limit
 )
 from datalad_next.utils import log_progress
-from datalad.support.annexrepo import AnnexRepo
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,

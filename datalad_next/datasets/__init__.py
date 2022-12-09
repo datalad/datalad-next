@@ -7,3 +7,6 @@ from datalad.distribution.dataset import (
     datasetmethod,
 )
 from datalad.dataset.gitrepo import GitRepo as LeanGitRepo
+
+from datalad.support.gitrepo import GitRepo as LegacyGitRepo
+from datalad.support.annexrepo import AnnexRepo as LegacyAnnexRepo
