@@ -251,6 +251,21 @@ def test_EnsureURL():
                 ctag_parsed(url)
 
 
+def test_EnsureURL_match():
+    # must contain a UUID
+    c = EnsureURL(
+        match='^.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*$',
+    )
+    with pytest.raises(ValueError):
+        c('http://example.com')
+    # it does not matter where it is
+    for url in (
+            'https://s.kg.eb.eu/i/a8932c7e-063c-4131-ab96-996d843998e9',
+            'ssh://4ac9f0bc-560d-47e0-8916-7b24da9bb0ce.com/home',
+    ):
+        c(url)
+
+
 def test_EnsureDataset(tmp_path):
     with pytest.raises(TypeError):
         EnsureDataset()(None)

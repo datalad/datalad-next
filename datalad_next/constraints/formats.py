@@ -1,4 +1,8 @@
+# allow for |-type UnionType declarations
+from __future__ import annotations
+
 from json import loads
+import re
 from urllib.parse import (
     urlparse,
     ParseResult,
@@ -23,7 +27,10 @@ class EnsureJSON(Constraint):
 class EnsureURL(Constraint):
     """Ensures that a string is a valid URL with a select set of components
 
-    and/or does not contain certain components.
+    and/or:
+
+    - does not contain certain components
+    - matches a particular regular expression
 
     Given that a large variety of strings are also a valid URL, a typical use
     of this contraint would involve using a `required=['scheme']` setting.
@@ -35,18 +42,40 @@ class EnsureURL(Constraint):
     .. seealso::
       https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
     """
-    def __init__(self, required: list = None, forbidden: list = None):
+    def __init__(
+        self,
+        required: list | None = None,
+        forbidden: list | None = None,
+        match: str | None = None,
+    ):
+        """
+        Parameters
+        ----------
+        required: list, optional
+          List of any URL component names as recognized by ``urlparse()``,
+          such as ``scheme``, ``netloc``, ``path``, ``params``, ``query``,
+          ``fragment``, ``username``, ``password``, ``hostname``, ``port``
+        forbidden: list, optional
+          Like ``required`` but names URL components that must not be present
+        match: str, optional
+          Regular expression that the URL must match
+        """
         self._required = required
         self._forbidden = forbidden
+        self._match_exp = re.compile(match) if match else None
         super().__init__()
 
     def __call__(self, value: str) -> str:
         self._validate_parsed(value)
+        # return the str here, see EnsureParsedURL for an alternative
         return value
 
     def _validate_parsed(self, value: str) -> ParseResult:
         if not isinstance(value, str):
             raise ValueError('URL is not a string')
+        if self._match_exp and not self._match_exp.match(value):
+            raise ValueError(
+                f'URL does not match expression {self._match_exp.pattern!r}')
         parsed = urlparse(value, scheme='', allow_fragments=True)
         for r in (self._required or []):
             if not getattr(parsed, r, None):
