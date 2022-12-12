@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import datalad
 from datalad_next.commands import (
-    Interface,
+    ValidatedInterface,
     Parameter,
     build_doc,
     eval_results,
@@ -46,9 +46,8 @@ from datalad_next.url_operations.any import AnyUrlOperations
 lgr = getLogger('datalad.local.download')
 
 
-
 @build_doc
-class Download(Interface):
+class Download(ValidatedInterface):
     """Download from URLs
 
     This command is the front-end to an extensible framework for performing
@@ -203,36 +202,6 @@ class Download(Interface):
          'code_cmd': 'datalad download "ssh://example.com/home/user/data.xml"',
          'code_py': 'download("ssh://example.com/home/user/data.xml")'},
     ]
-
-    @classmethod
-    def validate_args(cls: Interface, kwargs: Dict, at_default: set) -> Dict:
-        validated = {}
-        for argname, arg in kwargs.items():
-            if argname in at_default:
-                # do not validate any parameter where the value matches the
-                # default declared in the signature. Often these are just
-                # 'do-nothing' settings or have special meaning that need
-                # not be communicated to a user. Not validating them has
-                # two consequences:
-                # - the condition can simply be referred to as "default
-                #   behavior" regardless of complexity
-                # - a command implementation must always be able to handle
-                #   its own defaults directly, and cannot delegate a
-                #   default value handling to a constraint
-                #
-                # we must nevertheless pass any such default value through
-                # to make/keep them accessible to the general result handling
-                # code
-                validated[argname] = arg
-                continue
-            validator = cls._validators_.get(argname, lambda x: x)
-            # TODO option to validate all args despite failure
-            try:
-                validated[argname] = validator(arg)
-            except Exception as e:
-                raise ValueError(
-                    f'Validation of parameter {argname!r} failed') from e
-        return validated
 
     @staticmethod
     @datasetmethod(name="download")
