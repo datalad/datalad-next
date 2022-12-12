@@ -45,6 +45,7 @@ Python utilities
 .. autosummary::
    :toctree: generated
 
+   commands.ValidatedInterface
    constraints
    exceptions
    url_operations
