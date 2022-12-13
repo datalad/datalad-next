@@ -114,10 +114,8 @@ class EnsureParameterConstraint(EnsureMapping):
           constraint that handles all aspects of the specification in a
           homogenous fashion via the Constraint interface.
         default: Any
-          A parameter's default value. Any (intermediate) constraint is tested
-          whether it considers the default to be a valid value. If not,
-          the constraint is automatically expanded to also cover this
-          particular value.
+          A parameter's default value. It is configured as a "pass-through"
+          value that will not be subjected to validation.
         item_constraint:
           If given, it override any constraint declared in the Parameter
           instance given to `spec`
@@ -127,11 +125,10 @@ class EnsureParameterConstraint(EnsureMapping):
         """
         value_constraint = _get_comprehensive_constraint(
             spec,
-            default,
             item_constraint,
             nargs,
         )
-        return cls(value_constraint)
+        return cls(value_constraint, passthrough=default)
 
 
 # that mapping is NOT to be expanded!
@@ -146,7 +143,6 @@ _constraint_spec_map = {
 
 def _get_comprehensive_constraint(
         param_spec: aParameter,
-        default: Any,
         item_constraint_override: ConstraintDerived = None,
         nargs_override: str or int = None):
     action = param_spec.cmd_kwargs.get('action')
@@ -216,12 +212,5 @@ def _get_comprehensive_constraint(
         # wrap into a(nother) sequence
         # (think: list of 2-tuples, etc.
         constraint = EnsureIterableOf(list, constraint)
-
-    # lastly try to validate the default, if that fails
-    # wrap into alternative
-    try:
-        constraint(default)
-    except Exception:
-        constraint = constraint | EnsureValue(default)
 
     return constraint

@@ -115,9 +115,9 @@ def test_EnsureParameterConstraint():
     with pytest.raises(ValueError):
         c({'some': [[3, 2], [1]]})
     # no iterable
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         c({'some': [3, [1, 2]]})
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         c({'some': 3})
     # overwrite an item constraint and nargs
     c = EnsureParameterConstraint.from_parameter(
@@ -152,6 +152,13 @@ def test_EnsureParameterConstraint_passthrough():
         c.parameter_constraint(None)
     # setting is retrievable
     assert c.passthrough_value is None
+
+    # now the "same" via from_parameter()
+    c = EnsureParameterConstraint.from_parameter(
+        Parameter(constraints=EnsureInt()),
+        default=None)
+    assert c(dict(p=None)) == {'p': None}
+    assert c('p=5') == {'p': 5}
 
 
 nested_json = """\
