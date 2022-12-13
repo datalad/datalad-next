@@ -212,7 +212,7 @@ def test_constraints_checking(path=None):
     ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for key in ("existing", "mode"):
-        with pytest.raises(ValueError, match="value is not one of"):
+        with pytest.raises(ValueError, match="is not one of"):
             create_sibling_webdav(
                 dataset=ds, url=url, **{key: "illegal-value"})
 
