@@ -1,6 +1,7 @@
 
 from typing import (
     Any,
+    Dict,
     TYPE_CHECKING,
     TypeVar,
 )
@@ -30,13 +31,47 @@ aEnsureParameterConstraint = TypeVar(
 aParameter = TypeVar('aParameter', bound='Parameter')
 
 
+class NoValue:
+    """Type to annotate the absence of a value
+
+    For example in a list of parameter defaults. In general `None` cannot
+    be used, as it may be an actual value, hence we use a local, private
+    type.
+    """
+    pass
+
+
 class EnsureParameterConstraint(EnsureMapping):
     """Ensures a mapping from a Python parameter name to a value constraint
+
+    An optional "pass-though" value can be declare that is then exempt from
+    validation and is returned as-is. This can be used to support, for example,
+    special default values that only indicate the optional nature of a
+    parameter. Declaring them as "pass-through" avoids a needless
+    complexity-increase of a value constraint that would translate onto
+    user-targeted error reporting.
     """
     # valid parameter name for Python and CLI
-    valid_param_name_regex = r'[^0-9][a-z0-0_]+'
+    # - must start with a lower-case letter
+    # - must not contain symbols other than lower-case letters,
+    #   digits, and underscore
+    valid_param_name_regex = r'[a-z]{1}[a-z0-9_]*'
 
-    def __init__(self, constraint: ConstraintDerived):
+    def __init__(self,
+                 constraint: ConstraintDerived,
+                 passthrough: Any = NoValue):
+        """
+        Parameters
+        ----------
+        constraint:
+          Any ``Constraint`` subclass instance that will be used to validate
+          parameter values.
+        passthrough:
+          A value that will not be subjected to validation by the value
+          constraint, but is returned as-is. This can be used to exempt
+          default values from validation, e.g. when defaults are only
+          placeholder values to indicate the optional nature of a parameter.
+        """
         super().__init__(
             key=EnsureStr(
                 match=EnsureParameterConstraint.valid_param_name_regex),
@@ -44,10 +79,22 @@ class EnsureParameterConstraint(EnsureMapping):
             # make it look like dict(...)
             delimiter='=',
         )
+        self._passthrough = passthrough
 
     @property
     def parameter_constraint(self):
         return self._value_constraint
+
+    @property
+    def passthrough_value(self):
+        return self._passthrough
+
+    def __call__(self, value) -> Dict:
+        key, val = self._get_key_value(value)
+        key = self._key_constraint(key)
+        val = self._value_constraint(val) \
+            if val != self.passthrough_value else val
+        return {key: val}
 
     @classmethod
     def from_parameter(

@@ -54,7 +54,7 @@ def test_EnsureParameterConstraint():
     # invalid name
     with pytest.raises(ValueError):
         c({'4way': 123})
-    assert c('some=value') == dict(some='value')
+    assert c('so1230_s82me=value') == dict(so1230_s82me='value')
     # now some from a standard Parameter declaration
     c = EnsureParameterConstraint.from_parameter(
         Parameter(), 'whateverdefault')
@@ -136,6 +136,22 @@ def test_EnsureParameterConstraint():
             pytest.deprecated_call():
         EnsureParameterConstraint.from_parameter(
             Parameter(), 2, item_constraint='unknown')
+
+
+def test_EnsureParameterConstraint_passthrough():
+    c = EnsureParameterConstraint(EnsureInt(), passthrough=None)
+    # rejects wrong ones
+    with pytest.raises(ValueError):
+        c('p=mike')
+    # accepts correct ones
+    assert c('p=5') == {'p': 5}
+    # and passes through
+    assert c(dict(p=None)) == {'p': None}
+    # even when the actual value constraint would not
+    with pytest.raises(TypeError):
+        c.parameter_constraint(None)
+    # setting is retrievable
+    assert c.passthrough_value is None
 
 
 nested_json = """\
