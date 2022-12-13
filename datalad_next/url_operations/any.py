@@ -3,6 +3,7 @@
 # allow for |-type UnionType declarations
 from __future__ import annotations
 
+from importlib import import_module
 import logging
 from pathlib import Path
 import re
@@ -24,12 +25,14 @@ __all__ = ['AnyUrlOperations']
 
 # define handlers for each supported URL pattern
 # the key in this dict is a regex match expression.
+# the value is a tuple of containing module, and name of the
+# class providing the handler
 # extensions could patch their's in
 # TODO support proper entrypoint mechanism
 _url_handlers = dict(
-    http=HttpUrlOperations,
-    file=FileUrlOperations,
-    ssh=SshUrlOperations,
+    http=('datalad_next.url_operations.http', 'HttpUrlOperations'),
+    file=('datalad_next.url_operations.file', 'FileUrlOperations'),
+    ssh=('datalad_next.url_operations.ssh', 'SshUrlOperations'),
 )
 
 
@@ -75,11 +78,20 @@ class AnyUrlOperations(UrlOperations):
 
         # reuse existing handler, they might already have an idea on
         # authentication etc. from a previously processed URL
-        url_handler = (
-            self._url_handler_cache[best_match]
-            if best_match in self._url_handler_cache
-            else self._url_handlers[best_match](cfg=self.cfg)
-        )
+        if best_match in self._url_handler_cache:
+            return self._url_handler_cache[best_match]
+
+        # we need to import the handler
+        try:
+            mod, cls = self._url_handlers[best_match]
+            module = import_module(mod, package='datalad')
+            handler_cls = getattr(module, cls)
+            url_handler = handler_cls(cfg=self.cfg)
+        except Exception as e:
+            raise ValueError(
+                'Cannot create URL handler instance for '
+                f'{best_match.pattern!r} from {self._url_handlers[best_match]}') from e
+
         self._url_handler_cache[best_match] = url_handler
         return url_handler
 
