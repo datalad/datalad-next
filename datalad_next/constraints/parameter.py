@@ -6,7 +6,10 @@ from typing import (
     TypeVar,
 )
 
-from .base import ConstraintDerived
+from .base import (
+    Constraint,
+    ConstraintDerived,
+)
 from .basic import (
     EnsureBool,
     EnsureChoice,
@@ -214,3 +217,75 @@ def _get_comprehensive_constraint(
         constraint = EnsureIterableOf(list, constraint)
 
     return constraint
+
+
+class EnsureCommandParameterization(Constraint):
+    def __init__(self, param_constraints: dict[ConstraintDerived]):
+        """
+        Parameters
+        ----------
+        param_constraints: dict
+          Mapping of parameter names to parameter constraints. On validation
+          an ``EnsureParameterConstraint`` instance will be created for
+          each item in this dict.
+        """
+        super().__init__()
+        self._param_constraints = param_constraints
+
+    def joint_validation(self, params: Dict) -> Dict:
+        """Implement for joint validation of the full parameterization
+
+        This method is called with all, individually validated, command
+        parameters in keyword-argument form in the ``params`` dict argument.
+
+        Arbritrary additional validation steps can be performed on the full
+        set of parameters that may involve raising exceptions on validation
+        errors, but also value transformation or replacements of individual
+        parameters based on the setting of others.
+
+        The parameter values return by the method are passed on to the
+        respective command implementation.
+
+        Returns
+        -------
+        dict
+          The returned dict must have a value for each item pass in via
+          ``params``.
+        """
+        return params
+
+    def __call__(self, kwargs, at_default=None) -> Dict:
+        validated = {}
+        for argname, arg in kwargs.items():
+            if at_default and argname in at_default:
+                # do not validate any parameter where the value matches the
+                # default declared in the signature. Often these are just
+                # 'do-nothing' settings or have special meaning that need
+                # not be communicated to a user. Not validating them has
+                # two consequences:
+                # - the condition can simply be referred to as "default
+                #   behavior" regardless of complexity
+                # - a command implementation must always be able to handle
+                #   its own defaults directly, and cannot delegate a
+                #   default value handling to a constraint
+                #
+                # we must nevertheless pass any such default value through
+                # to make/keep them accessible to the general result handling
+                # code
+                validated[argname] = arg
+                continue
+            validator = self._param_constraints.get(argname, lambda x: x)
+            # TODO option to validate all args despite failure
+            try:
+                validated[argname] = validator(arg)
+            except Exception as e:
+                raise ValueError(
+                    f'Validation of parameter {argname!r} failed') from e
+        try:
+            # call (subclass) method to perform holistic, cross-parameter
+            # validation of the full parameterization
+            validated = self.joint_validation(validated)
+        except Exception as e:
+            raise ValueError('Invalid command parameterization') from e
+
+        return validated
