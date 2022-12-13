@@ -158,7 +158,7 @@ class EnsureMapping(Constraint):
             self._value_constraint.short_description(),
         )
 
-    def __call__(self, value) -> Dict:
+    def _get_key_value(self, value) -> tuple:
         # determine key and value from various kinds of input
         if isinstance(value, str):
             # will raise if it cannot split into two
@@ -176,6 +176,10 @@ class EnsureMapping(Constraint):
         else:
             raise ValueError(f'Unsupported data type for mapping: {value!r}')
 
+        return key, val
+
+    def __call__(self, value) -> Dict:
+        key, val = self._get_key_value(value)
         key = self._key_constraint(key)
         val = self._value_constraint(val)
         return {key: val}
