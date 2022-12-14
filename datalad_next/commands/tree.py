@@ -23,6 +23,7 @@ from datalad_next.commands import (
     Parameter,
     build_doc,
     eval_results,
+    datasetmethod,
     get_status_dict,
 )
 from datalad_next.exceptions import (
@@ -42,7 +43,6 @@ from datalad_next.utils import get_dataset_root
 from datalad_next.uis import ui_switcher as ui
 from datalad_next.datasets import (
     Dataset,
-    datasetmethod,
 )
 
 lgr = logging.getLogger('datalad.local.tree')

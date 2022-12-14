@@ -24,12 +24,12 @@ from datalad_next.datasets import (
     LegacyGitRepo as AnnexRepo,
     Dataset,
     NoOpEnsureDataset,
-    datasetmethod,
 )
 from datalad_next.commands import (
     Interface,
     Parameter,
     build_doc,
+    datasetmethod,
     eval_results,
     generic_result_renderer,
     get_status_dict,
