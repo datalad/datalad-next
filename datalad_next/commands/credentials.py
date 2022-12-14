@@ -38,6 +38,8 @@ from datalad_next.constraints import (
     EnsureStr,
 )
 from datalad_next.constraints.dataset import EnsureDataset
+from datalad_next.utils import ParamDictator
+
 
 lgr = logging.getLogger('datalad.local.credentials')
 
@@ -46,31 +48,29 @@ credential_actions = ('query', 'get', 'set', 'remove')
 
 class CredentialsParamValidator(EnsureCommandParameterization):
     def joint_validation(self, params: Dict) -> Dict:
-        action = params['action']
-        name = params['name']
-        spec = params['spec']
+        p = ParamDictator(params)
 
-        if action in ('get', 'set', 'remove') and not name and spec \
-                and isinstance(spec, list):
+        if p.action in ('get', 'set', 'remove') and not p.name and p.spec \
+                and isinstance(p.spec, list):
             # spec came in like from the CLI (but doesn't have to be from
             # there) and we have no name set
-            if spec[0][0] != ':' and '=' not in spec[0]:
-                name = spec[0]
-                spec = spec[1:]
+            if p.spec[0][0] != ':' and '=' not in p.spec[0]:
+                p.name = p.spec[0]
+                p.spec = p.spec[1:]
 
         # `spec` could be many things, make uniform dict
-        spec = normalize_specs(spec)
+        p.spec = normalize_specs(p.spec)
 
-        if action == 'remove' and not name:
+        if p.action == 'remove' and not p.name:
             raise ValueError(
-                f"Credential name must be provided for action {action!r}")
-        if action == 'get' and not name and not spec:
+                f"Credential name must be provided for action {p.action!r}")
+        if p.action == 'get' and not p.name and not p.spec:
             raise ValueError(
                 "Cannot get credential properties when no name and no "
                 "property specification is provided")
 
-        params['name'] = name
-        params['spec'] = spec
+        params['name'] = p.name
+        params['spec'] = p.spec
 
         return params
 

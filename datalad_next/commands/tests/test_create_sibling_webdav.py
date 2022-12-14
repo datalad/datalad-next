@@ -153,26 +153,26 @@ def test_bad_url_catching(path=None):
     check_pairs = [
         (
             "http://localhost:33322/abc?a",
-            "URLs with query component are not supported:"
+            "URL has forbidden 'query' component"
         ),
         (
-            "this://netloc/has-a-fragment#sdsd",
-            "URLs with fragment are not supported: {url!r}"
+            "https://netloc/has-a-fragment#sdsd",
+            "URL has forbidden 'fragment' component"
         ),
         (
-            "this:has-no-net-location",
-            "URLs without network location are not supported: {url!r}"
+            "https:///has-no-net-location",
+            "URL is missing 'netloc' component"
         ),
         (
             "xxx://localhost:33322/abc",
-            "Only 'http'- or 'https'-scheme are supported: {url!r}"
+            "URL does not match expression '^(http|https)://'"
         ),
     ]
 
     for bad_url, expected_message in check_pairs:
-        with pytest.raises(ValueError,
-                           match=expected_message.format(url=bad_url)):
+        with pytest.raises(ValueError) as e:
             create_sibling_webdav(dataset=ds, url=bad_url)
+        assert expected_message.format(url=bad_url) in str(e.value.__cause__)
 
 
 @with_tempfile
@@ -199,8 +199,8 @@ def test_http_warning(path=None):
         eq_(lgr_mock.warning.call_count, 1)
         assert_in(
             call(
-                f"Using 'http:' ({url!r}) means that WebDAV credentials might "
-                f"be sent unencrypted over network links. Consider using "
+                f"Using 'http:' ({url!r}) means that WebDAV credentials are "
+                f"sent unencrypted over network links. Consider using "
                 f"'https:'."),
             lgr_mock.warning.mock_calls)
 
@@ -212,9 +212,10 @@ def test_constraints_checking(path=None):
     ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for key in ("existing", "mode"):
-        with pytest.raises(ValueError, match="is not one of"):
+        with pytest.raises(ValueError) as e:
             create_sibling_webdav(
                 dataset=ds, url=url, **{key: "illegal-value"})
+        assert "is not one of" in str(e.value.__cause__)
 
 
 @with_tempfile
@@ -260,9 +261,10 @@ def test_name_clash_detection(path=None):
     ds = Dataset(path).create()
     url = "http://localhost:22334/abc"
     for mode in ("annex", 'filetree', 'annex-only', 'filetree-only'):
-        with pytest.raises(ValueError, match="sibling names must not be equal"):
+        with pytest.raises(ValueError) as e:
             create_sibling_webdav(
                 dataset=ds, url=url, name="abc", storage_name="abc", mode=mode)
+        assert "sibling names must not be equal" in str(e.value.__cause__)
 
 
 @with_tempfile

@@ -19,7 +19,8 @@ from os import readlink
 from pathlib import Path
 
 from datalad_next.commands import (
-    Interface,
+    EnsureCommandParameterization,
+    ValidatedInterface,
     Parameter,
     build_doc,
     eval_results,
@@ -33,9 +34,9 @@ from datalad_next.exceptions import (
 
 from datalad.local.subdatasets import Subdatasets
 from datalad_next.constraints import (
-    EnsureNone,
-    EnsureStr,
+    EnsureBool,
     EnsureInt,
+    EnsurePath,
     EnsureRange,
 )
 from datalad_next.constraints.dataset import EnsureDataset
@@ -49,7 +50,7 @@ lgr = logging.getLogger('datalad.local.tree')
 
 
 @build_doc
-class TreeCommand(Interface):
+class TreeCommand(ValidatedInterface):
     """Visualize directory and dataset hierarchies
 
     This command mimics the UNIX/MSDOS 'tree' utility to generate and
@@ -183,47 +184,54 @@ class TreeCommand(Interface):
             args=("path",),
             nargs='?',
             doc="""path to directory from which to generate the tree.
-            Defaults to the current directory.""",
-            constraints=EnsureStr() | EnsureNone()),
+            Defaults to the current directory."""),
         depth=Parameter(
             args=("-L", "--depth",),
             doc="""limit the tree to maximum level of subdirectories.
-            If not specified, will generate the full tree with no depth 
+            If not specified, will generate the full tree with no depth
             constraint.
             If paired with [CMD: ``--recursive`` CMD][PY: ``recursive`` PY] or
             [CMD: ``--recursion-limit`` CMD][PY: ``recursion_limit`` PY],
             refers to the maximum directory level to output below
-            each dataset.""",
-            constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
+            each dataset."""),
         recursive=Parameter(
             args=("-r", "--recursive",),
-            doc="""produce a dataset tree of the full hierarchy of nested 
-            subdatasets. *Note*: may have slow performance on large 
+            doc="""produce a dataset tree of the full hierarchy of nested
+            subdatasets. *Note*: may have slow performance on large
             directory trees.""",
             action='store_true'),
         recursion_limit=Parameter(
             args=("-R", "--recursion-limit",),
             metavar="LEVELS",
-            doc="""limit the dataset tree to maximum level of nested 
-            subdatasets. 0 means include only top-level datasets, 1 means 
+            doc="""limit the dataset tree to maximum level of nested
+            subdatasets. 0 means include only top-level datasets, 1 means
             top-level datasets and their immediate subdatasets, etc. *Note*:
-            may have slow performance on large directory trees.""",
-            constraints=EnsureInt() & EnsureRange(min=0) | EnsureNone()),
+            may have slow performance on large directory trees."""),
         include_files=Parameter(
             args=("--include-files",),
             doc="""include files in the tree""",
             action='store_true'),
         include_hidden=Parameter(
             args=("--include-hidden",),
-            doc="""include hidden files/directories in the tree. This 
-            option does not affect which directories will be searched for 
-            datasets when specifying [CMD: ``--recursive`` CMD][PY: 
-            ``recursive`` PY] or [CMD: ``--recursion-limit`` CMD][PY: 
-            ``recursion_limit`` PY]. For example, datasets located underneath 
-            the hidden folder `.datalad` will be reported even if [CMD: 
-            ``--include-hidden`` CMD][PY: ``include_hidden`` PY] is omitted.""",
+            doc="""include hidden files/directories in the tree. This
+            option does not affect which directories will be searched for
+            datasets when specifying [CMD: ``--recursive`` CMD][PY:
+            ``recursive`` PY] or [CMD: ``--recursion-limit`` CMD][PY:
+            ``recursion_limit`` PY]. For example, datasets located underneath
+            the hidden folder `.datalad` will be reported even if [CMD:
+            ``--include-hidden`` CMD][PY: ``include_hidden`` PY] is omitted.
+            """,
             action='store_true'),
     )
+
+    _validator_ = EnsureCommandParameterization(dict(
+        path=EnsurePath(),
+        depth=EnsureInt() & EnsureRange(min=0),
+        recursive=EnsureBool(),
+        recursion_limit=EnsureInt() & EnsureRange(min=0),
+        include_files=EnsureBool(),
+        include_hidden=EnsureBool(),
+    ))
 
     _examples_ = [
         dict(text="Show up to 3 levels of subdirectories below the current "
@@ -262,7 +270,7 @@ class TreeCommand(Interface):
             dataset_tree_args = {}
 
         tree = tree_cls(
-            Path(path),
+            path,
             max_depth=depth,
             exclude_node_func=build_excluded_node_func(
                 include_hidden=include_hidden, include_files=include_files),
