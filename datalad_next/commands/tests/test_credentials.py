@@ -17,6 +17,7 @@ from ..credentials import (
     normalize_specs,
 )
 from datalad_next.exceptions import IncompleteResultsError
+from datalad_next.utils import external_versions
 from datalad_next.tests.utils import (
     MemoryKeyring,
     assert_in,
@@ -105,7 +106,10 @@ def check_credentials_cli():
         # it is a shame that the error is not coming out on
         # stderr
         run_main(['credentials', 'remove'], exit_code=1)
-        cml.assert_logged('.*name must be provided')
+        if external_versions['datalad'] > '0.17.9':
+            # depends on (yet unreleased)
+            # https://github.com/datalad/datalad/pull/7210
+            cml.assert_logged('.*name must be provided')
     # catch missing `name` via Python call too
     assert_raises(IncompleteResultsError, cred, 'set', spec=[':mike'])
     # no name and no property
