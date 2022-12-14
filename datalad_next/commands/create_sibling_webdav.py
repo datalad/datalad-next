@@ -10,23 +10,17 @@
  """
 import logging
 from typing import (
-    Optional,
-    Union,
+    Dict,
 )
 from unittest.mock import patch
 from urllib.parse import (
     quote as urlquote,
-    urlparse,
     urlunparse,
 )
 
-from datalad_next.datasets import (
-    LegacyGitRepo as AnnexRepo,
-    Dataset,
-    NoOpEnsureDataset,
-)
 from datalad_next.commands import (
-    Interface,
+    EnsureCommandParameterization,
+    ValidatedInterface,
     Parameter,
     build_doc,
     datasetmethod,
@@ -38,16 +32,18 @@ from datalad.interface.common_opts import (
     recursion_flag,
     recursion_limit
 )
-from datalad_next.utils import log_progress
 from datalad_next.constraints import (
+    EnsureBool,
     EnsureChoice,
-    EnsureNone,
+    EnsureInt,
+    EnsureParsedURL,
+    EnsureRange,
     EnsureStr,
 )
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.exceptions import CapturedException
 from datalad_next.utils import CredentialManager
 from datalad_next.utils import (
+    ParamDictator,
     get_specialremote_credential_properties,
     update_specialremote_credential,
     _yield_ds_w_matching_siblings,
@@ -59,8 +55,42 @@ __docformat__ = "restructuredtext"
 lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 
+class CreateSiblingWebDAVParamValidator(EnsureCommandParameterization):
+    def joint_validation(self, params: Dict) -> Dict:
+        p = ParamDictator(params)
+        if p.url.scheme == "http":
+            lgr.warning(
+                f"Using 'http:' ({p.url.geturl()!r}) means that WebDAV "
+                "credentials are sent unencrypted over network links. "
+                "Consider using 'https:'.")
+
+        if not params['name']:
+            # not using .netloc to avoid ports to show up in the name
+            params['name'] = p.url.hostname
+
+        if p.mode in ('annex-only', 'filetree-only') and p.storage_name:
+            lgr.warning(
+                "Sibling name will be used for storage sibling in "
+                "storage-sibling-only mode, but a storage sibling name "
+                "was provided"
+            )
+        if p.mode == 'git-only' and p.storage_name:
+            lgr.warning(
+                "Storage sibling setup disabled, but a storage sibling name "
+                "was provided"
+            )
+        if p.mode != 'git-only' and not p.storage_name:
+            p.storage_name = f"{p.name}-storage"
+
+        if p.mode != 'git-only' and p.name == p.storage_name:
+            # leads to unresolvable, circular dependency with publish-depends
+            raise ValueError("sibling names must not be equal")
+
+        return params
+
+
 @build_doc
-class CreateSiblingWebDAV(Interface):
+class CreateSiblingWebDAV(ValidatedInterface):
     """Create a sibling(-tandem) on a WebDAV server
 
     WebDAV is a standard HTTP protocol extension for placing files on a server
@@ -147,22 +177,19 @@ class CreateSiblingWebDAV(Interface):
         url=Parameter(
             args=("url",),
             metavar='URL',
-            doc="URL identifying the sibling root on the target WebDAV server",
-            constraints=EnsureStr()),
+            doc="URL identifying the sibling root on the target WebDAV server"),
         dataset=Parameter(
             args=("-d", "--dataset"),
             doc="""specify the dataset to process.  If
             no dataset is given, an attempt is made to identify the dataset
-            based on the current working directory""",
-            constraints=NoOpEnsureDataset() | EnsureNone()),
+            based on the current working directory"""),
         name=Parameter(
             args=('-s', '--name',),
             metavar='NAME',
             doc="""name of the sibling. If none is given, the hostname-part
             of the WebDAV URL will be used.
             With `recursive`, the same name will be used to label all
-            the subdatasets' siblings.""",
-            constraints=EnsureStr() | EnsureNone()),
+            the subdatasets' siblings."""),
         storage_name=Parameter(
             args=("--storage-name",),
             metavar="NAME",
@@ -170,8 +197,7 @@ class CreateSiblingWebDAV(Interface):
             Must not be identical to the sibling name. If not specified,
             defaults to the sibling name plus '-storage' suffix. If only
             a storage sibling is created, this setting is ignored, and
-            the primary sibling name is used.""",
-            constraints=EnsureStr() | EnsureNone()),
+            the primary sibling name is used."""),
         credential=Parameter(
             args=("--credential",),
             metavar='NAME',
@@ -188,7 +214,6 @@ class CreateSiblingWebDAV(Interface):
         ),
         existing=Parameter(
             args=("--existing",),
-            constraints=EnsureChoice('skip', 'error', 'reconfigure'),
             doc="""action to perform, if a (storage) sibling is already
             configured under the given name.
             In this case, sibling creation can be skipped ('skip') or the
@@ -198,9 +223,6 @@ class CreateSiblingWebDAV(Interface):
         recursion_limit=recursion_limit,
         mode=Parameter(
             args=("--mode",),
-            constraints=EnsureChoice(
-                'annex', 'filetree', 'annex-only', 'filetree-only',
-                'git-only'),
             doc="""Siblings can be created in various modes:
             full-featured sibling tandem, one for a dataset's Git history
             and one storage sibling to host any number of file versions
@@ -229,76 +251,42 @@ class CreateSiblingWebDAV(Interface):
             """),
     )
 
+    _validator_ = CreateSiblingWebDAVParamValidator(dict(
+        url=EnsureParsedURL(
+            required=['scheme', 'netloc'],
+            forbidden=['query', 'fragment'],
+            match='^(http|https)://',
+        ),
+        dataset=EnsureDataset(
+            installed=True, purpose='create WebDAV sibling(s)'),
+        name=EnsureStr(),
+        storage_name=EnsureStr(),
+        mode=EnsureChoice(
+            'annex', 'filetree', 'annex-only', 'filetree-only', 'git-only'
+        ),
+        # TODO https://github.com/datalad/datalad-next/issues/131
+        credential=EnsureStr(),
+        existing=EnsureChoice('skip', 'error', 'reconfigure'),
+        recursive=EnsureBool(),
+        recursion_limit=EnsureInt() & EnsureRange(min=0),
+    ))
+
     @staticmethod
     @datasetmethod(name='create_sibling_webdav')
     @eval_results
     def __call__(
-            url: str,
+            url,
             *,
-            dataset: Optional[Union[str, Dataset]] = None,
-            name: Optional[str] = None,
-            storage_name: Optional[str] = None,
-            mode: str = 'annex',
-            credential: Optional[str] = None,
-            existing: str = 'error',
-            recursive: bool = False,
-            recursion_limit: Optional[int] = None):
+            dataset=None,
+            name=None,
+            storage_name=None,
+            mode='annex',
+            credential=None,
+            existing='error',
+            recursive=False,
+            recursion_limit=None):
 
-        parsed_url = urlparse(url)
-        if parsed_url.query:
-            raise ValueError(
-                f"URLs with query component are not supported: {url!r}")
-        if parsed_url.fragment:
-            raise ValueError(
-                f"URLs with fragment are not supported: {url!r}")
-        if not parsed_url.netloc:
-            raise ValueError(
-                f"URLs without network location are not supported: {url!r}")
-        if parsed_url.scheme not in ("http", "https"):
-            raise ValueError(
-                f"Only 'http'- or 'https'-scheme are supported: {url!r}")
-        if parsed_url.scheme == "http":
-            lgr.warning(
-                f"Using 'http:' ({url!r}) means that WebDAV credentials might"
-                " be sent unencrypted over network links. Consider using "
-                "'https:'.")
-
-        if not name:
-            # not using .netloc to avoid ports to show up in the name
-            name = parsed_url.hostname
-
-        # ensure values of critical switches. this duplicated the CLI processing, but
-        # compliance is critical in a python session too.
-        # we cannot make it conditional to apimode == cmdline, because this command
-        # might be called by other python code
-        for param, value in (('mode', mode),
-                             ('existing', existing)):
-            try:
-                CreateSiblingWebDAV._params_[param].constraints(value)
-            except ValueError as e:
-                # give message a context
-                raise ValueError(f"{param!r}: {e}") from e
-
-        if mode in ('annex-only', 'filetree-only') and storage_name:
-            lgr.warning(
-                "Sibling name will be used for storage sibling in "
-                "storage-sibling-only mode, but a storage sibling name "
-                "was provided"
-            )
-        if mode == 'git-only' and storage_name:
-            lgr.warning(
-                "Storage sibling setup disabled, but a storage sibling name "
-                "was provided"
-            )
-        if mode != 'git-only' and not storage_name:
-            storage_name = "{}-storage".format(name)
-
-        if mode != 'git-only' and name == storage_name:
-            # leads to unresolvable, circular dependency with publish-depends
-            raise ValueError("sibling names must not be equal")
-
-        ds = EnsureDataset(
-            installed=True, purpose='create WebDAV sibling(s)')(dataset).ds
+        ds = dataset.ds
 
         res_kwargs = dict(
             action='create_sibling_webdav',
@@ -340,10 +328,10 @@ class CreateSiblingWebDAV(Interface):
         # server
         # if all goes well, we'll store a credential (update) at the very end
         credman = CredentialManager(ds.config)
-        cred = _get_url_credential(credential, url, credman)
+        cred = _get_url_credential(credential, url.geturl(), credman)
         if not cred:
             raise ValueError(
-                f'No suitable credential for {url} found or specified')
+                f'No suitable credential for {url.geturl()} found or specified')
         try:
             # take them apart here to avoid needly complexity in _dummy() which
             # has impaired error reporting via foreach_dataset()
@@ -351,7 +339,7 @@ class CreateSiblingWebDAV(Interface):
             cred_password = cred[1]['secret']
         except Exception as e:
             raise ValueError(
-                f'No suitable credential for {url} found or specified') from e
+                f'No suitable credential for {url.geturl()} found or specified') from e
 
         def _dummy(ds, refds, **kwargs):
             """Small helper to prepare the actual call to _create_sibling_webdav()
@@ -361,9 +349,9 @@ class CreateSiblingWebDAV(Interface):
             """
             relpath = ds.pathobj.relative_to(refds.pathobj) if not ds == refds else None
             if relpath:
-                dsurl = f"{urlunparse(parsed_url)}/{relpath}"
+                dsurl = f"{urlunparse(url)}/{relpath}"
             else:
-                dsurl = url
+                dsurl = url.geturl()
 
             return _create_sibling_webdav(
                 ds,

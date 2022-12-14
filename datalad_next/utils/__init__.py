@@ -2,6 +2,10 @@
 
 import logging
 import os
+from typing import (
+    Any,
+    Dict,
+)
 
 from datalad.utils import (
     Path,
@@ -199,3 +203,25 @@ def get_specialremote_credential_envpatch(remote_type, cred):
         for k, v in env_map.items()
         if v not in os.environ
     } or None
+
+
+class ParamDictator:
+    """Parameter dict access helper
+
+    This class can be used to wrap a dict containing function parameter
+    name-value mapping, and get/set values by parameter name attribute
+    rather than via the ``__getitem__`` dict API.
+    """
+    def __init__(self, params: Dict):
+        self.__params = params
+
+    def __getattr__(self, attr: str):
+        if attr.startswith('__'):
+            return super().__getattr__(attr)
+        return self.__params[attr]
+
+    def __setattr__(self, attr: str, value: Any):
+        if attr.startswith('_ParamDictator__'):
+            super().__setattr__(attr, value)
+        else:
+            self.__params[attr] = value
