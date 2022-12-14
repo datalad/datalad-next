@@ -11,7 +11,6 @@ from datalad.core.local.resulthooks import (
     match_jsonhook2result,
     run_jsonhook,
 )
-from datalad.interface import utils as mod_interface_utils
 from datalad.interface.results import known_result_xfms
 from datalad.interface.utils import (
     anInterface,
@@ -249,5 +248,14 @@ def _execute_command_(
 
 
 # apply patch
-lgr.debug('Apply datalad-next patch to interface.utils.py:_execute_command_')
-mod_interface_utils._execute_command_ = _execute_command_
+from datalad.interface import utils as mod_interface_utils
+if hasattr(mod_interface_utils, '_execute_command_'):
+    lgr.debug(
+        'Apply datalad-next patch to interface.utils.py:_execute_command_')
+    mod_interface_utils._execute_command_ = _execute_command_
+else:
+    # we have datalad 0.17.10+ and the target has moved
+    from datalad.interface import base as mod_interface_base
+    lgr.debug(
+        'Apply datalad-next patch to interface.base.py:_execute_command_')
+    mod_interface_base._execute_command_ = _execute_command_
