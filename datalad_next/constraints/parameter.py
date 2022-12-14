@@ -1,11 +1,16 @@
+from __future__ import annotations
 
 from typing import (
     Any,
+    Dict,
     TYPE_CHECKING,
     TypeVar,
 )
 
-from .base import ConstraintDerived
+from .base import (
+    Constraint,
+    ConstraintDerived,
+)
 from .basic import (
     EnsureBool,
     EnsureChoice,
@@ -30,13 +35,47 @@ aEnsureParameterConstraint = TypeVar(
 aParameter = TypeVar('aParameter', bound='Parameter')
 
 
+class NoValue:
+    """Type to annotate the absence of a value
+
+    For example in a list of parameter defaults. In general `None` cannot
+    be used, as it may be an actual value, hence we use a local, private
+    type.
+    """
+    pass
+
+
 class EnsureParameterConstraint(EnsureMapping):
     """Ensures a mapping from a Python parameter name to a value constraint
+
+    An optional "pass-though" value can be declare that is then exempt from
+    validation and is returned as-is. This can be used to support, for example,
+    special default values that only indicate the optional nature of a
+    parameter. Declaring them as "pass-through" avoids a needless
+    complexity-increase of a value constraint that would translate onto
+    user-targeted error reporting.
     """
     # valid parameter name for Python and CLI
-    valid_param_name_regex = r'[^0-9][a-z0-0_]+'
+    # - must start with a lower-case letter
+    # - must not contain symbols other than lower-case letters,
+    #   digits, and underscore
+    valid_param_name_regex = r'[a-z]{1}[a-z0-9_]*'
 
-    def __init__(self, constraint: ConstraintDerived):
+    def __init__(self,
+                 constraint: ConstraintDerived,
+                 passthrough: Any = NoValue):
+        """
+        Parameters
+        ----------
+        constraint:
+          Any ``Constraint`` subclass instance that will be used to validate
+          parameter values.
+        passthrough:
+          A value that will not be subjected to validation by the value
+          constraint, but is returned as-is. This can be used to exempt
+          default values from validation, e.g. when defaults are only
+          placeholder values to indicate the optional nature of a parameter.
+        """
         super().__init__(
             key=EnsureStr(
                 match=EnsureParameterConstraint.valid_param_name_regex),
@@ -44,10 +83,22 @@ class EnsureParameterConstraint(EnsureMapping):
             # make it look like dict(...)
             delimiter='=',
         )
+        self._passthrough = passthrough
 
     @property
     def parameter_constraint(self):
         return self._value_constraint
+
+    @property
+    def passthrough_value(self):
+        return self._passthrough
+
+    def __call__(self, value) -> Dict:
+        key, val = self._get_key_value(value)
+        key = self._key_constraint(key)
+        val = self._value_constraint(val) \
+            if val != self.passthrough_value else val
+        return {key: val}
 
     @classmethod
     def from_parameter(
@@ -67,10 +118,8 @@ class EnsureParameterConstraint(EnsureMapping):
           constraint that handles all aspects of the specification in a
           homogenous fashion via the Constraint interface.
         default: Any
-          A parameter's default value. Any (intermediate) constraint is tested
-          whether it considers the default to be a valid value. If not,
-          the constraint is automatically expanded to also cover this
-          particular value.
+          A parameter's default value. It is configured as a "pass-through"
+          value that will not be subjected to validation.
         item_constraint:
           If given, it override any constraint declared in the Parameter
           instance given to `spec`
@@ -80,11 +129,10 @@ class EnsureParameterConstraint(EnsureMapping):
         """
         value_constraint = _get_comprehensive_constraint(
             spec,
-            default,
             item_constraint,
             nargs,
         )
-        return cls(value_constraint)
+        return cls(value_constraint, passthrough=default)
 
 
 # that mapping is NOT to be expanded!
@@ -99,7 +147,6 @@ _constraint_spec_map = {
 
 def _get_comprehensive_constraint(
         param_spec: aParameter,
-        default: Any,
         item_constraint_override: ConstraintDerived = None,
         nargs_override: str or int = None):
     action = param_spec.cmd_kwargs.get('action')
@@ -170,11 +217,76 @@ def _get_comprehensive_constraint(
         # (think: list of 2-tuples, etc.
         constraint = EnsureIterableOf(list, constraint)
 
-    # lastly try to validate the default, if that fails
-    # wrap into alternative
-    try:
-        constraint(default)
-    except Exception:
-        constraint = constraint | EnsureValue(default)
-
     return constraint
+
+
+class EnsureCommandParameterization(Constraint):
+    def __init__(self, param_constraints: dict[ConstraintDerived]):
+        """
+        Parameters
+        ----------
+        param_constraints: dict
+          Mapping of parameter names to parameter constraints. On validation
+          an ``EnsureParameterConstraint`` instance will be created for
+          each item in this dict.
+        """
+        super().__init__()
+        self._param_constraints = param_constraints
+
+    def joint_validation(self, params: Dict) -> Dict:
+        """Implement for joint validation of the full parameterization
+
+        This method is called with all, individually validated, command
+        parameters in keyword-argument form in the ``params`` dict argument.
+
+        Arbritrary additional validation steps can be performed on the full
+        set of parameters that may involve raising exceptions on validation
+        errors, but also value transformation or replacements of individual
+        parameters based on the setting of others.
+
+        The parameter values return by the method are passed on to the
+        respective command implementation.
+
+        Returns
+        -------
+        dict
+          The returned dict must have a value for each item pass in via
+          ``params``.
+        """
+        return params
+
+    def __call__(self, kwargs, at_default=None) -> Dict:
+        validated = {}
+        for argname, arg in kwargs.items():
+            if at_default and argname in at_default:
+                # do not validate any parameter where the value matches the
+                # default declared in the signature. Often these are just
+                # 'do-nothing' settings or have special meaning that need
+                # not be communicated to a user. Not validating them has
+                # two consequences:
+                # - the condition can simply be referred to as "default
+                #   behavior" regardless of complexity
+                # - a command implementation must always be able to handle
+                #   its own defaults directly, and cannot delegate a
+                #   default value handling to a constraint
+                #
+                # we must nevertheless pass any such default value through
+                # to make/keep them accessible to the general result handling
+                # code
+                validated[argname] = arg
+                continue
+            validator = self._param_constraints.get(argname, lambda x: x)
+            # TODO option to validate all args despite failure
+            try:
+                validated[argname] = validator(arg)
+            except Exception as e:
+                raise ValueError(
+                    f'Validation of parameter {argname!r} failed') from e
+        try:
+            # call (subclass) method to perform holistic, cross-parameter
+            # validation of the full parameterization
+            validated = self.joint_validation(validated)
+        except Exception as e:
+            raise ValueError('Invalid command parameterization') from e
+
+        return validated

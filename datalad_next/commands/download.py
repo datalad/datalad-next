@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import datalad
 from datalad_next.commands import (
+    EnsureCommandParameterization,
     ValidatedInterface,
     Parameter,
     build_doc,
@@ -121,7 +122,7 @@ class Download(ValidatedInterface):
 
     # Interface.validate_args() will inspect this dict for the presence of a
     # validator for particular parameters
-    _validators_ = dict(
+    _validator_ = EnsureCommandParameterization(dict(
         spec=spec_constraint,
         # if given, it must also exist as a source for configuration items
         # and/or credentials
@@ -131,7 +132,7 @@ class Download(ValidatedInterface):
         #credential=
         # TODO EnsureHashAlgorithm
         #hash=EnsureHashAlgorithm | EnsureIterableOf(EnsureHashAlgorithm)
-    )
+    ))
 
     # this is largely here for documentation and CLI parser building
     _params_ = dict(

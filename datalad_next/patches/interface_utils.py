@@ -112,9 +112,9 @@ def _execute_command_(
     )
 
     # validate the complete parameterization
-    if hasattr(interface, 'validate_args'):
-        allkwargs = interface.validate_args(
-            kwargs=allkwargs,
+    if hasattr(interface, '_validator_') and interface._validator_ is not None:
+        allkwargs = interface._validator_(
+            allkwargs,
             at_default=at_default,
         )
 

@@ -12,6 +12,7 @@ __docformat__ = 'restructuredtext'
 
 import json
 import logging
+from typing import Dict
 
 from datalad import (
     cfg as dlcfg,
@@ -21,8 +22,8 @@ from datalad_next.utils.credman import (
     verify_property_names,
 )
 from datalad_next.commands import (
-    Interface,
-    Parameter,
+    EnsureCommandParameterization,
+    ValidatedInterface,
     Parameter,
     build_doc,
     eval_results,
@@ -30,10 +31,7 @@ from datalad_next.commands import (
     get_status_dict,
 )
 from datalad_next.exceptions import CapturedException
-from datalad_next.datasets import (
-    NoOpEnsureDataset,
-    datasetmethod,
-)
+from datalad_next.datasets import datasetmethod
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureNone,
@@ -46,8 +44,39 @@ lgr = logging.getLogger('datalad.local.credentials')
 credential_actions = ('query', 'get', 'set', 'remove')
 
 
+class CredentialsParamValidator(EnsureCommandParameterization):
+    def joint_validation(self, params: Dict) -> Dict:
+        action = params['action']
+        name = params['name']
+        spec = params['spec']
+
+        if action in ('get', 'set', 'remove') and not name and spec \
+                and isinstance(spec, list):
+            # spec came in like from the CLI (but doesn't have to be from
+            # there) and we have no name set
+            if spec[0][0] != ':' and '=' not in spec[0]:
+                name = spec[0]
+                spec = spec[1:]
+
+        # `spec` could be many things, make uniform dict
+        spec = normalize_specs(spec)
+
+        if action == 'remove' and not name:
+            raise ValueError(
+                f"Credential name must be provided for action {action!r}")
+        if action == 'get' and not name and not spec:
+            raise ValueError(
+                "Cannot get credential properties when no name and no "
+                "property specification is provided")
+
+        params['name'] = name
+        params['spec'] = spec
+
+        return params
+
+
 @build_doc
-class Credentials(Interface):
+class Credentials(ValidatedInterface):
     """Credential management and query
 
     This command enables inspection and manipulation of credentials used
@@ -160,18 +189,15 @@ class Credentials(Interface):
         dataset=Parameter(
             args=("-d", "--dataset"),
             doc="""specify a dataset whose configuration to inspect
-            rather than the global (user) settings""",
-            constraints=NoOpEnsureDataset() | EnsureNone()),
+            rather than the global (user) settings"""),
         action=Parameter(
             args=("action",),
             nargs='?',
-            doc="""which action to perform""",
-            constraints=EnsureChoice(*credential_actions)),
+            doc="""which action to perform"""),
         name=Parameter(
             # exclude from CLI
             args=tuple(),
-            doc="""name of a credential to set, get, or remove.""",
-            constraints=EnsureStr() | EnsureNone()),
+            doc="""name of a credential to set, get, or remove."""),
         spec=Parameter(
             args=("spec",),
             doc="""specification of[CMD: a credential name and CMD]
@@ -196,8 +222,7 @@ class Credentials(Interface):
             doc="""message to display when entry of missing credential
             properties is required for action 'get'. This can be used
             to present information on the nature of a credential and
-            for instructions on how to obtain a credential""",
-            constraints=EnsureStr() | EnsureNone()),
+            for instructions on how to obtain a credential"""),
     )
 
     _examples_ = [
@@ -230,45 +255,30 @@ class Credentials(Interface):
              code_cmd="datalad credentials --prompt 'can I haz info plz?' get newcred :newproperty"),
     ]
 
+    _validator_ = CredentialsParamValidator(dict(
+        action=EnsureChoice(*credential_actions),
+        dataset=EnsureDataset(
+            # we do not actually require it
+            installed=None,
+            purpose='manage credentials',
+        ),
+        name=EnsureStr(),
+        prompt=EnsureStr(),
+    ))
+
     @staticmethod
     @datasetmethod(name='credentials')
     @eval_results
     def __call__(action='query', spec=None, *, name=None, prompt=None,
                  dataset=None):
-        if action not in credential_actions:
-            raise ValueError(f"Unknown action {action!r}")
-
-        if action in ('get', 'set', 'remove') and not name and spec \
-                and isinstance(spec, list):
-            # spec came in like from the CLI (but doesn't have to be from
-            # there) and we have no name set
-            if spec[0][0] != ':' and '=' not in spec[0]:
-                name = spec[0]
-                spec = spec[1:]
-
-        # `spec` could be many things, make uniform dict
-        specs = normalize_specs(spec)
-
-        if action == 'remove' and not name:
-            raise ValueError(
-                f"Credential name must be provided for action {action!r}")
-        if action == 'get' and not name and not spec:
-            raise ValueError(
-                "Cannot get credential properties when no name and no "
-                "property specification is provided")
-
         # which config manager to use: global or from dataset
-        cfg = EnsureDataset(
-            # we do not actually need it
-            installed=None,
-            purpose='manage credentials',
-        )(dataset).ds.config if dataset else dlcfg
+        cfg = dataset.ds.config if dataset else dlcfg
 
         credman = CredentialManager(cfg)
 
         if action == 'set':
             try:
-                updated = credman.set(name, **specs)
+                updated = credman.set(name, **spec)
             except Exception as e:
                 yield get_status_dict(
                     action='credentials',
@@ -285,10 +295,10 @@ class Credentials(Interface):
                 action='credentials',
                 status='notneeded' if updated is None else 'ok',
                 name=name,
-                **_prefix_result_keys(updated if updated else specs),
+                **_prefix_result_keys(updated if updated else spec),
             )
         elif action == 'get':
-            cred = credman.get(name=name, _prompt=prompt, **specs)
+            cred = credman.get(name=name, _prompt=prompt, **spec)
             if not cred:
                 yield get_status_dict(
                     action='credentials',
@@ -305,7 +315,7 @@ class Credentials(Interface):
                 )
         elif action == 'remove':
             try:
-                removed = credman.remove(name, type_hint=specs.get('type'))
+                removed = credman.remove(name, type_hint=spec.get('type'))
             except Exception as e:
                 yield get_status_dict(
                     action='credentials',
@@ -321,7 +331,7 @@ class Credentials(Interface):
                 name=name,
             )
         elif action == 'query':
-            for name, cred in credman.query_(**specs):
+            for name, cred in credman.query_(**spec):
                 yield get_status_dict(
                     action='credentials',
                     status='ok',

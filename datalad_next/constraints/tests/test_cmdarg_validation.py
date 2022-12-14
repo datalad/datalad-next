@@ -7,7 +7,7 @@ from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
 from datalad_next.commands import (
-    Interface,
+    ValidatedInterface,
     Parameter,
     eval_results,
 )
@@ -21,9 +21,10 @@ from datalad_next.constraints import (
     EnsurePath,
     EnsureURL,
 )
+from datalad_next.constraints.parameter import EnsureCommandParameterization
 
 
-class CmdWithValidation(Interface):
+class CmdWithValidation(ValidatedInterface):
     # this is of little relevance, no validation configured here
     _params_ = dict(spec=Parameter(args=('spec',), nargs='+'))
 
@@ -36,7 +37,7 @@ class CmdWithValidation(Interface):
         | (EnsureJSON() & url2path_constraint)
 
     # this is the key bit: a mapping of parameter names to validators
-    _validators_ = dict(
+    _validator_ = EnsureCommandParameterization(dict(
         # Must not OR: https://github.com/datalad/datalad/issues/7164
         #spec=spec_item_constraint | EnsureListOf(spec_item_constraint)# \
         spec=AltConstraints(
@@ -44,38 +45,7 @@ class CmdWithValidation(Interface):
             EnsureGeneratorFromFileLike(spec_item_constraint),
             spec_item_constraint,
         ),
-    )
-
-    # validation helper, need not be a classmethod
-    @classmethod
-    def validate_args(cls: Interface, kwargs: Dict, at_default: set) -> Dict:
-        validated = {}
-        for argname, arg in kwargs.items():
-            if argname in at_default:
-                # do not validate any parameter where the value matches the
-                # default declared in the signature. Often these are just
-                # 'do-nothing' settings or have special meaning that need
-                # not be communicated to a user. Not validating them has
-                # two consequences:
-                # - the condition can simply be referred to as "default
-                #   behavior" regardless of complexity
-                # - a command implementation must always be able to handle
-                #   its own defaults directly, and cannot delegate a
-                #   default value handling to a constraint
-                #
-                # we must nevertheless pass any such default value through
-                # to make/keep them accessible to the general result handling
-                # code
-                validated[argname] = arg
-                continue
-            validator = cls._validators_.get(argname, lambda x: x)
-            # TODO option to validate all args despite failure
-            try:
-                validated[argname] = validator(arg)
-            except Exception as e:
-                raise ValueError(
-                    f'Validation of parameter {argname!r} failed') from e
-        return validated
+    ))
 
     # command implementation that only validated and returns the outcome
     @staticmethod
