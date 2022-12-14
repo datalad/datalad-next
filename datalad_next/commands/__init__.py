@@ -16,6 +16,7 @@ except ImportError:
 from datalad.support.param import Parameter
 
 from datalad_next.constraints.parameter import EnsureCommandParameterization
+from datalad_next.datasets import datasetmethod
 
 
 class ValidatedInterface(Interface):

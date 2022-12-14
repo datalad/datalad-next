@@ -17,6 +17,7 @@ from datalad import cfg as dlcfg
 from datalad.distribution.dataset import require_dataset
 from datalad_next.commands import (
     build_doc,
+    datasetmethod,
     eval_results,
     get_status_dict,
 )
@@ -33,7 +34,6 @@ from datalad_next.exceptions import NoDatasetFound
 from datalad_next.utils import ensure_list
 from datalad_next.datasets import (
     Dataset,
-    datasetmethod,
 )
 
 lgr = logging.getLogger('datalad.local.configuration')

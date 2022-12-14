@@ -17,6 +17,7 @@ from datalad_next.commands import (
     ValidatedInterface,
     Parameter,
     build_doc,
+    datasetmethod,
     eval_results,
     get_status_dict,
 )
@@ -39,7 +40,6 @@ from datalad_next.constraints import (
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.datasets import (
-    datasetmethod,
     resolve_path,
 )
 from datalad_next.url_operations.any import AnyUrlOperations
