@@ -231,7 +231,7 @@ install:
   # Install git-annex on windows, otherwise INSTALL_SYSPKGS can be used
   # deploy git-annex, if desired
   - cmd: IF DEFINED INSTALL_GITANNEX datalad-installer --sudo ok %INSTALL_GITANNEX%
-  - sh: chronic tools/appveyor/install-git-annex ${INSTALL_GITANNEX}
+  - sh: tools/appveyor/install-git-annex ${INSTALL_GITANNEX}
   # enable the git-annex provisioned by the installer
   - "[ -f ${HOME}/dlinstaller_env.sh ] && . ${HOME}/dlinstaller_env.sh || true"
 
@@ -266,7 +266,7 @@ test_script:
 
 
 after_test:
-  - sh: chronic tools/appveyor/submit-coverage
+  - sh: tools/appveyor/submit-coverage
   - cmd: tools\appveyor\submit-coverage.bat
 
 
