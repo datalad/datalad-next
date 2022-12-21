@@ -266,14 +266,8 @@ test_script:
 
 
 after_test:
-  # grab coverage reports from subprocesses, see tools/coverage-bin
-  - sh: python -m coverage combine -a /tmp/.coverage-entrypoints-*;
-  - python -m coverage xml
-  - cmd: curl -fsSL -o codecov.exe "https://uploader.codecov.io/latest/windows/codecov.exe"
-  - cmd: .\codecov.exe -f "coverage.xml"
-  - sh: "curl -Os $CODECOV_BINARY"
-  - sh: chmod +x codecov
-  - sh: ./codecov
+  - sh: chronic tools/appveyor/submit-coverage
+  - cmd: tools\appveyor\submit-coverage.bat
 
 
 #on_success:
