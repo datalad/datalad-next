@@ -266,8 +266,8 @@ test_script:
 
 
 after_test:
-  - sh: tools/appveyor/submit-coverage
-  - cmd: tools\appveyor\submit-coverage.bat
+  - sh: ../tools/appveyor/submit-coverage
+  - cmd: ..\tools\appveyor\submit-coverage.bat
 
 
 #on_success:
