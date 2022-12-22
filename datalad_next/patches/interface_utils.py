@@ -21,6 +21,7 @@ from datalad.interface.utils import (
     _process_results,
 )
 from datalad_next.exceptions import IncompleteResultsError
+from datalad_next.utils.patch import apply_patch
 
 
 # use same logger as -core
@@ -248,14 +249,12 @@ def _execute_command_(
 
 
 # apply patch
-from datalad.interface import utils as mod_interface_utils
-if hasattr(mod_interface_utils, '_execute_command_'):
-    lgr.debug(
-        'Apply datalad-next patch to interface.utils.py:_execute_command_')
-    mod_interface_utils._execute_command_ = _execute_command_
-else:
+patch_msg = \
+    'Apply datalad-next patch to interface.(utils|base).py:_execute_command_'
+try:
+    apply_patch('datalad.interface.utils', None, '_execute_command_',
+                _execute_command_, msg=patch_msg)
+except AttributeError:
     # we have datalad 0.17.10+ and the target has moved
-    from datalad.interface import base as mod_interface_base
-    lgr.debug(
-        'Apply datalad-next patch to interface.base.py:_execute_command_')
-    mod_interface_base._execute_command_ = _execute_command_
+    apply_patch('datalad.interface.base', None, '_execute_command_',
+                _execute_command_, msg=patch_msg)

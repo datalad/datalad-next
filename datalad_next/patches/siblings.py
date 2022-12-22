@@ -1,15 +1,17 @@
 import logging
 
-from datalad.distribution import siblings as mod_siblings
 from datalad_next.datasets import LegacyAnnexRepo as AnnexRepo
 from datalad.support.exceptions import (
     AccessDeniedError,
     AccessFailedError,
     CapturedException,
 )
+from datalad_next.utils.patch import apply_patch
+
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.distribution.siblings')
+
 
 # This function is taken from datalad-core@2ed709613ecde8218a215dcb7d74b4a352825685
 # datalad/distribution/siblings.py
@@ -39,7 +41,10 @@ def _enable_remote(ds, repo, name, res_kwargs, **unused_kwargs):
         return
 
     # get info on special remote
-    sp_remotes = {v['name']: dict(v, uuid=k) for k, v in repo.get_special_remotes().items()}
+    sp_remotes = {
+        v['name']: dict(v, uuid=k)
+        for k, v in repo.get_special_remotes().items()
+    }
     remote_info = sp_remotes.get(name, None)
 
     if remote_info is None:
@@ -61,6 +66,5 @@ def _enable_remote(ds, repo, name, res_kwargs, **unused_kwargs):
     yield result_props
 
 
-# apply patch
-lgr.debug('Apply datalad-next patch to siblings.py:_enable_remote')
-mod_siblings._enable_remote = _enable_remote
+apply_patch(
+    'datalad.distribution.siblings', None, '_enable_remote', _enable_remote)

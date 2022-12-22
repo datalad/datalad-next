@@ -8,7 +8,6 @@ from typing import (
 )
 
 from datalad.config import ConfigManager
-from datalad.core.distributed import clone as mod_clone
 from datalad.core.distributed.clone import (
     configure_origins,
     postclone_check_head,
@@ -20,6 +19,7 @@ from datalad_next.utils import (
     knows_annex,
     rmtree,
 )
+from datalad_next.utils.patch import apply_patch
 from datalad_next.datasets import (
     LegacyAnnexRepo as AnnexRepo,
     Dataset,
@@ -352,6 +352,10 @@ def _pre_final_processing_(
 
 
 # apply patch
-lgr.debug('Apply datalad-next patch to clone.py:clone_dataset')
-clone_dataset.__doc__ = mod_clone.clone_dataset.__doc__
-mod_clone.clone_dataset = clone_dataset
+orig_clone_dataset = apply_patch(
+    'datalad.core.distributed.clone', None, 'clone_dataset', clone_dataset,
+    msg='Apply datalad-next patch to clone.py:clone_dataset')
+apply_patch(
+    'datalad.core.distributed.clone', 'clone_dataset', '__doc__',
+    orig_clone_dataset.__doc__,
+    msg='Reuse docstring of original clone_dataset()')

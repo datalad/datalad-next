@@ -12,6 +12,7 @@ from datalad_next.datasets import (
     LegacyAnnexRepo as AnnexRepo,
     Dataset,
 )
+from datalad_next.utils.patch import apply_patch
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')
@@ -409,5 +410,4 @@ def _sync_remote_annex_branch(repo, target, is_annex_repo):
         lgr.debug('Remote does not have a git-annex branch: %s', e)
 
 
-lgr.debug("Patching datalad.core.distributed.push._push")
-mod_push._push = _push
+apply_patch('datalad.core.distributed.push', None, '_push', _push)

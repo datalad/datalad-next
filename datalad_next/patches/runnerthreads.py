@@ -5,12 +5,11 @@ import logging
 from datalad.runner import runnerthreads as mod_runnerthreads
 
 from datalad_next.utils.consts import COPY_BUFSIZE
+from datalad_next.utils.patch import apply_patch
+
 
 # use same logger as -core, looks weird but is correct
 lgr = logging.getLogger('datalad.runner.runnerthreads')
-
-# we need to preserve it as the workhorse, this patch only wraps around it
-orig_ReadThread__init__ = mod_runnerthreads.ReadThread.__init__
 
 
 def ReadThread__init__(
@@ -35,7 +34,7 @@ def ReadThread__init__(
     )
 
 
-# apply patch
-lgr.debug(
-    'Apply datalad-next patch to runner.runnerthreads.ReadThread.__init__')
-mod_runnerthreads.ReadThread.__init__ = ReadThread__init__
+# we need to preserve it as the workhorse, this patch only wraps around it
+orig_ReadThread__init__ = apply_patch(
+    'datalad.runner.runnerthreads', 'ReadThread', '__init__',
+    ReadThread__init__)
