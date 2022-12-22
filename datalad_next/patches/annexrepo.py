@@ -3,7 +3,6 @@ import os
 import re
 from unittest.mock import patch
 
-from datalad_next.datasets import LegacyAnnexRepo as AnnexRepo
 from datalad_next.exceptions import (
     CommandError,
 )
@@ -15,6 +14,7 @@ from datalad_next.utils import (
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
 )
+from datalad_next.utils.patch import apply_patch
 
 
 # reuse logger from -core, despite the unconventional name
@@ -96,5 +96,7 @@ def annexRepo__enable_remote(self, name, options=None, env=None):
     # implement store-after-success here
 
 
-lgr.debug('Apply datalad-next patch to annexrepo.py:AnnexRepo.enable_remote')
-AnnexRepo.enable_remote = annexRepo__enable_remote
+apply_patch(
+    'datalad.support.annexrepo', 'AnnexRepo', 'enable_remote',
+    annexRepo__enable_remote,
+    msg='Apply datalad-next patch to annexrepo.py:AnnexRepo.enable_remote')

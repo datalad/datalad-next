@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import (
     Dict,
     Generator,
@@ -9,7 +8,7 @@ from typing import (
 )
 from unittest.mock import patch
 
-import datalad.core.distributed.push as push
+import datalad.core.distributed.push as mod_push
 from datalad.runner.exception import CommandError
 from datalad_next.constraints import EnsureChoice
 from datalad_next.exceptions import CapturedException
@@ -24,6 +23,7 @@ from datalad_next.utils import (
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
 )
+from datalad_next.utils.patch import apply_patch
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')
@@ -157,7 +157,7 @@ def _transfer_data(repo: AnnexRepo,
         if info.get("name") == target] or [(None, None)])[0]
 
     if not _is_export_remote(remote_info):
-        yield from push._push_data(
+        yield from mod_push._push_data(
             ds,
             target,
             content,
@@ -244,12 +244,11 @@ def _transfer_data(repo: AnnexRepo,
             }
 
 
-lgr.debug("Patching datalad.core.distributed.push._transfer_data")
-push._transfer_data = _transfer_data
-
-
-lgr.debug("Patching datalad.core.distributed.push.Push docstring and parameters")
-push.Push.__doc__ += """\
+apply_patch('datalad.core.distributed.push', None, '_transfer_data',
+            _transfer_data)
+lgr.debug(
+    "Patching datalad.core.distributed.push.Push docstring and parameters")
+mod_push.Push.__doc__ += """\
 
 
     The following feature is added by the datalad-next extension:
@@ -262,7 +261,7 @@ push.Push.__doc__ += """\
     command "create-sibling-webdav" with the option "--mode=filetree" or 
     "--mode=filetree-only".
 """
-push.Push._params_["force"] = Parameter(
+mod_push.Push._params_["force"] = Parameter(
     args=("-f", "--force",),
     doc="""force particular operations, possibly overruling safety
     protections or optimizations: use --force with git-push ('gitpush');
@@ -274,8 +273,12 @@ push.Push._params_["force"] = Parameter(
 
 
 from datalad.interface.base import build_doc
-push.Push.__call__.__doc__ = None
-push.Push = build_doc(push.Push)
+mod_push.Push.__call__.__doc__ = None
+mod_push.Push = build_doc(mod_push.Push)
 
-lgr.debug("Patching datalad.support.AnnexRepo.get_export_records (new method)")
-AnnexRepo.get_export_records = get_export_records
+apply_patch(
+    'datalad_next.datasets', 'LegacyAnnexRepo', 'get_export_records',
+    get_export_records,
+    msg="Patching datalad.support.AnnexRepo.get_export_records (new method)",
+    expect_attr_present=False,
+)

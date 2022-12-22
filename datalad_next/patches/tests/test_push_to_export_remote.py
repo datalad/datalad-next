@@ -104,7 +104,7 @@ def test_is_export_remote():
 def test_patch_pass_through():
     # Ensure that the original _transfer_data is called if the target remote
     # has exporttree # not set to "yes"
-    with patch("datalad_next.patches.push_to_export_remote.push._push_data") as pd_mock:
+    with patch("datalad_next.patches.push_to_export_remote.mod_push._push_data") as pd_mock:
         tuple(_call_transfer("no-target", False))
         eq_(pd_mock.call_count, 1)
 
@@ -112,7 +112,7 @@ def test_patch_pass_through():
 def test_patch_execute_export():
     # Ensure that export is called if the target remote has exporttree set to
     # "yes"
-    with patch(f"{module_name}.push._push_data") as pd_mock, \
+    with patch(f"{module_name}.mod_push._push_data") as pd_mock, \
          patch(f"{module_name}._get_export_log_entry") as gele_mock:
         gele_mock.return_value = None
         results = tuple(_call_transfer("yes-target", False))
@@ -144,7 +144,7 @@ def test_patch_skip_ignore_targets_export():
 def test_patch_check_envpatch():
     # Ensure that export is called if the target remote has exporttree not set
     # to "yes"
-    with patch(f"{module_name}.push._push_data") as pd_mock, \
+    with patch(f"{module_name}.mod_push._push_data") as pd_mock, \
          patch(f"{module_name}.needs_specialremote_credential_envpatch") as nsce_mock, \
          patch(f"{module_name}.get_specialremote_credential_envpatch") as gsce_mock, \
          patch(f"{module_name}._get_export_log_entry") as gele_mock, \
@@ -170,7 +170,7 @@ def test_patch_check_envpatch():
 
 def test_no_special_remotes():
     # Ensure that the code works if no special remotes exist
-    with patch(f"{module_name}.push._push_data") as pd_mock:
+    with patch(f"{module_name}.mod_push._push_data") as pd_mock:
         tuple(_call_transfer("no-target", False, False))
         eq_(pd_mock.call_count, 1)
 

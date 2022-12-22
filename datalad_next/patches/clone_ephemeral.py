@@ -11,12 +11,12 @@ from datalad_next.utils import (
     check_symlink_capability,
     rmtree,
 )
+from datalad_next.utils.patch import apply_patch
 
 from datalad_next.datasets import (
     Dataset,
     LegacyGitRepo as GitRepo,
 )
-from datalad_next.patches import clone as mod_clone
 
 lgr = logging.getLogger('datalad.core.distributed.clone')
 
@@ -121,12 +121,11 @@ def _setup_ephemeral_annex(ds: Dataset, remote: str):
 
 
 # apply patch
-lgr.debug(
-    'Apply datalad-next RIA patch to clone.py:_pre_annex_init_processing_')
-# we need to preserve the original function to be able to call it in the patch
-orig_pre_annex_init_processing_ = mod_clone._pre_annex_init_processing_
-mod_clone._pre_annex_init_processing_ = _pre_annex_init_processing_
-lgr.debug(
-    'Apply datalad-next RIA patch to clone.py:_post_annex_init_processing_')
-orig_post_annex_init_processing_ = mod_clone._post_annex_init_processing_
-mod_clone._post_annex_init_processing_ = _post_annex_init_processing_
+orig_pre_annex_init_processing_ = apply_patch(
+    'datalad_next.patches.clone', None, '_pre_annex_init_processing_',
+    _pre_annex_init_processing_,
+    msg='Apply datalad-next RIA patch to clone.py:_pre_annex_init_processing_')
+orig_post_annex_init_processing_ = apply_patch(
+    'datalad_next.patches.clone', None, '_post_annex_init_processing_',
+    _post_annex_init_processing_,
+    msg='Apply datalad-next RIA patch to clone.py:_post_annex_init_processing_')

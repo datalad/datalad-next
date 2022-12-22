@@ -11,8 +11,7 @@ from datalad.core.distributed.clone import (
 )
 
 from datalad_next.datasets import Dataset
-
-from datalad_next.patches import clone as mod_clone
+from datalad_next.utils.patch import apply_patch
 
 lgr = logging.getLogger('datalad.core.distributed.clone')
 
@@ -50,12 +49,11 @@ def _pre_final_processing_(
 
 
 # apply patch
-lgr.debug(
-    'Apply datalad-next RIA patch to clone.py:_post_git_init_processing_')
-# we need to preserve the original function to be able to call it in the patch
-orig_post_git_init_processing_ = mod_clone._post_git_init_processing_
-mod_clone._post_git_init_processing_ = _post_git_init_processing_
-lgr.debug(
-    'Apply datalad-next RIA patch to clone.py:_pre_final_processing_')
-orig_pre_final_processing_ = mod_clone._pre_final_processing_
-mod_clone._pre_final_processing_ = _pre_final_processing_
+orig_post_git_init_processing_ = apply_patch(
+    'datalad_next.patches.clone', None, '_post_git_init_processing_',
+    _post_git_init_processing_,
+    msg='Apply datalad-next RIA patch to clone.py:_post_git_init_processing_')
+orig_pre_final_processing_ = apply_patch(
+    'datalad_next.patches.clone', None, '_pre_final_processing_',
+    _pre_final_processing_,
+    msg='Apply datalad-next RIA patch to clone.py:_pre_final_processing_')

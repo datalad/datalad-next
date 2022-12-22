@@ -1,11 +1,9 @@
 import logging
-from datalad.distribution import dataset as mod_distribution_dataset
+
+from datalad_next.utils.patch import apply_patch
 
 # use same logger as -core, looks weird but is correct
 lgr = logging.getLogger('datalad.dataset')
-
-# we need to preserve it as the workhorse, this patch only wraps around it
-orig_resolve_path = mod_distribution_dataset.resolve_path
 
 
 def resolve_path(path, ds=None, ds_resolved=None):
@@ -20,10 +18,12 @@ def resolve_path(path, ds=None, ds_resolved=None):
         return orig_resolve_path(ds=ds, ds_resolved=ds_resolved)
 
 
+# we need to preserve it as the workhorse, this patch only wraps around it
+orig_resolve_path = apply_patch(
+    'datalad.distribution.dataset', None, 'resolve_path',
+    resolve_path,
+    msg='Apply datalad-next patch to distribution.dataset:resolve_path')
+
 # re-use docs
 resolve_path.__doc__ = orig_resolve_path.__doc__
 
-
-# apply patch
-lgr.debug('Apply datalad-next patch to distribution.dataset:resolve_path')
-mod_distribution_dataset.resolve_path = resolve_path
