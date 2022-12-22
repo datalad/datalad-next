@@ -1,8 +1,23 @@
+"""Credential support for ``AnnexRepo.enable_remote()`` and ``siblings enable``
+
+Supported targets for automatic credential deployments are determined
+by ``needs_specialremote_credential_envpatch()``. At the time of this
+writing this includes the git-annex built-in remote types ``webdav``,
+``s3``, and ``glacier``.
+
+This patch also changes the function to raise its custom exception
+with the context of an original underlying exception for better
+error reporting.
+"""
 import logging
 import os
 import re
 from unittest.mock import patch
 
+from datalad.support.exceptions import (
+    AccessDeniedError,
+    AccessFailedError,
+)
 from datalad_next.exceptions import (
     CommandError,
 )
@@ -23,8 +38,6 @@ lgr = logging.getLogger('datalad.annex')
 
 # This function is taken from datalad-core@2ed709613ecde8218a215dcb7d74b4a352825685
 # datalad/support/annexrepo.py:AnnexRepo
-# Changes
-# - raise exceptions carry context of the original command error
 def annexRepo__enable_remote(self, name, options=None, env=None):
     """Enables use of an existing special remote
 

@@ -1,3 +1,12 @@
+"""Add support for export to WebDAV remotes to ``push()``
+
+This approach generally works for any special remote configured
+with ``exporttree=yes``, but is only tested for ``type=webdav``.
+A smooth operation requires automatic deployment of
+credentials. Support for that is provide and limited by
+the capabilities of ``needs_specialremote_credential_envpatch()``.
+"""
+
 import logging
 from typing import (
     Dict,

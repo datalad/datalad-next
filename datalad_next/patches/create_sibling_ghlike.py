@@ -1,3 +1,23 @@
+"""Improved credential handling for ``create_sibling_<github-like>()``
+
+This patch makes the storage of a newly entered credential conditional on a
+successful authorization, in the spirit of `datalad/datalad#3126
+<https://github.com/datalad/datalad/issues/3126>`__.
+
+Moreover, stored credentials now contain a ``realm`` property that
+identified the API endpoint. This makes it possible to identify
+candidates of suitable credentials without having to specific
+their name, similar to a request context url used by the old
+providers setup.
+
+This automatic realm-based credential lookup is now also implemented.
+When no credential name is specified, the most recently used
+credential matching the API realm will be used automatically.
+If determined like this, it will be tested for successfull
+authorization, and will then be stored again with an updated
+``last-used`` timestamp.
+"""
+
 import logging
 from urllib.parse import urlparse
 
@@ -11,25 +31,6 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_ghlike')
 
 
 def _set_request_headers(self, credential_name, auth_info, require_token):
-    """Improve datalad-core's credential handling
-
-    This replacement makes the storage of a newly entered credential
-    conditional on a successful authorization, in the spirit of
-    datalad/datalad#3126.
-
-    Moreover, stored credentials now contain a `realm` property that
-    identified the API endpoint. This makes it possible to identify
-    candidates of suitable credentials without having to specific
-    their name, similar to a request context url used by the old
-    providers setup.
-
-    This automatic realm-based credential lookup is now also implemented.
-    When no credential name is specified, the most recently used
-    credential matching the API realm will be used automatically.
-    If determined like this, it will be tested for successfull
-    authorization, and will then be stored again with an updated
-    'last-used' timestamp.
-    """
     credman = CredentialManager()
     from_query = False
     credential = None

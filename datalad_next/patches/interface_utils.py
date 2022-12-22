@@ -1,3 +1,14 @@
+"""Uniform pre-execution parameter validation for commands
+
+With this patch commands can now opt-in to receive fully validated parameters.
+This can substantially simplify the implementation complexity of a command at
+the expense of a more elaborate specification of the structural and semantic
+properties of the parameters.
+
+For details on implementing validation for individual commands see
+:class:`datalad_next.commands.ValidatedInterface`.
+"""
+
 import logging
 from typing import (
     Callable,

@@ -90,6 +90,29 @@ Git-annex special remotes
    uncurl
 
 
+DataLad patches
+---------------
+
+Patches that are automatically applied to DataLad when loading the
+``datalad-next`` extension package.
+
+.. currentmodule:: datalad_next.patches
+.. autosummary::
+   :toctree: generated
+
+   annexrepo
+   clone
+   common_cfg
+   configuration
+   create_sibling_ghlike
+   distribution_dataset
+   interface_utils
+   push_optimize
+   push_to_export_remote
+   runnerthreads
+   siblings
+
+
 Indices and tables
 ==================
 

@@ -1,4 +1,7 @@
-""""""
+"""Take spaghetti ``clone_dataset()`` apart into more manageable units
+
+No change in functionality otherwise.
+"""
 
 __docformat__ = 'restructuredtext'
 

@@ -1,3 +1,12 @@
+"""``DatasetParameter`` support for ``resolve_path()``
+
+This is the standard result of ``EnsureDataset``, which unlike
+the datalad-core version actually carries a ``Dataset`` instance.
+
+This patch ensure the traditional handling of "dataset instance from
+a string-type parameter in this context.
+"""
+
 import logging
 
 from datalad_next.utils.patch import apply_patch
@@ -26,4 +35,3 @@ orig_resolve_path = apply_patch(
 
 # re-use docs
 resolve_path.__doc__ = orig_resolve_path.__doc__
-
