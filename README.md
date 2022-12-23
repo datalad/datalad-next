@@ -60,7 +60,7 @@ package and its commands.
   remotes configured with `exporttree=yes`.
 - Speed-up `datalad-push` when processing non-git special remotes. This particularly
   benefits less efficient hosting scenarios like WebDAV.
-- Enhance `datalad-siblings enable` (`AnnexRepo.enable_remote()` to automatically
+- Enhance `datalad-siblings enable` (`AnnexRepo.enable_remote()`) to automatically
   deploy credentials for git-annex special remotes that require them.
 - `git-remote-datalad-annex` is a Git remote helper to push/fetch to any
   location accessible by any git-annex special remote.
@@ -69,9 +69,32 @@ package and its commands.
   class to facilitate development of external backends in Python is also provided.
 - Enhance `datalad-configuration` to support getting configuration from "global"
   scope without a dataset being present.
+- A `download` command as a front-end for a modular URL operation framework.
+  This framework directly supports operation on `http(s)`, `ssh`, and `file`
+  URLs, and can be extended with custom functionality for additional protocols
+  or even interaction with specific individual servers. The basic operations
+  `download`, `upload`, `delete`, and `sniff` are understood, and can be
+  implemented. The framework offers uniform progress reporting and simultaneous
+  content has computation.
+- A `python-requests` compatible authentication handler (`DataladAuth`) that
+  interfaces DataLad's credential system.
+- Boosted throughput of DataLad's `runner` component for command execution.
+- Substantially more comprehensive replacement for DataLad's `constraints` system
+  for type conversion and parameter validation.
 
 ## Summary of additional features for DataLad extension development
 
+- Framework for uniform command parameter validation. Regardless of the used
+  API (Python, CLI, or GUI), command parameters are uniformly validated. This
+  facilitates a stricter separation of parameter specification (and validation)
+  from the actual implementation of a command. The latter can now focus on a
+  command's logic only, while the former enables more uniform and more
+  comprehensive validation and error reporting. Beyond per-parameter validation
+  and type-conversion also inter-parameter dependency validation and value
+  transformations are supported.
+- Improved composition of importable functionality. Key components for `commands`,
+  `annexremotes`, `datasets` (etc) are collected in topical top-level modules that
+  provide "all" necessary pieces in a single place.
 - `serve_path_via_webdav` test decorator that automatically deploys a local WebDAV
   server.
 - `with_credential` test decorator that temporarily deploys a credential to the
@@ -88,11 +111,19 @@ package and its commands.
     successful use
   - `get_specialremote_credential_envpatch()` returns a suitable environment "patch"
     from a credential for a particular special remote type
+- Helper for runtime-patching other datalad code (`datalad_next.utils.patch`)
+- Base class for implementing custom `git-annex` backends.
 
+## Patching the DataLad core package.
+
+Some of the features described above rely on a modification of the DataLad core
+package itself, rather than coming in the form of additional commands. Loading
+this extension causes a range of patches to be applied to the `datalad` package
+to enable them. A comprehensive description of the current set of patch is
+available at http://docs.datalad.org/projects/next/en/latest/#datalad-patches
 
 ## Acknowledgements
 
 This DataLad extension was developed with funding from the Deutsche
 Forschungsgemeinschaft (DFG, German Research Foundation) under grant SFB 1451
 ([431549029](https://gepris.dfg.de/gepris/projekt/431549029), INF project).
-
