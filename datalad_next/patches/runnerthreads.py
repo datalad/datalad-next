@@ -1,3 +1,10 @@
+"""Make ``runnerthreads.ReadThread`` use shutil's buffer size default
+
+This has a dramatic effect on the throughput, i.e. when using
+`ThreadedRunner()` for SSH-based downloads. It can take the throughput
+from a few dozen MB/s to several hundreds.
+"""
+
 from __future__ import annotations
 
 import logging

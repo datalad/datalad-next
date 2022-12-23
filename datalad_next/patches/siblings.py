@@ -1,3 +1,14 @@
+"""Auto-deploy credentials when enabling special remotes
+
+This is the companion of the ``annexRepo__enable_remote`` patch, and simply
+removes the webdav-specific credential handling in ``siblings()``.
+It is no longer needed, because credential deployment moved to a lower
+layer, covering more special remote types.
+
+Manual credential entry on ``enableremote`` is not implemented here, but easily
+possible following the patterns from `datalad-annex::` and
+``create_sibling_webdav()``
+"""
 import logging
 
 from datalad_next.datasets import LegacyAnnexRepo as AnnexRepo

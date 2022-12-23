@@ -1,3 +1,43 @@
+"""Make push avoid refspec handling for special remote push targets
+
+This change introduces a replacement for core's ``push.py:_push()``
+with a more intelligible flow. It replaces the stalled
+https://github.com/datalad/datalad/pull/6666
+
+Importantly, it makes one behavior change, which is desirable IMHO.
+Instead of rejecting to git-push any refspec for a repo with a detached
+HEAD, it will attempt to push a git-annex branch for an AnnexRepo. The
+respective test that ensured this behavior beyond the particular
+conditions the original problem occurred in was adjusted accordingly.
+
+All ``push`` tests from core are imported and executed to ensure
+proper functioning.
+
+Summary of the original commits patching the core implementation.
+
+- Consolidate publication dependency handling in one place
+- Consolidate tracking of git-push-dryrun exec
+  Make a failed attempt discriminable from no prior attempt.
+- Factor out helper to determine refspecs-to-push for a target
+- Consolidate more handling of git-pushed and make conditional on an
+  actual git-remote target
+  This change is breaking behavior, because previously a source repository
+  without an active branch would have been rejected for a push attempt.
+  However, this is a bit questionable, because the git-annex branch
+  might well need a push.
+- Simplify push-logic: no need for a fetch, if there is no git-push
+- Factor out helper to sync a remote annex-branch
+- Adjust test to constrain the evaluated conditions (replacement
+  tests is included here)
+  As per the reasoning recorded in datalad#1811 (comment)
+  the test ensuring the continue fix of datalad#1811 is actually
+  verifying a situation that is not fully desirable. It prevents
+  pushing of thew 'git-annex' branch whenever a repo is on a detached
+  HEAD.
+  This change let's the test run on a plain Git repo, where there is
+  indeed nothing to push in this case.
+"""
+
 from itertools import chain
 import logging
 import re

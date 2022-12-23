@@ -1,4 +1,8 @@
-""""""
+"""Add "ephemeral clones" to ``clone()``\
+
+This feature was previously spaghetti-coded directly into ``clone_dataset()``,
+and is now factored out into a patch set.
+"""
 
 __docformat__ = 'restructuredtext'
 
