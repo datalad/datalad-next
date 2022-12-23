@@ -1,7 +1,11 @@
 
-<!--UNRELEASED # 0.7.0 (2022-12-??)-->
+# 1.0.0b1 (2022-12-23)
 
 ## 💫 Enhancements and new features
+
+- Improved composition of importable functionality. Key components for `commands`,
+  `annexremotes`, `datasets` (etc) are collected in topical top-level modules that
+  provide "all" necessary pieces in a single place.
 
 - Add patch to `ThreadedRunner` to use a more optimal buffer size for its
   read thread. This was previously fixed to 1024 bytes, and now uses the
@@ -23,26 +27,37 @@
   `datalad_next.url_operations.any._urlscheme_handler` contains a (patch-able)
   mapping of scheme identifiers to handler classes.
 
+- A `python-requests` compatible authentication handler (`DataladAuth`) that
+  interfaces DataLad's credential system has been added.
+
+- A substantially more comprehensive replacement for DataLad's `constraints`
+  system for type conversion and parameter validation has been developed and
+  is included in this release. This includes all types of the predecessor
+  in the DataLad core package, and a large number of additions, including
+
+  - `EnsureMapping` (aids handling of key-value specification)
+  - `EnsureGeneratorFromFileLike` (aids reading inputs from, e.g. STDIN; see
+    the `download` command for how reading JSON-lines input can be supported
+    in addition with virtually no changes to the actual command implementation)
+  - `EnsurePath` (existing or not, particular formats, etc.)
+  - `EnsureJSON` (automatic validation and loading)
+  - `Ensure(Parsed)URL` (pattern matching, requiring/forbidding components)
+  - `EnsureGitRefName` (check for compliance with Git's naming rules)
+
 - Commands can now opt-in to receive fully validated parameters. This can
   substantially simplify the implementation complexity of a command at
   the expense of a more elaborate specification of the structural and
   semantic properties of the parameters. This specification is achieved
-  by declaring `Constraints`, in a `_validators_` member of a commands
-  `Interface` class.
-
-  For now, a corresponding `Interface.validate_args()` classmethod must also
-  be provided that performs the validation, and returns the validated outcomes.
-  In the future a common implementation of this method will likely be
-  provided that will define additional common conventions re parameter
-  validation order, and accessibility of previous validation results to
-  subsequent validation attempts of other parameters.
+  by declaring an `EnsureCommandParameterization`, in a `_validator_` member
+  of a command's `ValidatedInterface` class.
 
   This feature is introduced as a patch to the command execution in
   datalad-core. With this patch, commands are now exclusively called
   with keyword-style parameters only.
 
-  This is a feature preview (see the `download()` command for example usage)
-  that will likely undergo substantial changes in the coming releases.
+  This feature is in an early stage of development (although all incldued
+  commands have already been ported to use it) that will likely undergo
+  substantial changes in the coming releases.
 
 - A new `EnsureDataset` constraint is provided that returns a
   `DatasetParameter` on successful validation. This return value contains
@@ -53,6 +68,11 @@
 - As a companion for the `http(s)://` URL handling for the new `download`
   command, a `requests`-compatible authentication handler has been implemented
   that integrates with the `datalad-next` credential system.
+
+## 📝 Documentation
+
+- All runtime patches are now documented and included in the readthedocs-hosted
+  documentation.
 
 ## 🏠 Internal
 
