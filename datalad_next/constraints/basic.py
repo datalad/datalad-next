@@ -201,7 +201,7 @@ class EnsureNone(EnsureValue):
 
 
 class EnsureCallable(Constraint):
-    """Ensure an input is of value `None`"""
+    """Ensure an input is a callable object"""
     def __call__(self, value):
         if hasattr(value, '__call__'):
             return value
