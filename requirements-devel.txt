@@ -1,5 +1,6 @@
 # requirements for a development environment
 # (also) to get the docs built properly by RTD
+git+https://github.com/bpoldrack/datalad@fix-version-kludge
 -e .[devel]
 sphinx
 sphinx_rtd_theme
