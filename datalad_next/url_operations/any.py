@@ -41,6 +41,8 @@ _url_handlers = {
     'http': ('datalad_next.url_operations.http.HttpUrlOperations',),
     'file': ('datalad_next.url_operations.file.FileUrlOperations',),
     'ssh': ('datalad_next.url_operations.ssh.SshUrlOperations',),
+    'zip://': ('datalad_next.url_operations.fsspec.FsspecUrlOperations'),
+    'tar://': ('datalad_next.url_operations.fsspec.FsspecUrlOperations'),
 }
 
 
