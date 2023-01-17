@@ -8,6 +8,9 @@
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 """Credential management and query"""
 
+# allow for |-type UnionType declarations
+from __future__ import annotations
+
 __docformat__ = 'restructuredtext'
 
 __all__ = ['CredentialManager']
@@ -15,6 +18,12 @@ __all__ = ['CredentialManager']
 from datetime import datetime
 import logging
 import re
+
+from typing import (
+    Dict,
+    List,
+    Tuple,
+)
 
 import datalad
 from datalad_next.exceptions import (
@@ -553,6 +562,111 @@ class CredentialManager(object):
 
         return sorted(matches, key=get_sort_key, reverse=_reverse)
 
+    def obtain(self,
+               name: str | None = None,
+               *,
+               prompt: str | None = None,
+               type_hint: str | None = None,
+               query_props: Dict | None = None,
+               expected_props: List | Tuple | None = None):
+        """Obtain a credential by query or prompt (if needed)
+
+        This helper implements a standard workflow to obtain a credential.
+        It supports credential selection by credential name/identifier, and
+        falls back onto querying for a credential matching a set of specified
+        properties (as key-value mappings). If no suitable credential is
+        known, a user is prompted to enter one interactively (if possible
+        in the current session).
+
+        If desired, a credential workflow can be completed, after a credential
+        was found to be valid/working, by storing or updating it in the
+        credential store::
+
+            cm = CredentialManager()
+            cname, cprops = cm.obtain(...)
+            # verify credential is working
+            ...
+            # set/update
+            cm.set(cname, _lastused=True, **cprops)
+
+        In the code sketch above, if ``cname`` is ``None`` (as it will be for
+        a newly entered credential, ``set()`` will prompt for a name to store
+        the credential under, and will offer a user the choice to skip storing
+        a credential. For any previously known credential, the ``last-used``
+        property will be updated to enable preferred selection in future
+        credential discovery attempts via ``obtain()``.
+
+        Parameters
+        ----------
+        name: str, optional
+          Name of the credential to be retrieved
+        prompt: str, optional
+          Passed to ``CredentialManager.get()`` if a credential name was
+          provided, or no suitable credential could be found by querying.
+        type_hint: str, optional
+          In case no ``type`` property is included in ``query_props``,
+          this parameter is passed to ``CredentialManager.get()``.
+        query_props: dict, optional
+          Credential property to be used for querying for a suitable
+          credential. When multiple credentials match a query, the last-used
+          credential is selected.
+        expected_props: list or tuple, optional
+          When specified, a credential will be inspected to contain properties
+          matching all listed property names, or a ``ValueError`` will be
+          raised.
+
+        Returns
+        -------
+        (str, dict)
+          Credential name (possibly different from the input, when a credential
+          was discovered based on properties), and credential properties.
+
+        Raises
+        ------
+        ValueError
+          Raised when no matching credential could be found and none was
+          entered. Also raised, when a credential selected from a query result
+          or a manually entered one is missing any of the properties with a
+          name given in ``expected_props``.
+        """
+        cred = None
+        if not name:
+            if query_props:
+                creds = self.query(_sortby='last-used', **(query_props or {}))
+                if creds:
+                    name, cred = creds[0]
+
+        if not cred:
+            kwargs = dict(
+                # name could be none
+                name=name,
+                _prompt=prompt,
+                _type_hint=type_hint,
+            )
+            # check if we know the realm, if so include in the credential,
+            # if not avoid asking for it interactively
+            # (it is a server-specified property users would generally not
+            # know, if they do, they can use the `credentials` command
+            # upfront).
+            realm = query_props.get('realm')
+            if realm:
+                kwargs['realm'] = realm
+            try:
+                cred = self.get(**kwargs)
+            except Exception as e:
+                lgr.debug('Obtaining credential failed: %s', e)
+
+        if not cred:
+            raise ValueError('No suitable credential found or specified')
+        missing_props = [
+            ep for ep in (expected_props or []) if ep not in cred
+        ]
+        if any(missing_props):
+            raise ValueError(
+                'No suitable credential or specified '
+                f'(missing properties: {missing_props})')
+        return name, cred
+
     # internal helpers
     #
     def _get_known_credential_names(self) -> set:
@@ -731,8 +845,17 @@ class CredentialManager(object):
                 fields=list(ctype._FIELDS.keys()) if ctype._FIELDS else None,
                 secret=secret_fields[0] if secret_fields else None,
             )
+        # an implementation-independent s3-style credential (with the aim to
+        # also work for MinIO and Ceph)
+        mapping['s3'] = dict(
+            # use boto-style names, but strip "aws" prefix, and redundant
+            # non-distinguishing 'key' and 'access' terms
+            fields=['key', 'secret'],
+            secret='secret',
+        )
         self.__cred_types = mapping
         return mapping
+
 
 def _yield_legacy_credential_names():
     # query is constrained by non-secrets, no constraints means report all

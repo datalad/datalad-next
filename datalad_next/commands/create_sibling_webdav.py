@@ -328,18 +328,18 @@ class CreateSiblingWebDAV(ValidatedInterface):
         # server
         # if all goes well, we'll store a credential (update) at the very end
         credman = CredentialManager(ds.config)
-        cred = _get_url_credential(credential, url.geturl(), credman)
-        if not cred:
-            raise ValueError(
-                f'No suitable credential for {url.geturl()} found or specified')
-        try:
-            # take them apart here to avoid needly complexity in _dummy() which
-            # has impaired error reporting via foreach_dataset()
-            cred_user = cred[1]['user']
-            cred_password = cred[1]['secret']
-        except Exception as e:
-            raise ValueError(
-                f'No suitable credential for {url.geturl()} found or specified') from e
+        credname, credprops = credman.obtain(
+            credential,
+            prompt='User name and password are required for WebDAV access '
+                   f'at {url.geturl()}',
+            query_props=get_specialremote_credential_properties(
+                dict(type='webdav', url=url.geturl())),
+            type_hint='user_password',
+            # make it raise ValueError when the critical components are missing
+            expected_props=['user', 'secret'],
+        )
+        cred_user = credprops['user']
+        cred_password = credprops['secret']
 
         def _dummy(ds, refds, **kwargs):
             """Small helper to prepare the actual call to _create_sibling_webdav()
@@ -384,7 +384,6 @@ class CreateSiblingWebDAV(ValidatedInterface):
                 yield dict(res_kwargs, **partial_result)
 
         # this went well, update the credential
-        credname, credprops = cred
         update_specialremote_credential(
             'webdav',
             credman,
@@ -423,48 +422,6 @@ class CreateSiblingWebDAV(ValidatedInterface):
             url=f": {res['url']}" if 'url' in res else '',
             status=ac.color_status(res['status']),
         ))
-
-
-def _get_url_credential(name, url, credman):
-    """
-    Returns
-    -------
-    (str, dict)
-      Credential name (possibly different from the input, when a credential
-      was discovered based on the URL), and credential properties
-    """
-    # TODO employ datalad_next.http_support.get_url_credential()
-    cred = None
-    credprops = {}
-    if not name:
-        credprops = get_specialremote_credential_properties(
-            dict(type='webdav', url=url))
-        if credprops:
-            creds = credman.query(_sortby='last-used', **credprops)
-            if creds:
-                name, cred = creds[0]
-
-    if not cred:
-        kwargs = dict(
-            # name could be none
-            name=name,
-            _prompt='User name and password are required for WebDAV access '
-                    f'at {url}',
-            type='user_password',
-        )
-        # check if we know the realm, if so include in the credential, if not
-        # avoid asking for it interactively (it is a server-specified property
-        # users would generally not know, if they do, they can use the
-        # `credentials` command upfront.
-        realm = credprops.get('realm')
-        if realm:
-            kwargs['realm'] = realm
-        try:
-            cred = credman.get(**kwargs)
-        except Exception as e:
-            lgr.debug('Credential retrieval failed: %s', e)
-
-    return name, cred
 
 
 def _create_sibling_webdav(
