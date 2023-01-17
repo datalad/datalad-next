@@ -72,6 +72,7 @@ Python utilities
    url_operations.file
    url_operations.http
    url_operations.ssh
+   url_operations.fsspec
    utils
    utils.credman
    utils.http_helpers
