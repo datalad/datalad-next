@@ -41,10 +41,26 @@ _url_handlers = {
     'http': ('datalad_next.url_operations.http.HttpUrlOperations',),
     'file': ('datalad_next.url_operations.file.FileUrlOperations',),
     'ssh': ('datalad_next.url_operations.ssh.SshUrlOperations',),
-    'zip://': ('datalad_next.url_operations.fsspec.FsspecUrlOperations',),
-    'tar://': ('datalad_next.url_operations.fsspec.FsspecUrlOperations',),
-    'github://': ('datalad_next.url_operations.fsspec.FsspecUrlOperations',),
 }
+# add anything that we want fsspec to provide
+for regex in (
+        # archive access
+        'zip://',
+        'tar://',
+        # services
+        # github projects (down to files in particular versions)
+        'github://',
+        # AWS, but also alternatives
+        's3://',
+        # we occupy ssh:// with out own implementation, but fsspec also does
+        # have a paramiko-based one, expose as sftp://
+        'sftp://',
+        # file-level caching
+        'filecache::',
+):
+    _url_handlers[regex] = (
+        'datalad_next.url_operations.fsspec.FsspecUrlOperations',
+    )
 
 
 class AnyUrlOperations(UrlOperations):
