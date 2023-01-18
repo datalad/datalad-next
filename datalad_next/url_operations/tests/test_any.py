@@ -5,9 +5,9 @@ from .. import (
 from ..any import (
     _url_handlers,
     AnyUrlOperations,
-    HttpUrlOperations,
-    FileUrlOperations,
 )
+from ..http import HttpUrlOperations
+from ..file import FileUrlOperations
 
 
 def test_get_best_url_handler(monkeypatch):
@@ -19,7 +19,7 @@ def test_get_best_url_handler(monkeypatch):
         m.setitem(
             _url_handlers,
             'https://ex.*\.co',
-            ('datalad_next.url_operations.file', 'FileUrlOperations'),
+            ('datalad_next.url_operations.file.FileUrlOperations',),
         )
         # the handlers are sucked into the class, so we need a new instance
         ops = AnyUrlOperations()
