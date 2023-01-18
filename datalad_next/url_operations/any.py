@@ -29,9 +29,15 @@ _defaults = {
         # explicitly via the `credential` parameter. For such cases,
         # define a separate handler with a tailored URL match expression
         # and with `anon=False`.
-        # we provides `anon` twice, on top-level in in 's3' to match
+        # version awareness is turned off by default. It requires a
+        # requesting entity to have IAM permissions to perform a
+        # GetObjectVersion, and it comes with a potential performance
+        # penalty. Again, define a dedicated handler if this feature
+        # is needed.
+        # we provides all settings twice, on top-level in in 's3' to match
         # chained and unchained URLs
-        {'fs_kwargs': {'anon': True, 's3': {'anon': True}}},
+        {'fs_kwargs': {'anon': True, 'version_aware': False,
+                       's3': {'anon': True, 'version_aware': False}}},
     ),
 }
 # define handlers for each supported URL pattern
