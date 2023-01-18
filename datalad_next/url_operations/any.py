@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 from importlib import import_module
+import json
 import logging
 from pathlib import Path
 import re
 from typing import Dict
+
+from datalad_next.exceptions import CapturedException
 
 from . import UrlOperations
 
@@ -65,13 +68,55 @@ class AnyUrlOperations(UrlOperations):
           filesystem configuration individual handlers may support.
         """
         super().__init__(cfg=cfg)
-        # TODO update _url_handlers from config
-        # https://github.com/datalad/datalad-next/issues/217
-        self._url_handlers = {
-            re.compile(k): v for k, v in _url_handlers.items()
-        }
+        self._load_handler_registery()
         # cache of already used handlers
         self._url_handler_cache = dict()
+
+    def _load_handler_registery(self):
+        # update with handlers from config
+        # https://github.com/datalad/datalad-next/issues/217
+        cfgh = {}
+        for citem in self.cfg.keys():
+            if not citem.startswith('datalad.url-handler.'):
+                # none of our business
+                continue
+            # the match expression is right in the item key
+            # (all but the first two and the last segment)
+            citem_l = citem.split('.')
+            match = '.'.join(citem_l[2:-1])
+            prop = citem_l[-1]
+            value = self.cfg[citem]
+            if prop != 'class':
+                try:
+                    value = json.loads(value)
+                except Exception as e:
+                    ce = CapturedException(e)
+                    lgr.debug(
+                        'Ignoring invalid URL handler configuration '
+                        'for %r(%s): %r [%s]',
+                        match, prop, value, ce)
+                    continue
+            hc = cfgh.get(match, {})
+            hc[prop] = value
+            cfgh[match] = hc
+        # merge all specs
+        uh = dict(_url_handlers)
+        for match, spec in cfgh.items():
+            try:
+                uh[match] = (spec['class'], spec['kwargs'])
+            except KeyError:
+                try:
+                    uh[match] = (spec['class'],)
+                except Exception as e:
+                    CapturedException(e)
+                    lgr.debug(
+                        'Ignoring incomplete URL handler specification '
+                        'for %r: %r', match, spec)
+        self._url_handlers = {}
+        for k, v in uh.items():
+            # compile matches to finalize
+            lgr.log(8, 'Add URL handler for %r: %r', k, v)
+            self._url_handlers[re.compile(k)] = v
 
     def _get_handler(self, url: str) -> UrlOperations:
         # match URL against all registered handlers and get the one with the
