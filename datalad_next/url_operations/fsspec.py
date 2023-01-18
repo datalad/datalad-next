@@ -136,18 +136,32 @@ class FsspecUrlOperations(UrlOperations):
     accessed location (in the case of s3 this is a bucket), and can be
     entered manually if none can be found.
     """
-    def __init__(self, cfg=None, fs_kwargs: Dict | None = None):
+    def __init__(self,
+                 cfg=None,
+                 block_size: int | None = None,
+                 fs_kwargs: Dict | None = None,
+    ):
         """
         Parameters
         ----------
         cfg: ConfigManager, optional
           A config manager instance that is consulted for any configuration
           filesystem configuration individual handlers may support.
+        block_size: int, optional
+          Number of bytes to process at once. This determines the chunk size
+          for hashing, progress reporting and reading from FSSPEC file objects
+          (when the underlying filesystem can report the total size to read).
+          If not given, a platform-specific default is used. Depending
+          on the type of caching used by FSSPEC, this parameter might have
+          less impact that specifying a filesystem-specific readahead cache
+          size, or similar parameters. Without caching, this parameter will
+          more directly influence how data are transported.
         fs_kwargs: dict, optional
           Will be passed to ``fsspec.core.url_to_fs()`` as ``kwargs``.
         """
         super().__init__(cfg=cfg)
         self._fs_kwargs = fs_kwargs
+        self._block_size = block_size
 
     def sniff(self,
               url: str,
@@ -203,17 +217,19 @@ class FsspecUrlOperations(UrlOperations):
             with fs.open(urlpath) as src_fp:
                 # not every file abstraction supports all features
                 # switch by capabilities
-                if hasattr(src_fp, '__next__'):
+                if expected_size is not None:
+                    # read chunks until target size, if we know the size
+                    # (e.g. the Tar filesystem would simply read beyond
+                    # file boundaries otherwise.
+                    # but this method can be substantially faster than
+                    # alternative methods
+                    self._download_chunks_to_maxsize(
+                        src_fp, dst_fp, expected_size,
+                        hasher, progress_id)
+                elif hasattr(src_fp, '__next__'):
                     # iterate full-auto if we can
                     self._download_via_iterable(
                         src_fp, dst_fp,
-                        hasher, progress_id)
-                elif expected_size is not None:
-                    # read chunks until target size, if we know the size
-                    # (e.g. the Tar filesystem would simply read beyond
-                    # file boundaries otherwise
-                    self._download_chunks_to_maxsize(
-                        src_fp, dst_fp, expected_size,
                         hasher, progress_id)
                 else:
                     # this needs a fallback that simply calls read()
@@ -336,6 +352,11 @@ class FsspecUrlOperations(UrlOperations):
     def _download_chunks_to_maxsize(self, src_fp, dst_fp, size_to_copy,
                                     hasher, progress_id):
         """Download from a file object that does not support iteration"""
+        # use a specific block size, if one was set and go with a
+        # platform default if not.
+        # this is also the granularity with which progress reporting
+        # is made.
+        block_size = self._block_size or COPY_BUFSIZE
         # Localize variable access to minimize overhead
         src_fp_read = src_fp.read
         dst_fp_write = dst_fp.write
@@ -343,7 +364,7 @@ class FsspecUrlOperations(UrlOperations):
             # make sure to not read beyond the target size
             # some archive filesystem abstractions do not necessarily
             # stop at the end of an archive member otherwise
-            chunk = src_fp_read(min(COPY_BUFSIZE, size_to_copy))
+            chunk = src_fp_read(min(block_size, size_to_copy))
             if not chunk:
                 break
             # write data
