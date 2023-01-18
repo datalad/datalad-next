@@ -19,6 +19,21 @@ lgr = logging.getLogger('datalad.ext.next.url_operations.any')
 
 __all__ = ['AnyUrlOperations']
 
+_defaults = {
+    's3': (
+        'datalad_next.url_operations.fsspec.FsspecUrlOperations',
+        # any S3 is intepreted as AWS-S3 by default.
+        # attempt anonymous access first (unless a credential is given).
+        # this can impair performance when, in fact, a credential is
+        # known to be needed, but need not, or cannot be declared
+        # explicitly via the `credential` parameter. For such cases,
+        # define a separate handler with a tailored URL match expression
+        # and with `anon=False`.
+        # we provides `anon` twice, on top-level in in 's3' to match
+        # chained and unchained URLs
+        {'fs_kwargs': {'anon': True, 's3': {'anon': True}}},
+    ),
+}
 # define handlers for each supported URL pattern
 # FORMAT OF HANDLER REGISTRY (dict)
 # - key: regex match expression to be apply on a URL (to test whether a
@@ -41,20 +56,20 @@ _url_handlers = {
     'http': ('datalad_next.url_operations.http.HttpUrlOperations',),
     'file': ('datalad_next.url_operations.file.FileUrlOperations',),
     'ssh': ('datalad_next.url_operations.ssh.SshUrlOperations',),
+    # anything pointing to S3, directly or indirectly
+    '(^|.*::)s3://': _defaults['s3'],
 }
-# add anything that we want fsspec to provide
+# add anything that we also want fsspec to provide
 for regex in (
         # archive access
         'zip://',
         'tar://',
         # services
         # github projects (down to files in particular versions)
-        'github://',
-        # AWS, but also alternatives
-        's3://',
-        # we occupy ssh:// with out own implementation, but fsspec also does
+        '(^|.*::)github://',
+        # we occupy ssh:// with our own implementation, but fsspec also does
         # have a paramiko-based one, expose as sftp://
-        'sftp://',
+        '(^|.*::)sftp://',
         # file-level caching
         'filecache::',
 ):
