@@ -37,7 +37,7 @@ _defaults = {
         # we need not provide all settings twice, i.e. on top-level and
         # in 's3' to match chained and unchained URLs. The S3 filesystem
         # helper pulls them from 's3' if needed.
-        {'fs_kwargs': {'s3': {'anon': True, 'version_aware': False}}},
+        {'fs_kwargs': {'s3': {'anon': True}}},
     ),
 }
 # define handlers for each supported URL pattern
