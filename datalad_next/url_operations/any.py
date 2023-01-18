@@ -34,10 +34,10 @@ _defaults = {
         # GetObjectVersion, and it comes with a potential performance
         # penalty. Again, define a dedicated handler if this feature
         # is needed.
-        # we provides all settings twice, on top-level in in 's3' to match
-        # chained and unchained URLs
-        {'fs_kwargs': {'anon': True, 'version_aware': False,
-                       's3': {'anon': True, 'version_aware': False}}},
+        # we need not provide all settings twice, i.e. on top-level and
+        # in 's3' to match chained and unchained URLs. The S3 filesystem
+        # helper pulls them from 's3' if needed.
+        {'fs_kwargs': {'s3': {'anon': True, 'version_aware': False}}},
     ),
 }
 # define handlers for each supported URL pattern
