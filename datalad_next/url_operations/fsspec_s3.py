@@ -72,20 +72,30 @@ def get_fs(url, target_url, *, cfg, credential, **kwargs) -> Tuple:
     # if we get here, access failed in a credential-related fashion.
     # try to determine credentials for this target bucket.
 
-    # compose a standard realm identifer
-    # TODO recognize alternative endpoints here
-    host = 's3.amazonaws.com'
-    # this is the way AWS exposes bucket content via https in the "virtualhost"
-    # fashion, but we stick to s3:// to avoid confusion. Therefore we are also
-    # not adding the bucketname as the first component of the URL path (where
-    # it would be in real s3:// URLs, instead of the host).  Taken together we
-    # get a specialization of an S3 realm that is endpoint/service specific
-    # (hence we do not confuse AWS credentials with those of a private MinIO
-    # instance).
+    # compose a standard realm identifer.
+    # look for alternative endpoints and fall back onto AWS if none can be found
+    endpoint_url = kwargs.get(
+        # look at top-level (unchained URLs)
+        'endpoint_url',
+        # but consider s3-specific argument collection (chained URLs)
+        kwargs.get('s3', {}).get(
+            'endpoint_url',
+            # if nothing better exists, go with AWS
+            # this does not have to be a functional endpoint, it is only
+            # a label in URL format
+            'https://s3.amazonaws.com'))
+    # the realm is the way AWS exposes bucket content via https in the
+    # "virtualhost" fashion, but we stick to s3:// to avoid confusion.
+    # Therefore we are also not adding the bucketname as the first component
+    # of the URL path (where it would be in real s3:// URLs, instead of the
+    # host).
+    # Taken together we get a specialization of an S3 realm that is
+    # endpoint/service specific (hence we do not confuse AWS credentials
+    # with those of a private MinIO instance).
     # TODO it is not 100% clear to mih whether a credential would
     # always tend to be for a bucket-wide scope, or whether per-object
     # credentials are a thing
-    realm = f's3://{s3bucket_name}.{host}'
+    realm = f's3://{s3bucket_name}.{urlparse(endpoint_url).netloc}'
 
     credman = CredentialManager(cfg)
     credname, cred = credman.obtain(
