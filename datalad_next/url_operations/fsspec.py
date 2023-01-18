@@ -26,7 +26,7 @@ from . import (
 lgr = logging.getLogger('datalad.ext.next.url_operations.fsspec')
 
 
-def get_fs_generic(url, target_url, *, cfg, credential):
+def get_fs_generic(url, target_url, *, cfg, credential, **kwargs):
     """Helper to return an FSSPEC filesystem instance, if there is no better
 
     It performs no credential provisioning or customizations whatsoever.
@@ -45,6 +45,8 @@ def get_fs_generic(url, target_url, *, cfg, credential):
       Instance to query for any configuration items
     credential: str
       Name of a credential to be used for authentication (if needed)
+    **kwargs:
+      Will be passed to ``fsspec.core.url_to_fs()``
 
     Returns
     -------
@@ -55,7 +57,7 @@ def get_fs_generic(url, target_url, *, cfg, credential):
       filesystem instance; and 3) a dict with information on the
       objects corresponding to the ``url``.
     """
-    fs, urlpath = url_to_fs(url)
+    fs, urlpath = url_to_fs(url, **kwargs)
     stat = fs.stat(urlpath)
     return fs, urlpath, stat
 
@@ -134,6 +136,19 @@ class FsspecUrlOperations(UrlOperations):
     accessed location (in the case of s3 this is a bucket), and can be
     entered manually if none can be found.
     """
+    def __init__(self, cfg=None, fs_kwargs: Dict | None = None):
+        """
+        Parameters
+        ----------
+        cfg: ConfigManager, optional
+          A config manager instance that is consulted for any configuration
+          filesystem configuration individual handlers may support.
+        fs_kwargs: dict, optional
+          Will be passed to ``fsspec.core.url_to_fs()`` as ``kwargs``.
+        """
+        super().__init__(cfg=cfg)
+        self._fs_kwargs = fs_kwargs
+
     def sniff(self,
               url: str,
               *,
@@ -292,6 +307,7 @@ class FsspecUrlOperations(UrlOperations):
             target_url,
             cfg=self.cfg,
             credential=credential,
+            **(self._fs_kwargs or {})
         )
 
     def _stat2resultprops(self, props: Dict) -> Dict:
