@@ -65,7 +65,7 @@ def get_fs(url, target_url, *, cfg, credential, **kwargs) -> Tuple:
             # TODO log this error
             # credentials are known to be required needed by not available
             pass
-        except Exception:
+        except Exception as e:
             # something unexpected, reraise
             raise UrlOperationsRemoteError(object_url) from e
 
