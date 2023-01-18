@@ -30,6 +30,12 @@ def get_fs(url, target_url, *, cfg, credential, **kwargs) -> Tuple:
     permission error, a credential is looked up or prompted for, and a second
     attempt with non-anonymous access and the queried credential is made.
     """
+    if url == target_url:
+        # no chain, pull any 's3' specific arguments to the top-level
+        kwargs = dict(
+            kwargs.get('s3', {}),
+            **{k: v for k, v in kwargs.items() if k != 's3'}
+        )
     object_url = target_url
     s3bucket_name = urlparse(object_url).netloc
 
