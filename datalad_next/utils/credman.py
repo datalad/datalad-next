@@ -54,18 +54,23 @@ class CredentialManager(object):
     git-config syntax for variable names (case-insensitive, only alphanumeric
     characters and ``-``, and must start with an alphabetic character).
 
-    Create a ``CredentialManager`` instance is fast, virtually no initialization
-    needs to be performed. All internal properties are lazily evaluated.
-    This facilitate usage of this facility in code where it is difficult
-    to incorporate a long-lived central instance.
+    Create a ``CredentialManager`` instance is fast, virtually no
+    initialization needs to be performed. All internal properties are lazily
+    evaluated.  This facilitates usage in code where it is difficult to
+    incorporate a long-lived central instance.
 
     API
 
-    With one exception, all parameter names of methods in the main API
+    With one exception, all parameter names of methods in the core API
     outside ``**kwargs`` must have a ``_`` prefix that distinguishes credential
     properties from method parameters. The one exception is the ``name``
     parameter, which is used as a primary identifier (albeit being optional
     for some operations).
+
+    The ``obtain()`` method is provided as an additional convenience, and
+    implements a standard workflow for obtaining a credential in a wide variety
+    of scenarios (credential name, credential properties, secret either
+    respectively already known or yet unkown).
     """
     valid_property_names_regex = re.compile(r'[a-z0-9]+[a-z0-9-]*$')
 
@@ -567,15 +572,16 @@ class CredentialManager(object):
                expected_props: List | Tuple | None = None):
         """Obtain a credential by query or prompt (if needed)
 
-        This helper implements a standard workflow to obtain a credential.
-        It supports credential selection by credential name/identifier, and
-        falls back onto querying for a credential matching a set of specified
-        properties (as key-value mappings). If no suitable credential is
-        known, a user is prompted to enter one interactively (if possible
-        in the current session).
+        This convienence method implements a standard workflow to obtain a
+        credential.  It supports credential selection by credential
+        name/identifier, and falls back onto querying for a credential matching
+        a set of specified properties (as key-value mappings). If no suitable
+        credential is known, a user is prompted to enter one interactively (if
+        possible in the current session).
 
         If a credential was entered manually, any given ``type_hint`` will
-        be included as a ``type`` property of the returned credential.
+        be included as a ``type`` property of the returned credential, and
+        the returned credential has an ``_edited=True`` property.
         Likewise, any ``realm`` property included in the ``query_props``
         is included in the returned credential in this case.
 
@@ -596,6 +602,27 @@ class CredentialManager(object):
         a credential. For any previously known credential, the ``last-used``
         property will be updated to enable preferred selection in future
         credential discovery attempts via ``obtain()``.
+
+        Examples
+        --------
+
+        Minimal call to get a credential entered (manually)::
+
+          credman.obtain(type_hint='token', prompt='Credential please!')
+
+        Without a prompt text no interaction is attempted, and without a type
+        hint it is unknown what (and how much) to enter.
+
+        Minimal call to retrieve a credential by its identifier::
+
+          credman.obtain('my-github-token')
+
+        Minimal call to retrieve the last-used credential for a particular
+        authentication "realm". In this case "realm" is a property that was
+        previously set to match a particular service/location, and is now used
+        to match credentials against::
+
+          credman.obtain(query_props={'realm': 'mysecretlair'})
 
         Parameters
         ----------
