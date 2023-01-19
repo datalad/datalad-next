@@ -639,16 +639,16 @@ class CredentialManager(object):
                 _prompt=prompt,
                 _type_hint=type_hint,
             )
-            # check if we know the realm, if so include in the credential,
-            # if not avoid asking for it interactively
-            # (it is a server-specified property users would generally not
-            # know, if they do, they can use the `credentials` command
-            # upfront).
-            realm = query_props.get('realm')
-            if realm:
-                kwargs['realm'] = realm
             try:
                 cred = self.get(**kwargs)
+                # check if we know the realm, if so include in the credential,
+                realm = (query_props or {}).get('realm')
+                if realm:
+                    cred['realm'] = realm
+                if name is None and type_hint:
+                    # we are not expecting to retrieve a particular credential.
+                    # make the type hint the actual type of the credential
+                    cred['type'] = type_hint
             except Exception as e:
                 lgr.debug('Obtaining credential failed: %s', e)
 
