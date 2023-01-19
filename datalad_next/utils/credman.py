@@ -435,10 +435,6 @@ class CredentialManager(object):
         # prefix for all config variables of this credential
         prefix = _get_cred_cfg_var(name, '')
 
-        def _get_props():
-            return (k[len(prefix):] for k in self._cfg.keys()
-                    if k.startswith(prefix))
-
         to_remove = [
             k[len(prefix):] for k in self._cfg.keys()
             if k.startswith(prefix)
@@ -460,7 +456,7 @@ class CredentialManager(object):
                     CapturedException(e)
                 else:
                     # we could not delete the field
-                    raise
+                    raise  # pragma: nocover
 
         del_field(name, 'secret')
         if type_hint:
@@ -676,11 +672,6 @@ class CredentialManager(object):
         )
         return known_credentials
 
-    def _prompt(self, prompt):
-        if not prompt:
-            return
-        ui.message(prompt)
-
     def _ask_property(self, name, prompt=None):
         if not ui.is_interactive:
             lgr.debug('Cannot ask for credential property %r in non-interactive session', name)
@@ -701,12 +692,6 @@ class CredentialManager(object):
             hidden=self._cfg.obtain(
                 'datalad.credentials.hidden-secret-entry'),
         )
-
-    def _props_defined_in_cfg(self, name, keys):
-        return [
-            k for k in keys
-            if _get_cred_cfg_var(name, k) in self._cfg
-        ]
 
     def _unset_credprops_anyscope(self, name, keys):
         """Reloads the config after unsetting all relevant variables
