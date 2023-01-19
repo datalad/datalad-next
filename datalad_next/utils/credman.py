@@ -574,6 +574,11 @@ class CredentialManager(object):
         known, a user is prompted to enter one interactively (if possible
         in the current session).
 
+        If a credential was entered manually, any given ``type_hint`` will
+        be included as a ``type`` property of the returned credential.
+        Likewise, any ``realm`` property included in the ``query_props``
+        is included in the returned credential in this case.
+
         If desired, a credential workflow can be completed, after a credential
         was found to be valid/working, by storing or updating it in the
         credential store::
