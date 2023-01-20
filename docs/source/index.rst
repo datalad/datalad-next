@@ -101,7 +101,6 @@ Patches that are automatically applied to DataLad when loading the
    :toctree: generated
 
    annexrepo
-   clone
    common_cfg
    configuration
    create_sibling_ghlike
@@ -109,7 +108,6 @@ Patches that are automatically applied to DataLad when loading the
    interface_utils
    push_optimize
    push_to_export_remote
-   runnerthreads
    siblings
 
 
