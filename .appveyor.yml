@@ -159,6 +159,14 @@ skip_commits:
   files:
     - docs/
     - changelog.d/
+    - .github/
+    - CHANGELOG.md
+    - CITATION.cff
+    - CONTRIBUTORS
+    - LICENSE
+    - Makefile
+    - README.md
+    - readthedocs.yml
 
 
 # it is OK to specify paths that may not exist for a particular test run
