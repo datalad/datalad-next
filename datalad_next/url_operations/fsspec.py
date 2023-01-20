@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 import sys
 from typing import (
     Dict,
@@ -58,7 +61,17 @@ def get_fs_generic(url, target_url, *, cfg, credential, **kwargs):
       objects corresponding to the ``url``.
     """
     fs, urlpath = url_to_fs(url, **kwargs)
-    stat = fs.stat(urlpath)
+    try:
+        stat = fs.stat(urlpath)
+    except FileNotFoundError:
+        # TODO this could happen on upload, but may be FS-specific
+        # it could be that this needs to be a best-effort thing
+        # and returning `stat != None` can be used as an indicator
+        # for things working, but is not always present
+        # TODO maybe add a switch to prevent stat'ing right away
+        # to avoid wasting cycles when it is known that the target
+        # does not exist
+        stat = None
     return fs, urlpath, stat
 
 
@@ -174,7 +187,7 @@ class FsspecUrlOperations(UrlOperations):
         for parameter documentation and exception behavior.
         """
         _, _, props = self._get_fs(url, credential=credential)
-        return self._stat2resultprops(props)
+        return props
 
     def download(self,
                  from_url: str,
@@ -191,15 +204,6 @@ class FsspecUrlOperations(UrlOperations):
         The ``timeout`` parameter is ignored by this implementation.
         """
         fs, urlpath, props = self._get_fs(from_url, credential=credential)
-
-        # if we get here, access is working
-        props = self._stat2resultprops(props)
-
-        # this is pretty much shutil.copyfileobj() with the necessary
-        # wrapping to perform hashing and progress reporting
-        hasher = self._get_hasher(hash)
-        progress_id = self._get_progress_id(from_url, to_path)
-
         dst_fp = None
 
         try:
@@ -207,41 +211,24 @@ class FsspecUrlOperations(UrlOperations):
             expected_size = props.get('stat_size')
             dst_fp = sys.stdout.buffer if to_path is None \
                 else open(to_path, 'wb')
-            # download can start
-            self._progress_report_start(
-                progress_id,
-                ('Download %s to %s', from_url, to_path),
-                'downloading',
-                expected_size,
-            )
+
             with fs.open(urlpath) as src_fp:
                 # not every file abstraction supports all features
                 # switch by capabilities
-                if expected_size is not None:
-                    # read chunks until target size, if we know the size
-                    # (e.g. the Tar filesystem would simply read beyond
-                    # file boundaries otherwise.
-                    # but this method can be substantially faster than
-                    # alternative methods
-                    self._download_chunks_to_maxsize(
-                        src_fp, dst_fp, expected_size,
-                        hasher, progress_id)
-                elif hasattr(src_fp, '__next__'):
-                    # iterate full-auto if we can
-                    self._download_via_iterable(
-                        src_fp, dst_fp,
-                        hasher, progress_id)
-                else:
-                    # this needs a fallback that simply calls read()
-                    raise NotImplementedError(
-                        f"No reader for FSSPEC implementation {fs}")
-
-            props.update(self._get_hash_report(hash, hasher))
-            return props
+                props.update(self._copyfp(
+                    src_fp,
+                    dst_fp,
+                    expected_size,
+                    hash,
+                    start_log=('Download %s to %s', from_url, to_path),
+                    update_log=('Downloaded chunk',),
+                    finish_log=('Finished download',),
+                    progress_label='downloading',
+                ))
+                return props
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
-            self._progress_report_stop(progress_id, ('Finished download',))
 
     def upload(self,
                from_path: Path | None,
@@ -257,7 +244,51 @@ class FsspecUrlOperations(UrlOperations):
 
         The ``timeout`` parameter is ignored by this implementation.
         """
-        raise NotImplementedError
+        props = {}
+        if from_path:
+            expected_size = from_path.stat().st_size
+            props['content-length'] = expected_size
+        else:
+            expected_size = None
+
+        fs, urlpath, target_stat_ = self._get_fs(to_url, credential=credential)
+        # TODO target_stat would be None for a non-existing target (ok here)
+        # but if it is not None, we might want to consider being vocal about
+        # that
+        src_fp = None
+        dst_fp = None
+
+        try:
+            src_fp = sys.stdin.buffer if from_path is None \
+                else open(from_path, 'rb')
+
+            try:
+                dst_fp = fs.open(urlpath, 'wb')
+            except FileNotFoundError:
+                # TODO other supported FS might have different ways of saying
+                # "I need a parent to exist first"
+                fs.mkdir(str(PurePosixPath(urlpath).parent),
+                         create_parents=True)
+                dst_fp = fs.open(urlpath, 'wb')
+
+            # not every file abstraction supports all features
+            # switch by capabilities
+            props.update(self._copyfp(
+                src_fp,
+                dst_fp,
+                expected_size,
+                hash,
+                start_log=('Upload %s to %s', from_path, to_url),
+                update_log=('Uploaded chunk',),
+                finish_log=('Finished upload',),
+                progress_label='uploading',
+            ))
+            return props
+        finally:
+            if src_fp and from_path is not None:
+                src_fp.close()
+            if dst_fp is not None:
+                dst_fp.close()
 
     def delete(self,
                url: str,
@@ -271,7 +302,9 @@ class FsspecUrlOperations(UrlOperations):
 
         The ``timeout`` parameter is ignored by this implementation.
         """
-        raise NotImplementedError
+        fs, urlpath, props = self._get_fs(url, credential=credential)
+        fs.rm_file(urlpath)
+        return props
 
     def _get_fs(self, url, *, credential) -> Tuple:
         """Helper to get a FSSPEC filesystem instance from a URL
@@ -318,13 +351,17 @@ class FsspecUrlOperations(UrlOperations):
         else:
             get_fs = get_fs_generic
 
-        return get_fs(
+        fs, urlpath, props = get_fs(
             url,
             target_url,
             cfg=self.cfg,
             credential=credential,
             **(self._fs_kwargs or {})
         )
+        if props is not None:
+            # if we get here, access is working, normalize the stat properties
+            props = self._stat2resultprops(props)
+        return fs, urlpath, props
 
     def _stat2resultprops(self, props: Dict) -> Dict:
         props = {
@@ -336,10 +373,61 @@ class FsspecUrlOperations(UrlOperations):
             props['content-length'] = props['stat_size']
         return props
 
-    def _download_via_iterable(self, src_fp, dst_fp, hasher, progress_id):
-        """Download from a file object that supports iteration"""
+    def _copyfp(self,
+                src_fp,
+                dst_fp,
+                expected_size: int,
+                hash: list[str] | None,
+                start_log: tuple,
+                update_log: tuple,
+                finish_log: tuple,
+                progress_label: str) -> dict:
+        # this is pretty much shutil.copyfileobj() with the necessary
+        # wrapping to perform hashing and progress reporting
+        hasher = self._get_hasher(hash)
+        progress_id = self._get_progress_id(id(src_fp), id(src_fp))
+
         # Localize variable access to minimize overhead
+        src_fp_read = src_fp.read
         dst_fp_write = dst_fp.write
+
+        props = {}
+        self._progress_report_start(
+            progress_id, start_log, progress_label, expected_size)
+        copy_size = 0
+        try:
+            # not every file abstraction supports all features
+            # switch by capabilities
+            if expected_size is not None:
+                # read chunks until target size, if we know the size
+                # (e.g. the Tar filesystem would simply read beyond
+                # file boundaries otherwise.
+                # but this method can be substantially faster than
+                # alternative methods
+                self._copy_chunks_to_maxsize(
+                    src_fp_read, dst_fp_write, expected_size,
+                    hasher, progress_id, update_log)
+            elif hasattr(src_fp, '__next__'):
+                # iterate full-auto if we can
+                self._copy_via_iterable(
+                    src_fp, dst_fp_write,
+                    hasher, progress_id, update_log)
+            else:
+                # this needs a fallback that simply calls read()
+                raise NotImplementedError(
+                    f"No reader for FSSPEC implementation {src_fp}")
+            props.update(self._get_hash_report(hash, hasher))
+            # return how much was copied. we could compare with
+            # `expected_size` and error on mismatch, but not all
+            # sources can provide that (e.g. stdin)
+            props['content-length'] = copy_size
+            return props
+        finally:
+            self._progress_report_stop(progress_id, finish_log)
+
+    def _copy_via_iterable(self, src_fp, dst_fp_write, hasher,
+                           progress_id, update_log):
+        """Copy from a file object that supports iteration"""
         for chunk in src_fp:
             # write data
             dst_fp_write(chunk)
@@ -347,19 +435,16 @@ class FsspecUrlOperations(UrlOperations):
             for h in hasher:
                 h.update(chunk)
             self._progress_report_update(
-                progress_id, ('Downloaded chunk',), len(chunk))
+                progress_id, update_log, len(chunk))
 
-    def _download_chunks_to_maxsize(self, src_fp, dst_fp, size_to_copy,
-                                    hasher, progress_id):
+    def _copy_chunks_to_maxsize(self, src_fp_read, dst_fp_write, size_to_copy,
+                                hasher, progress_id, update_log):
         """Download from a file object that does not support iteration"""
         # use a specific block size, if one was set and go with a
         # platform default if not.
         # this is also the granularity with which progress reporting
         # is made.
         block_size = self._block_size or COPY_BUFSIZE
-        # Localize variable access to minimize overhead
-        src_fp_read = src_fp.read
-        dst_fp_write = dst_fp.write
         while True:
             # make sure to not read beyond the target size
             # some archive filesystem abstractions do not necessarily
@@ -374,5 +459,5 @@ class FsspecUrlOperations(UrlOperations):
             for h in hasher:
                 h.update(chunk)
             self._progress_report_update(
-                progress_id, ('Downloaded chunk',), chunk_size)
+                progress_id, update_log, chunk_size)
             size_to_copy -= chunk_size
