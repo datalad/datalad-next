@@ -56,6 +56,13 @@ def check_credmanager():
     eq_(credman.get('dummy', secret='mike', _type_hint='token'),
         dict(type='token', secret='mike'))
 
+    # remove a secret that has not yet been set
+    eq_(credman.remove('elusive', type_hint='user_password'), False)
+
+    # but the secret was written to the keystore
+    with pytest.raises(ValueError):
+        credman.set('mycred', forbidden_propname='some')
+
     # no instructions what to do, no legacy entry, nothing was changed
     # but the secret was written to the keystore
     eq_(credman.set('mycred', secret='some'), dict(secret='some'))
@@ -92,6 +99,8 @@ def check_credmanager():
     eq_(credman.get('mycred'), dict(dummy='good', this='that', secret='some'))
     # remove individual property
     eq_(credman.set('mycred', dummy=None), dict(dummy=None))
+    # remove individual property that is not actually present
+    eq_(credman.set('mycred', imaginary=None), dict(imaginary=None))
     # ensure removal
     eq_(credman.get('mycred'), dict(this='that', secret='some'))
 
@@ -111,6 +120,11 @@ def check_credmanager():
     # remove complete credential
     credman.remove('mycred')
     eq_(credman.get('mycred'), None)
+
+    # test prompting for a secret when none is given
+    res = with_testsui(responses=['mysecret'])(credman.set)(
+        'mycred', other='prop')
+    assert res == {'other': 'prop', 'secret': 'mysecret'}
 
     # test prompting for a name when None is given
     res = with_testsui(responses=['mycustomname'])(credman.set)(
@@ -188,6 +202,8 @@ def check_query():
     # and the most recent one (with timestamp) is an unrelated one
     credman.set('unrelated', _lastused=True, secret='unrelated')
 
+    # smoke test for an unsorted report
+    assert len(credman.query()) > 1
     # now we want all credentials that match the realm, sorted by
     # last-used timestamp -- most recent first
     slist = credman.query(realm='http://ex.com/login', _sortby='last-used')
@@ -198,3 +214,74 @@ def check_query():
                           _reverse=False)
     eq_(['cred.0', 'cred.1', 'cred.2', 'cred.no.time'],
         [i[0] for i in slist])
+
+
+def test_credman_get():
+    # we are not making any writes, any config must work
+    credman = CredentialManager(ConfigManager())
+    # must be prompting for missing properties
+    res = with_testsui(responses=['myuser'])(credman.get)(
+        None, _type_hint='user_password', _prompt='myprompt',
+        secret='dummy')
+    assert 'myuser' == res['user']
+    # same for the secret
+    res = with_testsui(responses=['mysecret'])(credman.get)(
+        None, _type_hint='user_password', _prompt='myprompt',
+        user='dummy')
+    assert 'mysecret' == res['secret']
+
+
+def test_credman_obtain():
+    # we want all tests to bypass the actual system keyring
+    with patch('datalad.support.keyring_.keyring', MemoryKeyring()):
+        check_obtain()
+
+
+def check_obtain():
+    credman = CredentialManager(ConfigManager())
+    # senseless, but valid call
+    # could not possibly report a credential without any info
+    with pytest.raises(ValueError):
+        credman.obtain()
+    # a type_hint is not enough, if no prompt is provided
+    with pytest.raises(ValueError):
+        credman.obtain(type_hint='token')
+    # also a prompt alone is not enough
+    with pytest.raises(ValueError):
+        credman.obtain(prompt='myprompt')
+    # minimal condition prompt and type-hint for manual entry
+    res = with_testsui(responses=['mytoken'])(credman.obtain)(
+        type_hint='token', prompt='myprompt')
+    assert res == (None,
+                   {'type': 'token', 'secret': 'mytoken', '_edited': True})
+
+    # no place a credential we could discover
+    cred1_props = dict(secret='sec1', type='token', realm='myrealm')
+    credman.set('cred1', _lastused=True, **cred1_props)
+
+    # one matching property is all that is needed
+    res = credman.obtain(query_props={'realm': 'myrealm'})
+    assert res == ('cred1', credman.get('cred1'))
+
+    # will report the last-used one
+    credman.set('cred2', _lastused=True, **cred1_props)
+    res = credman.obtain(query_props={'realm': 'myrealm'})
+    assert res == ('cred2', credman.get('cred2'))
+    credman.set('cred1', _lastused=True, **cred1_props)
+    res = credman.obtain(query_props={'realm': 'myrealm'})
+    assert res == ('cred1', credman.get('cred1'))
+
+    # built-in test for additional property expectations
+    with pytest.raises(ValueError):
+        credman.obtain(query_props={'realm': 'myrealm'},
+                       expected_props=['funky'])
+
+    res = credman.obtain(query_props={'realm': 'myrealm'})
+    # if we are looking for a realm, we get it back even if a credential
+    # had to be entered
+    res = with_testsui(responses=['mynewtoken'])(credman.obtain)(
+        type_hint='token', prompt='myprompt',
+        query_props={'realm': 'mytotallynewrealm'})
+    assert res == (None,
+                   {'type': 'token', 'secret': 'mynewtoken', '_edited': True,
+                    'realm': 'mytotallynewrealm'})
