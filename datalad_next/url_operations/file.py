@@ -148,7 +148,7 @@ class FileUrlOperations(UrlOperations):
         FileNotFoundError
           If the source file cannot be found.
         """
-        # get the size, or die if inaccessible
+        # get the size for progress reporting
         props = {}
         if from_path:
             expected_size = from_path.stat().st_size
@@ -175,11 +175,11 @@ class FileUrlOperations(UrlOperations):
                 ))
                 return props
         except FileNotFoundError as e:
-            raise UrlOperationsResourceUnknown(url) from e
+            raise UrlOperationsResourceUnknown(to_url) from e
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
-            raise UrlOperationsRemoteError(from_url, message=str(e)) from e
+            raise UrlOperationsRemoteError(to_url, message=str(e)) from e
         finally:
             if src_fp and from_path is not None:
                 src_fp.close()
