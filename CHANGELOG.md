@@ -27,6 +27,12 @@
   `datalad_next.url_operations.any._urlscheme_handler` contains a (patch-able)
   mapping of scheme identifiers to handler classes.
 
+  The `uncurl` special remote makes this URL operations framework accessible
+  via `git-annex`. It provides flexible means to compose and rewrite URLs (e.g.,
+  to compensate for storage infrastructure changes) without having to modify
+  individual URLs recorded in datasets. It enables seamless transitions between
+  any services and protocols supported by the framework.
+
 - A `python-requests` compatible authentication handler (`DataladAuth`) that
   interfaces DataLad's credential system has been added.
 

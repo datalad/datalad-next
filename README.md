@@ -42,7 +42,8 @@ package and its commands.
 - A replacement sub-system for credential handling that is able to handle arbitrary
   properties for annotating a secret, and facilitates determining suitable
   credentials while minimizing avoidable user interaction, without compromising
-  configurability.
+  configurability. A convenience method is provided that implements a standard
+  workflow for obtaining a credential.
 - A user-facing `credentials` command to set, remove, and query credentials.
 - The `create-sibling-...` commands for the platforms GitHub, GIN, GOGS, Gitea
   are equipped with improved credential handling that, for example, only stores
@@ -69,13 +70,24 @@ package and its commands.
   class to facilitate development of external backends in Python is also provided.
 - Enhance `datalad-configuration` to support getting configuration from "global"
   scope without a dataset being present.
-- A `download` command as a front-end for a modular URL operation framework.
-  This framework directly supports operation on `http(s)`, `ssh`, and `file`
-  URLs, and can be extended with custom functionality for additional protocols
-  or even interaction with specific individual servers. The basic operations
-  `download`, `upload`, `delete`, and `sniff` are understood, and can be
-  implemented. The framework offers uniform progress reporting and simultaneous
-  content has computation.
+- New modular framework for URL operations. This framework directly supports operation
+  on `http(s)`, `ssh`, and `file` URLs, and can be extended with custom functionality
+  for additional protocols or even interaction with specific individual servers.
+  The basic operations `download`, `upload`, `delete`, and `sniff` are recognized,
+  and can be implemented. The framework offers uniform progress reporting and
+  simultaneous content has computation. This framework is meant to replace and
+  extend the downloader/provide framework in the DataLad core package. In contrast
+  to its predecessor it is integrated with the new credential framework, and
+  operations beyond downloading.
+- `git-annex-remote-uncurl` is a special remote that exposes the new URL
+  operations framework via git-annex. It provides flexible means to compose
+  and rewrite URLs (e.g., to compensate for storage infrastructure changes)
+  without having to modify individual URLs recorded in datasets. It enables
+  seamless transitions between any services and protocols supported by the
+  framework. This special remote can replace the `datalad` special remote
+  provided by the DataLad core package.
+- A `download` command is provided as a front-end for the new modular URL
+  operations framework.
 - A `python-requests` compatible authentication handler (`DataladAuth`) that
   interfaces DataLad's credential system.
 - Boosted throughput of DataLad's `runner` component for command execution.
