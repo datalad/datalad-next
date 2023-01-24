@@ -203,10 +203,8 @@ names for each match-group to avoid collisions.
 from __future__ import annotations
 
 from functools import partial
-import json
 from pathlib import Path
 import re
-from urllib.parse import urlparse
 
 # we intentionally limit ourselves to the most basic interface
 # and even that we only need to get a `ConfigManager` instance.
@@ -225,10 +223,8 @@ from datalad_next.utils import ensure_list
 from . import (
     RemoteError,
     SpecialRemote,
-    UnsupportedRequest,
     super_main
 )
-
 
 
 class UncurlRemote(SpecialRemote):
@@ -302,7 +298,6 @@ class UncurlRemote(SpecialRemote):
             git_remotename=remotename,
             annex_remoteuuid=self.annex.getuuid(),
         )
-
 
     def claimurl(self, url):
         """Needs to check if want to handle a given URL
@@ -402,7 +397,7 @@ class UncurlRemote(SpecialRemote):
                 lambda to_url: self.url_handler.delete(url=to_url),
                 'refuses to delete',
             )
-        except UrlOperationsResourceUnknown as e:
+        except UrlOperationsResourceUnknown:
             self.message(
                 'f{key} not found at the remote, skipping', type='debug')
 
@@ -501,7 +496,7 @@ class UncurlRemote(SpecialRemote):
 
     def _store_delete(self, key, handler, action: str):
         if not self.url_tmpl:
-           raise RemoteError(
+            raise RemoteError(
                 f'Remote {action} content without a configured URL template')
         url = self.get_key_urls(key)
         # we have a rewriting template, so we expect exactly one URL
