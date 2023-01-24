@@ -240,7 +240,9 @@ class Download(ValidatedInterface):
                 yield get_status_dict(
                     action='download',
                     status='error',
-                    message='unsupported URL scheme',
+                    message='unsupported URL '
+                    '(custom URL handlers can be declared via DataLad '
+                    'configuration)',
                     url=url,
                 )
                 continue
