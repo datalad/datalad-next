@@ -66,6 +66,7 @@ class ArchivistRemote(SpecialRemote):
         super().__init__(annex)
         # will be tried in prepare()
         self._fsspec_handler = None
+        self.repo = None
         self._akeys = None
 
     def initremote(self):
@@ -74,10 +75,11 @@ class ArchivistRemote(SpecialRemote):
         pass
 
     def prepare(self):
+        self.repo = LegacyAnnexRepo(self.annex.getgitdir())
         # central archive key cache
         self._akeys = ArchiveKeys(
             self.annex,
-            LegacyAnnexRepo(self.annex.getgitdir()),
+            self.repo,
         )
 
         # try to work without fsspec
@@ -189,7 +191,6 @@ class ArchivistRemote(SpecialRemote):
                 # rely on an annotation, but could actually determine
                 # the archive type
                 use_fsspec = False
-            apath = self._akeys.get_contentpath(akey)
             ainfo['use_fsspec'] = use_fsspec
             self._akeys[akey] = ainfo
         return ainfo['use_fsspec']
@@ -209,18 +210,26 @@ class ArchivistRemote(SpecialRemote):
         return self.annex.geturls(key, prefix='dl+archive:')
 
     def _check_at_url(self, url):
-        akey, member_props = self._akeys.from_url(url)
-        # TODO if it points to an archive, but that archive is not present
-        # locally, but is on record to exist, should this be enough?
-        if self._handle_request_w_fsspec(akey):
-            checker = self._check_member_fsspec
-        # no fsspec: do we have that key locally?
-        elif self._akeys.get_contentpath('path'):
-            checker = self._check_member_local_archive
-        else:
-            raise RemoteError(f'No means to check presence for {url!r}')
+        # the idea here is that: as long as the archive declared to contain
+        # the key is still accessible, we declare CHECKPRESENT.
+        # In other words: we trust the archive member annotation to be
+        # correct/valid.
+        # not trsuting it would have sever consequences. depending on
+        # where the archive is located (local/remote) and what format it
+        # is (fsspec-inspectable), we might need to download it completely
+        # in order to verify a matching archive member. Moreover, an archive
+        # might also reference another archive as a source, leading to a
+        # multiplication of transfer demands
 
-        return checker(akey, member_props['path'])
+        akey, member_props = self._akeys.from_url(url)
+        # we leave all checking logic to git-annex
+        try:
+            # if it exits clean, the key is still present at at least one
+            # remote
+            self.repo.call_annex(['checkpresentkey', akey])
+            return True
+        except CommandError:
+            return False
 
     def _get_from_url(self, url, dst_path):
         """Returns True on success"""
@@ -249,6 +258,7 @@ class ArchivistRemote(SpecialRemote):
         apath = self._akeys.get_contentpath(akey)
         atype = self._akeys.get_archive_type(akey)
         # generate (zip|tar)://...::file:// URL and give to fsspec
+        # TODO inject caching approach into URL, based on config
         return f'{atype}://{amember_path}::{apath.as_uri()}'
 
     def _get_member_fsspec(
@@ -258,16 +268,6 @@ class ArchivistRemote(SpecialRemote):
             self._get_fsspec_url(akey, amember_path),
             dst_path
         )
-
-    def _check_member_fsspec(self, akey: str, amember_path: Path):
-        try:
-            # TODO could match size annotation, if given?
-            stat = self._fsspec_handler.sniff(
-                self._get_fsspec_url(akey, amember_path),
-            )
-            return stat is not None
-        except Exception as e:
-            raise RemoteError from e
 
     #
     # Fallback implementations

@@ -3,6 +3,7 @@ from pathlib import PurePosixPath
 from datalad.api import clone
 
 from datalad_next.datasets import Dataset
+from datalad_next.url_operations.file import FileUrlOperations
 
 from datalad_next.tests.utils import assert_result_count
 
@@ -102,7 +103,7 @@ def _check_archivist_addurl(atypes, ads, akeys, archive_root, dscontent):
     assert any(wi['description'] == '[archivist]' for wi in whereis.values())
 
 
-def test_archivist_retrieval(tmp_path):
+def test_archivist_retrieval_and_checkpresent(tmp_path):
     nonoise = dict(result_renderer='disabled')
 
     ads, akeys, archive_root, dscontent = make_archive_dataset(
@@ -158,16 +159,39 @@ def test_archivist_retrieval(tmp_path):
         type='file',
         status='ok',
     )
-    # and now the keys that have their content from archives
-    # TODO the fails presently, because if CHECKPRESENT trying to make sure
-    # but not making remote requests
-    # TODO fall back on `checkpresentkey <akey>` to verify continued availability
-    # of a containing archive and be done
-    #res = ads.drop(['azip', 'atar'], **nonoise)
-    #assert_result_count(
-    #    res,
-    #    len(dscontent),
-    #    action='drop',
-    #    status='ok',
-    #    type='file',
-    #)
+    # and now keys that have their content from archives
+    # this makes sure that CHECKPRESENT can handle the case of source
+    # archives that are not present locally right now
+    res = ads.drop('azip', **nonoise)
+    assert_result_count(
+        res,
+        len(dscontent) / 2,
+        action='drop',
+        status='ok',
+        type='file',
+    )
+    # but now we are removing the tar archive from its only known
+    # remote source.
+    wi = list(ads.repo.whereis(akeys['tar'], output='full', key=True).values())
+    assert len(wi) == 1
+    wi_urls = wi[0]['urls']
+    assert len(wi_urls) == 1
+    uh = FileUrlOperations()
+    uh.delete(wi_urls[0])
+    # and we should no longer be able to drop the files that have their
+    # only source be this TAR archive
+    assert_result_count(
+        ads.drop('atar', on_failure='ignore', **nonoise),
+        2,
+        action='drop',
+        status='error',
+        type='file',
+    )
+    # and we can override that safety
+    assert_result_count(
+        ads.drop('atar', reckless='availability', **nonoise),
+        2,
+        action='drop',
+        status='ok',
+        type='file',
+    )
