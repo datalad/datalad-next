@@ -387,8 +387,6 @@ class ArchiveKeys:
     def __init__(self, annex, repo):
         # mapping of archive keys to an info dict
         self._db = {}
-        # for talking to the git-annex parent process
-        self.annex = annex
         # for running git-annex queries against the repo
         self._repo = repo
 
