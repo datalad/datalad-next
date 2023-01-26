@@ -155,7 +155,7 @@ class ArchivistRemote(SpecialRemote):
         # a potential instance of the legacy datalad-archives implementation
         self._legacy_special_remote = None
 
-    def __getattribute__(self, name):
+    def __getattribute__(self, name: str):
         """Redirect top-level API calls to legacy implementation, if needed"""
         lsr = SpecialRemote.__getattribute__(self, '_legacy_special_remote')
         if lsr is None or name not in (
@@ -175,11 +175,20 @@ class ArchivistRemote(SpecialRemote):
         return getattr(lsr, name)
 
     def initremote(self):
-        # at present there is nothing that needs to be done on init/enable.
-        # the remote is designed to work without any specific setup too
+        """``git annex initremote|enableremote`` configuration implementation
+
+        This method does nothing, because the special remote requires no
+        particular setup.
+        """
         pass
 
     def prepare(self):
+        """Prepare the special remote for requests by git-annex
+
+        If the special remote is instructed to run in "legacy mode", all
+        subsequent operations will be processed by the ``datalad-archives``
+        special remote implementation!
+        """
         self._repo = LegacyAnnexRepo(self.annex.getgitdir())
         remotename = self.annex.getgitremotename()
         # are we in legacy mode?
@@ -220,32 +229,25 @@ class ArchivistRemote(SpecialRemote):
             self.message('FSSPEC support disabled, dependency not available',
                          type='debug')
 
-    def claimurl(self, url):
-        """Needs to check if want to handle a given URL
+    def claimurl(self, url: str) -> bool:
+        """Claims (returns True for) ``dl+archive:`` URLs
 
-        Parameters
-        ----------
-        url : str
-
-        Returns
-        -------
-        bool
-            True if this is a ``dl+archive:`` URL, else False.
+        Only a lexical check is performed. Any other URL will result in
+        ``False`` to be returned.
         """
         if ArchivistRemote.recognized_urls.match(url):
             return True
         else:
             return False
 
-    def checkurl(self, url):
-        """
-        When running `git-annex addurl`, this is called after CLAIMURL
-        indicated that we could handle a URL. It can return information
-        on the URL target (e.g., size of the download, a target filename,
-        or a sequence thereof with additional URLs pointing to individual
-        components that would jointly make up the full download from the
-        given URL. However, all of that is optional, and a simple `True`
-        returned is sufficient to make git-annex call `TRANSFER RETRIEVE`.
+    def checkurl(self, url: str) -> bool:
+        """Parse ``dl+archive:`` URL
+
+        Returns ``True`` for any syntactically correct URL with all
+        required properties.
+
+        The archive key related outcomes of the parsing are kept
+        in an internal cache to speed up future property retrieval.
         """
         try:
             akey, member_props = self._akeys.from_url(url)
@@ -271,7 +273,18 @@ class ArchivistRemote(SpecialRemote):
         #    return dict(filename=member_props['path'].name)
         return True
 
-    def transfer_retrieve(self, key, localfilename):
+    def transfer_retrieve(self, key: str, localfilename: str):
+        """Retrieve an archive member from a (remote) archive
+
+        All URLs recorded for the requested ``key`` will be tried in order.
+        For each URL a decision is made whether to attempt (possibly
+        remote) partial extraction via FSSPEC. If possible, and allowed by
+        configuration, archives are accessed directly at their (remote)
+        location without requiring a download, and without performing
+        a full extraction of an archive. If multiple access URLs are on-record
+        for a particular archive, all URLs will be tried in order until
+        access is successful, or the list is exhausted.
+        """
         # this is all URL-based. Let's see what we have on record
         urls = self._get_key_dlarchive_urls(key)
         if not urls:
@@ -287,7 +300,25 @@ class ArchivistRemote(SpecialRemote):
 
         raise RemoteError(f'Could not obtain {key!r} from any URL')
 
-    def checkpresent(self, key):
+    def checkpresent(self, key: str) -> bool:
+        """Verifies continued availability of the archive referenced by the key
+
+        No content verification of the archive, or of the particular archive
+        member is performed. See "Implementation details" of this module
+        for a rational.
+
+        Returns
+        -------
+        bool
+            True if the referenced archive key is present on any remote.
+            False if not.
+
+        Raises
+        ------
+        RemoteError
+            If the presence of the key couldn't be determined, eg. in case of
+            connection error.
+        """
         # must check all URLs until the first hit
         urls = self._get_key_dlarchive_urls(key)
         if not urls:
@@ -303,10 +334,12 @@ class ArchivistRemote(SpecialRemote):
         except Exception as e:
             raise RemoteError(f'Can verify presence of {key!r}: {e}')
 
-    def transfer_store(self, key, filename):
+    def transfer_store(self, key: str, filename: str):
+        """Raises ``UnsupportedRequest``. This operation is not supported."""
         raise UnsupportedRequest('This special remote cannot store content')
 
-    def remove(self, key):
+    def remove(self, key: str):
+        """Raises ``UnsupportedRequest``. This operation is not supported."""
         raise UnsupportedRequest('This special remote cannot remove content')
 
     #
@@ -597,7 +630,7 @@ def _decode_dlarchive_url(url):
 
 
 def main():
-    """cmdline entry point"""
+    """CLI entry point installed as ``git-annex-remote-archivist``"""
     super_main(
         cls=ArchivistRemote,
         remote_name='archivist',
