@@ -12,13 +12,18 @@ configuration settings.
 
 `datalad.archivist.legacymode=yes|[no]`
   If enabled, all special remote operations fall back onto the
-  legacy `datalad-archives` special remote implementation. This mode is
+  legacy ``datalad-archives`` special remote implementation. This mode is
   only provided for backward-compatibility. This legacy implementation
   unconditionally downloads archive files completely and keep an
   internal cache of the full extracted archive around. The implied
   200% (or more) storage cost overhead for obtaining a complete dataset
   can be prohibitive for datasets tracking large amount of data
   (in archive files).
+  If there are multiple ``archivist`` special remotes in use for a
+  single repository, their behavior can be tuned individually by
+  setting a corresponding, remote-specific configuration item
+  `remote.<remotename>.archivist-legacymode=yes|[no]` (which takes
+  precedence).
 """
 from __future__ import annotations
 
@@ -118,9 +123,15 @@ class ArchivistRemote(SpecialRemote):
 
     def prepare(self):
         self._repo = LegacyAnnexRepo(self.annex.getgitdir())
+        remotename = self.annex.getgitremotename()
         # are we in legacy mode?
+        # let remote-specific setting take priority (there could be
+        # multiple archivist-type remotes configured), and use unspecific switch
+        # as a default, with a general default of NO
         if self._repo.config.getbool(
-                'datalad.archivist', 'legacymode', default=False):
+                f'remote.{remotename}', 'archivist-legacymode',
+                default=self._repo.config.getbool(
+                    'datalad.archivist', 'legacymode', default=False)):
             # ATTENTION DEBUGGERS!
             # If we get here, we will bypass all of the archivist
             # implementation! Check __getattribute__() -- pretty much no
