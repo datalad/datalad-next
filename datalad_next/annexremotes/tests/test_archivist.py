@@ -8,6 +8,9 @@ from datalad_next.url_operations.file import FileUrlOperations
 from datalad_next.tests.utils import assert_result_count
 
 
+nonoise = dict(result_renderer='disabled')
+
+
 def make_archive_dataset(wpath):
     """Returns a path to generated dataset
 
@@ -25,8 +28,6 @@ def make_archive_dataset(wpath):
          The path is relative to the leading archive directory, and
          can also be interpreted relative to the dataset root.
     """
-    nonoise = dict(result_renderer='disabled')
-
     dscontent = (
         ('azip/file1.txt', 'zipfile1'),
         ('azip/file2.csv', 'zipfile2_muchcontent'),
@@ -104,8 +105,6 @@ def _check_archivist_addurl(atypes, ads, akeys, archive_root, dscontent):
 
 
 def test_archivist_retrieval_and_checkpresent(tmp_path):
-    nonoise = dict(result_renderer='disabled')
-
     ads, akeys, archive_root, dscontent = make_archive_dataset(
         tmp_path / 'src')
 
@@ -195,3 +194,42 @@ def test_archivist_retrieval_and_checkpresent(tmp_path):
         status='ok',
         type='file',
     )
+
+
+def test_archivist_urlkey(tmp_path):
+    """This tests adding a file key pointing inside an archive key without
+    ever performing a full archive download (when fsspec) is around).
+
+    The containing archive is only registered via a URL key.
+    """
+    ds = Dataset(tmp_path).create(**nonoise)
+    res = ds.repo.call_annex_records([
+        'addurl',
+        # do not download the archive, and do not size checks
+        '--relaxed',
+        '--file', str(ds.pathobj / '.archive' / 'zenodo.zip'),
+        'https://zenodo.org/record/6833100/files/datalad/datalad-next-0.4.1.zip',
+    ])
+    assert len(res) == 1
+    res = res[0]
+    assert res['success'] is True
+    # we have a URL key (nothing was downloaded, and we even have no size info)
+    assert res['key'].startswith('URL--')
+
+    # and now we pick out one file in this archive and addurl it via archivist
+    ds.repo.call_annex([
+        'initremote', 'archivist',
+        'type=external', 'externaltype=archivist', 'encryption=none',
+        'autoenable=true',
+    ])
+    ds.repo.call_annex([
+        'addurl',
+        '--file', 'testfile',
+        f'dl+archive:{res["key"]}#path=datalad-datalad-next-9b9c70a/.gitattributes&atype=zip',
+    ])
+    target_content = 'datalad_next/_version.py export-subst\n'
+    assert (ds.pathobj / 'testfile').read_text() == target_content
+    res = ds.status('testfile', annex='basic', return_type='item-or-list',
+                    **nonoise)
+    # we got a download, hence also a non-URL key
+    assert not res['key'].startswith('URL')
