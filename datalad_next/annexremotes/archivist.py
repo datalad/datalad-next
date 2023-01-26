@@ -42,7 +42,7 @@ from . import (
 class ArchivistRemote(SpecialRemote):
     """ """
     # be relatively permissive
-    recognized_urls = re.compile('^dl\+archive:(?P<key>.*)#(?P<props>.*)')
+    recognized_urls = re.compile(r'^dl\+archive:(?P<key>.*)#(?P<props>.*)')
     # each archive member is identified by a (relative) path inside
     # the archive.
     archive_member_props = re.compile(
