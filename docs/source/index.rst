@@ -107,6 +107,7 @@ Git-annex special remotes
 .. autosummary::
    :toctree: generated
 
+   archivist
    uncurl
 
 
