@@ -51,7 +51,9 @@ class ArchivistRemote(SpecialRemote):
         # quoting
         'path=(?P<path>[^&]+)'
         # size info (in bytes) is optional
-        '(|&size=(?P<size>[0-9]+))'
+        '(&size=(?P<size>[0-9]+)|)'
+        # archive type label is optional
+        '(&atype=(?P<atype>[a-z0-9]+)|)'
     )
     # BACKEND[-sNNNN][-mNNNN][-SNNNN-CNNNN]--NAME
     key_props = re.compile(
@@ -356,10 +358,8 @@ def _get_archive_type(
         amember_props: Dict) -> str | None:
     # figure out the archive type, prefer direct annotation.
     # fall back on a recognized file extension for E-type annex backends.
-    atype = None
-    if 'atype' in amember_props:
-        atype = amember_props['atype']
-    elif akey_props.get('backend', '').endswith('E'):
+    atype = amember_props.get('atype')
+    if not atype and akey_props.get('backend', '').endswith('E'):
         # try by key name extension
         suf = PurePosixPath(akey_props['name']).suffixes
         if '.zip' in suf:
