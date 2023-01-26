@@ -84,8 +84,7 @@ class ArchivistRemote(SpecialRemote):
         super().__init__(annex)
         # the following members will be initialized on prepare()
         # as they require access to the underlying repository
-        # TODO rename to _repo for consistency
-        self.repo = None
+        self._repo = None
         # fsspec operations handler
         self._fsspec_handler = None
         # central archive key cache, initialized on-prepare
@@ -118,9 +117,9 @@ class ArchivistRemote(SpecialRemote):
         pass
 
     def prepare(self):
-        self.repo = LegacyAnnexRepo(self.annex.getgitdir())
+        self._repo = LegacyAnnexRepo(self.annex.getgitdir())
         # are we in legacy mode?
-        if self.repo.config.getbool(
+        if self._repo.config.getbool(
                 'datalad.archivist', 'legacymode', default=False):
             # ATTENTION DEBUGGERS!
             # If we get here, we will bypass all of the archivist
@@ -138,7 +137,7 @@ class ArchivistRemote(SpecialRemote):
         # central archive key cache
         self._akeys = ArchiveKeys(
             self.annex,
-            self.repo,
+            self._repo,
         )
 
         # try to work without fsspec
@@ -147,7 +146,7 @@ class ArchivistRemote(SpecialRemote):
             # TODO support passing constructur arguments from configuration
             # pass the repo's config manager to the handler to enable
             # dataset-specific customization via configuration
-            self._fsspec_handler = FsspecUrlOperations(cfg=self.repo.config)
+            self._fsspec_handler = FsspecUrlOperations(cfg=self._repo.config)
         except ImportError:
             self.message('FSSPEC support disabled, dependency not available',
                          type='debug')
@@ -296,7 +295,7 @@ class ArchivistRemote(SpecialRemote):
         try:
             # if it exits clean, the key is still present at at least one
             # remote
-            self.repo.call_annex(['checkpresentkey', akey])
+            self._repo.call_annex(['checkpresentkey', akey])
             return True
         except CommandError:
             return False
@@ -391,7 +390,7 @@ class ArchiveKeys:
         # for talking to the git-annex parent process
         self.annex = annex
         # for running git-annex queries against the repo
-        self.repo = repo
+        self._repo = repo
 
     def __contains__(self, key):
         return key in self._db
@@ -437,12 +436,12 @@ class ArchiveKeys:
             try:
                 # if it exits clean, there will be a content location
                 # and the content can be found at the location
-                loc = next(self.repo.call_annex_items_([
+                loc = next(self._repo.call_annex_items_([
                     'contentlocation', key]))
                 # convert to path. git-annex will report a path relative to the
                 # dotgit-dir
                 # TODO platform-native?
-                loc = self.repo.dot_git / Path(loc)
+                loc = self._repo.dot_git / Path(loc)
             except CommandError:
                 loc = None
             props['path'] = loc
