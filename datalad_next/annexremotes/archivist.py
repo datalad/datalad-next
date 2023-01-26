@@ -1,8 +1,24 @@
 """
-*archivist* git-annex external special remote
-=============================================
+git-annex special remote *archivist* for operating on files within archives
+===========================================================================
 
 Replacement for the `datalad-archive` URL
+
+Configuration
+-------------
+
+The behavior of this special remote can be tuned via a number of
+configuration settings.
+
+`datalad.archivist.legacymode=yes|[no]`
+  If enabled, all special remote operations fall back onto the
+  legacy `datalad-archives` special remote implementation. This mode is
+  only provided for backward-compatibility. This legacy implementation
+  unconditionally downloads archive files completely and keep an
+  internal cache of the full extracted archive around. The implied
+  200% (or more) storage cost overhead for obtaining a complete dataset
+  can be prohibitive for datasets tracking large amount of data
+  (in archive files).
 """
 from __future__ import annotations
 
@@ -66,10 +82,35 @@ class ArchivistRemote(SpecialRemote):
 
     def __init__(self, annex):
         super().__init__(annex)
-        # will be tried in prepare()
-        self._fsspec_handler = None
+        # the following members will be initialized on prepare()
+        # as they require access to the underlying repository
+        # TODO rename to _repo for consistency
         self.repo = None
+        # fsspec operations handler
+        self._fsspec_handler = None
+        # central archive key cache, initialized on-prepare
         self._akeys = None
+        # a potential instance of the legacy datalad-archives implementation
+        self._legacy_special_remote = None
+
+    def __getattribute__(self, name):
+        """Redirect top-level API calls to legacy implementation, if needed"""
+        lsr = SpecialRemote.__getattribute__(self, '_legacy_special_remote')
+        if lsr is None or name not in (
+            'initremote',
+            'prepare',
+            'claimurl',
+            'checkurl',
+            'checkpresent',
+            'remove',
+            'whereis',
+            'transfer_retrieve',
+            'stop',
+        ):
+            # we are not in legacy mode or this is no top-level API call
+            return SpecialRemote.__getattribute__(self, name)
+
+        return getattr(lsr, name)
 
     def initremote(self):
         # at present there is nothing that needs to be done on init/enable.
@@ -78,6 +119,22 @@ class ArchivistRemote(SpecialRemote):
 
     def prepare(self):
         self.repo = LegacyAnnexRepo(self.annex.getgitdir())
+        # are we in legacy mode?
+        if self.repo.config.getbool(
+                'datalad.archivist', 'legacymode', default=False):
+            # ATTENTION DEBUGGERS!
+            # If we get here, we will bypass all of the archivist
+            # implementation! Check __getattribute__() -- pretty much no
+            # other code in this file will run!!!
+            # __getattribute__ will relay all top-level operations
+            # to an instance of the legacy implementation
+            from datalad.customremotes.archives import ArchiveAnnexCustomRemote
+            lsr = ArchiveAnnexCustomRemote(self.annex)
+            lsr.prepare()
+            # we can skip everything else, it won't be triggered anymore
+            self._legacy_special_remote = lsr
+            return
+
         # central archive key cache
         self._akeys = ArchiveKeys(
             self.annex,
@@ -88,7 +145,9 @@ class ArchivistRemote(SpecialRemote):
         try:
             from datalad_next.url_operations.fsspec import FsspecUrlOperations
             # TODO support passing constructur arguments from configuration
-            self._fsspec_handler = FsspecUrlOperations()
+            # pass the repo's config manager to the handler to enable
+            # dataset-specific customization via configuration
+            self._fsspec_handler = FsspecUrlOperations(cfg=self.repo.config)
         except ImportError:
             self.message('FSSPEC support disabled, dependency not available',
                          type='debug')
@@ -225,7 +284,7 @@ class ArchivistRemote(SpecialRemote):
         # the key is still accessible, we declare CHECKPRESENT.
         # In other words: we trust the archive member annotation to be
         # correct/valid.
-        # not trsuting it would have sever consequences. depending on
+        # not trusting it would have sever consequences. depending on
         # where the archive is located (local/remote) and what format it
         # is (fsspec-inspectable), we might need to download it completely
         # in order to verify a matching archive member. Moreover, an archive
