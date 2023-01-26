@@ -1,8 +1,47 @@
 """
-git-annex special remote *archivist* for operating on files within archives
-===========================================================================
+git-annex special remote *archivist* for obtaining files from archives
+======================================================================
 
 Replacement for the `datalad-archive` URL
+
+
+Syntax of recognized URLs
+-------------------------
+
+This special remote only works with particular URLs, originally introduced by
+the ``datalad-archives`` special remote. They take the following minimal form::
+
+    dl+archive:<archive-key>#path=<path-in-archive>
+
+where ``<archive-key>`` is a regular git-annex key (known to the repository)
+of an archive, and ``<path-in-archive>`` is a POSIX-style relative path
+pointing to a member within the archive.
+
+Two optional, additional attributes ``size`` and ``atype`` are recognized
+(only ``size`` is also understood by the ``datalad-archives`` special remote).
+
+``size`` declares the size of the (extracted) archive member in bytes::
+
+    dl+archive:<archive-key>#path=<path-in-archive>&size=<size-in-bytes>
+
+``atype`` declares the type of the containing archive using a label. Currently
+recognized labels are ``tar`` (a TAR archive, compressed or not), and ``zip``
+(a ZIP archive). This optional type annotation enables decision making
+regarding the ability for remote access to archives without downloading them.
+If no type information is given, and no type can be inferred from the archive
+key (via ``*E``-type git-annex backends, such as DataLad's default ``MD5E``),
+no such remote access will be attempted, and archives are downloaded in full
+when keys are requested from them::
+
+    dl+archive:<archive-key>#path=<path-in-archive>&atype=<tar|zip>
+
+Order in the fragment part of the URL (after ``#``) is significant. ``path``
+must come first, followed by ``size`` or ``atype``. If both ``size`` and
+``atype`` are present, ``size`` must be declared first. A complete example
+of a URL is::
+
+    dl+archive:MD5-s389--e9f624eb778e6f945771c543b6e9c7b2#path=dir/file.csv&size=234&atype=tar
+
 
 Configuration
 -------------
@@ -14,17 +53,41 @@ configuration settings.
   If enabled, all special remote operations fall back onto the
   legacy ``datalad-archives`` special remote implementation. This mode is
   only provided for backward-compatibility. This legacy implementation
-  unconditionally downloads archive files completely and keep an
+  unconditionally downloads archive files completely, and keeps an
   internal cache of the full extracted archive around. The implied
   200% (or more) storage cost overhead for obtaining a complete dataset
   can be prohibitive for datasets tracking large amount of data
   (in archive files).
   If there are multiple ``archivist`` special remotes in use for a
   single repository, their behavior can be tuned individually by
-  setting a corresponding, remote-specific configuration item
-  `remote.<remotename>.archivist-legacymode=yes|[no]` (which takes
-  precedence).
+  setting a corresponding, remote-specific configuration item::
+
+    remote.<remotename>.archivist-legacymode=yes|[no]
+
+  which takes precedence over the general configuration switch.
+
+
+Implementation details
+----------------------
+
+*CHECKPRESENT*
+
+When performing a non-download test for the (continued) presence of an annex
+key (as triggered via ``git annex fsck --fast`` or ``git annex
+checkpresentkey``), the underlying archive containing a key will NOT be
+inspected. Instead, only the continued availability of the annex key for the
+containing archive will be tested.  In other words: this implementation trust
+the archive member annotation to be correct/valid, and it also trusts the
+archive content to be unchanged. The latter will be generally the case, but may
+no with URL-style keys.
+
+Not implementing such a trust-approach *would* have a number of consequences.
+Depending on where the archive is located (local/remote) and what format it is
+(fsspec-inspectable or not), we would need to download it completely in order
+to verify a matching archive member.  Moreover, an archive might also reference
+another archive as a source, leading to a multiplication of transfer demands.
 """
+
 from __future__ import annotations
 
 from pathlib import (
@@ -59,7 +122,6 @@ from . import (
 )
 
 
-# TODO reuse as many pieces of uncurl as possible
 class ArchivistRemote(SpecialRemote):
     """ """
     # be relatively permissive
