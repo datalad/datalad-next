@@ -82,7 +82,11 @@ def test_download(wdir=None, srvpath=None, srvurl=None):
     # unsupported url scheme
     assert_result_count(
         download('dummy://mike/file', on_failure='ignore'),
-        1, status='error', message='unsupported URL scheme')
+        1,
+        status='error',
+        message='unsupported URL (custom URL handlers can be declared '
+        'via DataLad configuration)',
+    )
 
     # non-existing download source
     assert_result_count(
