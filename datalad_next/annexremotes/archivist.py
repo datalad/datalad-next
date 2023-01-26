@@ -121,7 +121,7 @@ class ArchivistRemote(SpecialRemote):
         returned is sufficient to make git-annex call `TRANSFER RETRIEVE`.
         """
         try:
-            self._akeys.from_url(url)
+            akey, member_props = self._akeys.from_url(url)
         except ValueError as e:
             self.message(f'Invalid URL {url!r}: {e}', type='debug')
             return False
@@ -133,6 +133,15 @@ class ArchivistRemote(SpecialRemote):
         # do not actually test whether the archive is around or whether
         # the path actually points to a member in the archive,
         # leave to transfer_retrieve
+        # Do not give detailed info to git-annex for now
+        # https://github.com/Lykos153/AnnexRemote/issues/60
+        #if member_props.get('size'):
+        #    return dict(
+        #        filename=member_props['path'].name,
+        #        size=member_props['size'],
+        #    )
+        #else:
+        #    return dict(filename=member_props['path'].name)
         return True
 
     def transfer_retrieve(self, key, localfilename):
@@ -254,22 +263,52 @@ class ArchivistRemote(SpecialRemote):
     #
     # FSSPEC implementations
     #
-    def _get_fsspec_url(self, akey, amember_path):
-        # TODO query for remote URLs for the akey in case
-        # it is not around locally
-        apath = self._akeys.get_contentpath(akey)
+    def _get_fsspec_url_(self, akey, amember_path):
         atype = self._akeys.get_archive_type(akey)
-        # generate (zip|tar)://...::file:// URL and give to fsspec
+        # knowing the archive type is a precondition to get here
+        # assert that
+        assert atype is not None
+
         # TODO inject caching approach into URL, based on config
-        return f'{atype}://{amember_path}::{apath.as_uri()}'
+        cache_spec = ''
+
+        # are we lucky and have the archive locally?
+        apath = self._akeys.get_contentpath(akey)
+        if apath:
+            # generate (zip|tar)://...::file:// URL and give to fsspec
+            yield f'{atype}://{amember_path}{cache_spec}::{apath.as_uri()}'
+            # we are not falling back on remote locations.
+            # if extraction from a local archive key did not work.
+            # In general this would indicate more sever issues:
+            # broken archive, invalid archive member annotation.
+            # not worth poking around the network in such cases.
+            return
+
+        # query for remote URLs for the akey in case
+        # it is not around locally.
+        # no prefix to get any urls on record
+        for aurl in self.annex.geturls(akey, prefix=''):
+            yield f'{atype}://{amember_path}{cache_spec}::{aurl}'
 
     def _get_member_fsspec(
             self, akey: str, amember_path: Path, dst_path: Path,
     ):
-        self._fsspec_handler.download(
-            self._get_fsspec_url(akey, amember_path),
-            dst_path
-        )
+        # with FSSPEC we can handle remotely located archives.
+        # this also means that for any such archive, multiple
+        # URLs for such remote locations might exist, and would need
+        # to be tried. Hence we have to wrap this in a loop
+        for fsspec_url in self._get_fsspec_url_(akey, amember_path):
+            try:
+                self._fsspec_handler.download(fsspec_url, dst_path)
+                # whichever one is working is enough of a success
+                return
+            except Exception as e:
+                ce = CapturedException(e)
+                self.message(
+                    f'Failed to retrieve key from {fsspec_url!r}: {ce}',
+                    type='debug')
+
+        raise RemoteError('Failed to access archive member via FSSPEC')
 
     #
     # Fallback implementations
