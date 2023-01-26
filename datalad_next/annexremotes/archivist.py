@@ -108,11 +108,7 @@ from datalad_next.datasets import LegacyAnnexRepo
 from datalad_next.exceptions import (
     CapturedException,
     CommandError,
-    UrlOperationsRemoteError,
-    UrlOperationsResourceUnknown,
 )
-from datalad_next.url_operations.any import AnyUrlOperations
-from datalad_next.utils import ensure_list
 
 from . import (
     RemoteError,
@@ -208,7 +204,7 @@ class ArchivistRemote(SpecialRemote):
             return
 
         # central archive key cache
-        self._akeys = ArchiveKeys(
+        self._akeys = _ArchiveKeys(
             self.annex,
             self._repo,
         )
@@ -455,7 +451,7 @@ class ArchivistRemote(SpecialRemote):
         raise NotImplementedError
 
 
-class ArchiveKeys:
+class _ArchiveKeys:
     """Cache for information on archive keys"""
     def __init__(self, annex, repo):
         # mapping of archive keys to an info dict
