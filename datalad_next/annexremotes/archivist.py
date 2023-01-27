@@ -49,7 +49,7 @@ Configuration
 The behavior of this special remote can be tuned via a number of
 configuration settings.
 
-`datalad.archivist.legacymode=yes|[no]`
+`datalad.archivist.legacy-mode=yes|[no]`
   If enabled, all special remote operations fall back onto the
   legacy ``datalad-archives`` special remote implementation. This mode is
   only provided for backward-compatibility. This legacy implementation
@@ -58,14 +58,6 @@ configuration settings.
   200% (or more) storage cost overhead for obtaining a complete dataset
   can be prohibitive for datasets tracking large amount of data
   (in archive files).
-  If there are multiple ``archivist`` special remotes in use for a
-  single repository, their behavior can be tuned individually by
-  setting a corresponding, remote-specific configuration item::
-
-    remote.<remotename>.archivist-legacymode=yes|[no]
-
-  which takes precedence over the general configuration switch.
-
 
 Implementation details
 ----------------------
@@ -196,9 +188,7 @@ class ArchivistRemote(SpecialRemote):
         # multiple archivist-type remotes configured), and use unspecific switch
         # as a default, with a general default of NO
         if self._repo.config.getbool(
-                f'remote.{remotename}', 'archivist-legacymode',
-                default=self._repo.config.getbool(
-                    'datalad.archivist', 'legacymode', default=False)):
+                'datalad.archivist', 'legacy-mode', default=False):
             # ATTENTION DEBUGGERS!
             # If we get here, we will bypass all of the archivist
             # implementation! Check __getattribute__() -- pretty much no
