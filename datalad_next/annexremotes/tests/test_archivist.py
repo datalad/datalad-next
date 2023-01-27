@@ -1,4 +1,7 @@
-from pathlib import PurePosixPath
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 
 from datalad.api import clone
 
@@ -101,8 +104,11 @@ def _check_archivist_addurl(atypes, ads, akeys, archive_root, dscontent):
                 f'dl+archive:{akeys[archivetype]}'
                 f'#path={archive_root}/{fpath}&size={len(fcontent)}',
             ])
-    # check that we reached the desired state
-    whereis = ads.repo.whereis('azip/file1.txt', output='full')
+    # check that we reached the desired state.
+    # the `str(Path())` construct is needed, because the dreaded
+    # @normalize_paths
+    # https://github.com/datalad/datalad/issues/4595#issuecomment-1406201397
+    whereis = ads.repo.whereis(str(Path('azip', 'file1.txt')), output='full')
     # the file is known to exactly one remote (besides "here")
     assert len(whereis) == 2
     # and one remote is the archivist remote, and importantly not the
@@ -207,6 +213,10 @@ def test_archivist_urlkey(tmp_path):
     ever performing a full archive download (when fsspec) is around).
 
     The containing archive is only registered via a URL key.
+
+    NOTE: This test relies on zenodo.org to be up and cooperative. However, it
+    seems to monitor access frequency to individual records and may play dead
+    from time to time.
     """
     ds = Dataset(tmp_path).create(**nonoise)
     res = ds.repo.call_annex_records([
