@@ -5,6 +5,8 @@ from datalad.api import clone
 from datalad_next.datasets import Dataset
 from datalad_next.url_operations.file import FileUrlOperations
 
+from datalad_next.utils import on_windows
+
 from datalad_next.tests.utils import assert_result_count
 
 
@@ -70,6 +72,10 @@ def make_archive_dataset(wpath):
         # add the archive (in a hidden dir) to be able to reference
         # it via a key
         aurl = archive_path.as_uri()
+        if on_windows:
+            # get annex does not like pathlib's file URLs
+            # and requires a specific flavor (on windows)
+            aurl = aurl.replace('file:///', 'file://')
         ads.repo.call_annex([
             'addurl', '--file', str(archive_path_inds), aurl])
         ads.save(**nonoise)
