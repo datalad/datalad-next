@@ -457,18 +457,24 @@ class ArchivistRemote(SpecialRemote):
         # this also means that for any such archive, multiple
         # URLs for such remote locations might exist, and would need
         # to be tried. Hence we have to wrap this in a loop
+        urls_tried = 0
+        last_exception = None
         for fsspec_url in self._get_fsspec_url_(akey, amember_path):
             try:
+                urls_tried += 1
                 self._fsspec_handler.download(fsspec_url, dst_path)
                 # whichever one is working is enough of a success
                 return
             except Exception as e:
-                ce = CapturedException(e)
+                last_exception = CapturedException(e)
                 self.message(
-                    f'Failed to retrieve key from {fsspec_url!r}: {ce}',
+                    f'Failed to retrieve key from {fsspec_url!r}: '
+                    f'{last_exception}',
                     type='debug')
 
-        raise RemoteError('Failed to access archive member via FSSPEC')
+        raise RemoteError(
+            'Failed to access archive member via FSSPEC '
+            f'(tried {urls_tried} URLs, last error: {last_exception})')
 
     #
     # Fallback implementations
