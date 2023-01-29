@@ -148,6 +148,15 @@ class FsspecUrlOperations(UrlOperations):
     type URLs. Credentials are auto-determined, if possible, based on the
     accessed location (in the case of s3 this is a bucket), and can be
     entered manually if none can be found.
+
+    .. note:: ``file://`` URL peculiarity
+
+       FSSPEC does not expect any ``file://`` URLs to be quoted. Given that
+       there is no general way of determining where a URL is quoted or a
+       file name contains components that only resemble URL quoting, users
+       of this class must ensure URL unquoting by themselves (or use plain
+       platform paths directly).
+       See https://github.com/fsspec/filesystem_spec/issues/1168 for details.
     """
     def __init__(self,
                  cfg=None,
