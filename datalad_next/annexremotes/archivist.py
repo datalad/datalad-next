@@ -46,6 +46,10 @@ of a URL is::
 Configuration
 -------------
 
+.. todo::
+
+  register_config all this
+
 The behavior of this special remote can be tuned via a number of
 configuration settings.
 
@@ -58,6 +62,57 @@ configuration settings.
   200% (or more) storage cost overhead for obtaining a complete dataset
   can be prohibitive for datasets tracking large amount of data
   (in archive files).
+
+`datalad.archivist.archive-cache-mode=<name>`
+  Choice of archive (access) caching behavior. ``<name>`` can be any of
+
+  ``persistent-whole``
+    This causes an archive to be downloaded completely on first access to any
+    archive member. A regular ``annex get`` is performed and an archive is
+    placed at its standard location in the local annex. Any archive member
+    will be extracted from this local copy.
+
+  ``persistent-blocks``
+    Accessed blocks of a remote archive will be cached locally. This can speed
+    up access to large archives that require some "parsing/seeking" to locate
+    a particular archive.
+    This mode is only supported if remote archive access via FSSPEC is
+    possible.
+
+  ``blocks``
+    This is the same as ``persistent-blocks``, but the cache is placed into
+    a temporary location that is only valid until the special remote exits.
+    This mode is only supported if remote archive access via FSSPEC is
+    possible.
+
+  The default behaviors is ``blocks``. However, when this lean access method is
+  not available (FSSPEC not available, archive-type not supported or unknown)
+  archivist falls back on a standard upfront retrieval of an archive key,
+  essentially matching the ``persistent-whole`` cache mode.
+
+`datalad.archivist.fsspec-fsargs=JSON`
+  JSON-encoded arguments for FSSPEC's file system abstractions (which archivist
+  may be using for remote/partial archive access). Each top-level key is the
+  label of an FSSPEC file system, and each value is a JSON-objects with
+  keyword-arguments for this filesystem. For example, to disable anonymous
+  access to an S3 storage endpoint use::
+
+    {"s3": {"anon": true}}
+
+`datalad.locations.archivist-block-cache=<path>`
+  Fall back onto ``<datalad.locations.cache> / archivist-blocks``
+
+  ``datalad-archives`` does .git/datalad/tmp/archives
+
+Example
+-------
+
+TODO pull a file from openneuro ds000248
+
+use the approach from the unittest to never download the full archive,
+but instead use the versioned access URL of the archive, and let
+`archivist` only pull the desired files from it
+
 
 Implementation details
 ----------------------
@@ -80,8 +135,25 @@ to verify a matching archive member.  Moreover, an archive might also reference
 another archive as a source, leading to a multiplication of transfer demands.
 """
 
+# Some ideas on optional additional cache modes related to dropping as much as
+# possible after the special remote is done. However, these modes also come
+# with potential issues re parallel access (what if another remote process
+# is still using a particular archive... Think about that when there is a
+# real need
+#
+#  ``keep-downloads``
+#    No caching will be performed per se. However, when archive member access
+#    happens to require a full archive download, a downloaded archive will
+#    not be removed after member extraction. In such cases, this mode will
+#    behave like ``persistent-whole``.
+#
+#  ``none``
+#    This is behaving like ``keep-downloads``, but any downloaded archive
+#    will be dropped again after extraction is complete.
+
 from __future__ import annotations
 
+import json
 from pathlib import (
     Path,
     PurePosixPath,
@@ -145,6 +217,11 @@ class ArchivistRemote(SpecialRemote):
         self._remotename = None
         # fsspec operations handler
         self._fsspec_handler = None
+        # which caching mode to use for archive access
+        self._archive_cache_mode = 'blocks'
+        # and the same mapped onto what would need to be done be FSSPEC
+        # this is set up by _setup_fsspec()
+        self._archive_cache_fsspec = None
         # central archive key cache, initialized on-prepare
         self._akeys = None
         # a potential instance of the legacy datalad-archives implementation
@@ -204,6 +281,10 @@ class ArchivistRemote(SpecialRemote):
             self._legacy_special_remote = lsr
             return
 
+        # query cache mode just once
+        self._archive_cache_mode = self._getcfg(
+            'archive-cache-mode', default=self._archive_cache_mode).lower()
+
         # central archive key cache
         self._akeys = _ArchiveKeys(
             self.annex,
@@ -211,15 +292,7 @@ class ArchivistRemote(SpecialRemote):
         )
 
         # try to work without fsspec
-        try:
-            from datalad_next.url_operations.fsspec import FsspecUrlOperations
-            # TODO support passing constructur arguments from configuration
-            # pass the repo's config manager to the handler to enable
-            # dataset-specific customization via configuration
-            self._fsspec_handler = FsspecUrlOperations(cfg=self._repo.config)
-        except ImportError:
-            self.message('FSSPEC support disabled, dependency not available',
-                         type='debug')
+        self._setup_fsspec()
 
     def claimurl(self, url: str) -> bool:
         """Claims (returns True for) ``dl+archive:`` URLs
@@ -362,27 +435,6 @@ class ArchivistRemote(SpecialRemote):
             )
         )
 
-    def _handle_request_w_fsspec(self, akey):
-        # check first global, non-key-specific criteria
-        if not self._fsspec_handler:
-            # could not, even if desired
-            return False
-
-        ainfo = self._akeys[akey]
-        if 'use_fsspec' not in ainfo:
-            # assume yes and try to find counter-evidence
-            use_fsspec = True
-            if self._akeys.get_archive_type(akey) not in ('zip', 'tar'):
-                # TODO if it turns out that we have to download
-                # a currently absent, we would/should repeat the type
-                # detection, because we would not have to (solely)
-                # rely on an annotation, but could actually determine
-                # the archive type
-                use_fsspec = False
-            ainfo['use_fsspec'] = use_fsspec
-            self._akeys[akey] = ainfo
-        return ainfo['use_fsspec']
-
     def _try_multiple_urls(self, urls, msg_tmpl, worker, **kwargs):
         for url in urls:
             self.message(msg_tmpl.format(url=url), type='debug')
@@ -419,14 +471,28 @@ class ArchivistRemote(SpecialRemote):
         except CommandError:
             return False
 
-    def _get_from_url(self, url, dst_path):
-        """Returns True on success"""
+    def _get_from_url(self, url: str, dst_path: Path):
+        """Returns True on success
+
+        Parameters
+        ----------
+        url: str
+          URL to download from.
+        dst_path: Path
+          Path to place the download at.
+        """
         akey, member_props = self._akeys.from_url(url)
 
-        # TODO add config option to perform legacy approach (download
-        # entire archive key. Also add legacy fallback to
-        # _extract_from_local_archive() for this scenario
+        if self._archive_cache_mode == 'persistent-whole':
+            # we are instructed to cache any archive in full, just download
+            # via git-annex get right away -- no magic needed
+            self._annex_get_archive(akey)
+
         if self._handle_request_w_fsspec(akey):
+            # even when we have already downloaded an archive key, it still
+            # makes sense to go with FSSPEC for supported archives, as it
+            # can save the storage overhead of the datalad-archives-style
+            # extraction cache
             getter = self._get_member_fsspec
         # no fsspec: do we have that key locally?
         elif self._akeys.get_contentpath(akey):
@@ -440,15 +506,76 @@ class ArchivistRemote(SpecialRemote):
     #
     # FSSPEC implementations
     #
+    def _setup_fsspec(self):
+        try:
+            from datalad_next.url_operations.fsspec import FsspecUrlOperations
+        except ImportError:
+            self.message('FSSPEC support disabled, dependency not available',
+                         type='debug')
+            return
+
+        # load arbitrary FSSPEC constructur arguments from configuration
+        fs_kwargs = json.loads(self._getcfg('fsspec-fsargs', default='{}'))
+
+        if self._archive_cache_mode == 'persistent-whole':
+            # this should not need additional FSSPEC-side caching
+            # TODO but archives without an index (e.g. tar) might still
+            # benefit from some caching. It is likely useful to implement
+            # this within the FsspecUrlOperations handler
+            self._archive_cache_fsspec = None
+        elif self._archive_cache_mode == 'persistent-blocks':
+            # TODO pull the location of the persistent cache from config
+            # and inject it into `fs_kwargs`
+            self._archive_cache_fsspec = 'blockcache'
+        elif self._archive_cache_mode == 'blocks':
+            self._archive_cache_fsspec = 'blockcache'
+        else:
+            self.message(
+                f'Unknown cache mode {self._archive_cache_mode!r}. '
+                'Disabling caching',
+                type='info',
+            )
+
+        # pass the repo's config manager to the handler to enable
+        # dataset-specific customization via configuration
+        self._fsspec_handler = FsspecUrlOperations(
+            cfg=self._repo.config,
+            fs_kwargs=fs_kwargs)
+
+    def _handle_request_w_fsspec(self, akey):
+        # check first global, non-key-specific criteria
+        if not self._fsspec_handler:
+            # could not, even if desired
+            return False
+
+        ainfo = self._akeys[akey]
+        if 'use_fsspec' not in ainfo:
+            # assume yes and try to find counter-evidence
+            use_fsspec = True
+            if self._akeys.get_archive_type(akey) not in ('zip', 'tar'):
+                # TODO if it turns out that we have to download
+                # a currently absent, we would/should repeat the type
+                # detection, because we would not have to (solely)
+                # rely on an annotation, but could actually determine
+                # the archive type
+                use_fsspec = False
+            ainfo['use_fsspec'] = use_fsspec
+            self._akeys[akey] = ainfo
+        return ainfo['use_fsspec']
+
     def _get_fsspec_url_(self, akey, amember_path):
         atype = self._akeys.get_archive_type(akey)
         # knowing the archive type is a precondition to get here
         # assert that
         assert atype is not None
 
-        # TODO inject caching approach into URL, based on config
-
-        cache_spec = ''
+        # shortcut to the predetermined cache specification for FSSPEC
+        cache_spec = self._archive_cache_fsspec
+        if cache_spec is None:
+            # must not show up in the URL chain below
+            cache_spec = ''
+        else:
+            cache_spec = f'::{cache_spec}'
 
         # are we lucky and have the archive locally?
         apath = self._akeys.get_contentpath(akey)
@@ -497,11 +624,25 @@ class ArchivistRemote(SpecialRemote):
 
         raise RemoteError(
             'Failed to access archive member via FSSPEC '
-            f'(tried {urls_tried} URLs, last error: {last_exception})')
+            f'(tried {urls_tried} URL(s), '
+            f'last error: {last_exception.format_oneline_tb()})')
 
     #
     # Fallback implementations
     #
+    def _annex_get_archive(self, akey: str):
+        """Download an archive key via a standard `git annex get`
+
+        Here we do not want to be clever, but rely on git-annex to do whatever
+        it can to get us an archive key.
+        """
+        if self._akeys.get_contentpath(akey) is None:
+            res = self._repo.get(akey, key=True)
+            if res.pop('success', None) is not True:
+                raise RemoteError(f'Failed to download archive key: {res!r}')
+            # reset the path info in the cache
+            self._akeys[akey].pop('path')
+
     def _get_member_local_archive(
             self,
             akey,
