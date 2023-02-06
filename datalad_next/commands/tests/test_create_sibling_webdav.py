@@ -27,6 +27,7 @@ from datalad.api import (
     create_sibling_webdav,
 )
 from datalad_next.datasets import Dataset
+from datalad_next.utils import chpwd
 
 
 webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
@@ -70,11 +71,12 @@ def check_common_workflow(
     targetdir = Path(remotepath) / targetdir_name
     url = f'{url}/{targetdir_name}'
 
-    res = ds.create_sibling_webdav(
-        url,
-        credential=webdav_cred[0] if declare_credential else None,
-        mode=mode,
-        **ca)
+    with chpwd(ds.path):
+        res = create_sibling_webdav(
+            url,
+            credential=webdav_cred[0] if declare_credential else None,
+            mode=mode,
+            **ca)
     assert_in_results(
         res,
         action='create_sibling_webdav.storage',
