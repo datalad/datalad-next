@@ -251,7 +251,7 @@ class CreateSiblingWebDAV(ValidatedInterface):
             """),
     )
 
-    _validator_ = CreateSiblingWebDAVParamValidator(dict(
+    _validators = dict(
         url=EnsureParsedURL(
             required=['scheme', 'netloc'],
             forbidden=['query', 'fragment'],
@@ -269,7 +269,11 @@ class CreateSiblingWebDAV(ValidatedInterface):
         existing=EnsureChoice('skip', 'error', 'reconfigure'),
         recursive=EnsureBool(),
         recursion_limit=EnsureInt() & EnsureRange(min=0),
-    ))
+    )
+    _validator_ = CreateSiblingWebDAVParamValidator(
+        _validators,
+        validate_defaults=('dataset',),
+    )
 
     @staticmethod
     @datasetmethod(name='create_sibling_webdav')

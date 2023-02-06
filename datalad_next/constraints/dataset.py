@@ -61,7 +61,9 @@ class EnsureDataset(Constraint):
                 elif not self._installed and is_installed:
                     raise ValueError(f'{value} already exists locally')
             return DatasetParameter(value, value)
-        elif not isinstance(value, (str, PurePath)):
+        # anticipate what require_dataset() could handle and fail if we got
+        # something else
+        elif not isinstance(value, (str, PurePath, type(None))):
             raise TypeError(f"Cannot create Dataset from {type(value)}")
 
         from datalad.distribution.dataset import require_dataset
