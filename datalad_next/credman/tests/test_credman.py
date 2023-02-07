@@ -13,7 +13,7 @@ import pytest
 from unittest.mock import patch
 
 from datalad.config import ConfigManager
-from ..credman import (
+from ..manager import (
     CredentialManager,
     _get_cred_cfg_var,
 )
