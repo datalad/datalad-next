@@ -1,7 +1,11 @@
 """Validate DataLad datasets"""
 
-from pathlib import PurePath
+from pathlib import (
+    Path,
+    PurePath,
+)
 
+from datalad_next.datasets import Dataset
 from datalad_next.exceptions import NoDatasetFound
 
 from .base import Constraint
@@ -22,7 +26,7 @@ class DatasetParameter:
 
 
 class EnsureDataset(Constraint):
-    """Ensure a absent/present `Dataset` from any path or Dataset instance
+    """Ensure an absent/present `Dataset` from any path or Dataset instance
 
     Regardless of the nature of the input (`Dataset` instance or local path)
     a resulting instance (if it can be created) is optionally tested for
@@ -33,6 +37,18 @@ class EnsureDataset(Constraint):
     rather than a `Dataset` directly. Consuming commands can discover
     the original parameter value via its `original` property, and access a
     `Dataset` instance via its `ds` property.
+
+    In addition to any value representing an explicit path, this constraint
+    also recognizes the special value `None`. This instructs the implementation
+    to find a dataset that contains the process working directory (PWD).
+    Such a dataset need not have its root at PWD, but could be located in
+    any parent directory too. If no such dataset can be found, PWD is used
+    directly. Tests for ``installed`` are performed in the same way as with
+    an explicit dataset location argument. If `None` is given and
+    ``installed=True``, but no dataset is found, an exception is raised
+    (this is the behavior of the ``required_dataset()`` function in
+    the DataLad core package). With ``installed=False`` no exception is
+    raised and a dataset instances matching PWD is returned.
     """
     def __init__(self, installed: bool = None, purpose: str = None):
         """
@@ -67,11 +83,26 @@ class EnsureDataset(Constraint):
             raise TypeError(f"Cannot create Dataset from {type(value)}")
 
         from datalad.distribution.dataset import require_dataset
-        ds = require_dataset(
-            value,
-            check_installed=self._installed is True,
-            purpose=self._purpose,
-        )
+        try:
+            ds = require_dataset(
+                value,
+                check_installed=self._installed is True,
+                purpose=self._purpose,
+            )
+        except NoDatasetFound:
+            # mitigation of non-uniform require_dataset() behavior.
+            # with value == None it does not honor check_installed
+            # https://github.com/datalad/datalad/issues/7281
+            if self._installed is True:
+                # if we are instructed to ensure an installed dataset
+                raise
+            else:
+                # but otherwise go with CWD. require_dataset() did not
+                # find a dataset in any parent dir either, so this is
+                # the best we can do. Installation absence verification
+                # will happen further down
+                ds = Dataset(Path.cwd())
+
         if self._installed is False and ds.is_installed():
             raise ValueError(f'{ds} already exists locally')
         return DatasetParameter(value, ds)
