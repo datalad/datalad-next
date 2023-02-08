@@ -17,7 +17,7 @@ from typing import Dict
 from datalad import (
     cfg as dlcfg,
 )
-from datalad_next.utils.credman import (
+from datalad_next.credman.manager import (
     CredentialManager,
     verify_property_names,
 )
