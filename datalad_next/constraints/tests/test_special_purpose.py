@@ -1,8 +1,9 @@
 from io import StringIO
-import pathlib
 import pytest
 
 from datalad_next.commands import Parameter
+from datalad_next.exceptions import NoDatasetFound
+from datalad_next.utils import chpwd
 
 from ..basic import (
     EnsureInt,
@@ -290,13 +291,19 @@ def test_EnsureURL_match():
 
 
 def test_EnsureDataset(tmp_path):
-    with pytest.raises(TypeError):
-        EnsureDataset()(None)
-
     # by default the installation state is not checked
     # this matches the behavior of the original implementation
     # from datalad-core
     assert EnsureDataset()(tmp_path).ds.pathobj == tmp_path
+
+    # this is same with auto-discovery of a dataset from CWD
+    # (ie. with None as the argument)
+    with chpwd(tmp_path):
+        assert EnsureDataset()(None).ds.pathobj == tmp_path
+        assert EnsureDataset(installed=False)(None).ds.pathobj == tmp_path
+        # unless installation-verification is turned on
+        with pytest.raises(NoDatasetFound):
+            EnsureDataset(installed=True)(None)
 
     # any return value created from not-a-dataset-instance
     # has the original argument as an attribute
@@ -305,7 +312,6 @@ def test_EnsureDataset(tmp_path):
     # but it can be turned on, and then yields the specific
     # exception that datalad-core's require_dataset() would
     # give
-    from datalad_next.exceptions import NoDatasetFound
     with pytest.raises(NoDatasetFound):
         EnsureDataset(installed=True)('/nothere_datalad_test')
 

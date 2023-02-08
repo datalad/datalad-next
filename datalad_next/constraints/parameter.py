@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Container
 from typing import (
     Any,
     Dict,
@@ -221,7 +222,13 @@ def _get_comprehensive_constraint(
 
 
 class EnsureCommandParameterization(Constraint):
-    def __init__(self, param_constraints: dict[ConstraintDerived]):
+    """
+    """
+    def __init__(self,
+                 param_constraints: dict[ConstraintDerived],
+                 *,
+                 validate_defaults: Container[str] | None = None,
+    ):
         """
         Parameters
         ----------
@@ -229,9 +236,14 @@ class EnsureCommandParameterization(Constraint):
           Mapping of parameter names to parameter constraints. On validation
           an ``EnsureParameterConstraint`` instance will be created for
           each item in this dict.
+        validate_defaults: container(str)
+          If given, this is a set of parameter names for which the default
+          rule, to not validate default values, does not apply and
+          default values shall be passed through a given validator.
         """
         super().__init__()
         self._param_constraints = param_constraints
+        self._validate_defaults = validate_defaults or set()
 
     def joint_validation(self, params: Dict) -> Dict:
         """Implement for joint validation of the full parameterization
@@ -258,7 +270,9 @@ class EnsureCommandParameterization(Constraint):
     def __call__(self, kwargs, at_default=None) -> Dict:
         validated = {}
         for argname, arg in kwargs.items():
-            if at_default and argname in at_default:
+            if at_default \
+                    and argname not in self._validate_defaults \
+                    and argname in at_default:
                 # do not validate any parameter where the value matches the
                 # default declared in the signature. Often these are just
                 # 'do-nothing' settings or have special meaning that need
