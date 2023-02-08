@@ -164,13 +164,13 @@ class AnyUrlOperations(UrlOperations):
     def is_supported_url(self, url) -> bool:
         return any(r.match(url) for r in self._url_handlers)
 
-    def sniff(self,
-              url: str,
-              *,
-              credential: str | None = None,
-              timeout: float | None = None) -> Dict:
-        """Call `*UrlOperations.sniff()` for the respective URL scheme"""
-        return self._get_handler(url).sniff(
+    def stat(self,
+             url: str,
+             *,
+             credential: str | None = None,
+             timeout: float | None = None) -> Dict:
+        """Call `*UrlOperations.stat()` for the respective URL scheme"""
+        return self._get_handler(url).stat(
             url, credential=credential, timeout=timeout)
 
     def download(self,

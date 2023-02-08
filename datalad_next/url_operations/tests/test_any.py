@@ -32,11 +32,11 @@ def test_any_url_operations(tmp_path):
     ops = AnyUrlOperations()
     # no target file (yet), precise exception
     with pytest.raises(UrlOperationsResourceUnknown):
-        ops.sniff(test_url)
+        ops.stat(test_url)
     # now put something at the target location
     test_path.write_text('surprise!')
     # and now it works
-    props = ops.sniff(test_url)
+    props = ops.stat(test_url)
     # we get the correct file size reported
     assert props['content-length'] == test_path.stat().st_size
 
@@ -53,7 +53,7 @@ def test_any_url_operations(tmp_path):
 
     # try some obscure URL scheme
     with pytest.raises(ValueError):
-        ops.sniff('weird://stuff')
+        ops.stat('weird://stuff')
 
     # and it could have been figured out before
     assert ops.is_supported_url('weird://stuff') == False

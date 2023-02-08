@@ -24,14 +24,14 @@ def test_ssh_url_download(tmp_path, monkeypatch):
     ops = SshUrlOperations()
     # no target file (yet), precise exception
     with pytest.raises(UrlOperationsResourceUnknown):
-        ops.sniff(test_url)
+        ops.stat(test_url)
     # this is different for a general connection error
     with pytest.raises(UrlOperationsRemoteError):
-        ops.sniff(f'ssh://localhostnotaround{test_path}')
+        ops.stat(f'ssh://localhostnotaround{test_path}')
     # now put something at the target location
     test_path.write_text('surprise!')
     # and now it works
-    props = ops.sniff(test_url)
+    props = ops.stat(test_url)
     # we get the correct file size reported
     assert props['content-length'] == test_path.stat().st_size
 
@@ -41,7 +41,7 @@ def test_ssh_url_download(tmp_path, monkeypatch):
         m.setattr(SshUrlOperations, '_stat_cmd', 'echo nothing')
         # we get a distinct exception
         with pytest.raises(RuntimeError):
-            ops.sniff(test_url)
+            ops.stat(test_url)
 
     # and download
     download_path = tmp_path / 'download'

@@ -18,11 +18,11 @@ def test_file_url_download(tmp_path):
     ops = FileUrlOperations()
     # no target file (yet), precise exception
     with pytest.raises(UrlOperationsResourceUnknown):
-        ops.sniff(test_url)
+        ops.stat(test_url)
     # now put something at the target location
     test_path.write_text('surprise!')
     # and now it works
-    props = ops.sniff(test_url)
+    props = ops.stat(test_url)
     # we get the correct file size reported
     assert props['content-length'] == test_path.stat().st_size
 

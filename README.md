@@ -73,7 +73,7 @@ package and its commands.
 - New modular framework for URL operations. This framework directly supports operation
   on `http(s)`, `ssh`, and `file` URLs, and can be extended with custom functionality
   for additional protocols or even interaction with specific individual servers.
-  The basic operations `download`, `upload`, `delete`, and `sniff` are recognized,
+  The basic operations `download`, `upload`, `delete`, and `stat` are recognized,
   and can be implemented. The framework offers uniform progress reporting and
   simultaneous content has computation. This framework is meant to replace and
   extend the downloader/provide framework in the DataLad core package. In contrast
