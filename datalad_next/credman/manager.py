@@ -93,7 +93,7 @@ class CredentialManager(object):
 
     # main API
     #
-    def get(self, name=None, _prompt=None, _type_hint=None, **kwargs):
+    def get(self, name=None, *, _prompt=None, _type_hint=None, **kwargs):
         """Get properties and secret of a credential.
 
         This is a read-only method that never modifies information stored
@@ -237,6 +237,7 @@ class CredentialManager(object):
 
     def set(self,
             name,
+            *,
             _lastused=False,
             _suggested_name=None,
             _context=None,
@@ -415,7 +416,7 @@ class CredentialManager(object):
             updated['secret'] = cred['secret']
         return updated
 
-    def remove(self, name, type_hint=None):
+    def remove(self, name, *, type_hint=None):
         """Remove a credential, including all properties and secret
 
         Presently, all supported backends require the specification of
@@ -516,7 +517,7 @@ class CredentialManager(object):
                 else:
                     continue
 
-    def query(self, _sortby=None, _reverse=True, **kwargs):
+    def query(self, *, _sortby=None, _reverse=True, **kwargs):
         """Query for all (matching) credentials, sorted by a property
 
         This method is a companion of ``query_()``, and the same limitations
