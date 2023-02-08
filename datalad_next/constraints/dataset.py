@@ -6,9 +6,9 @@ from pathlib import (
 )
 
 from datalad_next.datasets import Dataset
-from datalad_next.exceptions import NoDatasetFound
 
 from .base import Constraint
+from .exceptions import NoDatasetFound
 
 
 class DatasetParameter:
