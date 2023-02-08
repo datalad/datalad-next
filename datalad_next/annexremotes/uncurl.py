@@ -50,7 +50,7 @@ use after having used them successfully::
     password: 
     password (repeat): 
     Enter a name to save the credential
-    (sniffing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
+    (for accessing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
     re-use, or 'skip' to not save the credential
     name: httpbin-dummy
 
@@ -347,7 +347,7 @@ class UncurlRemote(SpecialRemote):
             # otherwise go ahead with the orginal URL. the template might
             # just be here to aid structured uploads
         try:
-            urlprops = self.url_handler.sniff(url)
+            urlprops = self.url_handler.stat(url)
             return True
         except UrlOperationsRemoteError as e:
             # leave a trace in the logs
@@ -375,7 +375,7 @@ class UncurlRemote(SpecialRemote):
     def checkpresent(self, key):
         return self._check_retrieve(
             key,
-            self.url_handler.sniff,
+            self.url_handler.stat,
             ('find', 'at'),
         )
 
@@ -514,10 +514,10 @@ class UncurlRemote(SpecialRemote):
             raise RemoteError from e
 
 
-_sniff2checkurl_map = {
+_stat2checkurl_map = {
     'content-length': 'size',
 }
-"""Translate property names returned by AnyUrlOperations.sniff()
+"""Translate property names returned by AnyUrlOperations.stat()
 to those expected from checkurl()"""
 
 

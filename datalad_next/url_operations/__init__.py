@@ -45,11 +45,11 @@ class UrlOperations:
             self._cfg = datalad.cfg
         return self._cfg
 
-    def sniff(self,
-              url: str,
-              *,
-              credential: str | None = None,
-              timeout: float | None = None) -> Dict:
+    def stat(self,
+             url: str,
+             *,
+             credential: str | None = None,
+             timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
         Returns

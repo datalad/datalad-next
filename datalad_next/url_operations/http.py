@@ -47,14 +47,14 @@ class HttpUrlOperations(UrlOperations):
             hdrs.update(headers)
         return hdrs
 
-    def sniff(self,
-              url: str,
-              *,
-              credential: str | None = None,
-              timeout: float | None = None) -> Dict:
+    def stat(self,
+             url: str,
+             *,
+             credential: str | None = None,
+             timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
-        See :meth:`datalad_next.url_operations.UrlOperations.sniff`
+        See :meth:`datalad_next.url_operations.UrlOperations.stat`
         for parameter documentation and exception behavior.
 
         Raises
@@ -96,7 +96,7 @@ class HttpUrlOperations(UrlOperations):
             }
             props['url'] = r.url
         auth.save_entered_credential(
-            context=f'sniffing {url}'
+            context=f"for accessing {url}"
         )
         if 'content-length' in props:
             # make an effort to return size in bytes as int

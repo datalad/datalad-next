@@ -70,18 +70,18 @@ class SshUrlOperations(UrlOperations):
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
-    def sniff(self,
-              url: str,
-              *,
-              credential: str | None = None,
-              timeout: float | None = None) -> Dict:
+    def stat(self,
+             url: str,
+             *,
+             credential: str | None = None,
+             timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
-        See :meth:`datalad_next.url_operations.UrlOperations.sniff`
+        See :meth:`datalad_next.url_operations.UrlOperations.stat`
         for parameter documentation and exception behavior.
         """
         try:
-            props = self._sniff(
+            props = self._stat(
                 url,
                 cmd=SshUrlOperations._stat_cmd,
             )
@@ -94,7 +94,7 @@ class SshUrlOperations(UrlOperations):
 
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
-    def _sniff(self, url: str, cmd: str) -> Dict:
+    def _stat(self, url: str, cmd: str) -> Dict:
         # any stream must start with this magic marker, or we do not
         # recognize what is happening
         # after this marker, the server will send the size of the
@@ -164,7 +164,7 @@ class SshUrlOperations(UrlOperations):
         dst_fp = None
 
         try:
-            props = self._sniff(
+            props = self._stat(
                 from_url,
                 cmd=f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}',
             )
