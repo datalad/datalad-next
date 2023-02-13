@@ -127,6 +127,9 @@ def _execute_command_(
         allkwargs = interface._validator_(
             allkwargs,
             at_default=at_default,
+            # TODO make immediate vs exhaustive parameter validation
+            # configurable here
+            #on_error='raise-at-end',
         )
 
     # look for potential override of logging behavior

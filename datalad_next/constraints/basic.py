@@ -230,7 +230,11 @@ class EnsureChoice(Constraint):
 
     def __call__(self, value):
         if value not in self._allowed:
-            raise ValueError(f"value {value!r} is not one of {self._allowed}")
+            self.raise_for(
+                value,
+                "is not one of {allowed}",
+                allowed=self._allowed,
+            )
         return value
 
     def long_description(self):

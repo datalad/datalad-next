@@ -6,6 +6,8 @@ from typing import (
     TypeVar,
 )
 
+from .exceptions import ConstraintError
+
 if TYPE_CHECKING:  # pragma: no cover
     from datalad_next.datasets import Dataset
 
@@ -25,6 +27,18 @@ class Constraint:
     def __repr__(self):
         """Rudimentary repr to avoid default scary to the user Python repr"""
         return "constraint:%s" % self.short_description()
+
+    def raise_for(self, value, msg, **ctx):
+        """Convenience method for raising a ``ConstraintError``
+
+        The parameters are identical to those of ``ConstraintError``. This
+        method merely passes the ``Constraint`` instance as ``self`` to the
+        constructor.
+        """
+        if ctx:
+            raise ConstraintError(self, value, msg, ctx)
+        else:
+            raise ConstraintError(self, value, msg)
 
     def __and__(self, other):
         return Constraints(self, other)
@@ -111,8 +125,10 @@ class AltConstraints(_MultiConstraint):
                 return c(value)
             except Exception as e:
                 e_list.append(e)
-        raise ValueError(
-            f"{value!r} violated all possible constraints {self.constraints}")
+        self.raise_for(
+            value, 'not any of {constraints}',
+            constraints=self.constraints,
+        )
 
     def long_description(self):
         return self._get_description('long_description', 'or')
