@@ -5,13 +5,11 @@ from typing import (
     Any,
     Dict,
     TYPE_CHECKING,
+    Type,
     TypeVar,
 )
 
-from .base import (
-    Constraint,
-    ConstraintDerived,
-)
+from .base import Constraint
 from .basic import (
     EnsureBool,
     EnsureChoice,
@@ -33,11 +31,10 @@ from .exceptions import (
 if TYPE_CHECKING:  # pragma: no cover
     from datalad_next.commands import Parameter
 
-aEnsureParameterConstraint = TypeVar(
-    'aEnsureParameterConstraint',
-    bound='aEnsureParameterConstraint',
+EnsureParameterConstraint_T = TypeVar(
+    'EnsureParameterConstraint_T',
+    bound='EnsureParameterConstraint',
 )
-aParameter = TypeVar('aParameter', bound='Parameter')
 
 
 class NoValue:
@@ -67,7 +64,7 @@ class EnsureParameterConstraint(EnsureMapping):
     valid_param_name_regex = r'[a-z]{1}[a-z0-9_]*'
 
     def __init__(self,
-                 constraint: ConstraintDerived,
+                 constraint: Constraint,
                  passthrough: Any = NoValue):
         """
         Parameters
@@ -107,11 +104,11 @@ class EnsureParameterConstraint(EnsureMapping):
 
     @classmethod
     def from_parameter(
-            cls,
-            spec: aParameter,
+            cls: Type[EnsureParameterConstraint_T],
+            spec: Parameter,
             default: Any,
-            item_constraint: ConstraintDerived = None,
-            nargs: str or int = None) -> aEnsureParameterConstraint:
+            item_constraint: Constraint | None = None,
+            nargs: str | int | None = None) -> EnsureParameterConstraint_T:
         """
         Parameters
         ----------
@@ -151,9 +148,10 @@ _constraint_spec_map = {
 
 
 def _get_comprehensive_constraint(
-        param_spec: aParameter,
-        item_constraint_override: ConstraintDerived = None,
-        nargs_override: str or int = None):
+        param_spec: Parameter,
+        # TODO remove `str` when literal constraint support is removed
+        item_constraint_override: Constraint | str | None = None,
+        nargs_override: str | int | None = None):
     action = param_spec.cmd_kwargs.get('action')
     # definitive per-item constraint, consider override
     # otherwise fall back on Parameter.constraints
@@ -229,7 +227,7 @@ class EnsureCommandParameterization(Constraint):
     """
     """
     def __init__(self,
-                 param_constraints: dict[ConstraintDerived],
+                 param_constraints: dict[str, Constraint],
                  *,
                  validate_defaults: Container[str] | None = None,
     ):
