@@ -1,5 +1,4 @@
 import pytest
-from typing import Dict
 
 from io import StringIO
 from pathlib import Path
@@ -24,6 +23,28 @@ from datalad_next.constraints import (
 from datalad_next.constraints.parameter import EnsureCommandParameterization
 
 
+class CmdValidator(EnsureCommandParameterization):
+    url_constraint = EnsureURL(required=['scheme'])
+    url2path_constraint = EnsureMapping(
+        key=url_constraint, value=EnsurePath(),
+        delimiter='\t'
+    )
+    spec_item_constraint = url2path_constraint | url_constraint \
+        | (EnsureJSON() & url2path_constraint)
+
+    def __init__(self):
+        # this is the key bit: a mapping of parameter names to validators
+        super().__init__(dict(
+            # Must not OR: https://github.com/datalad/datalad/issues/7164
+            #spec=spec_item_constraint | EnsureListOf(spec_item_constraint)# \
+            spec=AltConstraints(
+                EnsureListOf(self.spec_item_constraint),
+                EnsureGeneratorFromFileLike(self.spec_item_constraint),
+                self.spec_item_constraint,
+            ),
+        ))
+
+
 class CmdWithValidation(ValidatedInterface):
     # this is of little relevance, no validation configured here
     _params_ = dict(spec=Parameter(args=('spec',), nargs='+'))
@@ -36,16 +57,7 @@ class CmdWithValidation(ValidatedInterface):
     spec_item_constraint = url2path_constraint | url_constraint \
         | (EnsureJSON() & url2path_constraint)
 
-    # this is the key bit: a mapping of parameter names to validators
-    _validator_ = EnsureCommandParameterization(dict(
-        # Must not OR: https://github.com/datalad/datalad/issues/7164
-        #spec=spec_item_constraint | EnsureListOf(spec_item_constraint)# \
-        spec=AltConstraints(
-            EnsureListOf(spec_item_constraint),
-            EnsureGeneratorFromFileLike(spec_item_constraint),
-            spec_item_constraint,
-        ),
-    ))
+    _validator_ = CmdValidator()
 
     # command implementation that only validated and returns the outcome
     @staticmethod
