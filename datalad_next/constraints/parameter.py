@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Container
 from typing import (
     Any,
+    Callable,
     Dict,
     TYPE_CHECKING,
     Type,
@@ -233,7 +234,8 @@ class EnsureCommandParameterization(Constraint):
         param_constraints: Dict[str, Constraint],
         *,
         validate_defaults: Container[str] | None = None,
-        joint_constraints: Dict[ParameterConstraintContext, callable] = None,
+        joint_constraints:
+            Dict[ParameterConstraintContext, Callable] | None = None,
     ):
         """
         Parameters
@@ -300,7 +302,7 @@ class EnsureCommandParameterization(Constraint):
         Returns
         -------
         dict
-          The returned dict must have a value for each item pass in via
+          The returned dict must have a value for each item passed in via
           ``params``.
         on_error: {'raise-immediately', 'raise-at-end'}
           Flag how to handle constraint violation. By default, validation is

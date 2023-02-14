@@ -175,7 +175,8 @@ class ParametrizationErrors(ConstraintErrors):
     """
     def __init__(
             self,
-            exceptions: Dict[ParameterConstraintContext | str, ConstraintError]):
+            exceptions: Dict[str, ConstraintError] |
+                        Dict[ParameterConstraintContext | str, ConstraintError]):
         super().__init__(
             {k if isinstance(k, ParameterConstraintContext)
              else ParameterConstraintContext((k,)):
