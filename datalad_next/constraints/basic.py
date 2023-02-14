@@ -310,12 +310,12 @@ class EnsureRange(Constraint):
 
     def short_description(self):
         if self._max is None:
-            return f'not less than {self._min}'
+            return f'not less than {self._min!r}'
         elif self._min is None:
-            return f'not greater than {self._max}'
+            return f'not greater than {self._max!r}'
         else:
             # it is inclusive, but spelling it out would be wordy
-            return f'between {self._min} and {self._max}'
+            return f'in range from {self._min!r} to {self._max!r}'
 
 
 class EnsurePath(Constraint):
