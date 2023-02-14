@@ -227,7 +227,57 @@ def _get_comprehensive_constraint(
 
 
 class EnsureCommandParameterization(Constraint):
-    """
+    """Base class for `ValidatedInterface` parameter validators
+
+    This class can be used as-is, by declaring individual constraints
+    in the constructor, or it can be subclassed to consolidate all
+    custom validation-related code for a command in a single place.
+
+    Commonly this constraint is used by declaring particular value constraints
+    for individual parameters as a mapping. Declaring that the ``path``
+    parameter should receive something that is or can be coerced to
+    a valid ``Path`` object looks like this::
+
+      EnsureCommandParameterization({'path': EnsurePath()})
+
+    This class differs from a standard ``Constraint`` implementation,
+    because its ``__call__()`` method support additional arguments
+    that are used by the internal ``Interface`` handling code to
+    control how parameters are validated.
+
+    During validation, when no validator for a particular parameter is
+    declared, any input value is passed on as-is, and otherwise an input is
+    passed through the validator.
+
+    There is one exception to this rule: When a parameter value is identical to
+    its default value (as declared in the command signature, and communicated
+    via the ``at_default`` argument of ``__call__()``), this default
+    value is also passed as-is, unless the respective parameter name is
+    included in the ``validate_defaults`` constructor argument.
+
+    An important consequence of this behavior is that validators need
+    not cover a default value. For example, a parameter constraint for
+    ``path=None``, where ``None`` is a special value used to indicate an
+    optional and unset value, but actually only paths are acceptable input
+    values. can simply use ``EnsurePath()`` and it is not necessary to do
+    something like ``EnsurePath() | EnsureNone()``.
+
+    However, `EnsureCommandParameterization` can also be specifically
+    instructed to perform validation of defaults for individual parameters, as
+    described above.  A common use case is the auto-discovery of datasets,
+    where often `None` is the default value of a `dataset` parameter (to make
+    it optional), and an `EnsureDataset` constraint is used. This constraint
+    can perform the auto-discovery (with the `None` value indicating that), but
+    validation of defaults must be turned on for the `dataset` parameter in
+    order to do that.
+
+    A second difference to a common ``Constraint`` implementation is the
+    ability to perform an "exhaustive validation" on request (via
+    ``__call__(on_error=...)``). In this case, validation is not stopped at the
+    first discovered violation, but all violations are collected and
+    communicated by raising a ``CommandParametrizationError`` exception, which
+    can be inspected by a caller for details on number and nature of all
+    discovered violations.
     """
     def __init__(
         self,
