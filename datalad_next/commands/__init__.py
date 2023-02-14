@@ -17,7 +17,10 @@ except ImportError:
     from datalad.interface.utils import eval_results
 from datalad.support.param import Parameter
 
-from datalad_next.constraints.parameter import EnsureCommandParameterization
+from datalad_next.constraints.parameter import (
+    EnsureCommandParameterization,
+    ParameterConstraintContext,
+)
 from datalad_next.datasets import datasetmethod
 
 
