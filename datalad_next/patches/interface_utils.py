@@ -123,14 +123,22 @@ def _execute_command_(
     )
 
     # validate the complete parameterization
-    if hasattr(interface, '_validator_') and interface._validator_ is not None:
-        allkwargs = interface._validator_(
+    param_validator = interface.get_parameter_validator() \
+        if hasattr(interface, 'get_parameter_validator') else None
+    if param_validator is None:
+        lgr.debug(
+            'Command parameter validation skipped. %s declares no validator',
+            interface)
+    else:
+        lgr.debug('Command parameter validation for %s', interface)
+        allkwargs = param_validator(
             allkwargs,
             at_default=at_default,
             # TODO make immediate vs exhaustive parameter validation
             # configurable here
             #on_error='raise-at-end',
         )
+        lgr.debug('Command parameter validation ended for %s', interface)
 
     # look for potential override of logging behavior
     result_log_level = dlcfg.get('datalad.log.result-level', 'debug')

@@ -1,4 +1,6 @@
 """Components for basic functions of commands and their results"""
+from __future__ import annotations
+
 from typing import Dict
 
 from datalad.interface.base import (
@@ -65,6 +67,15 @@ class ValidatedInterface(Interface):
     and it is not necessary to do something like
     ``EnsurePath() | EnsureNone()``.
 
+    However, `EnsureCommandParameterization` can also be specifically
+    instructed to perform validation of defaults for individual parameters.
+    A common use case is the auto-discovery of datasets, where often
+    `None` is the default value of a `dataset` parameter (to make it optional),
+    and an `EnsureDataset` constraint is used. This constraint can perform
+    the auto-discovery (with the `None` value indicating that), but validation
+    of defaults must be turned on for the `dataset` parameter in order to
+    do that.
+
     To transition a command from ``Interface`` to ``ValidatedInterface``,
     replace the base class declaration and declare a ``_validator_`` class
     member. Any ``constraints=`` declaration for ``Parameter`` instances
@@ -72,3 +83,7 @@ class ValidatedInterface(Interface):
     ``_validator_``.
     """
     _validator_ = None
+
+    @classmethod
+    def get_parameter_validator(cls) -> EnsureCommandParameterization | None:
+        return cls._validator_
