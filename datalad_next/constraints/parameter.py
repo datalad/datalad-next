@@ -380,8 +380,10 @@ class EnsureCommandParameterization(Constraint):
             try:
                 # call the validator with the parameters given in the context
                 # and only with those, to make sure the context is valid
-                # and not an underspecification
-                res = validator(**{p: params[p] for p in ctx.parameters})
+                # and not an underspecification.
+                # pull the values form `validated` to be able to benefit
+                # from incremental coercing done in individual checks
+                res = validator(**{p: validated[p] for p in ctx.parameters})
             except ConstraintError as e:
                 exceptions[ctx] = e
                 if on_error == 'raise-immediately':
