@@ -47,7 +47,7 @@ credential_actions = ('query', 'get', 'set', 'remove')
 
 
 class CredentialsParamValidator(EnsureCommandParameterization):
-    def joint_validation(self, params: Dict) -> Dict:
+    def joint_validation(self, params: Dict, on_error: str) -> Dict:
         p = ParamDictator(params)
 
         if p.action in ('get', 'set', 'remove') and not p.name and p.spec \
