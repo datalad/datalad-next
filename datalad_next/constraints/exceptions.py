@@ -162,6 +162,23 @@ class ParameterConstraintContext:
     parameters: Tuple[str]
     description: str | None = None
 
+    def __str__(self):
+        return f'Context<{self.label}>'
+
+    @property
+    def label(self) -> str:
+        """A concise summary of the context
+
+        This label will be a compact as possible.
+        """
+        # XXX this could be __str__ but its intended usage for rendering
+        # a text description of all errors would seemingly forbid adding
+        # type information -- which OTOH seems to be desirable for __str__
+        return '{param}{descr}'.format(
+            param=", ".join(self.parameters),
+            descr=f" ({self.description})" if self.description else '',
+        )
+
 
 class ParametrizationErrors(ConstraintErrors):
     """Exception type raised on violating parameter constraints
@@ -202,10 +219,8 @@ class ParametrizationErrors(ConstraintErrors):
             vs=f'{violation_subject} ' if violation_subject else '',
             p='s' if violations > 1 else '',
             el='\n'.join(
-                '{params}{operation}\n  {msg}'.format(
-                    params=", ".join(ctx.parameters),
-                    operation=f" ({ctx.description})"
-                    if ctx.description else '',
+                '{ctx}\n  {msg}'.format(
+                    ctx=ctx.label,
                     msg=c.msg,
                 )
                 for ctx, c in self.errors.items()
