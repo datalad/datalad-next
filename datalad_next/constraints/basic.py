@@ -292,17 +292,24 @@ class EnsureRange(Constraint):
         """
         self._min = min
         self._max = max
-        if self._min == self._max == None:
+        if self._min is None and self._max is None:
             raise ValueError('No range given, min == max == None')
         super(EnsureRange, self).__init__()
 
     def __call__(self, value):
         if self._min is not None:
-            if value < self._min:
-                raise ValueError("value must be at least %s" % (self._min,))
+            if self._max is not None:
+                if value < self._min or value > self._max:
+                    self.raise_for(
+                        value,
+                        f"must be in range from {self._min!r} to {self._max!r}"
+                    )
+            else:
+                if value < self._min:
+                    self.raise_for(value, f"must be at least {self._min!r}")
         if self._max is not None:
             if value > self._max:
-                raise ValueError("value must be at most %s" % (self._max,))
+                self.raise_for(value, f"must be at most {self._max!r}")
         return value
 
     def long_description(self):
