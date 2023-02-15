@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import (
@@ -124,6 +125,44 @@ class ConstraintErrors(ConstraintError):
         )
 
 
+class ParameterContextErrors(Mapping):
+    """Read-only convenience that wraps a ``ConstraintErrors`` error mapping
+    """
+    # TODO extend this class with any query functionality that a command
+    # API would want to use in order to get streamlined information on what
+    # went wrong (in general, for a specific parameter, etc...)
+    def __init__(
+        self,
+        errors: Dict[ParameterConstraintContext, ConstraintError],
+    ):
+        self._errors = errors
+
+    def __repr__(self):
+        return self._errors.__repr__()
+
+    def __len__(self):
+        return len(self._errors)
+
+    def __iter__(self):
+        return self._errors.__iter__()
+
+    def __getitem__(self, key):
+        return self._errors[key]
+
+    def items(self):
+        return self._errors.items()
+
+    @property
+    def messages(self):
+        return [e.msg for e in self._errors.values()]
+
+    @property
+    def context_labels(self):
+        return [e.label for e in self._errors.keys()]
+
+    # TODO return all errors related to some parameter
+
+
 @dataclass(frozen=True)
 class ParameterConstraintContext:
     """Representation of a parameter constraint context
@@ -193,7 +232,7 @@ class ParametrizationErrors(ConstraintErrors):
     def __init__(
             self,
             exceptions: Dict[str, ConstraintError] |
-                        Dict[ParameterConstraintContext | str, ConstraintError]):
+                        Dict[ParameterConstraintContext, ConstraintError]):
         super().__init__(
             {k if isinstance(k, ParameterConstraintContext)
              else ParameterConstraintContext((k,)):
@@ -202,11 +241,9 @@ class ParametrizationErrors(ConstraintErrors):
         )
 
     @property
-    def errors(
-        self
-    ) -> MappingProxyType[ParameterConstraintContext, ConstraintError]:
+    def errors(self) -> ParameterContextErrors:
         # read-only access
-        return MappingProxyType(self.args[1])
+        return ParameterContextErrors(self.args[1])
 
     def __str__(self):
         return self._render_violations_as_indented_text_list(

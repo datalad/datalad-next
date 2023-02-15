@@ -18,6 +18,7 @@ from datalad_next.constraints import (
     EnsureListOf,
     EnsureMapping,
     EnsurePath,
+    EnsureRange,
     EnsureURL,
 )
 from datalad_next.constraints.base import (
@@ -68,6 +69,9 @@ class SophisticatedCmdValidator(BasicCmdValidator):
     def _check_unique_values(self, **kwargs):
         EnsureAllUnique()(kwargs.values())
 
+    def _check_sum_range(self, p1, p2):
+        EnsureRange(min=3)(p1 + p2)
+
     def __init__(self):
         # this is the key bit: a mapping of parameter names to validators
         super().__init__(
@@ -75,6 +79,8 @@ class SophisticatedCmdValidator(BasicCmdValidator):
             joint_constraints={
                 ParameterConstraintContext(('p1', 'p2'), 'identity'):
                     self._check_unique_values,
+                ParameterConstraintContext(('p1', 'p2'), 'sum'):
+                    self._check_sum_range,
             },
         )
 
@@ -112,14 +118,22 @@ def test_multi_validation():
     assert errors[ctx].constraint == BasicCmdValidator.spec_constraint
     assert errors[ctx].value == '5'
 
-    # now we trigger a higher-order error
+    # now we trigger a higher-order error, and receive multiple reports
     val = SophisticatedCmdValidator()
     with pytest.raises(ConstraintError) as e:
-        val(dict(spec='5', p1='same', p2='same'), on_error='raise-at-end')
+        val(dict(spec='5', p1=1, p2=1), on_error='raise-at-end')
     errors = e.value.errors
-    assert len(errors) == 2
-    assert 'not all values are unique' in str(e.value)
-    assert 'p1, p2 (identity)' in str(e.value)
+    assert len(errors) == 3
+    assert 'not all values are unique' in errors.messages
+    assert 'p1, p2 (identity)' in errors.context_labels
+    assert 'p1, p2 (sum)' in errors.context_labels
+    # and now against, but with stop-on-first-error
+    with pytest.raises(ConstraintError) as e:
+        val(dict(spec='5', p1='same', p2='same'), on_error='raise-immediately')
+    errors = e.value.errors
+    # and we only get one!
+    assert len(errors) == 1
+    assert 'not all values are unique' not in errors.context_labels
 
 
 def test_cmd_with_validation():
