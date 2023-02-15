@@ -43,12 +43,8 @@ class ValidatedInterface(Interface):
     command, while validation and error handling can be delegated elsewhere.
 
     A validator for all individual parameters and the joint-set of all
-    parameters is declared in a ``_validator_`` class member.
-    This is an instance of ``EnsureCommandParameterization``.
-    Only the output of this validator (`Constraint` implementation) will be
-    passed to the underlying command's ``__call__`` method. Consequently,
-    a command only needs to support the output values of the validators
-    declared by itself.
+    parameters can be provided through the :meth:`get_parameter_validator`
+    method.
 
     To transition a command from ``Interface`` to ``ValidatedInterface``,
     replace the base class declaration and declare a ``_validator_`` class
@@ -60,4 +56,24 @@ class ValidatedInterface(Interface):
 
     @classmethod
     def get_parameter_validator(cls) -> EnsureCommandParameterization | None:
+        """Returns a validator for the entire parameter set of a command
+
+        If parameter validation shall be performed, this method must return an
+        instance of
+        :class:`~datalad_next.constraints.parameter.EnsureCommandParameterization`.
+        All parameters will be passed through this validator, and only the its
+        output will be passed to the underlying command's ``__call__`` method.
+
+        Consequently, the core implementation of a command only needs to
+        support the output values of the validators declared by itself.
+
+        Factoring out input validation, normalization, type coercion etc. into
+        a dedicated component also makes it accessible for upfront validation
+        and improved error reporting via the different DataLad APIs.
+
+        If a command does not implement parameter validation in this fashion,
+        this method must return ``None``.
+
+        The default implementation returns the ``_validator_`` class member.
+        """
         return cls._validator_
