@@ -354,7 +354,7 @@ class EnsureCommandParameterization(Constraint):
         dict
           The returned dict must have a value for each item passed in via
           ``params``.
-        on_error: {'raise-immediately', 'raise-at-end'}
+        on_error: {'raise-early', 'raise-at-end'}
           Flag how to handle constraint violation. By default, validation is
           stopped at the first error and an exception is raised. When an
           exhaustive validation is performed, an eventual exception contains
@@ -386,7 +386,7 @@ class EnsureCommandParameterization(Constraint):
                 res = validator(**{p: validated[p] for p in ctx.parameters})
             except ConstraintError as e:
                 exceptions[ctx] = e
-                if on_error == 'raise-immediately':
+                if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
             if res is not None:
                 validated.update(**res)
@@ -400,7 +400,7 @@ class EnsureCommandParameterization(Constraint):
         self,
         kwargs,
         at_default=None,
-        on_error='raise-immediately',
+        on_error='raise-early',
     ) -> Dict:
         """
         Parameters
@@ -413,11 +413,13 @@ class EnsureCommandParameterization(Constraint):
           match their respective defaults. This is used for deciding whether
           or not to process them with an associated value constraint (see the
           ``validate_defaults`` constructor argument).
-        on_error: {'raise-immediately', 'raise-at-end'}
+        on_error: {'raise-early', 'raise-at-end'}
           Flag how to handle constraint violation. By default, validation is
           stopped at the first error and an exception is raised. When an
           exhaustive validation is performed, an eventual exception contains
-          information on all constraint violations.
+          information on all constraint violations. Regardless of this mode
+          more than one error can be reported (in case (future) implementation
+          perform independent validations in parallel).
 
         Raises
         ------
@@ -426,7 +428,7 @@ class EnsureCommandParameterization(Constraint):
           caught during validation. Other exception types are not caught and
           pass through.
         """
-        assert on_error in ('raise-immediately', 'raise-before-joint', 'raise-at-end')
+        assert on_error in ('raise-early', 'raise-at-end')
         exceptions = {}
         validated = {}
         for argname, arg in kwargs.items():
@@ -459,11 +461,8 @@ class EnsureCommandParameterization(Constraint):
             # itself
             except ConstraintError as e:
                 exceptions[ParameterConstraintContext((argname,))] = e
-                if on_error == 'raise-immediately':
+                if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
-
-        if on_error == 'raise-before-joint' and exceptions:
-            raise CommandParametrizationError(exceptions)
 
         try:
             # call (subclass) method to perform holistic, cross-parameter

@@ -124,16 +124,29 @@ def test_multi_validation():
         val(dict(spec='5', p1=1, p2=1), on_error='raise-at-end')
     errors = e.value.errors
     assert len(errors) == 3
-    assert 'not all values are unique' in errors.messages
-    assert 'p1, p2 (identity)' in errors.context_labels
+    # the spec-param-only error
+    assert errors.messages[0].startswith('not any of')
+    # higher-order issue traces (their order is deterministic)
+    assert 'not all values are unique' == errors.messages[1]
+    assert 'p1, p2 (identity)' == errors.context_labels[1]
     assert 'p1, p2 (sum)' in errors.context_labels
     # and now against, but with stop-on-first-error
     with pytest.raises(ConstraintError) as e:
-        val(dict(spec='5', p1='same', p2='same'), on_error='raise-immediately')
+        val(dict(spec='5', p1=1, p2=1), on_error='raise-early')
     errors = e.value.errors
     # and we only get one!
     assert len(errors) == 1
-    assert 'not all values are unique' not in errors.context_labels
+    # the spec-param-only error
+    assert errors.messages[0].startswith('not any of')
+    assert 'not all values are unique' not in errors.messages
+    # now we do it again, but with a valid spec, such that the first
+    # and only error is a higher order error
+    with pytest.raises(ConstraintError) as e:
+        val(dict(spec=5, p1=1, p2=1), on_error='raise-early')
+    errors = e.value.errors
+    assert len(errors) == 1
+    assert 'not all values are unique' == errors.messages[0]
+    assert 'p1, p2 (identity)' == errors.context_labels[0]
 
 
 def test_cmd_with_validation():
