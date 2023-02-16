@@ -4,6 +4,7 @@ import re
 
 from datalad_next.utils import on_windows
 from datalad_next.tests.utils import (
+    get_httpbin_urls,
     skip_ssh,
     skip_if_on_windows,
     with_tempfile,
@@ -22,6 +23,7 @@ from ..uncurl import (
     UncurlRemote,
 )
 
+hbsurl = get_httpbin_urls()['standard']
 
 # for some tests below it is important that this base config contains no
 # url= or match= declaration (or any other tailoring to a specific use case)
@@ -34,6 +36,7 @@ std_initargs = [
 res_kwargs = dict(
     result_renderer='disabled',
 )
+
 
 class NoOpAnnex:
     def error(*args, **kwargs):
@@ -140,7 +143,7 @@ def test_uncurl_checkurl(tmp_path):
     # now add a matcher to make use of URL rewriting even for 'addurl'-type
     # use case, such as: we want to pass a "fixed" URL verbatim to some kind
     # of external redirector service
-    r.url_tmpl = 'http://httpbin.org/redirect-to?url={origurl}'
+    r.url_tmpl = f'{hbsurl}/redirect-to?url={{origurl}}'
     r.match = [
         re.compile('.*(?P<origurl>http://.*)$'),
     ]
@@ -155,7 +158,7 @@ def test_uncurl_addurl_unredirected(tmp_path):
     # same set as in `test_uncurl_checkurl()`
     dsca(['initremote', 'myuncurl'] + std_initargs + [
         'match=.*(?P<origurl>http://.*)$',
-        'url=http://httpbin.org/redirect-to?url={origurl}',
+        f'url={hbsurl}/redirect-to?url={{origurl}}',
     ])
     # feed it a broken URL, which must be getting fixed by the rewritting
     # (pulls 24 bytes)
