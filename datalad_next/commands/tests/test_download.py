@@ -9,6 +9,7 @@ from datalad.api import (
 from datalad_next.tests.utils import (
     assert_result_count,
     assert_status,
+    get_httpbin_urls,
     serve_path_via_http,
     with_credential,
     with_tempfile,
@@ -18,15 +19,11 @@ from datalad_next.utils import chpwd
 
 from datalad_next.utils import CredentialManager
 
+httpbin_urls = get_httpbin_urls()
+# shortcut for the standard URL
+hbsurl = httpbin_urls['standard']
 
 test_cred = ('dltest-my&=http', 'datalad', 'secure')
-hburl = 'http://httpbin.org'
-hbcred = (
-    'hbcred',
-    dict(user='mike', secret='dummy', type='user_password',
-         realm=f'{hburl}/Fake Realm'),
-)
-hbsurl = 'https://httpbin.org'
 hbscred = (
     'hbscred',
     dict(user='mike', secret='dummy', type='user_password',
@@ -146,7 +143,7 @@ def test_download_bearer_token_auth(capsys):
 
 @with_credential(hbscred[0],
                  **dict(hbscred[1],
-                        realm='https://httpbin.org/me@kennethreitz.com'))
+                        realm=f'{hbsurl}/me@kennethreitz.com'))
 def test_download_digest_auth(capsys):
     # consume stdout to make test self-contained
     capsys.readouterr()
@@ -183,11 +180,11 @@ def test_download_auth_after_redirect(capsys):
 
 @with_credential(hbscred[0], **hbscred[1])
 def test_download_no_credential_leak_to_http(capsys):
-    redirect_url = f'{hburl}/basic-auth/mike/dummy'
+    redirect_url = f'{httpbin_urls["http"]}/basic-auth/mike/dummy'
     res = download(
         # redirect from https to http, must drop provideded credential
         # to avoid leakage
-        {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
+        {f'{httpbin_urls["https"]}/redirect-to?url={redirect_url}': '-'},
         credential=hbscred[0],
         on_failure='ignore')
     assert_status('error', res)
@@ -200,7 +197,7 @@ def test_download_no_credential_leak_to_http(capsys):
     res = download(
         # redirect from https to http, must drop provideded credential
         # to avoid leakage
-        {f'{hbsurl}/redirect-to?url={redirect_url}': '-'},
+        {f'{httpbin_urls["https"]}/redirect-to?url={redirect_url}': '-'},
         on_failure='ignore')
     assert_status('error', res)
 

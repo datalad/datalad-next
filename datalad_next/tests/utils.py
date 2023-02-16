@@ -2,6 +2,8 @@ import logging
 from functools import wraps
 from pathlib import Path
 
+import urllib
+
 # all datalad-core test utils needed for datalad-next
 from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
@@ -167,3 +169,36 @@ def with_credential(name, **kwargs):
 
         return _with_credential
     return with_credential_decorator
+
+
+def get_httpbin_urls():
+    """Return cannonical access URLs for the HTTPBIN service
+
+    This function checks whether a service is deployed at
+    localhost:8765 and if so, it return this URL as the 'standard' URL.
+    If not, a URL pointing to the cannonical instance is returned.
+
+    For tests that need to have the service served via a specific
+    protocol (https vs http), the corresponding URLs are returned
+    too. They always point to the cannonical deployment, as some
+    tests require both protocols simultaneously and a local deployment
+    generally won't have https.
+    """
+    hburl = 'http://httpbin.org'
+    hbsurl = 'https://httpbin.org'
+    ciurl = 'http://localhost:8765'
+
+    ci_httpbin = False
+    try:
+        # if we have a CI deployment of a dedicated HTTPBIN
+        # it would be here
+        urllib.request.urlopen(ciurl)
+        ci_httpbin = True
+    except urllib.error.URLError:
+        pass
+
+    return dict(
+        standard=ciurl if ci_httpbin else hbsurl,
+        http=hburl,
+        https=hbsurl,
+    )

@@ -1,7 +1,10 @@
 from pathlib import Path
 import pytest
 
-from datalad_next.tests.utils import with_credential
+from datalad_next.tests.utils import (
+    get_httpbin_urls,
+    with_credential,
+)
 from ..http import (
     HttpUrlOperations,
     UrlOperationsRemoteError,
@@ -9,12 +12,13 @@ from ..http import (
 )
 
 
-hbsurl = 'https://httpbin.org'
+hbsurl = get_httpbin_urls()['standard']
 hbscred = (
     'hbscred',
     dict(user='mike', secret='dummy', type='user_password',
          realm=f'{hbsurl}/Fake Realm'),
 )
+
 
 @with_credential(hbscred[0], **hbscred[1])
 def test_http_url_operations(tmp_path):
