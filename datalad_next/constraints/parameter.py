@@ -20,6 +20,7 @@ from .basic import (
     NoConstraint,
 )
 from .compound import (
+    ConstraintWithPassthrough,
     EnsureIterableOf,
     EnsureMapping,
 )
@@ -84,11 +85,13 @@ class EnsureParameterConstraint(EnsureMapping):
         super().__init__(
             key=EnsureStr(
                 match=EnsureParameterConstraint.valid_param_name_regex),
-            value=constraint,
+            value=ConstraintWithPassthrough(
+                constraint,
+                passthrough,
+            ),
             # make it look like dict(...)
             delimiter='=',
         )
-        self._passthrough = passthrough
 
     @property
     def parameter_constraint(self):
@@ -96,7 +99,7 @@ class EnsureParameterConstraint(EnsureMapping):
 
     @property
     def passthrough_value(self):
-        return self._passthrough
+        return self._value_constraint.passthrough
 
     def __call__(self, value) -> Dict:
         key, val = self._get_key_value(value)

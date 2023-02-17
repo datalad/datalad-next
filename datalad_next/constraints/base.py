@@ -1,4 +1,6 @@
 """"""
+from __future__ import annotations
+
 __docformat__ = 'restructuredtext'
 
 from typing import (
@@ -11,7 +13,6 @@ from .exceptions import ConstraintError
 if TYPE_CHECKING:  # pragma: no cover
     from datalad_next.datasets import Dataset
 
-ConstraintDerived = TypeVar('ConstraintDerived', bound='Constraint')
 DatasetDerived = TypeVar('DatasetDerived', bound='Dataset')
 
 
@@ -61,7 +62,7 @@ class Constraint:
         # used as a condensed primer for the parameter lists
         raise NotImplementedError("abstract class")
 
-    def for_dataset(self, dataset: DatasetDerived) -> ConstraintDerived:
+    def for_dataset(self, dataset: DatasetDerived) -> Constraint:
         """Return a constraint-variant for a specific dataset context
 
         The default implementation returns the unmodified, identical
@@ -74,6 +75,17 @@ class _MultiConstraint(Constraint):
     """Helper class to override the description methods to reported
     multiple constraints
     """
+    def __init__(self, *constraints):
+        # TODO Why is EnsureNone needed? Remove if possible
+        from .basic import EnsureNone
+        self._constraints = [
+            EnsureNone() if c is None else c for c in constraints
+        ]
+
+    @property
+    def constraints(self):
+        return self._constraints
+
     def _get_description(self, attr: str, operation: str) -> str:
         cs = [
             getattr(c, attr)()
@@ -104,12 +116,7 @@ class AltConstraints(_MultiConstraint):
         *constraints
            Alternative constraints
         """
-        super(AltConstraints, self).__init__()
-        # TODO Why is EnsureNone needed? Remove if possible
-        from .basic import EnsureNone
-        self.constraints = [
-            EnsureNone() if c is None else c for c in constraints
-        ]
+        super().__init__(*constraints)
 
     def __or__(self, other):
         if isinstance(other, AltConstraints):
@@ -154,12 +161,7 @@ class Constraints(_MultiConstraint):
         *constraints
            Constraints all of which must be satisfied
         """
-        super(Constraints, self).__init__()
-        # TODO Why is EnsureNone needed? Remove if possible
-        from .basic import EnsureNone
-        self.constraints = [
-            EnsureNone() if c is None else c for c in constraints
-        ]
+        super().__init__(*constraints)
 
     def __and__(self, other):
         if isinstance(other, Constraints):

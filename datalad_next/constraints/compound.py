@@ -1,9 +1,12 @@
 """Constraints that wrap or contain other constraints"""
 
+from __future__ import annotations
+
 from pathlib import Path
 import sys
 from typing import (
     Any,
+    Callable,
     Dict,
     Generator,
 )
@@ -20,9 +23,9 @@ class EnsureIterableOf(Constraint):
     # TODO support a delimiter to be able to take str-lists?
     def __init__(self,
                  iter_type: type,
-                 item_constraint: callable,
-                 min_len: int or None = None,
-                 max_len: int or None = None):
+                 item_constraint: Callable,
+                 min_len: int | None = None,
+                 max_len: int | None = None):
         """
         Parameters
         ----------
@@ -80,9 +83,9 @@ class EnsureIterableOf(Constraint):
 
 class EnsureListOf(EnsureIterableOf):
     def __init__(self,
-                 item_constraint: callable,
-                 min_len: int or None = None,
-                 max_len: int or None = None):
+                 item_constraint: Callable,
+                 min_len: int | None = None,
+                 max_len: int | None = None):
         """
         Parameters
         ----------
@@ -105,9 +108,9 @@ class EnsureListOf(EnsureIterableOf):
 
 class EnsureTupleOf(EnsureIterableOf):
     def __init__(self,
-                 item_constraint: callable,
-                 min_len: int or None = None,
-                 max_len: int or None = None):
+                 item_constraint: Callable,
+                 min_len: int | None = None,
+                 max_len: int | None = None):
         """
         Parameters
         ----------
@@ -201,7 +204,7 @@ class EnsureGeneratorFromFileLike(Constraint):
     existing file to be read from.
     """
 
-    def __init__(self, item_constraint: callable):
+    def __init__(self, item_constraint: Callable):
         """
         Parameters
         ----------
@@ -246,3 +249,78 @@ class EnsureGeneratorFromFileLike(Constraint):
         finally:
             if close_file:
                 fp.close()
+
+
+class ConstraintWithPassthrough(Constraint):
+    """Regular contraint, but with a "pass-through" value that is not processed
+
+    This is different from a `Constraint() | EnsureValue(...)` construct,
+    because the pass-through value is not communicated. This can be useful
+    when a particular value must be supported for technical reasons, but
+    need not, or must not be included in (error) messages.
+
+    The pass-through is returned as-is, and is not processed except for an
+    identity check (`==`).
+
+    For almost all reporting (`__str__`, descriptions, ...) the wrapped
+    value constraint is used, making this class virtually invisible.
+    Only ``__repr__`` reflects the wrapping.
+    """
+    def __init__(self,
+                 constraint: Constraint,
+                 passthrough: Any):
+        """
+        Parameters
+        ----------
+        constraint: Constraint
+          Any ``Constraint`` subclass instance that will be used to validate
+          values.
+        passthrough:
+          A value that will not be subjected to validation by the value
+          constraint, but is returned as-is. This value is not copied.
+          It is a caller's responsibility to guarantee immutability if that
+          is desired.
+        """
+        super().__init__()
+        self._constraint = constraint
+        self._passthrough = passthrough
+
+    @property
+    def constraint(self) -> Constraint:
+        """Returns the wrapped constraint instance"""
+        return self._constraint
+
+    @property
+    def passthrough(self) -> Any:
+        """Returns the set pass-through value"""
+        return self._passthrough
+
+    def __call__(self, value) -> Any:
+        if value == self._passthrough:
+            val = value
+        else:
+            val = self._constraint(value)
+        return val
+
+    def __str__(self) -> str:
+        return self._constraint.__str__()
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}' \
+               f'({self._constraint!r}, passthrough={self._passthrough!r})'
+
+    def for_dataset(self, dataset: DatasetDerived) -> Constraint:
+        """Wrap the wrapped constraint again after tailoring it for the dataset
+
+        The pass-through value is re-used.
+        """
+        return self.__class__(
+            self._constraint.for_dataset(dataset),
+            passthrough=self._passthrough,
+        )
+
+    def long_description(self) -> str:
+        return self._constraint.long_description()
+
+    def short_description(self) -> str:
+        return self._constraint.short_description()
