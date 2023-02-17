@@ -1,4 +1,4 @@
-"""Validate DataLad datasets"""
+"""Constraints for DataLad datasets"""
 
 from pathlib import (
     Path,

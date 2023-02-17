@@ -6,7 +6,7 @@
 #   copyright and license terms.
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-"""Helper for parameter validation, documentation and conversion"""
+"""Basic constraints for declaring essential data types, values, and ranges"""
 
 __docformat__ = 'restructuredtext'
 
