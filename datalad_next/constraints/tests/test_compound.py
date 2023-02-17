@@ -4,6 +4,7 @@ import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
+from datalad_next.datasets import Dataset
 from datalad_next.utils import on_windows
 
 from ..basic import (
@@ -11,6 +12,7 @@ from ..basic import (
     EnsureBool,
 )
 from ..compound import (
+    ConstraintWithPassthrough,
     EnsureIterableOf,
     EnsureListOf,
     EnsureTupleOf,
@@ -75,7 +77,7 @@ def test_EnsureIterableOf():
     assert list(EnsureIterableOf(_myiter, int)(_mygen())) == [3, 1, 2]
 
 
-def test_EnsureMapping():
+def test_EnsureMapping(tmp_path):
     true_key = 5
     true_value = False
 
@@ -111,6 +113,12 @@ def test_EnsureMapping():
             d = constraint(v)
 
     # TODO test for_dataset() once we have a simple EnsurePathInDataset
+    # for now just looking for smoke
+    ds = Dataset(tmp_path)
+    cds = constraint.for_dataset(ds)
+    assert cds._key_constraint == constraint._key_constraint.for_dataset(ds)
+    assert cds._value_constraint == \
+        constraint._value_constraint.for_dataset(ds)
 
 
 def test_EnsureGeneratorFromFileLike():
@@ -118,7 +126,7 @@ def test_EnsureGeneratorFromFileLike():
     constraint = EnsureGeneratorFromFileLike(item_constraint)
 
     assert 'items of type "mapping of int -> bool" read from a file-like' \
-        ==  constraint.short_description()
+        == constraint.short_description()
 
     c = constraint(StringIO("5::yes\n1234::no\n"))
     assert isgenerator(c)
@@ -150,3 +158,22 @@ def test_EnsureGeneratorFromFileLike():
     # invalid file
     with pytest.raises(ValueError) as e:
         list(constraint('pytestNOTHEREdatalad'))
+
+def test_ConstraintWithPassthrough(tmp_path):
+    wrapped = EnsureInt()
+    cwp = ConstraintWithPassthrough(wrapped, passthrough='mike')
+    # main purpose
+    assert cwp('mike') == 'mike'
+    assert cwp('5') == 5
+    # most info is coming straight from `wrapped`, the pass-through is
+    # meant to be transparent
+    assert str(cwp) == str(wrapped)
+    assert cwp.short_description() == wrapped.short_description()
+    assert cwp.long_description() == wrapped.long_description()
+    # but repr reveals it
+    assert repr(cwp).startswith('ConstraintWithPassthrough(')
+    # tailoring for a dataset keeps the pass-through
+    ds = Dataset(tmp_path)
+    cwp_ds = cwp.for_dataset(ds)
+    assert cwp_ds.passthrough == cwp.passthrough
+    assert cwp.constraint == wrapped.for_dataset(ds)
