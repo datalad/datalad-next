@@ -150,7 +150,7 @@ def test_EnsureParameterConstraint_passthrough():
     assert c(dict(p=None)) == {'p': None}
     # even when the actual value constraint would not
     with pytest.raises(TypeError):
-        c.parameter_constraint(None)
+        c.parameter_constraint.constraint(None)
     # setting is retrievable
     assert c.passthrough_value is None
 
