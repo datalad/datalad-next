@@ -18,6 +18,8 @@ jobs:
         # mount
         sudo mkdir /crippledfs
         sudo mount -o "uid=$(id -u),gid=$(id -g)" /crippledfs.img /crippledfs
+    - uses: docker-practice/actions-setup-docker@master
+      timeout-minutes: 12
     - name: Set up environment
       run: |
         git config --global user.email "test@github.land"
@@ -31,6 +33,15 @@ jobs:
         cache-dependency-path: |
           **/setup.cfg
           **/requirements*.txt
+    - name: Cache httpbin docker image
+      uses: actions/cache@v3
+      with:
+        # we can use a constant key, this image rarely ever changes
+        # if ever needed, this cache entry can be removed via the
+        # actions management web interface
+        key: httpbin.dockerimg
+        path: |
+          ~/cache/httpbin.dockerimg
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -39,6 +50,8 @@ jobs:
         # use recent git-annex snapshot
         datalad-installer -E ~/dlinstaller_env.sh --sudo ok git-annex -m snapshot
         python -m pip install -r requirements-devel.txt
+        # deploy the httpbin image
+        tools/appveyor/docker-load-httpbin
     - name: Installation
       run: |
         # package install
@@ -51,6 +64,8 @@ jobs:
       run: |
         # enable git-annex
         . ~/dlinstaller_env.sh
+        # run httpbin container
+        docker run -p 8765:80 kennethreitz/httpbin &
         mkdir -p __testhome__
         cd __testhome__
         # give detailed info on actual test setup
