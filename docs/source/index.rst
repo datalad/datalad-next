@@ -66,6 +66,7 @@ Python utilities
 
    commands.ValidatedInterface
    constraints
+   credman.manager
    exceptions
    url_operations
    url_operations.any
@@ -73,7 +74,6 @@ Python utilities
    url_operations.http
    url_operations.ssh
    utils
-   utils.credman
    utils.http_helpers
    utils.requests_auth
 

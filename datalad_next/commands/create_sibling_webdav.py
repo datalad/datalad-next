@@ -56,7 +56,7 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 
 class CreateSiblingWebDAVParamValidator(EnsureCommandParameterization):
-    def joint_validation(self, params: Dict) -> Dict:
+    def joint_validation(self, params: Dict, on_error: str) -> Dict:
         p = ParamDictator(params)
         if p.url.scheme == "http":
             lgr.warning(

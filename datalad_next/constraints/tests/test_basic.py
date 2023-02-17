@@ -241,6 +241,7 @@ def test_range():
 
     # Range doesn't have to be numeric
     c = EnsureRange(min="e", max="qqq")
+    assert c.short_description() == "in range from 'e' to 'qqq'"
     assert c('e') == 'e'
     assert c('fa') == 'fa'
     assert c('qq') == 'qq'

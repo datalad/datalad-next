@@ -172,7 +172,7 @@ def test_bad_url_catching(path=None):
     for bad_url, expected_message in check_pairs:
         with pytest.raises(ValueError) as e:
             create_sibling_webdav(dataset=ds, url=bad_url)
-        assert expected_message.format(url=bad_url) in str(e.value.__cause__)
+        assert expected_message.format(url=bad_url) in str(e.value)
 
 
 @with_tempfile
@@ -209,7 +209,7 @@ def test_constraints_checking(path=None):
         with pytest.raises(ValueError) as e:
             create_sibling_webdav(
                 dataset=ds, url=url, **{key: "illegal-value"})
-        assert "is not one of" in str(e.value.__cause__)
+        assert "is not one of" in str(e.value)
 
 
 @with_tempfile
@@ -222,7 +222,7 @@ def test_name_clash_detection(path=None):
         with pytest.raises(ValueError) as e:
             create_sibling_webdav(
                 dataset=ds, url=url, name="abc", storage_name="abc", mode=mode)
-        assert "sibling names must not be equal" in str(e.value.__cause__)
+        assert "sibling names must not be equal" in str(e.value)
 
 
 @with_tempfile

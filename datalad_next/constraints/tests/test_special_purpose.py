@@ -2,7 +2,6 @@ from io import StringIO
 import pytest
 
 from datalad_next.commands import Parameter
-from datalad_next.exceptions import NoDatasetFound
 from datalad_next.utils import chpwd
 
 from ..basic import (
@@ -12,6 +11,7 @@ from ..basic import (
 )
 from ..compound import EnsureGeneratorFromFileLike
 from ..dataset import EnsureDataset
+from ..exceptions import NoDatasetFound
 from ..formats import (
     EnsureJSON,
     EnsureURL,

@@ -25,6 +25,7 @@ from datalad_next.commands import (
     EnsureCommandParameterization,
     ValidatedInterface,
     Parameter,
+    ParameterConstraintContext,
     build_doc,
     eval_results,
     generic_result_renderer,
@@ -47,32 +48,64 @@ credential_actions = ('query', 'get', 'set', 'remove')
 
 
 class CredentialsParamValidator(EnsureCommandParameterization):
-    def joint_validation(self, params: Dict) -> Dict:
-        p = ParamDictator(params)
+    def __init__(self):
+        super().__init__(
+            param_constraints=dict(
+                action=EnsureChoice(*credential_actions),
+                dataset=EnsureDataset(
+                    # we do not actually require it
+                    installed=None,
+                    purpose='manage credentials',
+                ),
+                name=EnsureStr(),
+                prompt=EnsureStr(),
+            ),
+            validate_defaults=('dataset',),
+            # order in joint_constraints is relevant!
+            joint_constraints={
+                ParameterConstraintContext(('action', 'name', 'spec'),
+                                           'CLI normalization'):
+                self._normalize_cli_params,
+                ParameterConstraintContext(('spec',),
+                                           'credential spec normalization'):
+                self._normalize_spec,
+                # check parameter requirements for particular actions
+                ParameterConstraintContext(('action', 'name'),
+                                           'remove-action requirements'):
+                self._check_remove_requirements,
+                ParameterConstraintContext(('action', 'name', 'spec'),
+                                           'get-action requirements'):
+                self._check_get_requirements,
+            },
+        )
 
-        if p.action in ('get', 'set', 'remove') and not p.name and p.spec \
-                and isinstance(p.spec, list):
+    def _normalize_cli_params(self, action, name, spec):
+        if action in ('get', 'set', 'remove') and not name and spec \
+                and isinstance(spec, list):
             # spec came in like from the CLI (but doesn't have to be from
             # there) and we have no name set
-            if p.spec[0][0] != ':' and '=' not in p.spec[0]:
-                p.name = p.spec[0]
-                p.spec = p.spec[1:]
+            if spec[0][0] != ':' and '=' not in spec[0]:
+                name = spec[0]
+                spec = spec[1:]
+        return dict(action=action, name=name, spec=spec)
 
+    def _normalize_spec(self, spec):
         # `spec` could be many things, make uniform dict
-        p.spec = normalize_specs(p.spec)
+        return dict(spec=normalize_specs(spec))
 
-        if p.action == 'remove' and not p.name:
-            raise ValueError(
-                f"Credential name must be provided for action {p.action!r}")
-        if p.action == 'get' and not p.name and not p.spec:
-            raise ValueError(
-                "Cannot get credential properties when no name and no "
-                "property specification is provided")
+    def _check_remove_requirements(self, action, name):
+        if action == 'remove' and not name:
+            self.raise_for(
+                dict(action=action, name=name),
+                'no credential name provided',
+            )
 
-        params['name'] = p.name
-        params['spec'] = p.spec
-
-        return params
+    def _check_get_requirements(self, action, name, spec):
+        if action == 'get' and not name and not spec:
+            self.raise_for(
+                dict(action=action, name=name, spec=spec),
+                'no name or credential property specified',
+            )
 
 
 @build_doc
@@ -255,16 +288,7 @@ class Credentials(ValidatedInterface):
              code_cmd="datalad credentials --prompt 'can I haz info plz?' get newcred :newproperty"),
     ]
 
-    _validator_ = CredentialsParamValidator(dict(
-        action=EnsureChoice(*credential_actions),
-        dataset=EnsureDataset(
-            # we do not actually require it
-            installed=None,
-            purpose='manage credentials',
-        ),
-        name=EnsureStr(),
-        prompt=EnsureStr(),
-    ))
+    _validator_ = CredentialsParamValidator()
 
     @staticmethod
     @datasetmethod(name='credentials')

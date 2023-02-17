@@ -109,7 +109,7 @@ def check_credentials_cli():
         if external_versions['datalad'] > '0.17.9':
             # depends on (yet unreleased)
             # https://github.com/datalad/datalad/pull/7210
-            cml.assert_logged('.*name must be provided')
+            assert '  no credential name provided' in cml.lines
     # catch missing `name` via Python call too
     assert_raises(IncompleteResultsError, cred, 'set', spec=[':mike'])
     # no name and no property

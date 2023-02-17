@@ -3,22 +3,20 @@ from __future__ import annotations
 from collections.abc import Container
 from typing import (
     Any,
+    Callable,
     Dict,
     TYPE_CHECKING,
+    Type,
     TypeVar,
 )
 
-from .base import (
-    Constraint,
-    ConstraintDerived,
-)
+from .base import Constraint
 from .basic import (
     EnsureBool,
     EnsureChoice,
     EnsureFloat,
     EnsureInt,
     EnsureStr,
-    EnsureValue,
     NoConstraint,
 )
 from .compound import (
@@ -26,14 +24,20 @@ from .compound import (
     EnsureMapping,
 )
 
+from .exceptions import (
+    ConstraintError,
+    ParametrizationErrors,
+    CommandParametrizationError,
+    ParameterConstraintContext,
+)
+
 if TYPE_CHECKING:  # pragma: no cover
     from datalad_next.commands import Parameter
 
-aEnsureParameterConstraint = TypeVar(
-    'aEnsureParameterConstraint',
-    bound='aEnsureParameterConstraint',
+EnsureParameterConstraint_T = TypeVar(
+    'EnsureParameterConstraint_T',
+    bound='EnsureParameterConstraint',
 )
-aParameter = TypeVar('aParameter', bound='Parameter')
 
 
 class NoValue:
@@ -63,7 +67,7 @@ class EnsureParameterConstraint(EnsureMapping):
     valid_param_name_regex = r'[a-z]{1}[a-z0-9_]*'
 
     def __init__(self,
-                 constraint: ConstraintDerived,
+                 constraint: Constraint,
                  passthrough: Any = NoValue):
         """
         Parameters
@@ -103,11 +107,11 @@ class EnsureParameterConstraint(EnsureMapping):
 
     @classmethod
     def from_parameter(
-            cls,
-            spec: aParameter,
+            cls: Type[EnsureParameterConstraint_T],
+            spec: Parameter,
             default: Any,
-            item_constraint: ConstraintDerived = None,
-            nargs: str or int = None) -> aEnsureParameterConstraint:
+            item_constraint: Constraint | None = None,
+            nargs: str | int | None = None) -> EnsureParameterConstraint_T:
         """
         Parameters
         ----------
@@ -147,9 +151,10 @@ _constraint_spec_map = {
 
 
 def _get_comprehensive_constraint(
-        param_spec: aParameter,
-        item_constraint_override: ConstraintDerived = None,
-        nargs_override: str or int = None):
+        param_spec: Parameter,
+        # TODO remove `str` when literal constraint support is removed
+        item_constraint_override: Constraint | str | None = None,
+        nargs_override: str | int | None = None):
     action = param_spec.cmd_kwargs.get('action')
     # definitive per-item constraint, consider override
     # otherwise fall back on Parameter.constraints
@@ -222,12 +227,65 @@ def _get_comprehensive_constraint(
 
 
 class EnsureCommandParameterization(Constraint):
+    """Base class for `ValidatedInterface` parameter validators
+
+    This class can be used as-is, by declaring individual constraints
+    in the constructor, or it can be subclassed to consolidate all
+    custom validation-related code for a command in a single place.
+
+    Commonly this constraint is used by declaring particular value constraints
+    for individual parameters as a mapping. Declaring that the ``path``
+    parameter should receive something that is or can be coerced to
+    a valid ``Path`` object looks like this::
+
+      EnsureCommandParameterization({'path': EnsurePath()})
+
+    This class differs from a standard ``Constraint`` implementation,
+    because its ``__call__()`` method support additional arguments
+    that are used by the internal ``Interface`` handling code to
+    control how parameters are validated.
+
+    During validation, when no validator for a particular parameter is
+    declared, any input value is passed on as-is, and otherwise an input is
+    passed through the validator.
+
+    There is one exception to this rule: When a parameter value is identical to
+    its default value (as declared in the command signature, and communicated
+    via the ``at_default`` argument of ``__call__()``), this default
+    value is also passed as-is, unless the respective parameter name is
+    included in the ``validate_defaults`` constructor argument.
+
+    An important consequence of this behavior is that validators need
+    not cover a default value. For example, a parameter constraint for
+    ``path=None``, where ``None`` is a special value used to indicate an
+    optional and unset value, but actually only paths are acceptable input
+    values. can simply use ``EnsurePath()`` and it is not necessary to do
+    something like ``EnsurePath() | EnsureNone()``.
+
+    However, `EnsureCommandParameterization` can also be specifically
+    instructed to perform validation of defaults for individual parameters, as
+    described above.  A common use case is the auto-discovery of datasets,
+    where often `None` is the default value of a `dataset` parameter (to make
+    it optional), and an `EnsureDataset` constraint is used. This constraint
+    can perform the auto-discovery (with the `None` value indicating that), but
+    validation of defaults must be turned on for the `dataset` parameter in
+    order to do that.
+
+    A second difference to a common ``Constraint`` implementation is the
+    ability to perform an "exhaustive validation" on request (via
+    ``__call__(on_error=...)``). In this case, validation is not stopped at the
+    first discovered violation, but all violations are collected and
+    communicated by raising a ``CommandParametrizationError`` exception, which
+    can be inspected by a caller for details on number and nature of all
+    discovered violations.
     """
-    """
-    def __init__(self,
-                 param_constraints: dict[ConstraintDerived],
-                 *,
-                 validate_defaults: Container[str] | None = None,
+    def __init__(
+        self,
+        param_constraints: Dict[str, Constraint],
+        *,
+        validate_defaults: Container[str] | None = None,
+        joint_constraints:
+            Dict[ParameterConstraintContext, Callable] | None = None,
     ):
         """
         Parameters
@@ -236,38 +294,142 @@ class EnsureCommandParameterization(Constraint):
           Mapping of parameter names to parameter constraints. On validation
           an ``EnsureParameterConstraint`` instance will be created for
           each item in this dict.
-        validate_defaults: container(str)
+        validate_defaults: container(str), optional
           If given, this is a set of parameter names for which the default
           rule, to not validate default values, does not apply and
           default values shall be passed through a given validator.
+        joint_constraints: dict, optional
+          Specification of higher-order constraints considering multiple
+          parameters together. See the ``joint_validation()`` method for
+          details. Constraints will be processed in the order in which
+          they are declared in the mapping. Earlier validators can modify
+          the parameter values that are eventually passed to validators
+          executed later.
         """
         super().__init__()
         self._param_constraints = param_constraints
+        self._joint_constraints = joint_constraints
         self._validate_defaults = validate_defaults or set()
 
-    def joint_validation(self, params: Dict) -> Dict:
-        """Implement for joint validation of the full parameterization
+    def joint_validation(self, params: Dict, on_error: str) -> Dict:
+        """Higher-order validation considering multiple parameters at a time
 
         This method is called with all, individually validated, command
         parameters in keyword-argument form in the ``params`` dict argument.
 
-        Arbritrary additional validation steps can be performed on the full
+        Arbitrary additional validation steps can be performed on the full
         set of parameters that may involve raising exceptions on validation
         errors, but also value transformation or replacements of individual
         parameters based on the setting of others.
 
-        The parameter values return by the method are passed on to the
+        The parameter values returned by the method are passed on to the
         respective command implementation.
+
+        The default implementation iterates over the ``joint_validators``
+        specification given to the constructor, in order to perform
+        any number of validations. This is a mapping of a
+        ``ParameterConstraintContext`` instance to a callable implementing a
+        validation for a particular parameter set.
+
+        Example::
+
+          _joint_validators_ = {
+              ParameterConstraintContext(('p1', 'p2'), 'sum'):
+                  MyValidator._check_sum,
+          }
+
+          def _checksum(self, p1, p2):
+              EnsureRange(min=3)(p1 + p2)
+
+        The callable will be passed the arguments named in the
+        ``ParameterConstraintContext`` as keyword arguments, using the same
+        names as originally given to ``EnsureCommandParameterization``. Any
+        raised ``ConstraintError`` is caught and reported together with the
+        respective ``ParameterConstraintContext``. If the callable anyhow
+        modifies the passed arguments, it must return them as a kwargs-like
+        mapping.  If nothing is modified, it is OK to return ``None``.
 
         Returns
         -------
         dict
-          The returned dict must have a value for each item pass in via
+          The returned dict must have a value for each item passed in via
           ``params``.
-        """
-        return params
+        on_error: {'raise-early', 'raise-at-end'}
+          Flag how to handle constraint violation. By default, validation is
+          stopped at the first error and an exception is raised. When an
+          exhaustive validation is performed, an eventual exception contains
+          information on all constraint violations.
 
-    def __call__(self, kwargs, at_default=None) -> Dict:
+        Raises
+        ------
+        ConstraintErrors
+          With `on_error='raise-at-end'` an implementation can choose to
+          collect more than one higher-order violation and raise them
+          as a `ConstraintErrors` exception.
+        """
+        # if we have nothing, do nothing
+        if not self._joint_constraints:
+            return params
+
+        exceptions = {}
+        validated = params.copy()
+
+        for ctx, validator in self._joint_constraints.items():
+            # what the validator will produce
+            res = None
+            try:
+                # call the validator with the parameters given in the context
+                # and only with those, to make sure the context is valid
+                # and not an underspecification.
+                # pull the values form `validated` to be able to benefit
+                # from incremental coercing done in individual checks
+                res = validator(**{p: validated[p] for p in ctx.parameters})
+            except ConstraintError as e:
+                exceptions[ctx] = e
+                if on_error == 'raise-early':
+                    raise CommandParametrizationError(exceptions)
+            if res is not None:
+                validated.update(**res)
+
+        if exceptions:
+            raise CommandParametrizationError(exceptions)
+
+        return validated
+
+    def __call__(
+        self,
+        kwargs,
+        at_default=None,
+        on_error='raise-early',
+    ) -> Dict:
+        """
+        Parameters
+        ----------
+        kwargs: dict
+          Parameter name (``str``)) to value (any) mapping of the parameter
+          set.
+        at_default: set or None
+          Set of parameter names where the respective values in ``kwargs``
+          match their respective defaults. This is used for deciding whether
+          or not to process them with an associated value constraint (see the
+          ``validate_defaults`` constructor argument).
+        on_error: {'raise-early', 'raise-at-end'}
+          Flag how to handle constraint violation. By default, validation is
+          stopped at the first error and an exception is raised. When an
+          exhaustive validation is performed, an eventual exception contains
+          information on all constraint violations. Regardless of this mode
+          more than one error can be reported (in case (future) implementation
+          perform independent validations in parallel).
+
+        Raises
+        ------
+        CommandParametrizationError
+          Raised whenever one (or more) ``ConstraintError`` exceptions are
+          caught during validation. Other exception types are not caught and
+          pass through.
+        """
+        assert on_error in ('raise-early', 'raise-at-end')
+        exceptions = {}
         validated = {}
         for argname, arg in kwargs.items():
             if at_default \
@@ -290,17 +452,46 @@ class EnsureCommandParameterization(Constraint):
                 validated[argname] = arg
                 continue
             validator = self._param_constraints.get(argname, lambda x: x)
-            # TODO option to validate all args despite failure
             try:
                 validated[argname] = validator(arg)
-            except Exception as e:
-                raise ValueError(
-                    f'Validation of parameter {argname!r} failed') from e
+            # we catch only ConstraintError -- only these exceptions have what
+            # we need for reporting. If any validator chooses to raise
+            # something else, we do not handle it here, but let it bubble up.
+            # it may be an indication of something being wrong with validation
+            # itself
+            except ConstraintError as e:
+                exceptions[ParameterConstraintContext((argname,))] = e
+                if on_error == 'raise-early':
+                    raise CommandParametrizationError(exceptions)
+
         try:
             # call (subclass) method to perform holistic, cross-parameter
             # validation of the full parameterization
-            validated = self.joint_validation(validated)
-        except Exception as e:
-            raise ValueError('Invalid command parameterization') from e
+            final = self.joint_validation(validated, on_error)
+            # check requirements of .joint_validation(), a particular
+            # implementation could be faulty, and we want to report this
+            # problem in the right context
+            try:
+                final.keys() == validated.keys()
+            except Exception as e:
+                raise RuntimeError(
+                    f"{self.__class__.__name__}.joint_validation() "
+                    "did not return items for all passed parameters. "
+                    "Invalid implementation.") from e
+        # we catch the good stuff first. the underlying implementation is
+        # providing an exception with detailed context info on possibly
+        # multiple errors
+        except ParametrizationErrors as e:
+            # we can simply suck in the reports, the context keys do not
+            # overlap, unless the provided validators want that for some
+            # reason
+            exceptions.update(e.errors)
 
-        return validated
+        if exceptions:
+            raise CommandParametrizationError(exceptions)
+
+        return final
+
+    def short_description(self):
+        # TODO Constraint.__repr__ is shit!
+        return "I have to be here, but I do not want to"
