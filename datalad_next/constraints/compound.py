@@ -1,9 +1,12 @@
 """Constraints that wrap or contain other constraints"""
 
+from __future__ import annotations
+
 from pathlib import Path
 import sys
 from typing import (
     Any,
+    Callable,
     Dict,
     Generator,
 )
@@ -20,9 +23,9 @@ class EnsureIterableOf(Constraint):
     # TODO support a delimiter to be able to take str-lists?
     def __init__(self,
                  iter_type: type,
-                 item_constraint: callable,
-                 min_len: int or None = None,
-                 max_len: int or None = None):
+                 item_constraint: Callable,
+                 min_len: int | None = None,
+                 max_len: int | None = None):
         """
         Parameters
         ----------
@@ -80,9 +83,9 @@ class EnsureIterableOf(Constraint):
 
 class EnsureListOf(EnsureIterableOf):
     def __init__(self,
-                 item_constraint: callable,
-                 min_len: int or None = None,
-                 max_len: int or None = None):
+                 item_constraint: Callable,
+                 min_len: int | None = None,
+                 max_len: int | None = None):
         """
         Parameters
         ----------
@@ -105,9 +108,9 @@ class EnsureListOf(EnsureIterableOf):
 
 class EnsureTupleOf(EnsureIterableOf):
     def __init__(self,
-                 item_constraint: callable,
-                 min_len: int or None = None,
-                 max_len: int or None = None):
+                 item_constraint: Callable,
+                 min_len: int | None = None,
+                 max_len: int | None = None):
         """
         Parameters
         ----------
@@ -201,7 +204,7 @@ class EnsureGeneratorFromFileLike(Constraint):
     existing file to be read from.
     """
 
-    def __init__(self, item_constraint: callable):
+    def __init__(self, item_constraint: Callable):
         """
         Parameters
         ----------
