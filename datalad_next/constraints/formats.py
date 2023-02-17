@@ -1,3 +1,5 @@
+"""Constraints for particular formats or protocols"""
+
 # allow for |-type UnionType declarations
 from __future__ import annotations
 

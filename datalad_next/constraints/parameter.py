@@ -1,3 +1,5 @@
+"""Constraints for command/function parameters"""
+
 from __future__ import annotations
 
 from collections.abc import Container

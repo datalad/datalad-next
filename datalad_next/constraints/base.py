@@ -1,4 +1,6 @@
-""""""
+"""Base classes for constraints and their logical connectives
+"""
+
 from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
