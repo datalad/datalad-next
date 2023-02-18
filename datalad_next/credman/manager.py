@@ -500,15 +500,17 @@ class CredentialManager(object):
         done = set()
         known_credentials = set((n, None) for n in self._get_known_credential_names())
         from itertools import chain
-        for name, type_hint in chain(
+        for name, legacy_type_hint in chain(
                 _yield_legacy_credential_names(),
                 known_credentials):
             if name in done:
                 continue
             done.add(name)
-            cred = self.get(name, _prompt=None, _type_hint=type_hint)
+            cred = self.get(name, _prompt=None, _type_hint=legacy_type_hint)
             if not cred:
                 continue
+            if legacy_type_hint is not None:
+                cred['_from_backend'] = 'legacy'
             if not kwargs:
                 yield (name, cred)
             else:
