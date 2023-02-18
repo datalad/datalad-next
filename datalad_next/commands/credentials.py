@@ -384,6 +384,8 @@ class Credentials(ValidatedInterface):
             '✓' if res.get('cred_secret') else '✗',
         )
 
+        if res.pop('from_backend', None) == 'legacy':
+            res['type'] = 'legacy-credential'
         if 'message' not in res:
             # give the names of all properties
             # but avoid duplicating the type, hide the prefix,

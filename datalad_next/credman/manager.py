@@ -161,16 +161,36 @@ class CredentialManager(object):
             # if we have a chance to query for stored legacy credentials
             # we do this first to have the more modern parts of the
             # system overwrite them reliably
-            cred = self._get_legacy_field_from_keyring(
-                name, kwargs.get('type', _type_hint)) or {}
+            _type_hint = kwargs.get('type', _type_hint)
+            if not _type_hint:
+                # no type hint given in any form. Last chance is that
+                # this is a known legacy credential.
+                # doing this query is a bit expensive, but getting a
+                # credential is not a high-performance procedure, and
+                # the gain in convenience is substantial -- otherwise
+                # users would need to somehow know what they should be
+                # looking for
+                _type_hint = dict(_yield_legacy_credential_types()).get(name)
+            cred = self._get_legacy_credential_from_keyring(
+                name, _type_hint) or {}
+            if cred:
+                # at least some info came from the legacy backend, record that
+                cred['_from_backend'] = 'legacy'
 
+            # and now take whatever we got from the legacy store and update
+            # it from what we have in the config
             var_prefix = _get_cred_cfg_var(name, '')
-            # get related info from config
-            cred.update({
+            cred_update = {
                 k[len(var_prefix):]: v
                 for k, v in self._cfg.items()
                 if k.startswith(var_prefix)
-            })
+            }
+            if set(cred_update.keys()) >= set(
+                    k for k in cred.keys() if k != '_from_backend'):
+                # we are overwriting all info from a possible legacy credential
+                # take marker off
+                cred.pop('_from_backend', None)
+            cred.update(cred_update)
 
         # final word on the credential type
         _type_hint = cred.get('type', kwargs.get('type', _type_hint))
@@ -220,13 +240,13 @@ class CredentialManager(object):
         if secret:
             cred['secret'] = secret
 
-        if 'type' not in cred and kwargs.get('type'):
-            # enhance legacy credentials
-            cred['type'] = kwargs.get('type')
-
         if not cred:
             # if there is absolutely nothing to report, report None
             return
+
+        if 'type' not in cred and _type_hint:
+            # make sure we always report a type whenever we have any clue
+            cred['type'] = _type_hint
 
         # report whether there were any edits to the credential record
         # (incl. being entirely new), such that consumers can decide
@@ -348,7 +368,7 @@ class CredentialManager(object):
         # and properties. This will migrate them to the new setup
         # over time
         type_hint = kwargs.get('type')
-        cred = self._get_legacy_field_from_keyring(name, type_hint) or {}
+        cred = self._get_legacy_credential_from_keyring(name, type_hint) or {}
         # amend with given properties
         cred.update(**kwargs)
         # update last-used, if requested
@@ -500,15 +520,21 @@ class CredentialManager(object):
         done = set()
         known_credentials = set((n, None) for n in self._get_known_credential_names())
         from itertools import chain
-        for name, type_hint in chain(
-                _yield_legacy_credential_names(),
+        for name, legacy_type_hint in chain(
+                _yield_legacy_credential_types(),
                 known_credentials):
-            if name in done:
-                continue
             done.add(name)
-            cred = self.get(name, _prompt=None, _type_hint=type_hint)
-            if not cred:
-                continue
+            cred = self.get(name, _prompt=None, _type_hint=legacy_type_hint)
+            if not cred and legacy_type_hint:
+                # this legacy-type credential is not set. We still want to
+                # report on it, because it is the only way for users that
+                # discover these predefined credential "slots"
+                cred = dict(type=legacy_type_hint)
+            if legacy_type_hint is not None:
+                # leading underscore to distinguish this internal marker from
+                # an actual credential property.
+                # the credentials command will then also treat it as such
+                cred['_from_backend'] = 'legacy'
             if not kwargs:
                 yield (name, cred)
             else:
@@ -752,7 +778,15 @@ class CredentialManager(object):
                 "configuration scope. Remove manually")
         self._cfg.reload()
 
-    def _get_legacy_field_from_keyring(self, name, type_hint):
+    def _get_legacy_credential_from_keyring(
+            self,
+            name: str,
+            type_hint: str,
+    ) -> Dict | None:
+        """With a ``type_hint`` given, attempts to retrieve a credential
+        comprised of all fields defined in ``self._cred_types``. Otherwise
+        ``None`` is returned.
+        """
         if not type_hint or type_hint not in self._cred_types:
             return
 
@@ -766,9 +800,12 @@ class CredentialManager(object):
                 # legacy credentials used property names with underscores,
                 # but this is no longer syntax-compliant -- fix on read
                 cred[field.replace('_', '-')] = val
-        if 'type' not in cred:
-            cred['type'] = type_hint
-        return cred
+
+        if not cred:
+            # there is nothing on a legacy credential with this name
+            return None
+        else:
+            return cred
 
     def _get_secret(self, name, type_hint=None):
         secret = self._cfg.get(_get_cred_cfg_var(name, 'secret'))
@@ -875,7 +912,7 @@ class CredentialManager(object):
         return mapping
 
 
-def _yield_legacy_credential_names():
+def _yield_legacy_credential_types():
     # query is constrained by non-secrets, no constraints means report all
     # a constraint means *exact* match on all given properties
     from datalad.downloaders.providers import (
@@ -884,9 +921,15 @@ def _yield_legacy_credential_names():
     )
     type_hints = {v: k for k, v in CREDENTIAL_TYPES.items()}
 
+    # ATTN: from Providers.from_config_files() is sensitive to the PWD
+    # it will only read legacy credentials from datasets whenever
+    # PWD is inside a dataset
     legacy_credentials = set(
         (p.credential.name, type(p.credential))
-        for p in Providers.from_config_files()
+        # without reload, no changes in files since the last call
+        # will be considered. That last call might have happended
+        # in datalad-core, and may have been in another directory
+        for p in Providers.from_config_files(reload=True)
         if p.credential
     )
     for name, type_ in legacy_credentials:
