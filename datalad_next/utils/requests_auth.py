@@ -122,11 +122,17 @@ class DataladAuth(requests.auth.AuthBase):
             # get a realm ID for this authentication scheme
             realm = get_auth_realm(url, auth_schemes, scheme=ascheme)
             # ask for matching credentials
-            creds = self._credman.query(
-                _sortby='last-used',
-                type=ctype,
-                realm=realm,
-            )
+            creds = [
+                (name, cred) for name, cred in self._credman.query(
+                    _sortby='last-used',
+                    type=ctype,
+                    realm=realm,
+                )
+                # we can only work with complete credentials, although
+                # query() might return others. We exclude them here
+                # to be able to fall back on manual entry further down
+                if cred.get('secret')
+            ]
             if creds:
                 # we have matches, go with the last used one
                 name, cred = creds[0]
