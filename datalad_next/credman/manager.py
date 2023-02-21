@@ -148,6 +148,7 @@ class CredentialManager(object):
           When the method is called without any information that could be
           used to identify a credential
         """
+        print(f"======\nCredMan.get(name={name!r}, _prompt={_prompt!r}, _type_hint={_type_hint!r}, **{kwargs!r})")
         if name is None and _type_hint is None and not kwargs:
             # there is no chance that this could work
             raise ValueError(
