@@ -208,6 +208,10 @@ def test_download_no_credential_leak_to_http(capsys):
     'dataladtest_test_download_new_bearer_token',
 ])
 def test_download_new_bearer_token(capsys):
+    from pprint import pprint
+    pprint(credentials('query'))
+    print('================')
+    pprint(credentials('get', name='dataladtest_test_download_new_bearer_token', on_failure='ignore'))
     try:
         download({f'{hbsurl}/bearer': '-'})
         # and it was saved under this name
