@@ -93,6 +93,13 @@ class CredentialManager(object):
 
     # main API
     #
+
+    #
+    # Design remark:
+    # This is the keyhole through which any retrieval-related processing goes
+    # (get, query, obtain). Any normalization performed in here will
+    # automatically also effect these other operations.
+    #
     def get(self, name=None, *, _prompt=None, _type_hint=None, **kwargs):
         """Get properties and secret of a credential.
 
@@ -179,12 +186,7 @@ class CredentialManager(object):
 
             # and now take whatever we got from the legacy store and update
             # it from what we have in the config
-            var_prefix = _get_cred_cfg_var(name, '')
-            cred_update = {
-                k[len(var_prefix):]: v
-                for k, v in self._cfg.items()
-                if k.startswith(var_prefix)
-            }
+            cred_update = self._get_credential_from_cfg(name)
             if set(cred_update.keys()) >= set(
                     k for k in cred.keys() if k != '_from_backend'):
                 # we are overwriting all info from a possible legacy credential
@@ -201,58 +203,20 @@ class CredentialManager(object):
                 _type_hint,
                 dict(fields=[], secret=None))
             for k in (cred_type['fields'] or []):
-                if k == cred_type['secret'] or k in kwargs:
+                if k == cred_type['secret'] or k in cred:
                     # do nothing, if this is the secret key
                     # or if we have an incoming value for this key already
                     continue
                 # otherwise make sure we prompt for the essential
                 # fields
-                kwargs[k] = None
+                cred[k] = None
 
-        prompted = False
-        for k, v in kwargs.items():
-            if k == 'secret':
-                # handled below
-                continue
-            if _prompt and v is None and cred.get(k) is None:
-                # ask if enabled, no value was provided,
-                # and no value is already on record
-                v = self._ask_property(k, None if prompted else _prompt)
-                if v is not None:
-                    prompted = True
-            if v:
-                cred[k] = v
-
-        # start locating the secret at the method parameters
-        secret = kwargs.get('secret')
-        if secret is None and name:
-            # get the secret, from the effective config, not just the keystore
-            secret = self._get_secret(name, type_hint=_type_hint)
-        if _prompt and secret is None:
-            secret = self._ask_secret(
-                type_hint=self._cred_types.get(
-                    _type_hint, {}).get('secret'),
-                prompt=None if prompted else _prompt,
-            )
-            if secret:
-                prompted = True
-
-        if secret:
-            cred['secret'] = secret
+        cred = self._complete_credential_props(name, cred, _prompt, _type_hint)
 
         if not cred:
             # if there is absolutely nothing to report, report None
-            return
+             return
 
-        if 'type' not in cred and _type_hint:
-            # make sure we always report a type whenever we have any clue
-            cred['type'] = _type_hint
-
-        # report whether there were any edits to the credential record
-        # (incl. being entirely new), such that consumers can decide
-        # to save a credentials, once battle-tested
-        if prompted:
-            cred['_edited'] = True
         return cred
 
     def set(self,
@@ -724,6 +688,70 @@ class CredentialManager(object):
 
     # internal helpers
     #
+    def _complete_credential_props(
+            self, name: str,
+            cred: Dict,
+            prompt: str | None,
+            # TODO remove this, merge with `cred`
+            _type_hint: str) -> Dict | None:
+        # - prompt for required but missing prompts
+        # - retrieve a secret
+        prompted = False
+        entered = {}
+        for k, v in cred.items():
+            if k == 'secret':
+                # handled below
+                continue
+            if prompt and v is None:
+                # prevent double-prompting for entering a series of properties
+                # of the same credential
+                v = self._ask_property(k, None if prompted else prompt)
+                if v is not None:
+                    prompted = True
+            if v:
+                entered[k] = v
+
+        # bulk merged, cannot do in-loop above, because we iterate over items()
+        cred.update(entered)
+
+        # start locating the secret at the method parameters
+        secret = cred.get('secret')
+        if secret is None and name:
+            # get the secret, from the effective config, not just the keystore
+            secret = self._get_secret(name, type_hint=_type_hint)
+        if prompt and secret is None:
+            secret = self._ask_secret(
+                type_hint=self._cred_types.get(
+                    _type_hint, {}).get('secret'),
+                prompt=None if prompted else prompt,
+            )
+            if secret:
+                prompted = True
+
+        if secret:
+            cred['secret'] = secret
+
+        # TODO merge before and outside, to make this obsolete
+        if 'type' not in cred and _type_hint:
+            # make sure we always report a type whenever we have any clue
+            cred['type'] = _type_hint
+
+        # report whether there were any edits to the credential record
+        # (incl. being entirely new), such that consumers can decide
+        # to save a credentials, once battle-tested
+        if prompted:
+            cred['_edited'] = True
+
+        return cred
+
+    def _get_credential_from_cfg(self, name: str) -> Dict:
+        var_prefix = _get_cred_cfg_var(name, '')
+        return {
+            k[len(var_prefix):]: v
+            for k, v in self._cfg.items()
+            if k.startswith(var_prefix)
+        }
+
     def _get_known_credential_names(self) -> set:
         known_credentials = set(
             '.'.join(k.split('.')[2:-1]) for k in self._cfg.keys()
