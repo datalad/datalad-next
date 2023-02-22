@@ -213,9 +213,14 @@ class CredentialManager(object):
 
         cred = self._complete_credential_props(name, cred, _prompt, _type_hint)
 
-        if not cred:
-            # if there is absolutely nothing to report, report None
-             return
+        if not cred.get('secret'):
+            # no secret, no credential
+            if any(not p.startswith('_') for p in cred):
+                lgr.debug(
+                    'Not reporting on credential fragment with no secret: %r',
+                    cred,
+                )
+            return
 
         return cred
 
@@ -499,6 +504,10 @@ class CredentialManager(object):
                 # an actual credential property.
                 # the credentials command will then also treat it as such
                 cred['_from_backend'] = 'legacy'
+            if not cred:
+                # no info on such a credential, not even legacy info
+                # ignore
+                continue
             if not kwargs:
                 yield (name, cred)
             else:

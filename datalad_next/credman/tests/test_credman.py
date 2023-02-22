@@ -43,10 +43,12 @@ def check_credmanager():
     # doesn't work with thing air
     assert_raises(ValueError, credman.get)
     eq_(credman.get('donotexiststest'), None)
-    # but if there is anything, report it
+    # we get reports as soon as there is a secret available
     # this makes it possible to discover credential fragments, if only to
     # expose them for clean-up
-    eq_(credman.get(crazy='empty'), {'crazy': 'empty'})
+    eq_(credman.get(crazy='empty'), None)
+    eq_(credman.get(crazy='empty', secret='bogus'),
+        {'crazy': 'empty', 'secret': 'bogus'})
     # does not fiddle with a secret that is readily provided
     eq_(credman.get('dummy', secret='mike', _type_hint='token'),
         dict(type='token', secret='mike'))
