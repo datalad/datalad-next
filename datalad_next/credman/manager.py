@@ -705,21 +705,25 @@ class CredentialManager(object):
 
         The given credential is modified in place.
         """
-        ct = cred.get('type')
-        if ct:
-            # import the definition of expected fields from the known
-            # credential types
-            cred_type_def = self._cred_types.get(
-                ct,
-                dict(fields=[], secret=None))
-            for k in (cred_type_def['fields'] or []):
-                if k == cred_type_def['secret'] or k in cred:
-                    # do nothing, if this is the secret key
-                    # or if we have an incoming value for this key already
-                    continue
-                # otherwise make sure we prompt for the essential
-                # fields
-                cred[k] = None
+        cred_type = cred.get('type')
+        # import the definition of expected fields from the known
+        # credential types
+        cred_type_def = self._cred_types.get(
+            cred_type,
+            dict(fields=[], secret=None))
+        required_fields = cred_type_def['fields'] or []
+        secret_field = cred_type_def['secret']
+        # mark required fields for this credential type
+        for k in required_fields:
+            if k == secret_field:
+                # do nothing, if this is the secret key
+                continue
+            if k in cred:
+                # do nothing if we have an incoming value for this key already
+                continue
+            # otherwise make sure we prompt for the essential
+            # fields
+            cred[k] = None
 
         # - prompt for required but missing prompts
         # - retrieve a secret
@@ -745,10 +749,10 @@ class CredentialManager(object):
         secret = cred.get('secret')
         if secret is None and name:
             # get the secret, from the effective config, not just the keystore
-            secret = self._get_secret(name, type_hint=ct)
+            secret = self._get_secret(name, type_hint=cred_type)
         if prompt and secret is None:
             secret = self._ask_secret(
-                type_hint=self._cred_types.get(ct, {}).get('secret'),
+                type_hint=self._cred_types.get(cred_type, {}).get('secret'),
                 prompt=None if prompted else prompt,
             )
             if secret:
