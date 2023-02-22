@@ -205,7 +205,8 @@ class CredentialManager(object):
         # `cred` will have a `type` property after this
         self._assign_credential_type(cred, _type_hint)
 
-        cred = self._complete_credential_props(name, cred, _prompt)
+        # determine what is missing and possibly prompt for it
+        self._complete_credential_props(name, cred, _prompt)
 
         if not cred.get('secret'):
             # no secret, no credential
@@ -701,7 +702,15 @@ class CredentialManager(object):
             self, name: str,
             cred: Dict,
             prompt: str | None,
-    ) -> Dict | None:
+    ) -> None:
+        """Determine missing credential properties, and fill them in
+
+        What properties are missing is determined based on credential
+        type info, and their values will be prompted for (if a prompt
+        was provided).
+
+        The given credential is modified in place.
+        """
         ct = cred.get('type')
         if ct:
             # import the definition of expected fields from the known
@@ -759,8 +768,6 @@ class CredentialManager(object):
         # to save a credentials, once battle-tested
         if prompted:
             cred['_edited'] = True
-
-        return cred
 
     def _get_credential_from_cfg(self, name: str) -> Dict:
         var_prefix = _get_cred_cfg_var(name, '')
