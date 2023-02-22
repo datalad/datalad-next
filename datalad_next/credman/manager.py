@@ -251,9 +251,17 @@ class CredentialManager(object):
           into a parenthical statement after "Enter a name to save the
           credential (...)", e.g. "for download from <URL>".
         **kwargs:
-          Any number of credential property key/value pairs. Values of
-          ``None`` indicate removal of a property from a credential.
-          Properties whose name starts with an underscore are automatically
+          Any number of credential property key/value pairs to set (update),
+          or remove. With one exception, values of ``None`` indicate removal
+          of a property from a credential. However, ``secret=None`` does not
+          lead to the removal of a credential's secret, because it would
+          result in an incomplete credential. Instead, it will cause a
+          credential's effective ``secret`` property to be written to the
+          secret store. The effective secret might come from other sources,
+          such as particular configuration scopes or environment variables
+          (i.e., matching the ``datalad.credential.<name>.secret``
+          configuration item.
+          Properties whose names start with an underscore are automatically
           removed prior storage.
 
         Returns
@@ -318,14 +326,24 @@ class CredentialManager(object):
         kwargs = self._strip_internal_properties(kwargs)
         # check syntax for the rest
         verify_property_names(kwargs)
-        # if we know the type, hence we can do a query for legacy secrets
-        # and properties. This will migrate them to the new setup
-        # over time
-        type_hint = kwargs.get('type')
-        cred = self._get_legacy_credential_from_keyring(name, type_hint) or {}
-        cred = self._strip_internal_properties(cred)
-        # amend with given properties
-        cred.update(**kwargs)
+        # retrieve the previous credential state, so we can merge with the
+        # incremental changes, and report on effective updates
+        prev_cred = self.get(
+            name=name,
+            # we never want any manual interaction at this point
+            _prompt=None,
+            # if we know the type, hence we can do a query for legacy secrets
+            # and properties. This will migrate them to the new setup
+            # over time
+            _type_hint=kwargs.get('type'),
+        )
+        # merge incoming with existing properties to create an updated
+        # credential
+        if prev_cred:
+            prev_cred = self._strip_internal_properties(prev_cred)
+            cred = dict(prev_cred, **kwargs)
+        else:
+            cred = dict(kwargs)
         # update last-used, if requested
         if _lastused:
             cred['last-used'] = datetime.now().isoformat()
@@ -333,7 +351,16 @@ class CredentialManager(object):
         # remove props
         #
         remove_props = [
-            k for k, v in cred.items() if v is None and k != 'secret']
+            k for k, v in cred.items()
+            # can we really know that no 'secret' field was deposited
+            # in the config backend? MIH does not think so. However,
+            # secret=None has special semantics (update secret store
+            # from config), hence we cannot use it to perform removal
+            # of secrets from config here.
+            # MIH did not find a rational for this setup. It was already
+            # part of the original implementation. At least this is
+            # documented in the `kwargs` docstring now.
+            if v is None and k != 'secret']
         self._unset_credprops_anyscope(name, remove_props)
         updated.update(**{k: None for k in remove_props})
 
@@ -366,14 +393,15 @@ class CredentialManager(object):
         # we aim to update the secret in the store, hence we must
         # query for a previous setting in order to reliably report
         # updates
-        prev_secret = self._get_secret_from_keyring(name, type_hint)
+        prev_secret = self._get_secret(prev_cred) if prev_cred else None
         if 'secret' not in cred:
             # we have no removal directive, reuse previous secret
             cred['secret'] = prev_secret
         if cred.get('secret') is None:
             # we want to reset the secret, consider active config
-            cred['secret'] = \
-                self._cfg.get(_get_cred_cfg_var(name, 'secret'))
+            # (which was already queried when retrieving the previous
+            # credential above)
+            cred['secret'] = prev_secret
 
         if cred.get('secret') is None:
             # we have no secret specified or in the store already: ask
@@ -381,14 +409,22 @@ class CredentialManager(object):
             # to set a credential in a context that is known to an
             # interactive user, hence the messaging here can be simple
             cred['secret'] = self._ask_secret(
-                CredentialManager.secret_names.get(type_hint, 'secret'))
+                CredentialManager.secret_names.get(cred.get('type'), 'secret'))
         # at this point we will have a secret. it could be from ENV
         # or provided, or entered. we always want to put it in the
         # store
-        self._keyring.set(name, 'secret', cred['secret'])
-        if cred['secret'] != prev_secret:
-            # only report updated if actually different from before
+        # we never ever write a secret to any other field-name than
+        # 'secret'
+        if cred['secret'] != self._keyring.get(name, 'secret'):
+            # only report updated if actually different from before.
+            # and "before" is what was in the secret store, because
+            # we will write to it next. A secret could have been
+            # provided via an ENV var, hence even with no change from
+            # `prev_cred` there could be a change in the secret store
             updated['secret'] = cred['secret']
+        # TODO make sure that there actually is a secret that is written
+        # and not None
+        self._keyring.set(name, 'secret', cred['secret'])
         return updated
 
     def remove(self, name, *, type_hint=None):
@@ -904,31 +940,6 @@ class CredentialManager(object):
 
         # no secret found anywhere
         return
-
-    def _get_secret_from_keyring(self, name, type_hint=None):
-        """
-        Returns
-        -------
-        str or None
-          None is return when no secret for the given credential name
-          could be found. Otherwise, the secret is returned.
-        """
-        # always get the uniform
-        secret = self._keyring.get(name, 'secret')
-        if secret:
-            return secret
-        # fall back on a different "field" that is inferred from the
-        # credential type
-        secret_field = self._cred_types.get(
-            type_hint, {}).get('secret')
-        if not secret_field:
-            return
-        # first try to get it from the config to catch any overrides
-        secret = self._cfg.get(_get_cred_cfg_var(name, secret_field))
-        if secret is not None:
-            return secret
-        secret = self._keyring.get(name, secret_field)
-        return secret
 
     @property
     def _cfg(self):
