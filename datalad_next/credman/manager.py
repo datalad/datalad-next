@@ -233,11 +233,12 @@ class CredentialManager(object):
         when support for alternative backends is added, at which point
         the ``name`` parameter would become optional.
 
-        All properties provided as `kwargs` with values that are not ``None``
-        will be stored. If ``kwargs`` do not contain a ``secret`` specification,
-        manual entry will be attempted. The associated prompt with be either
-        the name of the ``secret`` field of a known credential (as identified via
-        a ``type`` property), or the label ``'secret'``.
+        All properties provided as `kwargs` with keys not starting with `_` and
+        with values that are not ``None`` will be stored. If ``kwargs`` do not
+        contain a ``secret`` specification, manual entry will be attempted. The
+        associated prompt with be either the name of the ``secret`` field of a
+        known credential (as identified via a ``type`` property), or the label
+        ``'secret'``.
 
         All properties with an associated value of ``None`` will be removed
         (unset).
@@ -325,7 +326,7 @@ class CredentialManager(object):
         # forcing each caller to to this by hand is kinda pointless, if
         # they can never be stored anyway, and e.g. a previous `get()`
         # would include one for any credentials that was manually entered
-        kwargs = {k: v for k, v in kwargs.items() if not k.startswith('_')}
+        kwargs = self._strip_internal_properties(kwargs)
         # check syntax for the rest
         verify_property_names(kwargs)
         # if we know the type, hence we can do a query for legacy secrets
@@ -333,6 +334,7 @@ class CredentialManager(object):
         # over time
         type_hint = kwargs.get('type')
         cred = self._get_legacy_credential_from_keyring(name, type_hint) or {}
+        cred = self._strip_internal_properties(cred)
         # amend with given properties
         cred.update(**kwargs)
         # update last-used, if requested
@@ -692,6 +694,9 @@ class CredentialManager(object):
 
     # internal helpers
     #
+    def _strip_internal_properties(self, cred: Dict) -> Dict:
+        return {k: v for k, v in cred.items() if not k.startswith('_')}
+
     def _assign_credential_type(self, cred, _type_hint=None):
         """Set 'type' property (in-place)"""
         _type_hint = cred.get('type', _type_hint)
