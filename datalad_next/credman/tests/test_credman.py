@@ -18,7 +18,6 @@ from ..manager import (
     _get_cred_cfg_var,
 )
 from datalad_next.tests.utils import (
-    MemoryKeyring,
     assert_in,
     assert_not_in,
     assert_raises,
@@ -31,13 +30,7 @@ from datalad_next.datasets import Dataset
 from datalad_next.utils import chpwd
 
 
-def test_credmanager():
-    # we want all tests to bypass the actual system keyring
-    with patch('datalad.support.keyring_.keyring', MemoryKeyring()):
-        check_credmanager()
-
-
-def check_credmanager():
+def test_credmanager(memory_keyring):
     cfg = ConfigManager()
     credman = CredentialManager(cfg)
     # doesn't work with thing air
@@ -172,13 +165,7 @@ def test_credman_local(path=None):
     credman.remove('notstupid')
 
 
-def test_query():
-    # we want all tests to bypass the actual system keyring
-    with patch('datalad.support.keyring_.keyring', MemoryKeyring()):
-        check_query()
-
-
-def check_query():
+def test_query(memory_keyring):
     cfg = ConfigManager()
     credman = CredentialManager(cfg)
     # set a bunch of credentials with a common realm AND timestamp
@@ -228,13 +215,7 @@ def test_credman_get():
     assert 'mysecret' == res['secret']
 
 
-def test_credman_obtain():
-    # we want all tests to bypass the actual system keyring
-    with patch('datalad.support.keyring_.keyring', MemoryKeyring()):
-        check_obtain()
-
-
-def check_obtain():
+def test_credman_obtain(memory_keyring):
     credman = CredentialManager(ConfigManager())
     # senseless, but valid call
     # could not possibly report a credential without any info
@@ -295,27 +276,27 @@ type = user_password
 """
 
 
-def test_legacy_credentials(tmp_path):
-    # we will use a dataset to host a legacy provider config
-    ds = Dataset(tmp_path).create(result_renderer='disabled')
-    provider_path = ds.pathobj / '.datalad' / 'providers' / 'mylegacycred.cfg'
-    provider_path.parent.mkdir(parents=True, exist_ok=True)
-    provider_path.write_text(legacy_provider_cfg)
+def test_legacy_credentials(memory_keyring, tmp_path):
     # - the legacy code will only ever pick up a dataset credential, when
     #   PWD is inside a dataset
     # - we want all tests to bypass the actual system keyring
     #   'datalad.downloaders.credentials.keyring_' is what the UserPassword
     #   credential will use to store the credential
     # - 'datalad.support.keyring_' is what credman uses
-    # - we need to make them one and the same thing
-    tmp_keyring = MemoryKeyring()
-    with chpwd(tmp_path), \
-            patch('datalad.downloaders.credentials.keyring_', tmp_keyring), \
-            patch('datalad.support.keyring_.keyring', tmp_keyring):
-        check_legacy_credentials(ds)
+    # - we need to make them one and the same thing, and the memory_keyring
+    #   fixture does this by replacing the keyring backend for the runtime
+    #   of the test
+    with chpwd(tmp_path):
+        check_legacy_credentials(memory_keyring, tmp_path)
 
 
-def check_legacy_credentials(ds):
+def check_legacy_credentials(memory_keyring, tmp_path):
+    # we will use a dataset to host a legacy provider config
+    ds = Dataset(tmp_path).create(result_renderer='disabled')
+    provider_path = ds.pathobj / '.datalad' / 'providers' / 'mylegacycred.cfg'
+    provider_path.parent.mkdir(parents=True, exist_ok=True)
+    provider_path.write_text(legacy_provider_cfg)
+
     # shortcut
     cname = 'credmanuniquetestcredentialsetup'
 
@@ -355,11 +336,11 @@ def check_legacy_credentials(ds):
         # the legacy backend, in order to keep old code working
         # with the old info
         # confirm starting point: legacy code keeps user in secret store
-        assert credman._keyring.entries[cname]['user'] == 'mike'
+        assert memory_keyring.store[(f'datalad-{cname}', 'user')] == 'mike'
         assert ds.config.get(f'datalad.credential.{cname}.user') is None
         credman.set(cname, **cred)
         # it remains there
-        assert credman._keyring.entries[cname]['user'] == 'mike'
+        assert memory_keyring.store[(f'datalad-{cname}', 'user')] == 'mike'
         # but is also migrated
         assert ds.config.get(f'datalad.credential.{cname}.user') == 'mike'
         # NOTE: This setup is not without problems. Users will update
@@ -367,7 +348,7 @@ def check_legacy_credentials(ds):
         # however, I did not come up with a better approach that gradually
         # brings users over.
         credman.set(cname, user='newmike', secret='othersecret')
-        assert credman._keyring.entries[cname]['user'] == 'mike'
+        assert memory_keyring.store[(f'datalad-{cname}', 'user')] == 'mike'
         # finally check that the update is reported now
         cred = credman.get(cname)
         assert cred['user'] == 'newmike'
