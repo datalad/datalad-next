@@ -169,21 +169,10 @@ class CredentialManager(object):
             # if we have a chance to query for stored legacy credentials
             # we do this first to have the more modern parts of the
             # system overwrite them reliably
-            _type_hint = kwargs.get('type', _type_hint)
-            if not _type_hint:
-                # no type hint given in any form. Last chance is that
-                # this is a known legacy credential.
-                # doing this query is a bit expensive, but getting a
-                # credential is not a high-performance procedure, and
-                # the gain in convenience is substantial -- otherwise
-                # users would need to somehow know what they should be
-                # looking for
-                _type_hint = dict(_yield_legacy_credential_types()).get(name)
             cred = self._get_legacy_credential_from_keyring(
-                name, _type_hint) or {}
-            if cred:
-                # at least some info came from the legacy backend, record that
-                cred['_from_backend'] = 'legacy'
+                name,
+                type_hint=kwargs.get('type', _type_hint),
+            ) or {}
 
             # and now take whatever we got from the legacy store and update
             # it from what we have in the config
@@ -839,12 +828,23 @@ class CredentialManager(object):
     def _get_legacy_credential_from_keyring(
             self,
             name: str,
-            type_hint: str,
+            type_hint: str | None,
     ) -> Dict | None:
-        """With a ``type_hint`` given, attempts to retrieve a credential
+        """With a ``type_hint`` given or determined from a known legacy
+        credential, attempts to retrieve a credential
         comprised of all fields defined in ``self._cred_types``. Otherwise
         ``None`` is returned.
         """
+        if not type_hint:
+            # no type hint given in any form. Last chance is that
+            # this is a known legacy credential.
+            # doing this query is a bit expensive, but getting a
+            # credential is not a high-performance procedure, and
+            # the gain in convenience is substantial -- otherwise
+            # users would need to somehow know what they should be
+            # looking for
+            type_hint = dict(_yield_legacy_credential_types()).get(name)
+
         if not type_hint or type_hint not in self._cred_types:
             return
 
@@ -863,6 +863,9 @@ class CredentialManager(object):
             # there is nothing on a legacy credential with this name
             return None
         else:
+            # at least some info came from the legacy backend, record that
+            cred['_from_backend'] = 'legacy'
+            cred['type'] = type_hint
             return cred
 
     def _get_secret(self, name, type_hint=None):
