@@ -201,24 +201,11 @@ class CredentialManager(object):
         cred.update(**{k: v for k, v in kwargs.items()
                        if v is not None or k not in cred})
 
-        # final word on the credential type
-        _type_hint = cred.get('type', kwargs.get('type', _type_hint))
-        if _type_hint:
-            # import the definition of expected fields from the known
-            # credential types
-            cred_type = self._cred_types.get(
-                _type_hint,
-                dict(fields=[], secret=None))
-            for k in (cred_type['fields'] or []):
-                if k == cred_type['secret'] or k in cred:
-                    # do nothing, if this is the secret key
-                    # or if we have an incoming value for this key already
-                    continue
-                # otherwise make sure we prompt for the essential
-                # fields
-                cred[k] = None
+        # final word on the credential type, if there is any type info at all
+        # `cred` will have a `type` property after this
+        self._assign_credential_type(cred, _type_hint)
 
-        cred = self._complete_credential_props(name, cred, _prompt, _type_hint)
+        cred = self._complete_credential_props(name, cred, _prompt)
 
         if not cred.get('secret'):
             # no secret, no credential
@@ -704,12 +691,33 @@ class CredentialManager(object):
 
     # internal helpers
     #
+    def _assign_credential_type(self, cred, _type_hint=None):
+        """Set 'type' property (in-place)"""
+        _type_hint = cred.get('type', _type_hint)
+        if _type_hint:
+            cred['type'] = _type_hint
+
     def _complete_credential_props(
             self, name: str,
             cred: Dict,
             prompt: str | None,
-            # TODO remove this, merge with `cred`
-            _type_hint: str) -> Dict | None:
+    ) -> Dict | None:
+        ct = cred.get('type')
+        if ct:
+            # import the definition of expected fields from the known
+            # credential types
+            cred_type_def = self._cred_types.get(
+                ct,
+                dict(fields=[], secret=None))
+            for k in (cred_type_def['fields'] or []):
+                if k == cred_type_def['secret'] or k in cred:
+                    # do nothing, if this is the secret key
+                    # or if we have an incoming value for this key already
+                    continue
+                # otherwise make sure we prompt for the essential
+                # fields
+                cred[k] = None
+
         # - prompt for required but missing prompts
         # - retrieve a secret
         prompted = False
@@ -734,11 +742,10 @@ class CredentialManager(object):
         secret = cred.get('secret')
         if secret is None and name:
             # get the secret, from the effective config, not just the keystore
-            secret = self._get_secret(name, type_hint=_type_hint)
+            secret = self._get_secret(name, type_hint=ct)
         if prompt and secret is None:
             secret = self._ask_secret(
-                type_hint=self._cred_types.get(
-                    _type_hint, {}).get('secret'),
+                type_hint=self._cred_types.get(ct, {}).get('secret'),
                 prompt=None if prompted else prompt,
             )
             if secret:
@@ -746,11 +753,6 @@ class CredentialManager(object):
 
         if secret:
             cred['secret'] = secret
-
-        # TODO merge before and outside, to make this obsolete
-        if 'type' not in cred and _type_hint:
-            # make sure we always report a type whenever we have any clue
-            cred['type'] = _type_hint
 
         # report whether there were any edits to the credential record
         # (incl. being entirely new), such that consumers can decide
