@@ -19,7 +19,6 @@ from ..credentials import (
 from datalad_next.exceptions import IncompleteResultsError
 from datalad_next.utils import external_versions
 from datalad_next.tests.utils import (
-    MemoryKeyring,
     assert_in,
     assert_in_results,
     assert_raises,
@@ -74,12 +73,11 @@ def test_normalize_specs():
         assert_raises(ValueError, normalize_specs, error)
 
 
-def test_credentials():
+def test_credentials(memory_keyring):
     # we want all tests to bypass the actual system keyring
-    with patch('datalad.support.keyring_.keyring', MemoryKeyring()):
-        check_credentials_cli()
-        check_interactive_entry_set()
-        check_interactive_entry_get()
+    check_credentials_cli()
+    check_interactive_entry_set()
+    check_interactive_entry_get()
 
 
 def test_errorhandling_smoketest():
@@ -185,16 +183,16 @@ def test_result_renderer():
     ))
 
 
-def test_extreme_credential_name():
+def test_extreme_credential_name(memory_keyring):
     cred = Credentials()
     extreme = 'ΔЙקم๗あ |/;&%b5{}"'
-    with patch('datalad.support.keyring_.keyring', MemoryKeyring()):
-        assert_in_results(
-            cred('set',
-                 name=extreme,
-                 # use CLI style spec to exercise more code
-                 spec=[f'someprop={extreme}', f'secret={extreme}'],
-            ),
-            cred_someprop=extreme,
-            cred_secret=extreme,
-        )
+    assert_in_results(
+        cred(
+            'set',
+            name=extreme,
+            # use CLI style spec to exercise more code
+            spec=[f'someprop={extreme}', f'secret={extreme}'],
+        ),
+        cred_someprop=extreme,
+        cred_secret=extreme,
+    )
