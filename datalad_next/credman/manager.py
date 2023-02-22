@@ -730,7 +730,9 @@ class CredentialManager(object):
         prompted = False
         entered = {}
         for k, v in cred.items():
-            if k == 'secret':
+            if k in ('secret', secret_field):
+                # a secret is either held in a 'secret' field, or in a dedicated field
+                # defined by the cred_type_def. Both are handled below
                 # handled below
                 continue
             if prompt and v is None:
@@ -745,14 +747,11 @@ class CredentialManager(object):
         # bulk merged, cannot do in-loop above, because we iterate over items()
         cred.update(entered)
 
-        # start locating the secret at the method parameters
-        secret = cred.get('secret')
-        if secret is None and name:
-            # get the secret, from the effective config, not just the keystore
-            secret = self._get_secret(name, type_hint=cred_type)
+        # extract the secret, from the assembled properties or a secret store
+        secret = self._get_secret(cred, name=name, secret_field=secret_field)
         if prompt and secret is None:
             secret = self._ask_secret(
-                type_hint=self._cred_types.get(cred_type, {}).get('secret'),
+                type_hint=secret_field,
                 prompt=None if prompted else prompt,
             )
             if secret:
@@ -872,11 +871,39 @@ class CredentialManager(object):
             cred['type'] = type_hint
             return cred
 
-    def _get_secret(self, name, type_hint=None):
-        secret = self._cfg.get(_get_cred_cfg_var(name, 'secret'))
-        if secret is not None:
+    def _get_secret(
+            self,
+            cred: Dict,
+            name: str | None = None,
+            secret_field: str | None = None,
+    ) -> str | None:
+        """Report a secret
+
+        Either directly from the set of credential properties, or from a
+        secret store.
+        """
+        # from literal 'secret' property
+        secret = cred.get('secret')
+        if secret:
             return secret
-        return self._get_secret_from_keyring(name, type_hint)
+        # from secret store under 'secret' label
+        if name:
+            secret = self._keyring.get(name, 'secret')
+            if secret:
+                return secret
+        # `secret_field` property
+        if secret_field:
+            secret = cred.get(secret_field)
+            if secret:
+                return secret
+        # from secret store under `secret_field` label
+        if name and secret_field:
+            secret = self._keyring.get(name, secret_field)
+            if secret:
+                return secret
+
+        # no secret found anywhere
+        return
 
     def _get_secret_from_keyring(self, name, type_hint=None):
         """
