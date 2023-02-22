@@ -136,7 +136,8 @@ class CredentialManager(object):
           is used to determine a credential type, to possibly enable further
           lookup/entry of additional properties for a known credential type
         **kwargs:
-          Credential property name/value pairs. For any property with a value
+          Credential property name/value pairs to overwrite/amend potentially
+          existing properties. For any property with a value
           of ``None``, manual data entry will be performed, unless a value
           could be retrieved on lookup, or prompting was not enabled.
 
@@ -193,6 +194,12 @@ class CredentialManager(object):
                 # take marker off
                 cred.pop('_from_backend', None)
             cred.update(cred_update)
+
+        # we merge existing credential properties with overrides.
+        # we are only adding 'enter-please' markers (i.e. None) for properties
+        # that have no known value yet
+        cred.update(**{k: v for k, v in kwargs.items()
+                       if v is not None or k not in cred})
 
         # final word on the credential type
         _type_hint = cred.get('type', kwargs.get('type', _type_hint))
