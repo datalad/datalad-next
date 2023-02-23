@@ -210,7 +210,7 @@ def test_download_no_credential_leak_to_http(capsys):
 def test_download_new_bearer_token(capsys):
     from pprint import pprint
     print('====query=====')
-    #credentials('query')
+    pprint(credentials('query', dataset='.'))
     print('====query done=====')
     try:
         download({f'{hbsurl}/bearer': '-'})
