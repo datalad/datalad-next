@@ -201,8 +201,9 @@ class CredentialManager(object):
             # no secret, no credential
             if any(not p.startswith('_') for p in cred):
                 lgr.debug(
-                    'Not reporting on credential fragment with no secret: %r',
-                    cred,
+                    'Not reporting on credential fragment '
+                    '(name=%r) with no secret: %r',
+                    name, cred,
                 )
             return
 
@@ -727,6 +728,17 @@ class CredentialManager(object):
         _type_hint = cred.get('type', _type_hint)
         if _type_hint:
             cred['type'] = _type_hint
+            return
+
+        # if we get here, we don't know what type this is
+        # let's derive one for a few clear-cut cases where we can be
+        # reasonable sure what type a credential is
+        if set(cred) == set(('token',)):
+            # all we have is a token property -- very likely a token-type
+            # credential. Move the token to the secret property and
+            # assign the type
+            cred['type'] = 'token'
+            cred['secret'] = cred.pop('token')
 
     def _complete_credential_props(
             self, name: str,

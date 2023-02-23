@@ -215,6 +215,21 @@ def test_credman_get():
     assert 'mysecret' == res['secret']
 
 
+def test_credman_get_guess_type():
+    # define token-only-no-type credential in config override
+    credman = CredentialManager(
+        ConfigManager(overrides={
+            'datalad.credential.mike.token': 'some',
+        })
+    )
+    # we get it reported fine, token property converted to the
+    # 'secret' and a proper 'type' assigned
+    assert credman.get('mike') == {
+        'secret': 'some',
+        'type': 'token',
+    }
+
+
 def test_credman_obtain(memory_keyring):
     credman = CredentialManager(ConfigManager())
     # senseless, but valid call
