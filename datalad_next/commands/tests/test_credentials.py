@@ -74,9 +74,10 @@ def test_normalize_specs():
 
 
 def test_credentials(memory_keyring):
+    import pdb; pdb.set_trace()
     # we want all tests to bypass the actual system keyring
-    #check_credentials_cli()
-    #check_interactive_entry_set()
+    check_credentials_cli()
+    check_interactive_entry_set()
     check_interactive_entry_get()
 
 

@@ -208,8 +208,17 @@ def test_download_no_credential_leak_to_http(capsys):
     'dataladtest_test_download_new_bearer_token',
 ])
 def test_download_new_bearer_token(capsys):
+    from pprint import pprint
+    print('====query=====')
+    credentials('query')
+    print('====query done=====')
     try:
         download({f'{hbsurl}/bearer': '-'})
+        print('====checkcred=====')
+        pprint(credentials('get',
+                           name='dataladtest_test_download_new_bearer_token',
+                           on_failure='ignore'))
+        print('====checkcred done=====')
         # and it was saved under this name
         assert_result_count(
             credentials(
@@ -218,10 +227,17 @@ def test_download_new_bearer_token(capsys):
             1, cred_secret='token123', cred_type='token',
         )
     finally:
-        credentials(
+        pprint(credentials(
             'remove',
             name='dataladtest_test_download_new_bearer_token',
         )
+        )
+        print('====remove done=====')
+        print('====checkcred=====')
+        pprint(credentials('get',
+                            name='dataladtest_test_download_new_bearer_token',
+                            on_failure='ignore'))
+        print('====checkcred done=====')
 
 
 @with_testsui(responses=[
