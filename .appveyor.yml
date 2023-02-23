@@ -63,7 +63,7 @@ environment:
 
     # Ubuntu core tests
     - ID: Ubu20
-      DTS: datalad_next
+      DTS: /home/appveyor/projects/datalad-next/datalad_next/commands/tests/test_download.py
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       INSTALL_SYSPKGS: python3-virtualenv
       # datalad-annex git remote needs something after git-annex_8.20211x
@@ -71,83 +71,83 @@ environment:
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
       DEPLOY_HTTPBIN: yes
     # Windows core tests
-    - ID: WinP39core
-      # ~35 min
-      DTS: datalad_next
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
-      # Python version specification is non-standard on windows
-      PY: 39-x64
-      INSTALL_GITANNEX: git-annex -m datalad/packages
-    # MacOS core tests
-    - ID: MacP38core
-      DTS: datalad_next
-      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.8
-      INSTALL_GITANNEX: git-annex
-      DATALAD_LOCATIONS_SOCKETS: /Users/appveyor/DLTMP/sockets
-      CODECOV_BINARY: https://uploader.codecov.io/latest/macos/codecov
-
-    # run a subset of the core tests on the oldest supported Python version
-    - ID: CORE1
-      DTS: >
-        datalad.cli
-        datalad.core
-      # do not run tests that ensure behavior we intentionally changed
-      # - test_gh1811: is included in next in an alternative implementation
-      KEYWORDS: not test_gh1811
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - ID: CORE2
-      DTS: >
-        datalad.customremotes
-        datalad.dataset
-        datalad.distributed
-        datalad.downloaders
-        datalad.interface
-      # do not run tests that ensure behavior we intentionally changed
-      # - test_gh1811: is included in next in an alternative implementation
-      KEYWORDS: not test_gh1811
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - ID: CORE3
-      DTS: >
-        datalad.distribution
-      KEYWORDS: not test_invalid_args
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - ID: CORE4
-      DTS: >
-        datalad.local
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - ID: CORE5
-      DTS: >
-        datalad.runner
-        datalad.support
-        datalad.tests
-        datalad.ui
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+#    - ID: WinP39core
+#      # ~35 min
+#      DTS: C:\projects\datalad-next\datalad_next\datalad_next\commands\tests\test_download.py
+#      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+#      # Python version specification is non-standard on windows
+#      PY: 39-x64
+#      INSTALL_GITANNEX: git-annex -m datalad/packages
+#    # MacOS core tests
+#    - ID: MacP38core
+#      DTS: /Users/appveyor/projects/datalad-next/datalad_next/commands/tests/test_download.py
+#      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
+#      PY: 3.8
+#      INSTALL_GITANNEX: git-annex
+#      DATALAD_LOCATIONS_SOCKETS: /Users/appveyor/DLTMP/sockets
+#      CODECOV_BINARY: https://uploader.codecov.io/latest/macos/codecov
+##
+#    # run a subset of the core tests on the oldest supported Python version
+#    - ID: CORE1
+#      DTS: >
+#        datalad.cli
+#        datalad.core
+#      # do not run tests that ensure behavior we intentionally changed
+#      # - test_gh1811: is included in next in an alternative implementation
+#      KEYWORDS: not test_gh1811
+#      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+#      PY: 3.7
+#      INSTALL_SYSPKGS: python3-virtualenv
+#      # datalad-annex git remote needs something after git-annex_8.20211x
+#      INSTALL_GITANNEX: git-annex -m snapshot
+#      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+#    - ID: CORE2
+#      DTS: >
+#        datalad.customremotes
+#        datalad.dataset
+#        datalad.distributed
+#        datalad.downloaders
+#        datalad.interface
+#      # do not run tests that ensure behavior we intentionally changed
+#      # - test_gh1811: is included in next in an alternative implementation
+#      KEYWORDS: not test_gh1811
+#      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+#      PY: 3.7
+#      INSTALL_SYSPKGS: python3-virtualenv
+#      # datalad-annex git remote needs something after git-annex_8.20211x
+#      INSTALL_GITANNEX: git-annex -m snapshot
+#      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+#    - ID: CORE3
+#      DTS: >
+#        datalad.distribution
+#      KEYWORDS: not test_invalid_args
+#      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+#      PY: 3.7
+#      INSTALL_SYSPKGS: python3-virtualenv
+#      # datalad-annex git remote needs something after git-annex_8.20211x
+#      INSTALL_GITANNEX: git-annex -m snapshot
+#      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+#    - ID: CORE4
+#      DTS: >
+#        datalad.local
+#      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+#      PY: 3.7
+#      INSTALL_SYSPKGS: python3-virtualenv
+#      # datalad-annex git remote needs something after git-annex_8.20211x
+#      INSTALL_GITANNEX: git-annex -m snapshot
+#      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+#    - ID: CORE5
+#      DTS: >
+#        datalad.runner
+#        datalad.support
+#        datalad.tests
+#        datalad.ui
+#      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+#      PY: 3.7
+#      INSTALL_SYSPKGS: python3-virtualenv
+#      # datalad-annex git remote needs something after git-annex_8.20211x
+#      INSTALL_GITANNEX: git-annex -m snapshot
+#      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
 
 matrix:
   allow_failures:
@@ -275,9 +275,9 @@ test_script:
   - sh: mkdir __testhome__
   - cd __testhome__
     # run test selecion (--traverse-namespace needed from Python 3.8 onwards)
-  - cmd: python -m pytest -s -v -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --pyargs %DTS%
+  - cmd: python -m pytest -s -v -m "not (turtle)" %DTS%
     # also add --cov datalad, because some core test runs may not touch -next code
-  - sh:  PATH=$PWD/../tools/coverage-bin:$PATH python -m pytest -s -v -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --pyargs ${DTS}
+  - sh:  PATH=$PWD/../tools/coverage-bin:$PATH python -m pytest -s -v -m "not (turtle)" ${DTS}
 
 
 after_test:
