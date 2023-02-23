@@ -23,6 +23,7 @@ from ..uncurl import (
     UncurlRemote,
 )
 
+# this is the URL against which the httpbin calls will be made
 hbsurl = get_httpbin_urls()['standard']
 
 # for some tests below it is important that this base config contains no
@@ -147,8 +148,8 @@ def test_uncurl_checkurl(tmp_path):
     r.match = [
         re.compile('.*(?P<origurl>http://.*)$'),
     ]
-    assert not r.checkurl('garbledhttp://httpbin.org/status/404')
-    assert r.checkurl('garbledhttp://httpbin.org/bytes/24')
+    assert not r.checkurl(f'garbled{hbsurl}/status/404')
+    assert r.checkurl(f'garbled{hbsurl}/bytes/24')
 
 
 # sibling of `test_uncurl_checkurl()`, but more high-level
@@ -162,7 +163,7 @@ def test_uncurl_addurl_unredirected(tmp_path):
     ])
     # feed it a broken URL, which must be getting fixed by the rewritting
     # (pulls 24 bytes)
-    testurl = 'garbledhttp://httpbin.org/bytes/24'
+    testurl = f'garbled{hbsurl}/bytes/24'
     dsca(['addurl', '--file=dummy', testurl])
     # we got what we expected
     assert ds.status(
