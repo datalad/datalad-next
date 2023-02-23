@@ -63,7 +63,9 @@ environment:
 
     # Ubuntu core tests
     - ID: Ubu20
-      DTS: /home/appveyor/projects/datalad-next/datalad_next/commands/tests/test_download.py
+      DTS: >
+         /home/appveyor/projects/datalad-next/datalad_next/commands/tests/test_credentials.py
+         /home/appveyor/projects/datalad-next/datalad_next/commands/tests/test_download.py
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       INSTALL_SYSPKGS: python3-virtualenv
       # datalad-annex git remote needs something after git-annex_8.20211x
