@@ -53,14 +53,14 @@ class CredentialsParamValidator(EnsureCommandParameterization):
             param_constraints=dict(
                 action=EnsureChoice(*credential_actions),
                 dataset=EnsureDataset(
-                    # we do not actually require it
-                    installed=None,
+                    # if given, it must also exist as a source for
+                    # configuration items and/or credentials
+                    installed=True,
                     purpose='manage credentials',
                 ),
                 name=EnsureStr(),
                 prompt=EnsureStr(),
             ),
-            validate_defaults=('dataset',),
             # order in joint_constraints is relevant!
             joint_constraints={
                 ParameterConstraintContext(('action', 'name', 'spec'),
@@ -296,6 +296,10 @@ class Credentials(ValidatedInterface):
     def __call__(action='query', spec=None, *, name=None, prompt=None,
                  dataset=None):
         # which config manager to use: global or from dataset
+        # It makes no sense to work with a non-existing dataset's config,
+        # due to https://github.com/datalad/datalad/issues/7299
+        # so the `dataset` validator must not run for the default value
+        # ``None``
         cfg = dataset.ds.config if dataset else dlcfg
 
         credman = CredentialManager(cfg)

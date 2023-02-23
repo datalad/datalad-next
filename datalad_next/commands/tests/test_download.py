@@ -207,7 +207,7 @@ def test_download_no_credential_leak_to_http(capsys):
     # after download, it asks for a name
     'dataladtest_test_download_new_bearer_token',
 ])
-def test_download_new_bearer_token(capsys):
+def test_download_new_bearer_token(memory_keyring, capsys):
     try:
         download({f'{hbsurl}/bearer': '-'})
         # and it was saved under this name
