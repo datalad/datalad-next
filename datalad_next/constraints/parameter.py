@@ -477,7 +477,7 @@ class EnsureCommandParameterization(Constraint):
             # implementation could be faulty, and we want to report this
             # problem in the right context
             try:
-                final.keys() == validated.keys()
+                assert final.keys() == validated.keys()
             except Exception as e:
                 raise RuntimeError(
                     f"{self.__class__.__name__}.joint_validation() "
@@ -496,7 +496,3 @@ class EnsureCommandParameterization(Constraint):
             raise CommandParametrizationError(exceptions)
 
         return final
-
-    def short_description(self):
-        # TODO Constraint.__repr__ is shit!
-        return "I have to be here, but I do not want to"

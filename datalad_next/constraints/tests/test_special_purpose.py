@@ -236,6 +236,9 @@ url_testcases = {
 
 
 def test_EnsureURL():
+    with pytest.raises(ValueError):
+        # only str input
+        EnsureURL()(5)
     assert EnsureURL().short_description() == 'URL'
     assert EnsureURL(
         required=['scheme', 'netloc']
@@ -291,6 +294,9 @@ def test_EnsureURL_match():
 
 
 def test_EnsureDataset(tmp_path):
+    with pytest.raises(TypeError):
+        # will not return a Dataset from sensless input
+        EnsureDataset()(5)
     # by default the installation state is not checked
     # this matches the behavior of the original implementation
     # from datalad-core

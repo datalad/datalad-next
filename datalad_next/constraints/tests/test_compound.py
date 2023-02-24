@@ -146,6 +146,10 @@ def test_EnsureGeneratorFromFileLike():
     with patch("sys.stdin", StringIO("5::yes\n1234::no")):
         assert list(constraint('-')) == [{5: True}, {1234: False}]
 
+    with patch("sys.stdin", StringIO("5::yes\n1234::no")):
+        # will unpack a length-1 sequence for convenience
+        assert list(constraint(['-'])) == [{5: True}, {1234: False}]
+
     # read from file
     if not on_windows:
         # on windows the write-rewind-test logic is not possible
