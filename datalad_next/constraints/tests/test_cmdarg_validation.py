@@ -30,9 +30,6 @@ from datalad_next.constraints.exceptions import ParameterConstraintContext
 
 
 class EnsureAllUnique(Constraint):
-    def short_description(self):
-        return 'all values must be unique'
-
     def __call__(self, value):
         if len(set(value)) < len(value):
             self.raise_for(value, 'not all values are unique')
@@ -120,6 +117,9 @@ def test_multi_validation():
 
     # now we trigger a higher-order error, and receive multiple reports
     val = SophisticatedCmdValidator()
+    # but first a quick check if it behaves will with valid input
+    valid_input = dict(spec='http://example.com', p1=1, p2=2)
+    assert val(valid_input) == valid_input
     with pytest.raises(ConstraintError) as e:
         val(dict(spec='5', p1=1, p2=1), on_error='raise-at-end')
     errors = e.value.errors
