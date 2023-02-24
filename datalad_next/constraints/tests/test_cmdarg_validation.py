@@ -4,14 +4,16 @@ from io import StringIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
+from uuid import UUID
 
 from datalad_next.commands import (
     ValidatedInterface,
     Parameter,
     eval_results,
 )
+from datalad_next.datasets import Dataset
 from datalad_next.utils import on_windows
-from datalad_next.constraints import (
+from .. import (
     ConstraintError,
     EnsureGeneratorFromFileLike,
     EnsureJSON,
@@ -20,13 +22,15 @@ from datalad_next.constraints import (
     EnsurePath,
     EnsureRange,
     EnsureURL,
+    EnsureValue,
 )
-from datalad_next.constraints.base import (
+from ..base import (
     AltConstraints,
     Constraint,
 )
-from datalad_next.constraints.parameter import EnsureCommandParameterization
-from datalad_next.constraints.exceptions import ParameterConstraintContext
+from ..dataset import EnsureDataset
+from ..parameter import EnsureCommandParameterization
+from ..exceptions import ParameterConstraintContext
 
 
 class EnsureAllUnique(Constraint):
@@ -237,3 +241,80 @@ def test_cmd_with_validation():
             'unsupported',
             return_type='item-or-list', result_renderer='disabled',
         )
+
+
+#
+# test dataset tailoring
+#
+
+class EnsureUUID(Constraint):
+    def __call__(self, value):
+        return UUID(value)
+
+
+class EnsureDatasetID(EnsureUUID):
+    """Makes sure that something is a dataset ID (UUID), or the dataset UUID
+    of a particular dataset when tailored"""
+    def for_dataset(self, ds):
+        return EnsureValue(UUID(ds.id))
+
+
+class DsTailoringValidator(EnsureCommandParameterization):
+    def __init__(self, **kwargs):
+        # this is the key bit: a mapping of parameter names to validators
+        super().__init__(
+            dict(
+                dataset=EnsureDataset(),
+                id=EnsureDatasetID(),
+            ),
+            **kwargs
+        )
+
+
+def test_constraint_dataset_tailoring(tmp_path):
+    proper_uuid = '152f4fc0-b444-11ed-a9cb-701ab88b716c'
+    no_uuid =     '152f4fc0------11ed-a9cb-701ab88b716c'
+    # no tailoring works as expected
+    val = DsTailoringValidator()
+    assert val(dict(id=proper_uuid)) == dict(id=UUID(proper_uuid))
+    with pytest.raises(ValueError):
+        val(dict(id=no_uuid))
+
+    # adding a dataset to the mix does not change a thing re the uuid
+    ds = Dataset(tmp_path).create(result_renderer='disabled')
+    res = val(dict(dataset=tmp_path, id=proper_uuid))
+    assert res['id'] == UUID(proper_uuid)
+    assert res['dataset'].ds == ds
+
+    # and we can still break it
+    with pytest.raises(ValueError):
+        val(dict(dataset=tmp_path, id=no_uuid))
+
+    # now with tailoring the UUID checking to a particular dataset.
+    # it is enabled via parameter, because it is a use case specific
+    # choice, not a mandate
+    target_uuid = ds.id
+    tailoring_val = DsTailoringValidator(
+        tailor_for_dataset=dict(id='dataset'),
+    )
+    # no uuid is still an issue
+    with pytest.raises(ValueError):
+        tailoring_val(dict(dataset=tmp_path, id=no_uuid))
+    # what was good enough above (any UUID), no longer is
+    with pytest.raises(ValueError):
+        tailoring_val(dict(dataset=tmp_path, id=proper_uuid))
+
+    # only the actual dataset's UUID makes it past the gates
+    res = val(dict(dataset=tmp_path, id=target_uuid))
+    assert res['id'] == UUID(target_uuid)
+    assert res['dataset'].ds == ds
+    # the order in the kwargs does not matter
+    assert val(dict(id=target_uuid, dataset=tmp_path))['id'] == \
+        UUID(target_uuid)
+
+    # but when no dataset is being provided (and the dataset-constraint
+    # allows for that), no tailoring is performed
+    assert tailoring_val(dict(id=proper_uuid))['id'] == UUID(proper_uuid)
+    # but still no luck with invalid args
+    with pytest.raises(ValueError):
+        val(dict(dataset=tmp_path, id=no_uuid))
