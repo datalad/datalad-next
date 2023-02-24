@@ -496,7 +496,3 @@ class EnsureCommandParameterization(Constraint):
             raise CommandParametrizationError(exceptions)
 
         return final
-
-    def short_description(self):
-        # TODO Constraint.__repr__ is shit!
-        return "I have to be here, but I do not want to"

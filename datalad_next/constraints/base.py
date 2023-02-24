@@ -5,6 +5,8 @@ from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
 
+__all__ = ['Constraint', 'Constraints', 'AltConstraints']
+
 from typing import (
     TYPE_CHECKING,
     TypeVar,
@@ -19,19 +21,20 @@ DatasetDerived = TypeVar('DatasetDerived', bound='Dataset')
 
 
 class Constraint:
-    """Base class for input value conversion/validation.
+    """Base class for value coercion/validation.
 
     These classes are also meant to be able to generate appropriate
     documentation on an appropriate parameter value.
     """
-
-    # TODO: __str__ and/or __repr__ for every one of them
+    def __str__(self):
+        """Rudimentary self-description"""
+        return f"constraint: {self.short_description()}"
 
     def __repr__(self):
         """Rudimentary repr to avoid default scary to the user Python repr"""
-        return "constraint:%s" % self.short_description()
+        return f"{self.__class__.__name__}()"
 
-    def raise_for(self, value, msg, **ctx):
+    def raise_for(self, value, msg, **ctx) -> None:
         """Convenience method for raising a ``ConstraintError``
 
         The parameters are identical to those of ``ConstraintError``. This
