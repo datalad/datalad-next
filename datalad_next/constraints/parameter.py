@@ -477,7 +477,7 @@ class EnsureCommandParameterization(Constraint):
             # implementation could be faulty, and we want to report this
             # problem in the right context
             try:
-                final.keys() == validated.keys()
+                assert final.keys() == validated.keys()
             except Exception as e:
                 raise RuntimeError(
                     f"{self.__class__.__name__}.joint_validation() "

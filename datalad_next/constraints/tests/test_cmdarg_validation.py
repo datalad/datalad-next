@@ -69,6 +69,11 @@ class SophisticatedCmdValidator(BasicCmdValidator):
     def _check_sum_range(self, p1, p2):
         EnsureRange(min=3)(p1 + p2)
 
+    def _limit_sum_range(self, p1, p2):
+        # random example of a joint constraint that modifies the parameter
+        # set it is given
+        return dict(p1=p1, p2=min(p2, 100 - p1 - p2))
+
     def __init__(self):
         # this is the key bit: a mapping of parameter names to validators
         super().__init__(
@@ -78,8 +83,18 @@ class SophisticatedCmdValidator(BasicCmdValidator):
                     self._check_unique_values,
                 ParameterConstraintContext(('p1', 'p2'), 'sum'):
                     self._check_sum_range,
+                ParameterConstraintContext(('p1', 'p2'), 'sum-limit'):
+                    self._limit_sum_range,
             },
         )
+
+
+class BrokenJointValidation(SophisticatedCmdValidator):
+    def joint_validation(self, params, on_error):
+        res = super().joint_validation(params, on_error)
+        # remove any report, and it should trigger a RuntimeError on return
+        res.popitem()
+        return res
 
 
 class CmdWithValidation(ValidatedInterface):
@@ -147,6 +162,15 @@ def test_multi_validation():
     assert len(errors) == 1
     assert 'not all values are unique' == errors.messages[0]
     assert 'p1, p2 (identity)' == errors.context_labels[0]
+
+
+def test_invalid_multi_validation():
+    val = BrokenJointValidation()
+    # this works for the underlying validator, but BrokenJointValidation
+    # butchers the result, which must be detected
+    valid_input = dict(spec='http://example.com', p1=1, p2=2)
+    with pytest.raises(RuntimeError):
+        val(valid_input)
 
 
 def test_cmd_with_validation():
