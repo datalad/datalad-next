@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Container
+from itertools import chain
 from typing import (
     Any,
     Callable,
@@ -26,7 +27,7 @@ from .compound import (
     EnsureIterableOf,
     EnsureMapping,
 )
-
+from .dataset import DatasetParameter
 from .exceptions import (
     ConstraintError,
     ParametrizationErrors,
@@ -291,6 +292,7 @@ class EnsureCommandParameterization(Constraint):
         validate_defaults: Container[str] | None = None,
         joint_constraints:
             Dict[ParameterConstraintContext, Callable] | None = None,
+        tailor_for_dataset: Dict[str, str] | None = None,
     ):
         """
         Parameters
@@ -310,11 +312,22 @@ class EnsureCommandParameterization(Constraint):
           they are declared in the mapping. Earlier validators can modify
           the parameter values that are eventually passed to validators
           executed later.
+        tailor_for_dataset: dict, optional
+          If given, this is a mapping of a name of a parameter whose
+          constraint should be tailored to a particular dataset, to a name
+          of a parameter providing this dataset. The dataset-providing
+          parameter constraints will be evaluated first, and the resulting
+          Dataset instances are used to tailor the constraints that
+          require a dataset-context. The tailoring is performed if, and
+          only if, the dataset-providing parameter actually evaluated
+          to a `Dataset` instance. The non-tailored constraint is used
+          otherwise.
         """
         super().__init__()
         self._param_constraints = param_constraints
         self._joint_constraints = joint_constraints
         self._validate_defaults = validate_defaults or set()
+        self._tailor_for_dataset = tailor_for_dataset or {}
 
     def joint_validation(self, params: Dict, on_error: str) -> Dict:
         """Higher-order validation considering multiple parameters at a time
@@ -434,9 +447,32 @@ class EnsureCommandParameterization(Constraint):
           pass through.
         """
         assert on_error in ('raise-early', 'raise-at-end')
+
+        # validators to work with. make a copy of the dict to be able to tailor
+        # them for this run only
+        # TODO copy likely not needed
+        param_constraints = self._param_constraints.copy()
+
+        # names of parameters we need to process
+        to_validate = set(kwargs)
+        # check for any dataset that are required for tailoring other parameters
+        ds_provider_params = set(self._tailor_for_dataset.values())
+        # take these out of the set of parameters to validate, because we need
+        # to process them first.
+        # the approach is to simply sort them first, but otherwise apply standard
+        # handling
+        to_validate.difference_update(ds_provider_params)
+        # strip all args provider args that have not been provided
+        ds_provider_params.intersection_update(kwargs)
+
         exceptions = {}
         validated = {}
-        for argname, arg in kwargs.items():
+        # process all parameters. starts with those that are needed as
+        # dependencies for others.
+        # this dependency-based sorting is very crude for now. it does not
+        # consider possible dependencies within `ds_provider_params` at all
+        for argname in chain(ds_provider_params, to_validate):
+            arg = kwargs[argname]
             if at_default \
                     and argname not in self._validate_defaults \
                     and argname in at_default:
@@ -456,7 +492,21 @@ class EnsureCommandParameterization(Constraint):
                 # code
                 validated[argname] = arg
                 continue
-            validator = self._param_constraints.get(argname, lambda x: x)
+
+            # look-up validator for this parameter, if there is none use
+            # NoConstraint to avoid complex conditionals in the code below
+            validator = param_constraints.get(argname, NoConstraint())
+
+            # do we need to tailor this constraint for a specific dataset?
+            # only do if instructed AND the respective other parameter
+            # validated to a Dataset instance. Any such parameter was sorted
+            # to be validated first in this loop, so the outcome of that is
+            # already available
+            tailor_for = self._tailor_for_dataset.get(argname)
+            if tailor_for and isinstance(validated.get(tailor_for),
+                                         DatasetParameter):
+                validator = validator.for_dataset(validated[tailor_for].ds)
+
             try:
                 validated[argname] = validator(arg)
             # we catch only ConstraintError -- only these exceptions have what
