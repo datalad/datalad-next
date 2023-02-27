@@ -147,7 +147,11 @@ def check_gitconfig_global():
         "a temporary configuration target. Hint: use the `datalad_cfg` fixture."
 
 
-@pytest.fixture(autouse=True, scope="function")
+# TODO this fixture is NOT used by default, because the memory_keyring
+# fixture that should prevent these kinds of errors is not sufficient,
+# because we need to be able to communicate credentials across processes
+# (datalad -> special/git remote and back)
+@pytest.fixture(autouse=False, scope="function")
 def check_plaintext_keyring():
     """No test must modify a user's keyring.
 
