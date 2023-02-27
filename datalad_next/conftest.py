@@ -1,11 +1,17 @@
 import logging
-from os import environ
-from pathlib import Path
+import os
 import pytest
+from tempfile import NamedTemporaryFile
+from unittest.mock import patch
 
 from datalad.conftest import setup_package
 
-from datalad_next.tests.utils import md5sum
+from datalad_next.tests.utils import (
+    SkipTest,
+    external_versions,
+    get_git_config_global_fpath,
+    md5sum,
+)
 
 lgr = logging.getLogger('datalad.next')
 
@@ -55,6 +61,59 @@ def memory_keyring():
     keyring.set_keyring(old_backend)
 
 
+# the following is taken from datalad/conftest.py
+# sadly, this is defined inline and cannot be reused directly
+standard_gitconfig = """\
+[user]
+        name = DataLad Tester
+        email = test@example.com
+[core]
+	askPass =
+[datalad "log"]
+        exc = 1
+[annex "security"]
+	# from annex 6.20180626 file:/// and http://localhost access isn't
+	# allowed by default
+	allowed-url-schemes = http https file
+	allowed-http-addresses = all
+[protocol "file"]
+    # since git 2.38.1 cannot by default use local clones for submodules
+    # https://github.blog/2022-10-18-git-security-vulnerabilities-announced/#cve-2022-39253
+    allow = always
+""" + os.environ.get('DATALAD_TESTS_GITCONFIG', '').replace('\\n', os.linesep)
+
+
+@pytest.fixture(autouse=False, scope="function")
+def datalad_cfg():
+    """Temporarily alter configuration to use a plain "global" configuration
+
+    The global configuration manager at `datalad.cfg` is reloaded after
+    adjusting `GIT_CONFIG_GLOBAL` to point to a new temporary `.gitconfig`
+    file.
+
+    After test execution the file is removed, and the global `ConfigManager`
+    is reloaded once more.
+
+    Any test using this fixture will be skipped for Git versions earlier
+    than 2.32, because the `GIT_CONFIG_GLOBAL` environment variable used
+    here was only introduced with that version.
+    """
+    if external_versions['cmd:git'] < "2.32":
+        raise SkipTest(
+            "Git configuration redirect via GIT_CONFIG_GLOBAL "
+            "only supported since Git v2.32"
+        )
+    from datalad import cfg
+    with NamedTemporaryFile('w') as tf:
+        tf.write(standard_gitconfig)
+        tf.flush()
+        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': tf.name}):
+            cfg.reload(force=True)
+            yield cfg
+    # reload to put the previous config in effect again
+    cfg.reload(force=True)
+
+
 @pytest.fixture(autouse=True, scope="function")
 def check_gitconfig_global():
     """No test must modify a user's global Git config.
@@ -62,14 +121,7 @@ def check_gitconfig_global():
     If such modifications are needed, a custom configuration setup
     limited to the scope of the test requiring it must be arranged.
     """
-    globalcfg_fname = environ.get('GIT_CONFIG_GLOBAL')
-    if globalcfg_fname is None:
-        # this can happen with the datalad-core setup for Git < 2.32.
-        # we provide a fallback, but we do not aim to support all
-        # possible variants
-        globalcfg_fname = Path(environ['HOME']) / '.gitconfig'
-
-    globalcfg_fname = Path(globalcfg_fname)
+    globalcfg_fname = get_git_config_global_fpath()
     if not globalcfg_fname.exists():
         lgr.warning(
             'No global/user Git config file exists. This is an unexpected '

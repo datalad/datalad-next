@@ -1,9 +1,11 @@
 import logging
 from functools import wraps
+from os import environ
 from pathlib import Path
 
 import urllib
 
+from datalad.support.external_versions import external_versions
 # all datalad-core test utils needed for datalad-next
 from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
@@ -202,3 +204,16 @@ def get_httpbin_urls():
         http=hburl,
         https=hbsurl,
     )
+
+
+def get_git_config_global_fpath() -> Path:
+    """Returns the file path for the "global" (aka user) Git config scope"""
+    fpath = environ.get('GIT_CONFIG_GLOBAL')
+    if fpath is None:
+        # this can happen with the datalad-core setup for Git < 2.32.
+        # we provide a fallback, but we do not aim to support all
+        # possible variants
+        fpath = Path(environ['HOME']) / '.gitconfig'
+
+    fpath = Path(fpath)
+    return fpath

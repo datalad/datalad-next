@@ -30,9 +30,8 @@ from datalad_next.datasets import Dataset
 from datalad_next.utils import chpwd
 
 
-def test_credmanager(memory_keyring):
-    cfg = ConfigManager()
-    credman = CredentialManager(cfg)
+def test_credmanager(memory_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # doesn't work with thing air
     assert_raises(ValueError, credman.get)
     eq_(credman.get('donotexiststest'), None)
@@ -72,15 +71,16 @@ def test_credmanager(memory_keyring):
     eq_(credman.set('changed', prop='val'), dict())
     # change secret, with value pulled from config
     try:
-        cfg.set('datalad.credential.changed.secret', 'envsec',
-                scope='override')
+        datalad_cfg.set('datalad.credential.changed.secret', 'envsec',
+                        scope='override')
         eq_(credman.set('changed', secret=None), dict(secret='envsec'))
     finally:
-        cfg.unset('datalad.credential.changed.secret', scope='override')
+        datalad_cfg.unset('datalad.credential.changed.secret',
+                          scope='override')
 
     # remove non-existing property, secret not report, because unchanged
     eq_(credman.set('mycred', dummy=None), dict(dummy=None))
-    assert_not_in(_get_cred_cfg_var("mycred", "dummy"), cfg)
+    assert_not_in(_get_cred_cfg_var("mycred", "dummy"), datalad_cfg)
 
     # set property
     eq_(credman.set('mycred', dummy='good', this='that'),
