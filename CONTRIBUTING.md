@@ -1,14 +1,14 @@
 # Contributing to `datalad-next`
 
-- [What contributions are most suitable for `datalad-next`](#what)
-- [Style guide](#style)
-- [Code organization](#style-organization)
-- [How to implement runtime patches](#style-patches)
-- [How to implement imports](#style-imports)
-- [Prohibited DataLad functionality](#style-prohibited)
+- [What contributions are most suitable for `datalad-next`](#when-should-i-consider-a-contribution-to-datalad-next)
+- [Style guide](#contribution-style-guide)
+- [Code organization](#code-organization)
+- [How to implement runtime patches](#runtime-patches)
+- [How to implement imports](#imports)
+- [Prohibited DataLad functionality](#prohibited-datalad-core-features)
 
 
-## When should I consider a contribution to `datalad-next`? {#what}
+## When should I consider a contribution to `datalad-next`?
 
 In short: whenever a contribution to the DataLad core package would make sense, it should also be suitable for `datalad-next`.
 
@@ -29,7 +29,7 @@ New feature releases of `datalad-next` are happening more frequently. Typically,
 New features depending on other `datalad-next` features are, by necessity, better directed at `datalad-next`.
 
 
-## Contribution style guide {#style}
+## Contribution style guide
 
 A contribution must be complete with code, tests, and documentation.
 
@@ -40,7 +40,7 @@ New code should be type-annotated. At minimum, a type annotation of the main API
 Docstrings should be complete with information on parameters, return values, and exception behavior. Documentation should be added to and rendered with the sphinx-based documentation.
 
 
-### Code organization {#style-organization}
+### Code organization
 
 In `datalad-next`, all code is organized in shallow sub-packages. Each sub-package is located in a directory within the `datalad_next` package.
 
@@ -61,7 +61,7 @@ Sub-packages should be as self-contained as possible. Individual components in `
 There is one special sub-package in `datalad-next`: `patches`. All runtime patches to be applied to the DataLad core package must be placed here.
 
 
-### Runtime patches {#style-patches}
+### Runtime patches
 
 The `patches` sub-package contains all runtime patches that are applied by `datalad-next`.  Patches are applied on-import of `datalad-next`, and may modify arbitrary aspects of the runtime environment. A patch is enabled by adding a corresponding `import` statement to `datalad_next/patches/__init__.py`. The order of imports in this file is significant. New patches should consider behavior changes caused by other patches, and should be considerate of changes imposed on other patches.
 
@@ -80,7 +80,7 @@ Patches modify an external implementation that is itself subject to change. To i
 - Patches should maximally limit their imports from sources that are not the patch target. The helps to detect when changes to the patch target (or its environment) are made, and also helps to isolate the patch from changes in the general environment of the patches software package that are unrelated to the specific patched code.
 
 
-### Imports {#style-imports}
+### Imports
 
 #### Import centralization per sub-package
 
@@ -93,7 +93,7 @@ This is a specialization of the "Import centralization" rule above. All sub-pack
 The aim is to clearly see what of the huge DataLad API is actually relevant for a particular feature. For some generic helpers it may be best to import them to `datalad_next.utils` or `datalad_next.tests.utils`.
 
 
-### Prohibited DataLad core features {#style-prohibited}
+### Prohibited DataLad core features
 
 The following components of the `datalad` package must not be used (directly) in contributions to `datalad-next`, because they have been replace by a different solution with the aim to phase them out.
 
