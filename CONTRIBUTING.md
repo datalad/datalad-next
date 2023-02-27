@@ -4,6 +4,7 @@
 
 In short: whenever a contribution to the DataLad core package would make sense, it should also be suitable for `datalad-next`.
 
+
 ### What contributions should be directed elsewhere?
 
 Special interest, highly domain-specific functionality is likely better suited for a topical DataLad extension package.
@@ -12,11 +13,14 @@ Functionality that requires complex additional dependencies, or is highly platfo
 
 If in doubt, it is advisable to file an issue and ask for feedback before preparing a contribution.
 
+
 ### When is a contribution to `datalad-next` preferable over one to the DataLad core package?
 
 New feature releases of `datalad-next` are happening more frequently. Typically, every 4-6 weeks.
 
 New features depending on other `datalad-next` features are, by necessity, better directed at `datalad-next`.
+
+
 
 ## What is important for a successful contribution to `datalad-next`?
 
@@ -30,9 +34,12 @@ Docstrings should be complete with information on parameters, return values, and
 
 Contributions should be organized to match the code organization implemented in `datalad-next`.
 
+
 ## Code organization
 
 In `datalad-next`, all code is organized in shallow sub-packages. Each sub-package is located in a directory within the `datalad_next` package.
+
+Consequently, there are no top-level source files other than a few exceptions for technical reasons (`__init__.py`, `conftest.py`, `_version.py`).
 
 A sub-package contains any number of code files, and a `tests` directory with all test implementations for that particular sub-package, and only for that sub-package. Other, deeper directory hierarchies are not to be expected.
 
@@ -47,6 +54,7 @@ If possible, sub-packages should have a "central" place for imports of functiona
 Sub-packages should be as self-contained as possible. Individual components in `datalad-next` should strive to be easily migratable to the DataLad core package. This means that any organization principles like *all-exceptions-go-into-a-single-location-in-datalad-next* do not apply. For example, each sub-package should define its exceptions separately from others. When functionality is shared between sub-packages, absolute imports should be made.
 
 There is one special sub-package in `datalad-next`: `patches`. All runtime patches to be applied to the DataLad core package must be placed here.
+
 
 ## Runtime patches
 
@@ -65,3 +73,28 @@ Patches modify an external implementation that is itself subject to change. To i
 - Patches should be as self-contained as possible. The aim is for patches to be merged upstream (at the patched entity) as quickly as possible. Self-contained patches facilitate this process.
 
 - Patches should maximally limit their imports from sources that are not the patch target. The helps to detect when changes to the patch target (or its environment) are made, and also helps to isolate the patch from changes in the general environment of the patches software package that are unrelated to the specific patched code.
+
+
+
+## Style guide
+
+### Imports
+
+#### Import centralization per sub-package
+
+If possible, sub-packages should have a "central" place for imports of functionality from outside `datalad-next` and the Python standard library. Other sub-package code should then import from this place via relative imports. This aims to make external dependencies more obvious, and import-error handling and mitigation for missing dependencies simpler and cleaner. Such a location could be the sub-package's `__init__.py`, or possibly a dedicated `dependencies.py`.
+
+#### No "direct" imports from `datalad`
+
+This is a specialization of the "Import centralization" rule above. All sub-package code should import from `datalad` into a *single* dedicated location inside the sub-package. All other sub-package code imports from this location.
+
+The aim is to clearly see what of the huge DataLad API is actually relevant for a particular feature. For some generic helpers it may be best to import them to `datalad_next.utils` or `datalad_next.tests.utils`.
+
+
+### Prohibited DataLad core features
+
+The following components of the `datalad` package must not be used (directly) in contributions to `datalad-next`
+
+#### `require_dataset()`
+
+Commands must use `datalad_next.constraints.dataset.EnsureDataset` instead.
