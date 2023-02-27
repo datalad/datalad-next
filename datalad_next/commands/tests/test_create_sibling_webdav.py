@@ -33,15 +33,15 @@ from datalad_next.utils import chpwd
 webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
 
 
-def test_common_workflow_implicit_cred():
+def test_common_workflow_implicit_cred(datalad_cfg):
     check_common_workflow(False, 'annex')
 
 
-def test_common_workflow_explicit_cred():
+def test_common_workflow_explicit_cred(datalad_cfg):
     check_common_workflow(True, 'annex')
 
 
-def test_common_workflow_export():
+def test_common_workflow_export(datalad_cfg):
     check_common_workflow(False, 'filetree')
 
 
@@ -252,6 +252,10 @@ def test_unused_storage_name_warning(path=None):
         eq_(lgr_mock.warning.call_count, len(mode_values))
 
 
+def test_existing_switch(datalad_cfg):
+    check_existing_switch()
+
+
 @with_credential(
     'dltest-mywebdav', user=webdav_cred[1], secret=webdav_cred[2],
     type='user_password')
@@ -261,7 +265,7 @@ def test_unused_storage_name_warning(path=None):
                  'f3': '3'})
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
-def test_existing_switch(localpath=None, remotepath=None, url=None):
+def check_existing_switch(localpath=None, remotepath=None, url=None):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(force=True, **ca)
     # use a tricky name: '3f7' will be the hashdir of the XDLRA
@@ -402,13 +406,17 @@ def test_existing_switch(localpath=None, remotepath=None, url=None):
     assert_in(new_root / 'sub2' / 'subsub', remote_content)
 
 
+def test_result_renderer(datalad_cfg):
+    check_result_renderer()
+
+
 @with_credential(
     webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
     type='user_password')
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
-def test_result_renderer(localpath=None, remotepath=None, url=None):
+def check_result_renderer(localpath=None, remotepath=None, url=None):
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
     # need to amend the test credential, can only do after we know the URL

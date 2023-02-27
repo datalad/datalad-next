@@ -10,7 +10,6 @@
 
 """
 import pytest
-from unittest.mock import patch
 
 from datalad.config import ConfigManager
 from ..manager import (
@@ -165,9 +164,8 @@ def test_credman_local(path=None):
     credman.remove('notstupid')
 
 
-def test_query(memory_keyring):
-    cfg = ConfigManager()
-    credman = CredentialManager(cfg)
+def test_query(memory_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # set a bunch of credentials with a common realm AND timestamp
     for i in range(3):
         credman.set(
@@ -200,9 +198,9 @@ def test_query(memory_keyring):
         [i[0] for i in slist])
 
 
-def test_credman_get():
+def test_credman_get(datalad_cfg):
     # we are not making any writes, any config must work
-    credman = CredentialManager(ConfigManager())
+    credman = CredentialManager(datalad_cfg)
     # must be prompting for missing properties
     res = with_testsui(responses=['myuser'])(credman.get)(
         None, _type_hint='user_password', _prompt='myprompt',
@@ -230,8 +228,8 @@ def test_credman_get_guess_type():
     }
 
 
-def test_credman_obtain(memory_keyring):
-    credman = CredentialManager(ConfigManager())
+def test_credman_obtain(memory_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # senseless, but valid call
     # could not possibly report a credential without any info
     with pytest.raises(ValueError):
