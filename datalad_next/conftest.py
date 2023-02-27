@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
@@ -143,4 +144,33 @@ def check_gitconfig_global():
     post = md5sum(globalcfg_fname)
     assert pre == post, \
         "Global Git config modification detected. Test must be modified to use " \
-        "a temporary configuration target."
+        "a temporary configuration target. Hint: use the `datalad_cfg` fixture."
+
+
+@pytest.fixture(autouse=True, scope="function")
+def check_plaintext_keyring():
+    """No test must modify a user's keyring.
+
+    If such modifications are needed, a custom keyring setup
+    limited to the scope of the test requiring it must be arranged.
+    The ``memory_keyring`` fixture can be employed in such cases.
+    """
+    # datalad-core configures keyring to use a plaintext backend
+    # we will look for the underlying file and verify that it is either
+    # no there, or remains unmodified
+    import keyring
+    kr = keyring.get_keyring()
+    if not hasattr(kr, 'file_path'):
+        # this is not the plain text keyring, nothing we can do here
+        # run as-is, but leave a message
+        lgr.warning('Running without the expected plain-text keyring')
+        yield
+        return
+
+    kr_fpath = Path(kr.file_path)
+    pre = md5sum(kr_fpath) if kr_fpath.exists() else ''
+    yield
+    post = md5sum(kr_fpath) if kr_fpath.exists() else ''
+    assert pre == post, \
+        "Keyring modification detected. Test must be modified to use " \
+        "a temporary keyring. Hint: use the `memory_keyring` fixture."
