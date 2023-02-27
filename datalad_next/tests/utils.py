@@ -40,6 +40,7 @@ from datalad.tests.utils_pytest import (
 )
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.cli.tests.test_main import run_main
+from datalad.utils import md5sum
 from datalad_next.utils import (
     CredentialManager,
     optional_args,

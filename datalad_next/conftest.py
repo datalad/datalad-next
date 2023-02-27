@@ -1,6 +1,13 @@
+import logging
+from os import environ
+from pathlib import Path
 import pytest
 
 from datalad.conftest import setup_package
+
+from datalad_next.tests.utils import md5sum
+
+lgr = logging.getLogger('datalad.next')
 
 
 @pytest.fixture(autouse=False, scope="function")
@@ -46,3 +53,37 @@ def memory_keyring():
     yield new_backend
 
     keyring.set_keyring(old_backend)
+
+
+@pytest.fixture(autouse=True, scope="function")
+def check_gitconfig_global():
+    """No test must modify a user's global Git config.
+
+    If such modifications are needed, a custom configuration setup
+    limited to the scope of the test requiring it must be arranged.
+    """
+    globalcfg_fname = environ.get('GIT_CONFIG_GLOBAL')
+    if globalcfg_fname is None:
+        # this can happen with the datalad-core setup for Git < 2.32.
+        # we provide a fallback, but we do not aim to support all
+        # possible variants
+        globalcfg_fname = Path(environ['HOME']) / '.gitconfig'
+
+    globalcfg_fname = Path(globalcfg_fname)
+    if not globalcfg_fname.exists():
+        lgr.warning(
+            'No global/user Git config file exists. This is an unexpected '
+            'test environment, no config modifications checks can be '
+            'performed. Proceeding nevertheless.')
+        # let the test run
+        yield
+        # and exit quietly
+        return
+
+    # we have a config file. hash it pre and post test. Fail is changed.
+    pre = md5sum(globalcfg_fname)
+    yield
+    post = md5sum(globalcfg_fname)
+    assert pre == post, \
+        "Global Git config modification detected. Test must be modified to use " \
+        "a temporary configuration target."
