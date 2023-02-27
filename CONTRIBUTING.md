@@ -16,7 +16,7 @@ If in doubt, it is advisable to file an issue and ask for feedback before prepar
 
 New feature releases of `datalad-next` are happening more frequently. Typically, every 4-6 weeks.
 
-New features depending on other `datalad-next` features are, quite obviously, better directed at `datalad-next`.
+New features depending on other `datalad-next` features are, by necessity, better directed at `datalad-next`.
 
 ## What is important for a successful contribution to `datalad-next`?
 
@@ -36,14 +36,14 @@ In `datalad-next`, all code is organized in shallow sub-packages. Each sub-packa
 
 A sub-package contains any number of code files, and a `tests` directory with all test implementations for that particular sub-package, and only for that sub-package. Other, deeper directory hierarchies are not to be expected.
 
-There is no limit on the number of files. Contributors should strive for files with less than 500 lines of code.
+There is no limit to the number of files. Contributors should strive for files with less than 500 lines of code.
 
 Within a sub-package, code should generally use relative imports. The corresponding tests should also import the tested code via relative imports.
 
-Code users should be able to import the most relevant functionality from the subpackage's `__init__.py`.
+Code users should be able to import the most relevant functionality from the sub-package's `__init__.py`.
 
-If possible, sub-packages should have a "central" place for imports of functionality from outside `datalad-next` and the Python standard library. Other sub-package code should then import from this place via relative imports. This aims to make external dependencies more obvious, and import-error handling and mitigation for missing dependencies simpler and cleaner.
+If possible, sub-packages should have a "central" place for imports of functionality from outside `datalad-next` and the Python standard library. Other sub-package code should then import from this place via relative imports. This aims to make external dependencies more obvious, and import-error handling and mitigation for missing dependencies simpler and cleaner. Such a location could be the sub-package's `__init__.py`, or possibly a dedicated `dependencies.py`.
 
-Sub-packages should be as self-contained as possible. Individual components in `datalad-next` should strive to be easily migratable into the DataLad core package. This means that organization principles like "all exceptions go into a single location" do not apply. For example, each sub-package should define it exceptions separately from others. When functionality is shared between sub-packages, absolute imports should be made.
+Sub-packages should be as self-contained as possible. Individual components in `datalad-next` should strive to be easily migratable to the DataLad core package. This means that any organization principles like *all-exceptions-go-into-a-single-location-in-datalad-next* do not apply. For example, each sub-package should define its exceptions separately from others. When functionality is shared between sub-packages, absolute imports should be made.
 
-There is one special sub-package in `datalad-next`: `patches`. All runtime patches to be applies to the DataLad core package must be places here.
+There is one special sub-package in `datalad-next`: `patches`. All runtime patches to be applied to the DataLad core package must be placed here.
