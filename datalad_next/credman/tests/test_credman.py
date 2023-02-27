@@ -10,7 +10,6 @@
 
 """
 import pytest
-from unittest.mock import patch
 
 from datalad.config import ConfigManager
 from ..manager import (
@@ -30,9 +29,8 @@ from datalad_next.datasets import Dataset
 from datalad_next.utils import chpwd
 
 
-def test_credmanager(memory_keyring):
-    cfg = ConfigManager()
-    credman = CredentialManager(cfg)
+def test_credmanager(memory_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # doesn't work with thing air
     assert_raises(ValueError, credman.get)
     eq_(credman.get('donotexiststest'), None)
@@ -72,15 +70,16 @@ def test_credmanager(memory_keyring):
     eq_(credman.set('changed', prop='val'), dict())
     # change secret, with value pulled from config
     try:
-        cfg.set('datalad.credential.changed.secret', 'envsec',
-                scope='override')
+        datalad_cfg.set('datalad.credential.changed.secret', 'envsec',
+                        scope='override')
         eq_(credman.set('changed', secret=None), dict(secret='envsec'))
     finally:
-        cfg.unset('datalad.credential.changed.secret', scope='override')
+        datalad_cfg.unset('datalad.credential.changed.secret',
+                          scope='override')
 
     # remove non-existing property, secret not report, because unchanged
     eq_(credman.set('mycred', dummy=None), dict(dummy=None))
-    assert_not_in(_get_cred_cfg_var("mycred", "dummy"), cfg)
+    assert_not_in(_get_cred_cfg_var("mycred", "dummy"), datalad_cfg)
 
     # set property
     eq_(credman.set('mycred', dummy='good', this='that'),
@@ -165,9 +164,8 @@ def test_credman_local(path=None):
     credman.remove('notstupid')
 
 
-def test_query(memory_keyring):
-    cfg = ConfigManager()
-    credman = CredentialManager(cfg)
+def test_query(memory_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # set a bunch of credentials with a common realm AND timestamp
     for i in range(3):
         credman.set(
@@ -200,9 +198,9 @@ def test_query(memory_keyring):
         [i[0] for i in slist])
 
 
-def test_credman_get():
+def test_credman_get(datalad_cfg):
     # we are not making any writes, any config must work
-    credman = CredentialManager(ConfigManager())
+    credman = CredentialManager(datalad_cfg)
     # must be prompting for missing properties
     res = with_testsui(responses=['myuser'])(credman.get)(
         None, _type_hint='user_password', _prompt='myprompt',
@@ -230,8 +228,8 @@ def test_credman_get_guess_type():
     }
 
 
-def test_credman_obtain(memory_keyring):
-    credman = CredentialManager(ConfigManager())
+def test_credman_obtain(memory_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # senseless, but valid call
     # could not possibly report a credential without any info
     with pytest.raises(ValueError):

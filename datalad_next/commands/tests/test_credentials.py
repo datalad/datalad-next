@@ -183,7 +183,7 @@ def test_result_renderer():
     ))
 
 
-def test_extreme_credential_name(memory_keyring):
+def test_extreme_credential_name(memory_keyring, datalad_cfg):
     cred = Credentials()
     extreme = 'ΔЙקم๗あ |/;&%b5{}"'
     assert_in_results(

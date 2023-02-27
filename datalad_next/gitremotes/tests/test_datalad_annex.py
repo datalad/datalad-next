@@ -348,6 +348,10 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
     eq_(tobesubds.id, subdsclone.id)
 
 
+def test_webdav_auth(datalad_cfg):
+    check_webdav_auth()
+
+
 @with_credential(
     'dltest-mystuff', user=webdav_cred[0], secret=webdav_cred[1],
     type='user_password')
@@ -355,7 +359,7 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred)
-def test_webdav_auth(preppath=None, clnpath=None, remotepath=None, webdavurl=None):
+def check_webdav_auth(preppath=None, clnpath=None, remotepath=None, webdavurl=None):
     # this is the dataset we want to roundtrip through webdav
     ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
 
