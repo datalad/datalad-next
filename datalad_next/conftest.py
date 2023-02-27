@@ -104,9 +104,14 @@ def datalad_cfg():
             "only supported since Git v2.32"
         )
     from datalad import cfg
-    with NamedTemporaryFile('w') as tf:
+    with NamedTemporaryFile(
+            'w',
+            prefix='datalad_gitcfg_global_',
+            delete=False) as tf:
         tf.write(standard_gitconfig)
-        tf.flush()
+        # we must close, because windows does not like the file being open
+        # already when ConfigManager would open it for reading
+        tf.close()
         with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': tf.name}):
             cfg.reload(force=True)
             yield cfg
