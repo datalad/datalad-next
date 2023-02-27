@@ -47,3 +47,21 @@ If possible, sub-packages should have a "central" place for imports of functiona
 Sub-packages should be as self-contained as possible. Individual components in `datalad-next` should strive to be easily migratable to the DataLad core package. This means that any organization principles like *all-exceptions-go-into-a-single-location-in-datalad-next* do not apply. For example, each sub-package should define its exceptions separately from others. When functionality is shared between sub-packages, absolute imports should be made.
 
 There is one special sub-package in `datalad-next`: `patches`. All runtime patches to be applied to the DataLad core package must be placed here.
+
+## Runtime patches
+
+The `patches` sub-package contains all runtime patches that are applied by `datalad-next`.  Patches are applied on-import of `datalad-next`, and may modify arbitrary aspects of the runtime environment. A patch is enabled by adding a corresponding `import` statement to `datalad_next/patches/__init__.py`. The order of imports in this file is significant. New patches should consider behavior changes caused by other patches, and should be considerate of changes imposed on other patches.
+
+`datalad-next` is imported (and thereby its patches applied) whenever used
+directly (e.g., when running commands provided by `datalad-next`, or by an
+extension that uses `datalad-next`).  In addition, it is imported by the
+DataLad core package itself when the configuration item
+`datalad.extensions.load=next` is set.
+
+Patches modify an external implementation that is itself subject to change. To improve the validity and longevity of patches, it is helpful to consider a few guidelines:
+
+- Patches should use `datalad_next.utils.apply_patch()` to perform the patching, in order to yield uniform (logging) behavior
+
+- Patches should be as self-contained as possible. The aim is for patches to be merged upstream (at the patched entity) as quickly as possible. Self-contained patches facilitate this process.
+
+- Patches should maximally limit their imports from sources that are not the patch target. The helps to detect when changes to the patch target (or its environment) are made, and also helps to isolate the patch from changes in the general environment of the patches software package that are unrelated to the specific patched code.
