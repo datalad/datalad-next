@@ -1,10 +1,7 @@
 from pathlib import Path
 import pytest
 
-from datalad_next.tests.utils import (
-    get_httpbin_urls,
-    with_credential,
-)
+from datalad_next.tests.utils import get_httpbin_urls
 from ..http import (
     HttpUrlOperations,
     UrlOperationsRemoteError,
@@ -20,8 +17,8 @@ hbscred = (
 )
 
 
-@with_credential(hbscred[0], **hbscred[1])
-def test_http_url_operations(tmp_path):
+def test_http_url_operations(credman, tmp_path):
+    credman.set(hbscred[0], **hbscred[1])
     ops = HttpUrlOperations()
     # authentication after redirect
     target_url = f'{hbsurl}/basic-auth/mike/dummy'

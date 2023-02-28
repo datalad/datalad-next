@@ -29,7 +29,6 @@ from datalad_next.tests.utils import (
     serve_path_via_http,
     with_tempfile,
     serve_path_via_webdav,
-    with_credential,
 )
 from datalad_next.utils import on_windows
 from datalad_next.exceptions import CommandError
@@ -348,13 +347,12 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
     eq_(tobesubds.id, subdsclone.id)
 
 
-def test_webdav_auth(datalad_cfg):
+def test_webdav_auth(credman):
+    credman.set('dltest-mystuff', user=webdav_cred[0], secret=webdav_cred[1],
+                type='user_password')
     check_webdav_auth()
 
 
-@with_credential(
-    'dltest-mystuff', user=webdav_cred[0], secret=webdav_cred[1],
-    type='user_password')
 @with_tempfile
 @with_tempfile
 @with_tempfile

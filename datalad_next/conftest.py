@@ -163,3 +163,19 @@ def check_plaintext_keyring():
     assert pre == post, \
         "Keyring modification detected. Test must be modified to use " \
         "a temporary keyring. Hint: use the `tmp_keyring` fixture."
+
+
+@pytest.fixture(autouse=False, scope="function")
+def credman(datalad_cfg, tmp_keyring):
+    """Provides a temporary credential manager
+
+    It comes with a temporary global datalad config and a temporary
+    keyring as well.
+
+    This manager can be used to deploy or manipulate credentials within the
+    scope of a single test.
+    """
+    from datalad import cfg
+    from datalad_next.credman import CredentialManager
+    cm = CredentialManager(cfg)
+    yield cm
