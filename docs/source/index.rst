@@ -76,6 +76,7 @@ Python utilities
    utils
    utils.http_helpers
    utils.requests_auth
+   tests.fixtures
 
 
 Git remote helpers
@@ -127,6 +128,7 @@ Patches that are automatically applied to DataLad when loading the
    interface_utils
    push_optimize
    push_to_export_remote
+   test_keyring
    siblings
 
 
