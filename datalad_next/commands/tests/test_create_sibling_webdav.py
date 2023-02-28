@@ -16,7 +16,6 @@ from datalad_next.tests.utils import (
     ok_,
     run_main,
     serve_path_via_webdav,
-    with_credential,
     with_tempfile,
     with_tree
 )
@@ -33,28 +32,27 @@ from datalad_next.utils import chpwd
 webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
 
 
-def test_common_workflow_implicit_cred(datalad_cfg):
-    check_common_workflow(False, 'annex')
+def test_common_workflow_implicit_cred(credman):
+    check_common_workflow(credman, False, 'annex')
 
 
-def test_common_workflow_explicit_cred(datalad_cfg):
-    check_common_workflow(True, 'annex')
+def test_common_workflow_explicit_cred(credman):
+    check_common_workflow(credman, True, 'annex')
 
 
-def test_common_workflow_export(datalad_cfg):
-    check_common_workflow(False, 'filetree')
+def test_common_workflow_export(credman):
+    check_common_workflow(credman, False, 'filetree')
 
 
-@with_credential(
-    webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
-    type='user_password')
 @with_tempfile
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])
 def check_common_workflow(
-        declare_credential, mode,
+        credman, declare_credential, mode,
         clonepath, localpath, remotepath, url):
+    credman.set(webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
+                type='user_password')
     ca = dict(result_renderer='disabled')
     ds = Dataset(localpath).create(**ca)
     # need to amend the test credential, can only do after we know the URL
@@ -252,13 +250,12 @@ def test_unused_storage_name_warning(path=None):
         eq_(lgr_mock.warning.call_count, len(mode_values))
 
 
-def test_existing_switch(datalad_cfg):
+def test_existing_switch(credman):
+    credman.set('dltest-mywebdav', user=webdav_cred[1], secret=webdav_cred[2],
+                type='user_password')
     check_existing_switch()
 
 
-@with_credential(
-    'dltest-mywebdav', user=webdav_cred[1], secret=webdav_cred[2],
-    type='user_password')
 @with_tree(tree={'sub': {'f0': '0'},
                  'sub2': {'subsub': {'f1': '1'},
                           'f2': '2'},
@@ -406,13 +403,12 @@ def check_existing_switch(localpath=None, remotepath=None, url=None):
     assert_in(new_root / 'sub2' / 'subsub', remote_content)
 
 
-def test_result_renderer(datalad_cfg):
+def test_result_renderer(credman):
+    credman.set(webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
+                type='user_password')
     check_result_renderer()
 
 
-@with_credential(
-    webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
-    type='user_password')
 @with_tempfile
 @with_tempfile
 @serve_path_via_webdav(auth=webdav_cred[1:])

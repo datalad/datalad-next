@@ -73,7 +73,7 @@ def test_normalize_specs():
         assert_raises(ValueError, normalize_specs, error)
 
 
-def test_credentials(memory_keyring):
+def test_credentials(tmp_keyring):
     # we want all tests to bypass the actual system keyring
     check_credentials_cli()
     check_interactive_entry_set()
@@ -183,7 +183,7 @@ def test_result_renderer():
     ))
 
 
-def test_extreme_credential_name(memory_keyring, datalad_cfg):
+def test_extreme_credential_name(tmp_keyring, datalad_cfg):
     cred = Credentials()
     extreme = 'ΔЙקم๗あ |/;&%b5{}"'
     assert_in_results(

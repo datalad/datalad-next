@@ -109,8 +109,6 @@ package and its commands.
   provide "all" necessary pieces in a single place.
 - `serve_path_via_webdav` test decorator that automatically deploys a local WebDAV
   server.
-- `with_credential` test decorator that temporarily deploys a credential to the
-  local credential system.
 - Utilities for HTTP handling
   - `probe_url()` discovers redirects and authentication requirements for an HTTP
     URL
@@ -125,6 +123,15 @@ package and its commands.
     from a credential for a particular special remote type
 - Helper for runtime-patching other datalad code (`datalad_next.utils.patch`)
 - Base class for implementing custom `git-annex` backends.
+- A set of `pytest` fixtures to:
+  - check that no global configuration side-effects are left behind by a test
+  - check that no secrets are left behind by a test
+  - provide a temporary configuration that is isolated from a user environment
+    and from other tests
+  - provide a temporary secret store that is isolated from a user environment
+    and from other tests
+  - provide a temporary credential manager to perform credential deployment
+    and manipulation isolated from a user environment and from other tests
 
 ## Patching the DataLad core package.
 
