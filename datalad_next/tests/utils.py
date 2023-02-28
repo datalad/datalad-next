@@ -153,6 +153,14 @@ def with_credential(name, **kwargs):
     In pretty much all cases, the keyword arguments need to include
     `secret`. Otherwise any properties are supported.
     """
+    import warnings
+    warnings.warn(
+        "datalad_next.tests.utils.with_credential was replaced by a `credman` "
+        "fixture in datalad_next 1.0, and will be removed in "
+        "datalad_next 2.0.",
+        DeprecationWarning,
+    )
+
     def with_credential_decorator(fx):
         @wraps(fx)
         def _with_credential(*dargs, **dkw):
