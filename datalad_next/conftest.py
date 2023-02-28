@@ -18,48 +18,37 @@ lgr = logging.getLogger('datalad.next')
 
 
 @pytest.fixture(autouse=False, scope="function")
-def memory_keyring():
-    """Patch keyring to temporarily use a backend that only stores in memory
+def tmp_keyring():
+    """Patch plaintext keyring to temporarily use a different storage
 
     No credential read or write actions will impact any existing credential
     store of any configured backend.
 
-    The patched-in backend is yielded by the fixture. It offers a ``store``
-    attribute, which is a ``dict`` that uses keys of the pattern::
-
-        (datalad-<credential name>, <field name>)
-
-    and the associated secrets as values. For non-legacy credentials the
-    ``<field name>`` is uniformly ``'secret'``. For legacy credentials
-    other values are also used, including fields that are not actually
-    secrets.
+    The patched backend is yielded by the fixture.
     """
     import keyring
-    import keyring.backend
 
-    class MemoryKeyring(keyring.backend.KeyringBackend):
-        # high priority
-        priority = 1000
+    # the testsetup assumes this to be a plaintext backend.
+    # this backend is based on a filename and maintains no state.
+    # each operation opens, reads/writes, and then closes the file.
+    # hence we can simply point to a different file
+    backend = keyring.get_keyring()
+    prev_fpath = backend.file_path
 
-        def __init__(self):
-            self.store = {}
+    # no tmp keyring yet, make one
+    with NamedTemporaryFile(
+            'r',
+            prefix='datalad_tmp_keyring_',
+            delete=True) as tf:
+        # we must close, because windows does not like the file being open
+        # already when ConfigManager would open it for reading
+        tf.close()
+        backend.file_path = tf.name
+        with patch.dict(os.environ,
+                        {'DATALAD_TESTS_TMP_KEYRING_PATH': tf.name}):
+            yield backend
 
-        def set_password(self, servicename, username, password):
-            self.store[(servicename, username)] = password
-
-        def get_password(self, servicename, username):
-            return self.store.get((servicename, username))
-
-        def delete_password(self, servicename, username):
-            del self.store[(servicename, username)]
-
-    old_backend = keyring.get_keyring()
-    new_backend = MemoryKeyring()
-    keyring.set_keyring(new_backend)
-
-    yield new_backend
-
-    keyring.set_keyring(old_backend)
+    backend.file_path = prev_fpath
 
 
 # the following is taken from datalad/conftest.py
@@ -147,17 +136,13 @@ def check_gitconfig_global():
         "a temporary configuration target. Hint: use the `datalad_cfg` fixture."
 
 
-# TODO this fixture is NOT used by default, because the memory_keyring
-# fixture that should prevent these kinds of errors is not sufficient,
-# because we need to be able to communicate credentials across processes
-# (datalad -> special/git remote and back)
-@pytest.fixture(autouse=False, scope="function")
+@pytest.fixture(autouse=True, scope="function")
 def check_plaintext_keyring():
     """No test must modify a user's keyring.
 
     If such modifications are needed, a custom keyring setup
     limited to the scope of the test requiring it must be arranged.
-    The ``memory_keyring`` fixture can be employed in such cases.
+    The ``tmp_keyring`` fixture can be employed in such cases.
     """
     # datalad-core configures keyring to use a plaintext backend
     # we will look for the underlying file and verify that it is either
@@ -177,4 +162,4 @@ def check_plaintext_keyring():
     post = md5sum(kr_fpath) if kr_fpath.exists() else ''
     assert pre == post, \
         "Keyring modification detected. Test must be modified to use " \
-        "a temporary keyring. Hint: use the `memory_keyring` fixture."
+        "a temporary keyring. Hint: use the `tmp_keyring` fixture."
