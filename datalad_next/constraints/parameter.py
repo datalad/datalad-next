@@ -284,6 +284,11 @@ class EnsureCommandParameterization(Constraint):
     communicated by raising a ``CommandParametrizationError`` exception, which
     can be inspected by a caller for details on number and nature of all
     discovered violations.
+
+    Exhaustive validation and joint reporting are only supported for individual
+    constraint implementations that raise `ConstraintError` exceptions. For
+    legacy constraints, any raised exception of another type are not caught
+    and reraised immediately.
     """
     def __init__(
         self,
