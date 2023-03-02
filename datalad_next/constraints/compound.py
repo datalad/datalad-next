@@ -55,6 +55,16 @@ class EnsureIterableOf(Constraint):
         self._max_len = max_len
         super().__init__()
 
+    def __repr__(self):
+        # not showing iter_type here, will come via class.name
+        # in general
+        return (
+            f'{self.__class__.__name__}('
+            f'item_constraint={self._item_constraint!r}'
+            f', min_len={self._min_len!r}'
+            f', max_len={self._max_len!r})'
+        )
+
     @property
     def item_constraint(self):
         return self._item_constraint
@@ -155,6 +165,14 @@ class EnsureMapping(Constraint):
         self._delimiter = delimiter
         self._allow_length2_sequence = allow_length2_sequence
 
+    def __repr__(self):
+        return (
+            f'{self.__class__.__name__}('
+            f'key={self._key_constraint!r}'
+            f', value={self._value_constraint!r}'
+            f', delimiter={self._delimiter!r})'
+        )
+
     def short_description(self):
         return 'mapping of {} -> {}'.format(
             self._key_constraint.short_description(),
@@ -214,6 +232,14 @@ class EnsureGeneratorFromFileLike(Constraint):
         """
         self._item_constraint = item_constraint
         super().__init__()
+
+    def __repr__(self):
+        # not showing iter_type here, will come via class.name
+        # in general
+        return (
+            f'{self.__class__.__name__}('
+            f'item_constraint={self._item_constraint!r})'
+        )
 
     def short_description(self):
         return \

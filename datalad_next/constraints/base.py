@@ -87,6 +87,10 @@ class _MultiConstraint(Constraint):
             EnsureNone() if c is None else c for c in constraints
         ]
 
+    def __repr__(self):
+        creprs = ', '.join(f'{c!r}' for c in self.constraints)
+        return f"{self.__class__.__name__}({creprs})"
+
     @property
     def constraints(self):
         return self._constraints
