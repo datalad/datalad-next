@@ -5,19 +5,25 @@ from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
 
-__all__ = ['Constraint', 'Constraints', 'AltConstraints']
-
-from typing import (
-    TYPE_CHECKING,
-    TypeVar,
-)
+__all__ = ['Constraint', 'Constraints', 'AltConstraints',
+           'DatasetParameter']
 
 from .exceptions import ConstraintError
 
-if TYPE_CHECKING:  # pragma: no cover
-    from datalad_next.datasets import Dataset
 
-DatasetDerived = TypeVar('DatasetDerived', bound='Dataset')
+class DatasetParameter:
+    """Utitlity class to report an original and resolve dataset parameter value
+
+    This is used by `EnsureDataset` to be able to report the original argument
+    semantics of a dataset parameter to a receiving command. It is consumed
+    by any ``Constraint.for_dataset()``.
+
+    The original argument is provided via the `original` property.
+    A corresponding `Dataset` instance is provided via the `ds` property.
+    """
+    def __init__(self, original, ds):
+        self.original = original
+        self.ds = ds
 
 
 class Constraint:
@@ -67,7 +73,7 @@ class Constraint:
         # used as a condensed primer for the parameter lists
         raise NotImplementedError("abstract class")
 
-    def for_dataset(self, dataset: DatasetDerived) -> Constraint:
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
         """Return a constraint-variant for a specific dataset context
 
         The default implementation returns the unmodified, identical
