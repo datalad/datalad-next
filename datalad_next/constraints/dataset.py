@@ -1,5 +1,7 @@
 """Constraints for DataLad datasets"""
 
+from __future__ import annotations
+
 from pathlib import (
     Path,
     PurePath,
@@ -7,22 +9,11 @@ from pathlib import (
 
 from datalad_next.datasets import Dataset
 
-from .base import Constraint
+from .base import (
+    Constraint,
+    DatasetParameter,
+)
 from .exceptions import NoDatasetFound
-
-
-class DatasetParameter:
-    """Utitlity class to report an original and resolve dataset parameter value
-
-    This is used by `EnsureDataset` to be able to report the original argument
-    semantics of a dataset parameter to a receiving command.
-
-    The original argument is provided via the `original` property.
-    A corresponding `Dataset` instance is provided via the `ds` property.
-    """
-    def __init__(self, original, ds):
-        self.original = original
-        self.ds = ds
 
 
 class EnsureDataset(Constraint):
@@ -50,7 +41,9 @@ class EnsureDataset(Constraint):
     the DataLad core package). With ``installed=False`` no exception is
     raised and a dataset instances matching PWD is returned.
     """
-    def __init__(self, installed: bool = None, purpose: str = None):
+    def __init__(self,
+                 installed: bool | None = None,
+                 purpose: str | None = None):
         """
         Parameters
         ----------
