@@ -8,12 +8,19 @@
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 """Basic constraints for declaring essential data types, values, and ranges"""
 
+from __future__ import annotations
+
 __docformat__ = 'restructuredtext'
 
 from pathlib import Path
 import re
 
-from .base import Constraint
+from datalad_next.datasets import resolve_path
+
+from .base import (
+    Constraint,
+    DatasetParameter,
+)
 from .utils import _type_str
 
 
@@ -332,12 +339,14 @@ class EnsurePath(Constraint):
     or relative.
     """
     def __init__(self,
+                 *,
                  path_type: type = Path,
                  is_format: str or None = None,
                  lexists: bool or None = None,
                  is_mode: callable = None,
                  ref: Path = None,
-                 ref_is: str = 'parent-or-same-as'):
+                 ref_is: str = 'parent-or-same-as',
+                 dsarg: DatasetParameter | None = None):
         """
         Parameters
         ----------
@@ -362,6 +371,12 @@ class EnsurePath(Constraint):
           comparison operation is given by `ref_is`.
         ref_is: {'parent-or-identical'}
           Comparison operation to perform when `ref` is given.
+        dsarg: DatasetParameter, optional
+          If given, incoming paths are resolved in the following fashion:
+          If, and only if, the original "dataset" parameter was a
+          ``Dataset`` object instance, relative paths are interpreted as
+          relative to the given dataset. In all other cases, relative paths
+          are treated as relative to the current working directory.
         """
         super().__init__()
         self._path_type = path_type
@@ -370,9 +385,29 @@ class EnsurePath(Constraint):
         self._is_mode = is_mode
         self._ref = ref
         self._ref_is = ref_is
+        self._dsarg = dsarg
 
     def __call__(self, value):
+        # turn it into the target type to make everything below
+        # more straightforward
         path = self._path_type(value)
+
+        # we are testing the format first, because resolve_path()
+        # will always turn things into absolute paths
+        if self._is_format is not None:
+            is_abs = path.is_absolute()
+            if self._is_format == 'absolute' and not is_abs:
+                raise ValueError(f'{path} is not an absolute path')
+            elif self._is_format == 'relative' and is_abs:
+                raise ValueError(f'{path} is not a relative path')
+
+        # resolve relative paths against a dataset, if given
+        if self._dsarg:
+            path = resolve_path(
+                path,
+                self._dsarg.original,
+                self._dsarg.ds)
+
         mode = None
         if self._lexists is not None or self._is_mode is not None:
             try:
@@ -385,12 +420,6 @@ class EnsurePath(Constraint):
                 raise ValueError(f'{path} does not exist')
             elif not self._lexists and mode is not None:
                 raise ValueError(f'{path} does (already) exist')
-        if self._is_format is not None:
-            is_abs = path.is_absolute()
-            if self._is_format == 'absolute' and not is_abs:
-                raise ValueError(f'{path} is not an absolute path')
-            elif self._is_format == 'relative' and is_abs:
-                raise ValueError(f'{path} is not a relative path')
         if self._is_mode is not None:
             if not self._is_mode(mode):
                 raise ValueError(f'{path} does not match desired mode')
@@ -407,6 +436,22 @@ class EnsurePath(Constraint):
                 raise ValueError(
                     f'{self._ref} is not {self._ref_is} {path}')
         return path
+
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
+        """Return an similarly parametrized variant that resolves
+        paths against a given dataset (argument)
+
+
+        """
+        return self.__class__(
+            path_type=self._path_type,
+            is_format=self._is_format,
+            lexists=self._lexists,
+            is_mode=self._is_mode,
+            ref=self._ref,
+            ref_is=self._ref_is,
+            dsarg=dataset,
+        )
 
     def short_description(self):
         return '{}{}path{}'.format(

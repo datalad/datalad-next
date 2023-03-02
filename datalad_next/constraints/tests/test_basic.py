@@ -1,6 +1,9 @@
 import pathlib
 import pytest
 
+from datalad_next.datasets import Dataset
+
+from ..base import DatasetParameter
 from ..basic import (
     EnsureInt,
     EnsureFloat,
@@ -299,3 +302,20 @@ def test_EnsurePath(tmp_path):
     c = EnsurePath(ref=target, ref_is='stupid')
     with pytest.raises(ValueError):
         c('doesnotmatter')
+
+
+def test_EnsurePath_fordataset(tmp_path):
+    P = pathlib.Path
+    ds = Dataset(tmp_path).create(result_renderer='disabled')
+    # standard: relative in, relative out
+    c = EnsurePath()
+    assert c('relpath') == P('relpath')
+    # tailor constraint for our dataset
+    # (this is what would be done by EnsureCommandParameterization
+    # 1. dataset given as a path -- resolve against CWD
+    #    output is always absolute
+    tc = c.for_dataset(DatasetParameter(tmp_path, ds))
+    assert tc('relpath') == (P.cwd() / 'relpath')
+    # 2. dataset is given as a dataset object
+    tc = c.for_dataset(DatasetParameter(ds, ds))
+    assert tc('relpath') == (ds.pathobj / 'relpath')
