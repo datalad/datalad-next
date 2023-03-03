@@ -44,7 +44,7 @@ class EnsureDataset(Constraint):
     def __init__(self,
                  installed: bool | None = None,
                  purpose: str | None = None,
-                 idcheck: bool | None = None):
+                 require_id: bool | None = None):
         """
         Parameters
         ----------
@@ -60,7 +60,7 @@ class EnsureDataset(Constraint):
         """
         self._installed = installed
         self._purpose = purpose
-        self._idcheck = idcheck
+        self._require_id = require_id
         super().__init__()
 
     def __call__(self, value) -> DatasetParameter:
@@ -72,7 +72,7 @@ class EnsureDataset(Constraint):
         elif not isinstance(value, (str, PurePath, type(None))):
             raise TypeError(f"Cannot create Dataset from {type(value)}")
         else:
-            ds = _require_dataset(self, value)
+            ds = self._require_dataset(value)
         assert ds
         if self._installed is not None:
             is_installed = ds.is_installed()
@@ -82,7 +82,7 @@ class EnsureDataset(Constraint):
                 # for uniformity with require_dataset() below, use
                 # this custom exception
                 raise NoDatasetFound(f'{ds} is not installed')
-        if self._idcheck and not ds.id:
+        if self._require_id and not ds.id:
             raise NoDatasetFound(f'{ds} does not have a valid '
                                  f'datalad-id')
         return DatasetParameter(value, ds)
@@ -93,25 +93,25 @@ class EnsureDataset(Constraint):
             else 'a non-existing ' if self._installed is False else 'a ')
 
 
-def _require_dataset(self, value):
-    from datalad.distribution.dataset import require_dataset
-    try:
-        ds = require_dataset(
-            value,
-            check_installed=self._installed is True,
-            purpose=self._purpose,
-        )
-        return ds
-    except NoDatasetFound:
-        # mitigation of non-uniform require_dataset() behavior.
-        # with value == None it does not honor check_installed
-        # https://github.com/datalad/datalad/issues/7281
-        if self._installed is True:
-            # if we are instructed to ensure an installed dataset
-            raise
-        else:
-            # but otherwise go with CWD. require_dataset() did not
-            # find a dataset in any parent dir either, so this is
-            # the best we can do. Installation absence verification
-            # will happen further down
-            return Dataset(Path.cwd())
+    def _require_dataset(self, value):
+        from datalad.distribution.dataset import require_dataset
+        try:
+            ds = require_dataset(
+                value,
+                check_installed=self._installed is True,
+                purpose=self._purpose,
+            )
+            return ds
+        except NoDatasetFound:
+            # mitigation of non-uniform require_dataset() behavior.
+            # with value == None it does not honor check_installed
+            # https://github.com/datalad/datalad/issues/7281
+            if self._installed is True:
+                # if we are instructed to ensure an installed dataset
+                raise
+            else:
+                # but otherwise go with CWD. require_dataset() did not
+                # find a dataset in any parent dir either, so this is
+                # the best we can do. Installation absence verification
+                # will happen further down
+                return Dataset(Path.cwd())
