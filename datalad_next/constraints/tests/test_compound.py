@@ -137,10 +137,24 @@ def test_EnsureGeneratorFromFileLike():
     assert list(c) == [{5: True}, {1234: False}]
 
     # item constraint violation
-    c = constraint(StringIO("5::yes\n1234::BANG"))
+    invalid_input = StringIO("1234::BANG\n5::yes")
+    # immediate raise is default
     with pytest.raises(ValueError) as e:
-        list(c)
+        list(constraint(invalid_input))
     assert 'be convertible to boolean' in str(e)
+    # but optionally it yields the exception to be able to
+    # continue and enable a caller to raise/report/ignore
+    # (must redefine `invalid_input` to read from start)
+    invalid_input = StringIO("1234::BANG\n5::yes")
+    res = list(
+        EnsureGeneratorFromFileLike(
+            item_constraint,
+            exc_mode='yield',
+        )(invalid_input)
+    )
+    # we get the result after the exception occurred
+    assert isinstance(res[0], ValueError)
+    assert res[1] == {5: True}
 
     # read from STDIN
     with patch("sys.stdin", StringIO("5::yes\n1234::no")):
