@@ -283,6 +283,39 @@ class EnsureKeyChoice(EnsureChoice):
         return '%s:{%s}' % (self._key, ', '.join([repr(c) for c in self._allowed]))
 
 
+class EnsureSet(Constraint):
+    """Ensure an input contains all elements of a set of required values"""
+
+    def __init__(self, *values):
+        """
+        Parameters
+        ----------
+        *values
+           required values.
+        """
+        self._required = set(values)
+        super(EnsureSet, self).__init__()
+
+    def __call__(self, value):
+        if not self._required.issubset(set(value)):
+            self.raise_for(
+                value,
+                "missing {required}",
+                required=self._required,
+            )
+        return value
+
+    def long_description(self):
+        return 'All following fields are required: [CMD: %s CMD][PY: %s PY]' % (
+            str(tuple(i for i in self._required if i is not None)),
+            str(self._required)
+        )
+
+    def short_description(self):
+        return '{%s}' % ', '.join([repr(c) for c in sorted(self._required)])
+
+
+
 class EnsureRange(Constraint):
     """Ensure an input is within a particular range
 

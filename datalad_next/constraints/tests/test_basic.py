@@ -8,6 +8,7 @@ from ..basic import (
     EnsureInt,
     EnsureFloat,
     EnsureBool,
+    EnsureSet,
     EnsureStr,
     EnsureStrPrefix,
     EnsureNone,
@@ -218,6 +219,23 @@ def test_keychoice():
         c({'some': 'None'})
     with pytest.raises(ValueError):
         c({'some': ('a', 'b')})
+
+
+def test_set():
+    c = EnsureSet('req1', 'req2')
+    descr = c.long_description()
+    for i in ('req1', 'req2'):
+        assert i in descr
+    assert c.short_description() == "{'req1', 'req2'}"
+    assert c(value=['req1', 'req2']) == ['req1', 'req2']
+    # not all required elements included
+    with pytest.raises(ValueError):
+        c(('req1'))
+    # unknown elements included
+    with pytest.raises(ValueError):
+        c(('req3', 'nonreq'))
+    # additional elements on top of all required elements should be ok
+    assert c(value=['req1', 'req2', 'req3']) == ['req1', 'req2', 'req3']
 
 
 def test_range():
