@@ -61,46 +61,49 @@ class EnsureDataset(Constraint):
     def __call__(self, value) -> DatasetParameter:
         # good-enough test to recognize a dataset instance cheaply
         if hasattr(value, 'repo') and hasattr(value, 'pathobj'):
-            if self._installed is not None:
-                is_installed = value.is_installed()
-                if self._installed and not is_installed:
-                    # for uniformity with require_dataset() below, use
-                    # this custom exception
-                    raise NoDatasetFound(f'{value} is not installed')
-                elif not self._installed and is_installed:
-                    raise ValueError(f'{value} already exists locally')
-            return DatasetParameter(value, value)
+            ds = value
         # anticipate what require_dataset() could handle and fail if we got
         # something else
         elif not isinstance(value, (str, PurePath, type(None))):
             raise TypeError(f"Cannot create Dataset from {type(value)}")
-
-        from datalad.distribution.dataset import require_dataset
-        try:
-            ds = require_dataset(
-                value,
-                check_installed=self._installed is True,
-                purpose=self._purpose,
-            )
-        except NoDatasetFound:
-            # mitigation of non-uniform require_dataset() behavior.
-            # with value == None it does not honor check_installed
-            # https://github.com/datalad/datalad/issues/7281
-            if self._installed is True:
-                # if we are instructed to ensure an installed dataset
-                raise
-            else:
-                # but otherwise go with CWD. require_dataset() did not
-                # find a dataset in any parent dir either, so this is
-                # the best we can do. Installation absence verification
-                # will happen further down
-                ds = Dataset(Path.cwd())
-
-        if self._installed is False and ds.is_installed():
-            raise ValueError(f'{ds} already exists locally')
+        else:
+            ds = _require_dataset(self, value)
+        assert ds
+        if self._installed is not None:
+            is_installed = ds.is_installed()
+            if self._installed is False and is_installed:
+                raise ValueError(f'{ds} already exists locally')
+            if self._installed and not is_installed:
+                # for uniformity with require_dataset() below, use
+                # this custom exception
+                raise NoDatasetFound(f'{ds} is not installed')
         return DatasetParameter(value, ds)
 
     def short_description(self) -> str:
         return "(path to) {}Dataset".format(
             'an existing ' if self._installed is True
             else 'a non-existing ' if self._installed is False else 'a ')
+
+
+def _require_dataset(self, value):
+    from datalad.distribution.dataset import require_dataset
+    try:
+        ds = require_dataset(
+            value,
+            check_installed=self._installed is True,
+            purpose=self._purpose,
+        )
+        return ds
+    except NoDatasetFound:
+        # mitigation of non-uniform require_dataset() behavior.
+        # with value == None it does not honor check_installed
+        # https://github.com/datalad/datalad/issues/7281
+        if self._installed is True:
+            # if we are instructed to ensure an installed dataset
+            raise
+        else:
+            # but otherwise go with CWD. require_dataset() did not
+            # find a dataset in any parent dir either, so this is
+            # the best we can do. Installation absence verification
+            # will happen further down
+            return Dataset(Path.cwd())
