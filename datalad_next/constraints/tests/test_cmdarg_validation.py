@@ -255,8 +255,8 @@ class EnsureUUID(Constraint):
 class EnsureDatasetID(EnsureUUID):
     """Makes sure that something is a dataset ID (UUID), or the dataset UUID
     of a particular dataset when tailored"""
-    def for_dataset(self, ds):
-        return EnsureValue(UUID(ds.id))
+    def for_dataset(self, dsarg):
+        return EnsureValue(UUID(dsarg.ds.id))
 
 
 class DsTailoringValidator(EnsureCommandParameterization):

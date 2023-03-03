@@ -13,7 +13,7 @@ from typing import (
 
 from .base import (
     Constraint,
-    DatasetDerived,
+    DatasetParameter,
 )
 
 
@@ -205,7 +205,7 @@ class EnsureMapping(Constraint):
         val = self._value_constraint(val)
         return {key: val}
 
-    def for_dataset(self, dataset: DatasetDerived):
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
         # tailor both constraints to the dataset and reuse delimiter
         return EnsureMapping(
             key=self._key_constraint.for_dataset(dataset),
@@ -354,7 +354,7 @@ class ConstraintWithPassthrough(Constraint):
         return f'{self.__class__.__name__}' \
                f'({self._constraint!r}, passthrough={self._passthrough!r})'
 
-    def for_dataset(self, dataset: DatasetDerived) -> Constraint:
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
         """Wrap the wrapped constraint again after tailoring it for the dataset
 
         The pass-through value is re-used.

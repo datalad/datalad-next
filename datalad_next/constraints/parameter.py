@@ -510,7 +510,7 @@ class EnsureCommandParameterization(Constraint):
             tailor_for = self._tailor_for_dataset.get(argname)
             if tailor_for and isinstance(validated.get(tailor_for),
                                          DatasetParameter):
-                validator = validator.for_dataset(validated[tailor_for].ds)
+                validator = validator.for_dataset(validated[tailor_for])
 
             try:
                 validated[argname] = validator(arg)
