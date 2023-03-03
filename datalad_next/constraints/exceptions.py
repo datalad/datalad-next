@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from textwrap import indent
 from types import MappingProxyType
 from typing import (
     Any,
@@ -73,9 +74,25 @@ class ConstraintError(ValueError):
         return self.args[1]
 
     @property
+    def caused_by(self):
+        if not self.args[3]:
+            return
+        return self.args[3].get('__caused_by__', None)
+
+    @property
     def value(self):
         """Get the value that violated the constraint"""
         return self.args[2]
+
+    def _tostr(self, istr):
+        if self.caused_by:
+            cb = '\n'.join(f'- {c}' for c in self.caused_by)
+            return f'{self.msg}:\n{indent(cb, "  ")}'
+        else:
+            return self.msg
+
+    def __str__(self):
+        return self._tostr('')
 
     def __repr__(self):
         # rematch constructor arg-order, because we put `msg` first into
@@ -256,9 +273,9 @@ class ParametrizationErrors(ConstraintErrors):
             vs=f'{violation_subject} ' if violation_subject else '',
             p='s' if violations > 1 else '',
             el='\n'.join(
-                '{ctx}\n  {msg}'.format(
+                '{ctx}\n{msg}'.format(
                     ctx=ctx.label,
-                    msg=c.msg,
+                    msg=indent(str(c), '  '),
                 )
                 for ctx, c in self.errors.items()
             ),
