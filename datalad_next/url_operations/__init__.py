@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 import datalad
 from datalad_next.utils import log_progress
@@ -393,6 +396,6 @@ class UrlOperationsAuthorizationError(UrlOperationsRemoteError):
                  url: str,
                  credential: dict | None = None,
                  message: str | None = None,
-                 status_code: Any = None):
+                 status_code: Any | None = None):
         super().__init__(url, message=message, status_code=status_code)
         self.credential = credential

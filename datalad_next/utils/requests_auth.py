@@ -38,7 +38,7 @@ class DataladAuth(requests.auth.AuthBase):
         'bearer': 'token',
     }
 
-    def __init__(self, cfg: CredentialManager, credential: str = None):
+    def __init__(self, cfg: CredentialManager, credential: str | None = None):
         """
         Parameters
         ----------
@@ -51,8 +51,8 @@ class DataladAuth(requests.auth.AuthBase):
         self._credential = credential
         self._entered_credential = None
 
-    def save_entered_credential(self, suggested_name: str = None,
-                                context: str = None) -> Dict | None:
+    def save_entered_credential(self, suggested_name: str | None = None,
+                                context: str | None = None) -> Dict | None:
         """Utility method to save a pending credential in the store
 
         Pending credentials have been entered manually, and were subsequently
