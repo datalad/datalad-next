@@ -356,3 +356,14 @@ def test_EnsureDataset(tmp_path):
     assert EnsureDataset(
         installed=False).short_description() == \
         '(path to) a non-existing Dataset'
+
+    # smoke test for idcheck:
+    assert EnsureDataset(idcheck=True)(ds).ds == ds
+    assert EnsureDataset(idcheck=False)(ds).ds == ds
+    # unset the dataset ID to test whether an ID check would raise, but
+    # bring it back later in case future tests need it
+    id = ds.config.get('datalad.dataset.id')
+    ds.config.unset('datalad.dataset.id')
+    with pytest.raises(NoDatasetFound):
+        EnsureDataset(idcheck=True)(tmp_path)
+    ds.config.set('datalad.dataset.id', id)

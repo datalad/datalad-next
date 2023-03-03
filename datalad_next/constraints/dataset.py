@@ -43,7 +43,8 @@ class EnsureDataset(Constraint):
     """
     def __init__(self,
                  installed: bool | None = None,
-                 purpose: str | None = None):
+                 purpose: str | None = None,
+                 idcheck: bool | None = None):
         """
         Parameters
         ----------
@@ -53,9 +54,13 @@ class EnsureDataset(Constraint):
         purpose: str, optional
           If given, will be used in generated error messages to communicate
           why a dataset is required (to exist)
+        idcheck: bool, option
+          If given, performs an additional check whether the dataset has a
+          valid dataset ID.
         """
         self._installed = installed
         self._purpose = purpose
+        self._idcheck = idcheck
         super().__init__()
 
     def __call__(self, value) -> DatasetParameter:
@@ -77,6 +82,9 @@ class EnsureDataset(Constraint):
                 # for uniformity with require_dataset() below, use
                 # this custom exception
                 raise NoDatasetFound(f'{ds} is not installed')
+        if self._idcheck and not ds.id:
+            raise NoDatasetFound(f'{ds} does not have a valid '
+                                 f'datalad-id')
         return DatasetParameter(value, ds)
 
     def short_description(self) -> str:
