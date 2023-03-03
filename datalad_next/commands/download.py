@@ -39,12 +39,27 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.datasets import (
-    resolve_path,
-)
 from datalad_next.url_operations.any import AnyUrlOperations
 
 lgr = getLogger('datalad.local.download')
+
+
+class EnsureURLFilenamePairFromURL(EnsureURL):
+    """Accept a URL and derive filename from it path component
+
+    Return original URL and filename as a mapping
+    """
+    def __init__(self):
+        super().__init__(required=['scheme', 'path'])
+
+    def __call__(self, value):
+        url = super().__call__(value)
+        # derive a filename from the URL.
+        # we take the last element of the 'path' component
+        # of the URL, or fail
+        parsed = urlparse(url)
+        filename = PurePosixPath(parsed.path).name
+        return {url: filename}
 
 
 @build_doc
@@ -89,7 +104,8 @@ class Download(ValidatedInterface):
     # if given as a single string, we support single-space-delimited items:
     # "<url> <path>"
     url2path_constraint = EnsureMapping(
-        key=url_constraint, value=EnsureValue('-') | EnsurePath(),
+        key=url_constraint,
+        value=EnsureValue('-') | EnsurePath(),
         delimiter=' ',
         # we disallow length-2 sequences to be able to distinguish from
         # a length-2 list of URLs.
@@ -101,8 +117,10 @@ class Download(ValidatedInterface):
     # JSON-encoded url->path mapping.  the order is complex-to-simple for the
     # first two (to be able to distinguish a mapping from an encoded URL. The
     # JSON-encoding is tried last, it want match accidentally)
-    spec_item_constraint = url2path_constraint | url_constraint \
-        | (EnsureJSON() & url2path_constraint)
+    spec_item_constraint = url2path_constraint | (
+        (
+            EnsureJSON() | EnsureURLFilenamePairFromURL()
+        ) & url2path_constraint)
 
     # we support reading specification items (matching any format defined
     # above) as
@@ -115,7 +133,10 @@ class Download(ValidatedInterface):
     spec_constraint = AltConstraints(
         spec_item_constraint,
         EnsureListOf(spec_item_constraint),
-        EnsureGeneratorFromFileLike(spec_item_constraint),
+        EnsureGeneratorFromFileLike(
+            spec_item_constraint,
+            exc_mode='yield',
+        ),
     )
 
     force_choices = EnsureChoice('overwrite-existing')
@@ -224,17 +245,19 @@ class Download(ValidatedInterface):
         # because the spec can be a generator and consume from a
         # long-running source (e.g. via stdin)
         for item in spec:
-            try:
-                url, dest = _get_url_dest_path(item)
-            except Exception as e:
+            if isinstance(item, Exception):
+                # the generator encountered an exception for a particular
+                # item and is relaying it as per instructions
+                # exc_mode='yield'. We report and move on. Outside
+                # flow logic will decide if processing continues
                 yield get_status_dict(
                     action='download',
                     status='impossible',
-                    spec=item,
-                    exception=CapturedException(e),
+                    exception=CapturedException(item),
                 )
                 continue
 
+            url, dest = item.popitem()
             # we know that any URL has a scheme
             if not url_handler.is_supported_url(url):
                 yield get_status_dict(
@@ -247,10 +270,9 @@ class Download(ValidatedInterface):
                 )
                 continue
 
-            # turn any path into an absolute path, considering a potential
-            # dataset context
+            # ready destination path
             try:
-                dest = _prep_dest_path(dest, dataset, force)
+                dest = _prep_dest_path(dest, force)
             except ValueError as e:
                 yield get_status_dict(
                     action='download',
@@ -296,15 +318,10 @@ class Download(ValidatedInterface):
                 yield res
 
 
-def _prep_dest_path(dest, dataset, force):
+def _prep_dest_path(dest, force):
     if dest == '-':
         # nothing to prep for stdout
         return
-    dest = resolve_path(
-        dest,
-        ds=dataset.original if dataset else None,
-        ds_resolved=dataset.ds if dataset else None,
-    )
     # make sure we can replace any existing target path later
     # on. but do not remove here, we might not actually be
     # able to download for other reasons
@@ -315,21 +332,6 @@ def _prep_dest_path(dest, dataset, force):
     # create parent directory if needed
     dest.parent.mkdir(parents=True, exist_ok=True)
     return dest
-
-
-def _get_url_dest_path(spec_item):
-    # we either have a string (single URL), or a mapping
-    if isinstance(spec_item, dict):
-        return spec_item.popitem()
-    else:
-        # derive a destination path from the URL.
-        # we take the last element of the 'path' component
-        # of the URL, or fail
-        parsed = urlparse(spec_item)
-        filename = PurePosixPath(parsed.path).name
-        if not filename:
-            raise ValueError('cannot derive file name from URL')
-        return spec_item, filename
 
 
 def _lexists(path: Path):

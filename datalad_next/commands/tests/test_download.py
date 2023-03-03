@@ -1,5 +1,7 @@
+from io import StringIO
 import json
 from pathlib import Path
+import pytest
 
 import datalad
 from datalad.api import (
@@ -70,12 +72,15 @@ def test_download(wdir=None, srvpath=None, srvurl=None):
 
     assert (wdir / 'testfile2.txt').read_text() == 'test'
 
-    # no target path derivable
+    # non-existing download source
     assert_result_count(
-        download(f'{srvurl}', on_failure='ignore'),
-        1, status='impossible')
+        download(f'{srvurl}nothere', on_failure='ignore'),
+        1, status='error', message='download failure')
 
-    # unsupported url scheme
+
+def test_download_invalid_calls(monkeypatch):
+    # unsupported url scheme, only detected when actually calling
+    # a handler inside, hence error result
     assert_result_count(
         download('dummy://mike/file', on_failure='ignore'),
         1,
@@ -83,11 +88,19 @@ def test_download(wdir=None, srvpath=None, srvurl=None):
         message='unsupported URL (custom URL handlers can be declared '
         'via DataLad configuration)',
     )
-
-    # non-existing download source
+    # no target path derivable
+    # immediate error, when all information is readily available
+    with pytest.raises(ValueError):
+        download('http://example.com')
+    # deferred error result when a generator is gathering batch-mode
+    # items at runtime
+    monkeypatch.setattr('sys.stdin', StringIO('http://example.com'))
     assert_result_count(
-        download(f'{srvurl}nothere', on_failure='ignore'),
-        1, status='error', message='download failure')
+        download(
+            '-',
+            on_failure='ignore',
+        ),
+        1, status='impossible')
 
 
 def test_download_auth(credman):

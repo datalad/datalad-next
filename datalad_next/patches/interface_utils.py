@@ -33,7 +33,7 @@ from datalad.interface.utils import (
 )
 from datalad_next.exceptions import IncompleteResultsError
 from datalad_next.utils.patch import apply_patch
-
+from datalad_next.constraints.dataset import DatasetParameter
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
@@ -169,6 +169,8 @@ def _execute_command_(
         from datalad_next.datasets import Dataset
         if isinstance(dataset_arg, Dataset):
             ds = dataset_arg
+        elif isinstance(dataset_arg, DatasetParameter):
+            ds = dataset_arg.ds
         else:
             try:
                 ds = Dataset(dataset_arg)

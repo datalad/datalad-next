@@ -55,6 +55,16 @@ class EnsureIterableOf(Constraint):
         self._max_len = max_len
         super().__init__()
 
+    def __repr__(self):
+        # not showing iter_type here, will come via class.name
+        # in general
+        return (
+            f'{self.__class__.__name__}('
+            f'item_constraint={self._item_constraint!r}'
+            f', min_len={self._min_len!r}'
+            f', max_len={self._max_len!r})'
+        )
+
     @property
     def item_constraint(self):
         return self._item_constraint
@@ -155,6 +165,14 @@ class EnsureMapping(Constraint):
         self._delimiter = delimiter
         self._allow_length2_sequence = allow_length2_sequence
 
+    def __repr__(self):
+        return (
+            f'{self.__class__.__name__}('
+            f'key={self._key_constraint!r}'
+            f', value={self._value_constraint!r}'
+            f', delimiter={self._delimiter!r})'
+        )
+
     def short_description(self):
         return 'mapping of {} -> {}'.format(
             self._key_constraint.short_description(),
@@ -204,16 +222,37 @@ class EnsureGeneratorFromFileLike(Constraint):
     existing file to be read from.
     """
 
-    def __init__(self, item_constraint: Callable):
+    def __init__(
+        self,
+        item_constraint: Callable,
+        exc_mode: str = 'raise',
+    ):
         """
         Parameters
         ----------
         item_constraint:
           Each incoming item will be mapped through this callable
           before being yielded by the generator.
+        exc_mode: {'raise', 'yield'}, optional
+          How to deal with exceptions occurring when processing
+          individual lines/items. With 'yield' the respective
+          exception instance is yielded, and processing continues.
+          A caller can then decide whether to ignore, report, or raise
+          the exception. With 'raise', an exception is raised immediately
+          and processing stops.
         """
+        assert exc_mode in ('raise', 'yield')
         self._item_constraint = item_constraint
+        self._exc_mode = exc_mode
         super().__init__()
+
+    def __repr__(self):
+        # not showing iter_type here, will come via class.name
+        # in general
+        return (
+            f'{self.__class__.__name__}('
+            f'item_constraint={self._item_constraint!r})'
+        )
 
     def short_description(self):
         return \
@@ -241,11 +280,17 @@ class EnsureGeneratorFromFileLike(Constraint):
     def _item_yielder(self, fp, close_file):
         try:
             for line in fp:
-                yield self._item_constraint(
-                    # splitlines() removes the newline at the end of the string
-                    # that is left in by __iter__()
-                    line.splitlines()[0]
-                )
+                try:
+                    yield self._item_constraint(
+                        # splitlines() removes the newline at the end of
+                        # the string that is left in by __iter__()
+                        line.splitlines()[0]
+                    )
+                except Exception as e:
+                    if self._exc_mode == 'raise':
+                        raise
+                    else:
+                        yield e
         finally:
             if close_file:
                 fp.close()
