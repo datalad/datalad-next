@@ -8,6 +8,8 @@
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 """'tree'-like command for visualizing dataset hierarchies"""
 
+from __future__ import annotations
+
 __docformat__ = "numpy"
 
 import logging
@@ -1015,7 +1017,7 @@ class _TreeNode:
     TYPE = None  # needed for command result dict
 
     def __init__(self, path: Path, depth: int,
-                 exception: CapturedException = None):
+                 exception: CapturedException | None = None):
         """
         Parameters
         ----------
