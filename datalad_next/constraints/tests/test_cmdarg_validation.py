@@ -25,7 +25,7 @@ from .. import (
     EnsureValue,
 )
 from ..base import (
-    AltConstraints,
+    AnyOf,
     Constraint,
 )
 from ..dataset import EnsureDataset
@@ -49,10 +49,7 @@ class BasicCmdValidator(EnsureCommandParameterization):
     spec_item_constraint = url2path_constraint | url_constraint \
         | (EnsureJSON() & url2path_constraint)
 
-    # Must not OR: https://github.com/datalad/datalad/issues/7164
-    #spec_constraint = \
-    #    spec_item_constraint | EnsureListOf(spec_item_constraint)
-    spec_constraint = AltConstraints(
+    spec_constraint = AnyOf(
         EnsureListOf(spec_item_constraint),
         EnsureGeneratorFromFileLike(spec_item_constraint),
         spec_item_constraint,

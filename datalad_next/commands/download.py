@@ -8,7 +8,6 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
-from typing import Dict
 from urllib.parse import urlparse
 
 import datalad
@@ -27,6 +26,7 @@ from datalad_next.exceptions import (
 )
 from datalad_next.utils import ensure_list
 from datalad_next.constraints import (
+    AnyOf,
     EnsureChoice,
     EnsureGeneratorFromFileLike,
     EnsureJSON,
@@ -34,10 +34,8 @@ from datalad_next.constraints import (
     EnsureMapping,
     EnsurePath,
     EnsureURL,
-    EnsureParsedURL,
     EnsureValue,
 )
-from datalad_next.constraints.base import AltConstraints
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.url_operations.any import AnyUrlOperations
 
@@ -127,10 +125,7 @@ class Download(ValidatedInterface):
     # - a single item
     # - as a list of items
     # - a list given in a file, or via stdin (or any file-like in Python)
-    #
-    # Must not OR: https://github.com/datalad/datalad/issues/7164
-    #spec=spec_item_constraint | EnsureListOf(spec_item_constraint)# \
-    spec_constraint = AltConstraints(
+    spec_constraint = AnyOf(
         spec_item_constraint,
         EnsureListOf(spec_item_constraint),
         EnsureGeneratorFromFileLike(
