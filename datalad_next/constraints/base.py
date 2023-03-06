@@ -5,8 +5,7 @@ from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
 
-__all__ = ['Constraint', 'Constraints', 'AltConstraints',
-           'DatasetParameter']
+__all__ = ['Constraint', 'AllOf', 'AnyOf', 'DatasetParameter']
 
 from .exceptions import ConstraintError
 
@@ -53,10 +52,10 @@ class Constraint:
             raise ConstraintError(self, value, msg)
 
     def __and__(self, other):
-        return Constraints(self, other)
+        return AllOf(self, other)
 
     def __or__(self, other):
-        return AltConstraints(self, other)
+        return AnyOf(self, other)
 
     def __call__(self, value):
         # do any necessary checks or conversions, potentially catch exceptions
@@ -115,7 +114,7 @@ class _MultiConstraint(Constraint):
             return doc
 
 
-class AltConstraints(_MultiConstraint):
+class AnyOf(_MultiConstraint):
     """Logical OR for constraints.
 
     An arbitrary number of constraints can be given. They are evaluated in the
@@ -135,11 +134,11 @@ class AltConstraints(_MultiConstraint):
 
     def __or__(self, other):
         constraints = list(self.constraints)
-        if isinstance(other, AltConstraints):
+        if isinstance(other, AnyOf):
             constraints.extend(other.constraints)
         else:
             constraints.append(other)
-        return AltConstraints(*constraints)
+        return AnyOf(*constraints)
 
     def __call__(self, value):
         e_list = []
@@ -160,7 +159,7 @@ class AltConstraints(_MultiConstraint):
         return self._get_description('short_description', 'or')
 
 
-class Constraints(_MultiConstraint):
+class AllOf(_MultiConstraint):
     """Logical AND for constraints.
 
     An arbitrary number of constraints can be given. They are evaluated in the
@@ -181,11 +180,11 @@ class Constraints(_MultiConstraint):
 
     def __and__(self, other):
         constraints = list(self.constraints)
-        if isinstance(other, Constraints):
+        if isinstance(other, AllOf):
             constraints.extend(other.constraints)
         else:
             constraints.append(other)
-        return Constraints(*constraints)
+        return AllOf(*constraints)
 
     def __call__(self, value):
         for c in (self.constraints):
@@ -197,3 +196,9 @@ class Constraints(_MultiConstraint):
 
     def short_description(self):
         return self._get_description('short_description', 'and')
+
+
+# keep for backward compatibility
+Constraints = AllOf
+AltConstraints = AnyOf
+

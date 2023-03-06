@@ -13,7 +13,12 @@
    dataset
    exceptions
 """
-
+from .base import (
+    AllOf,
+    AnyOf,
+    Constraint,
+    DatasetParameter,
+)
 # expose constraints with direct applicability, but not
 # base and helper classes
 from .basic import (
