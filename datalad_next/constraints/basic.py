@@ -126,7 +126,7 @@ class EnsureStr(Constraint):
 
     No type conversion is performed.
     """
-    def __init__(self, min_len: int = 0, match: str = None):
+    def __init__(self, min_len: int = 0, match: str | None = None):
         """
         Parameters
         ----------
@@ -374,10 +374,10 @@ class EnsurePath(Constraint):
     def __init__(self,
                  *,
                  path_type: type = Path,
-                 is_format: str or None = None,
-                 lexists: bool or None = None,
-                 is_mode: callable = None,
-                 ref: Path = None,
+                 is_format: str | None = None,
+                 lexists: bool | None = None,
+                 is_mode: callable | None = None,
+                 ref: Path | None = None,
                  ref_is: str = 'parent-or-same-as',
                  dsarg: DatasetParameter | None = None):
         """
