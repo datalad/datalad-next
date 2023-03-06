@@ -3,13 +3,18 @@ from io import StringIO
 import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
+from pathlib import Path
 
 from datalad_next.datasets import Dataset
 from datalad_next.utils import on_windows
 
+from ..base import DatasetParameter
+
 from ..basic import (
     EnsureInt,
     EnsureBool,
+    EnsurePath,
+    EnsureStr,
 )
 from ..compound import (
     ConstraintWithPassthrough,
@@ -17,6 +22,7 @@ from ..compound import (
     EnsureListOf,
     EnsureTupleOf,
     EnsureMapping,
+    EnsureMappings,
     EnsureGeneratorFromFileLike,
 )
 
@@ -119,6 +125,59 @@ def test_EnsureMapping(tmp_path):
     assert cds._key_constraint == constraint._key_constraint.for_dataset(ds)
     assert cds._value_constraint == \
         constraint._value_constraint.for_dataset(ds)
+
+
+def test_EnsureMappings(tmp_path):
+    # test scenarios that should work
+    true_keys = ['one', 'two', 'three']
+    true_vals = [1, 2, 3]
+    constraint = EnsureMappings(key=EnsureStr(), value=EnsureInt())
+    assert 'mapping of str -> int' in constraint.short_description()
+
+    for v in ('one:1,two:2,three:3',  # string input
+              {'one': 1, 'two': 2, 'three': 3},   # dict input
+              dict(one=1, two=2, three=3),
+              ['one', 1, 'two', 2, 'three', 3]  # sequence input
+    ):
+        d = constraint(v)
+        assert isinstance(d, dict)
+        assert len(d) == 3
+        assert list(d.keys()) == true_keys
+        assert list(d.values()) == true_vals
+
+    # test scenarios that should crash
+    for v in (true_keys,  # non-module 2 sequence
+              '5',
+              [],  # too short sequence
+              tuple(),
+              {},
+              [5, False, False],
+              set('wtf')  # wrong data type
+              ):
+        with pytest.raises(ValueError):
+            d = constraint(v)
+
+    # test different delimiters
+    constraint = EnsureMappings(key=EnsureStr(), value=EnsureInt(),
+                                delimiter='=', pair_delimiter='.')
+    d = constraint('one=1.two=2.three=3')
+    assert isinstance(d, dict)
+    assert len(d) == 3
+    assert list(d.keys()) == true_keys
+    assert list(d.values()) == true_vals
+    # test that the paths are resolved for the dataset
+    ds = Dataset(tmp_path)
+    pathconstraint = \
+        EnsureMappings(key=EnsurePath(), value=EnsureInt()).for_dataset(
+            DatasetParameter(tmp_path, ds))
+    assert pathconstraint('some:5,somemore:6') == \
+           {(Path.cwd() / 'some'): 5, Path.cwd() / 'somemore': 6}
+    pathconstraint = \
+        EnsureMappings(key=EnsurePath(), value=EnsurePath()).for_dataset(
+            DatasetParameter(ds, ds))
+    assert pathconstraint('some:other,something:more') == \
+           {(ds.pathobj / 'some'): (ds.pathobj / 'other'),
+            (ds.pathobj / 'something'): (ds.pathobj / 'more')}
 
 
 def test_EnsureGeneratorFromFileLike():

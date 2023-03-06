@@ -214,6 +214,86 @@ class EnsureMapping(Constraint):
         )
 
 
+class EnsureMappings(Constraint):
+    """Ensure several mappings of keys to values of a specific nature"""
+
+    def __init__(self,
+                 key: Constraint,
+                 value: Constraint,
+                 delimiter: str = ':',
+                 pair_delimiter: str = ',',
+                 allow_length2_sequence: bool = True
+                 ):
+        """
+        Parameters
+        ----------
+        key:
+          Key constraint instance.
+        value:
+          Value constraint instance.
+        delimiter:
+          Delimiter to use for splitting a key from a value for a `str` input.
+        pair_delimiter:
+          Delimiter to use for splitting key-value pairs from another for a str
+          input.
+        """
+        super().__init__()
+        self._key_constraint = key
+        self._value_constraint = value
+        self._delimiter = delimiter
+        self._pair_delimiter = pair_delimiter
+        self._allow_length2_sequence: bool = True
+
+    def short_description(self):
+        return 'mapping of {} -> {}'.format(
+            self._key_constraint.short_description(),
+            self._value_constraint.short_description(),
+        )
+
+    def _get_keys_values(self, value) -> tuple:
+        # determine key and value from various kinds of input
+        if isinstance(value, str):
+            # split into pairs
+            # TODO: what about whitespace? e.g., 'key: val', 'morekey': moreval'
+            pairs = value.split(sep=self._pair_delimiter)
+            keys_n_values = [p.split(sep=self._delimiter, maxsplit=1) for p in pairs]
+            try:
+                keys = [p[0] for p in keys_n_values]
+                vals = [p[1] for p in keys_n_values]
+            except IndexError as e:
+                raise(ValueError('Could not cast input to key value pairs'))
+        elif isinstance(value, dict):
+            if not len(value):
+                raise ValueError('dict does not contain a key')
+            keys = list(value.keys())
+            vals = list(value.values())
+        elif self._allow_length2_sequence and isinstance(value, (list, tuple)):
+            if not len(value) % 2 == 0 or len(value) < 2:
+                raise ValueError('sequence can not be chunked into pairs by 2')
+            keys = value[::2]
+            vals = value[1::2]
+        else:
+            raise ValueError(f'Unsupported data type for mapping: {value!r}')
+
+        return keys, vals
+
+    def __call__(self, value) -> Dict:
+        keys, vals = self._get_keys_values(value)
+        keys = [self._key_constraint(k) for k in keys]
+        vals = [self._value_constraint(v) for v in vals]
+        return dict(zip(keys, vals))
+
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
+        # tailor both constraints to the dataset and reuse delimiter
+        return EnsureMappings(
+            key=self._key_constraint.for_dataset(dataset),
+            value=self._value_constraint.for_dataset(dataset),
+            delimiter=self._delimiter,
+            pair_delimiter=self._pair_delimiter,
+            allow_length2_sequence=self._allow_length2_sequence
+        )
+
+
 class EnsureGeneratorFromFileLike(Constraint):
     """Ensure a constraint for each item read from a file-like.
 
