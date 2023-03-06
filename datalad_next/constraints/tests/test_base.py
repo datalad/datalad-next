@@ -6,11 +6,13 @@ from ..base import (
     AltConstraints,
 )
 from ..basic import (
+    EnsureDType,
     EnsureInt,
     EnsureFloat,
     EnsureBool,
     EnsureNone,
     EnsureRange,
+    EnsureStr,
 )
 
 
@@ -61,8 +63,13 @@ def test_constraints():
     with pytest.raises(ValueError):
         c(9.01)
     # smoke test concat AND constraints
-    c = Constraints(EnsureRange(max=10), EnsureRange(min=5)) & \
-            Constraints(EnsureRange(max=6), EnsureRange(min=2))
+    c1 = Constraints(EnsureRange(max=10), EnsureRange(min=5))
+    c2 = Constraints(EnsureRange(max=6), EnsureRange(min=2))
+    c = c1 & c2
+    # make sure that neither c1, nor c2 is modified
+    assert len(c1.constraints) == 2
+    assert len(c2.constraints) == 2
+    assert len(c.constraints) == 4
     assert c(6) == 6
     with pytest.raises(ValueError):
         c(4)
@@ -107,6 +114,16 @@ def test_altconstraints():
         c(7.0)
     with pytest.raises(ValueError):
         c(-1.0)
+
+    # verify no inplace modification
+    c1 = EnsureInt() | EnsureStr()
+    c2 = c1 | EnsureDType(c1)
+    # OR'ing does not "append" the new alternative to c1.
+    assert len(c1.constraints) == 2
+    # at the same time, c2 does not contain an AltConstraints
+    # as an internal constraint, because this would be needless
+    # complexity re the semantics of OR
+    assert len(c2.constraints) == 3
 
 
 def test_both():

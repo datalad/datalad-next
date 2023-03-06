@@ -134,11 +134,12 @@ class AltConstraints(_MultiConstraint):
         super().__init__(*constraints)
 
     def __or__(self, other):
+        constraints = list(self.constraints)
         if isinstance(other, AltConstraints):
-            self.constraints.extend(other.constraints)
+            constraints.extend(other.constraints)
         else:
-            self.constraints.append(other)
-        return self
+            constraints.append(other)
+        return AltConstraints(*constraints)
 
     def __call__(self, value):
         e_list = []
@@ -179,11 +180,12 @@ class Constraints(_MultiConstraint):
         super().__init__(*constraints)
 
     def __and__(self, other):
+        constraints = list(self.constraints)
         if isinstance(other, Constraints):
-            self.constraints.extend(other.constraints)
+            constraints.extend(other.constraints)
         else:
-            self.constraints.append(other)
-        return self
+            constraints.append(other)
+        return Constraints(*constraints)
 
     def __call__(self, value):
         for c in (self.constraints):
