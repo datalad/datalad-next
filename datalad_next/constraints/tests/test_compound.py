@@ -3,13 +3,17 @@ from io import StringIO
 import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
+from pathlib import Path
 
 from datalad_next.datasets import Dataset
 from datalad_next.utils import on_windows
 
+from ..base import DatasetParameter
+
 from ..basic import (
     EnsureInt,
     EnsureBool,
+    EnsurePath,
 )
 from ..compound import (
     ConstraintWithPassthrough,
@@ -112,13 +116,24 @@ def test_EnsureMapping(tmp_path):
         with pytest.raises(ValueError):
             d = constraint(v)
 
-    # TODO test for_dataset() once we have a simple EnsurePathInDataset
-    # for now just looking for smoke
+    # test for_dataset()
+    # smoketest
     ds = Dataset(tmp_path)
     cds = constraint.for_dataset(ds)
     assert cds._key_constraint == constraint._key_constraint.for_dataset(ds)
     assert cds._value_constraint == \
         constraint._value_constraint.for_dataset(ds)
+    # test that the path is resolved for the dataset
+    pathconstraint = \
+        EnsureMapping(key=EnsurePath(), value=EnsureInt()).for_dataset(
+            DatasetParameter(tmp_path, ds))
+    assert pathconstraint('some:5') == {(Path.cwd() / 'some'): 5}
+    pathconstraint = \
+        EnsureMapping(key=EnsurePath(), value=EnsurePath()).for_dataset(
+            DatasetParameter(ds, ds))
+    assert pathconstraint('some:other') == \
+           {(ds.pathobj / 'some'): (ds.pathobj / 'other')}
+
 
 
 def test_EnsureGeneratorFromFileLike():
