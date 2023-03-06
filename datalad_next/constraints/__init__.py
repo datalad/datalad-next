@@ -25,7 +25,7 @@ from .basic import (
     EnsureKeyChoice,
     EnsureNone,
     EnsurePath,
-    EnsureSet,
+    EnsureContainsSet,
     EnsureStr,
     EnsureRange,
     EnsureValue,

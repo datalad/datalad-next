@@ -8,7 +8,7 @@ from ..basic import (
     EnsureInt,
     EnsureFloat,
     EnsureBool,
-    EnsureSet,
+    EnsureContainsSet,
     EnsureStr,
     EnsureStrPrefix,
     EnsureNone,
@@ -221,8 +221,8 @@ def test_keychoice():
         c({'some': ('a', 'b')})
 
 
-def test_set():
-    c = EnsureSet('req1', 'req2')
+def test_containsset():
+    c = EnsureContainsSet('req1', 'req2')
     descr = c.long_description()
     for i in ('req1', 'req2'):
         assert i in descr

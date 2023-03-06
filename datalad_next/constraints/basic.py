@@ -283,7 +283,7 @@ class EnsureKeyChoice(EnsureChoice):
         return '%s:{%s}' % (self._key, ', '.join([repr(c) for c in self._allowed]))
 
 
-class EnsureSet(Constraint):
+class EnsureContainsSet(Constraint):
     """Ensure an input contains all elements of a set of required values"""
 
     def __init__(self, *values):
@@ -294,7 +294,7 @@ class EnsureSet(Constraint):
            required values.
         """
         self._required = set(values)
-        super(EnsureSet, self).__init__()
+        super(EnsureContainsSet, self).__init__()
 
     def __call__(self, value):
         if not self._required.issubset(set(value)):
