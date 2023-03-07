@@ -286,7 +286,7 @@ type = user_password
 """
 
 
-def test_legacy_credentials(tmp_keyring, tmp_path, existing_dataset):
+def test_legacy_credentials(tmp_keyring, existing_dataset):
     # - the legacy code will only ever pick up a dataset credential, when
     #   PWD is inside a dataset
     # - we want all tests to bypass the actual system keyring
@@ -296,7 +296,7 @@ def test_legacy_credentials(tmp_keyring, tmp_path, existing_dataset):
     # - we need to make them one and the same thing, and the tmp_keyring
     #   fixture does this by replacing the keyring storage for the runtime
     #   of the test
-    with chpwd(tmp_path):
+    with chpwd(existing_dataset.path):
         check_legacy_credentials(tmp_keyring, existing_dataset)
 
 
