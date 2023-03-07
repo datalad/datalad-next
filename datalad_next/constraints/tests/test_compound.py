@@ -22,6 +22,7 @@ from ..compound import (
     EnsureTupleOf,
     EnsureMapping,
     EnsureGeneratorFromFileLike,
+    WithDescription,
 )
 
 
@@ -210,3 +211,49 @@ def test_ConstraintWithPassthrough(tmp_path):
     cwp_ds = cwp.for_dataset(ds)
     assert cwp_ds.passthrough == cwp.passthrough
     assert cwp.constraint == wrapped.for_dataset(ds)
+
+
+def test_WithDescription(tmp_path):
+    wrapped = EnsureInt()
+    # confirm starting point
+    assert wrapped.input_synopsis == 'int'
+    assert wrapped.input_description \
+        == "value must be convertible to type 'int'"
+    # we are actually not replacing anything
+    c = WithDescription(wrapped)
+    assert c.input_synopsis == wrapped.input_synopsis
+    assert c.input_description == wrapped.input_description
+    # with no dataset docs, the wrapping is removed on tailoring
+    ds = Dataset(tmp_path)
+    assert isinstance(
+        c.for_dataset(DatasetParameter(None, ds)),
+        EnsureInt)
+    # check all replacements are working
+    c = WithDescription(
+        wrapped,
+        input_synopsis='mysynopsis',
+        input_description='mydescription',
+        input_synopsis_for_ds='dssynopsis',
+        input_description_for_ds='dsdescription',
+    )
+    # function is maintained
+    assert c('5') is 5
+    assert str(c) == '<EnsureInt with custom description>'
+    assert repr(c) == \
+        "WithDescription(EnsureInt(), " \
+        "input_synopsis='mysynopsis', " \
+        "input_description='mydescription', " \
+        "input_synopsis_for_ds='dssynopsis', " \
+        "input_description_for_ds='dsdescription')"
+    assert c.constraint is wrapped
+    assert c.input_synopsis == 'mysynopsis'
+    assert c.input_description == 'mydescription'
+    # description propagates through tailoring
+    cds = c.for_dataset(DatasetParameter(None, ds))
+    assert isinstance(cds, WithDescription)
+    assert cds.input_synopsis == 'dssynopsis'
+    assert cds.input_description == 'dsdescription'
+
+    # legacy functionality
+    c.short_description() == c.input_synopsis
+    c.long_description() == c.input_description

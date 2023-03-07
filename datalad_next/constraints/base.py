@@ -62,12 +62,53 @@ class Constraint:
         # and generate a meaningful error message
         raise NotImplementedError("abstract class")
 
+    @property
+    def input_synopsis(self) -> str:
+        """Returns brief, single line summary of valid input for a constraint
+
+        This information is user-facing, and to be used in any place where
+        space is limited (tooltips, usage summaries, etc).
+
+        If possible, the synopsis should be written in a UI/API-agnostic
+        fashion. However, if this is impossible or leads to imprecisions or
+        confusion, it should focus on use within Python code and with Python
+        data types. Tailored documentation can be provided via the
+        ``WithDescription`` wrapper.
+        """
+        # return the legacy short description for now
+        return self.short_description()
+
+    @property
+    def input_description(self) -> str:
+        """Returns full description of valid input for a constraint
+
+        Like ``input_synopsis`` this information is user-facing. In contrast,
+        to the synopsis there is length/line limit. Nevertheless, the
+        information should be presented in a compact fashion that avoids
+        needless verbosity. If possible, a single paragraph is a good format.
+        If multiple paragraphs are necessary, they should be separated by
+        a single, empty line.
+
+        Rendering code may indent, or rewrap the text, so no line-by-line
+        formatting will be preserved.
+
+        If possible, the synopsis should be written in a UI/API-agnostic
+        fashion. However, if this is impossible or leads to imprecisions or
+        confusion, it should focus on use within Python code and with Python
+        data types. Tailored documentation can be provided via the
+        ``WithDescription`` wrapper.
+        """
+        # return the legacy short description for now
+        return self.long_description()
+
     def long_description(self):
+        """This method is deprecated. Use ``input_description`` instead"""
         # return meaningful docs or None
         # used as a comprehensive description in the parameter list
         return self.short_description()
 
     def short_description(self):
+        """This method is deprecated. Use ``input_synopsis`` instead"""
         # return meaningful docs or None
         # used as a condensed primer for the parameter lists
         raise NotImplementedError("abstract class")
