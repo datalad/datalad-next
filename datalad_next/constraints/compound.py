@@ -11,6 +11,8 @@ from typing import (
     Generator,
 )
 
+from datalad_next.exceptions import CapturedException
+
 from .base import (
     Constraint,
     DatasetParameter,
@@ -236,9 +238,10 @@ class EnsureGeneratorFromFileLike(Constraint):
         exc_mode: {'raise', 'yield'}, optional
           How to deal with exceptions occurring when processing
           individual lines/items. With 'yield' the respective
-          exception instance is yielded, and processing continues.
-          A caller can then decide whether to ignore, report, or raise
-          the exception. With 'raise', an exception is raised immediately
+          exception instance is yielded as a ``CapturedException``,
+          and processing continues.
+          A caller can then decide whether to ignore, or report the
+          exception. With 'raise', an exception is raised immediately
           and processing stops.
         """
         assert exc_mode in ('raise', 'yield')
@@ -290,7 +293,7 @@ class EnsureGeneratorFromFileLike(Constraint):
                     if self._exc_mode == 'raise':
                         raise
                     else:
-                        yield e
+                        yield CapturedException(e)
         finally:
             if close_file:
                 fp.close()

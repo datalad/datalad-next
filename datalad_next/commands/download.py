@@ -240,7 +240,7 @@ class Download(ValidatedInterface):
         # because the spec can be a generator and consume from a
         # long-running source (e.g. via stdin)
         for item in spec:
-            if isinstance(item, Exception):
+            if isinstance(item, CapturedException):
                 # the generator encountered an exception for a particular
                 # item and is relaying it as per instructions
                 # exc_mode='yield'. We report and move on. Outside
@@ -248,7 +248,7 @@ class Download(ValidatedInterface):
                 yield get_status_dict(
                     action='download',
                     status='impossible',
-                    exception=CapturedException(item),
+                    exception=item,
                 )
                 continue
 
