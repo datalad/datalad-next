@@ -35,6 +35,7 @@ from .compound import (
     EnsureListOf,
     EnsureTupleOf,
     EnsureMapping,
+    EnsureNTuple,
     EnsureGeneratorFromFileLike,
 )
 # this is the key type, almost all consuming code will want to

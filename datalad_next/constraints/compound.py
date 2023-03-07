@@ -9,6 +9,8 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    List,
+    Tuple,
 )
 
 from .base import (
@@ -16,6 +18,7 @@ from .base import (
     DatasetParameter,
 )
 
+from .basic import NoConstraint
 
 class EnsureIterableOf(Constraint):
     """Ensure that an input is a list of a particular data type
@@ -25,7 +28,8 @@ class EnsureIterableOf(Constraint):
                  iter_type: type,
                  item_constraint: Callable,
                  min_len: int | None = None,
-                 max_len: int | None = None):
+                 max_len: int | None = None,
+                 delimiter: str | None = None):
         """
         Parameters
         ----------
@@ -53,6 +57,7 @@ class EnsureIterableOf(Constraint):
         self._item_constraint = item_constraint
         self._min_len = min_len
         self._max_len = max_len
+        self._delimiter = delimiter
         super().__init__()
 
     def __repr__(self):
@@ -62,7 +67,8 @@ class EnsureIterableOf(Constraint):
             f'{self.__class__.__name__}('
             f'item_constraint={self._item_constraint!r}'
             f', min_len={self._min_len!r}'
-            f', max_len={self._max_len!r})'
+            f', max_len={self._max_len!r}'
+            f', delimiter={self._delimiter!r})'
         )
 
     @property
@@ -70,6 +76,8 @@ class EnsureIterableOf(Constraint):
         return self._item_constraint
 
     def __call__(self, value):
+        if self._delimiter is not None and isinstance(value, str):
+            value = self._split_values(value)
         iter = self._iter_type(
             self._item_constraint(i) for i in value
         )
@@ -86,6 +94,9 @@ class EnsureIterableOf(Constraint):
                     f'Length-{iter_len} iterable is longer than '
                     f'required maximum length {self._max_len}')
         return iter
+
+    def _split_values(self, value):
+        return value.split(sep=self._delimiter)
 
     def short_description(self):
         return f'{self._iter_type}({self._item_constraint})'
@@ -139,6 +150,57 @@ class EnsureTupleOf(EnsureIterableOf):
 
     def short_description(self):
         return f'tuple({self._item_constraint})'
+
+
+class EnsureNTuple(EnsureIterableOf):
+    """Ensure that an input is a tuple of arbitrary length, with a specific
+     constraint for each item."""
+
+    def __init__(self,
+                 itemconstraints: List,
+                 delimiter: str | None = None):
+        """
+        Parameters
+        ----------
+        itemconstraints: list
+          A list of itemconstraints to be applied. Must match the number
+          of input values, as itemconstraints will be mapped to values.
+        """
+        super().__init__(tuple, item_constraint=NoConstraint(),
+                         min_len=len(itemconstraints),
+                         max_len=len(itemconstraints),
+                         delimiter=delimiter)
+        self._itemconstraints = itemconstraints
+        self._delimiter = delimiter
+
+    def __repr__(self):
+        return (
+            f'{self.__class__.__name__}('
+            f'itemconstraints={self._itemconstraints!r})'
+        )
+
+    def short_description(self):
+        return 'mapping to the following constraints: {}'.format(
+            [constraint.short_description() for constraint in
+             self._itemconstraints],
+        )
+
+    def __call__(self, value) -> Tuple:
+        if self._delimiter is not None and isinstance(value, str):
+            value = self._split_values(value)
+        if hasattr(value, '__len__'):
+            if len(value) != len(self._itemconstraints):
+                raise ValueError(f'Number of provided values ({value}) does not '
+                                 f'match the number of defined constraints '
+                                 f'({self._itemconstraints}')
+        else:
+            # float or ints have no len. the number of constraints must now be 1
+            if len(self._itemconstraints) > 1:
+                raise ValueError(f'The number of item constraints'
+                                 f' ({self._itemconstraints}) exceeds the'
+                                 f' number of provided values ({value}')
+        return tuple(constraint(val) for val, constraint in
+                     zip(value, self._itemconstraints))
 
 
 class EnsureMapping(Constraint):

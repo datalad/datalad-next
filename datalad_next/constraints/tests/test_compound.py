@@ -21,6 +21,7 @@ from ..compound import (
     EnsureIterableOf,
     EnsureListOf,
     EnsureTupleOf,
+    EnsureNTuple,
     EnsureMapping,
     EnsureMappings,
     EnsureGeneratorFromFileLike,
@@ -81,6 +82,37 @@ def test_EnsureIterableOf():
 
     # feeding a generator into EnsureIterableOf and getting one out
     assert list(EnsureIterableOf(_myiter, int)(_mygen())) == [3, 1, 2]
+    # check string splitting
+    c = EnsureIterableOf(list, int, delimiter=':')
+    assert c('1:2:3:4:5') == [1, 2, 3, 4, 5]
+
+
+def test_EnsureNTuple(tmp_path):
+    true_res = (1, 2, 3, 4, 5)
+    c = EnsureNTuple(itemconstraints=[EnsureInt()]*5, delimiter=':')
+    for v in [
+        [1, 2, 3, 4, 5],   # test string splitting
+        '1:2:3:4:5',   # test string splitting
+    ]:
+        assert c(v) == true_res
+
+    # these should fail
+    for v in [
+        # too few values given the constraints
+        [1, 2, 3],
+        '1:2:3',
+        1,
+        # wrong delimiter
+        '1,2,3,4,5'
+    ]:
+        with pytest.raises(ValueError):
+            c(v)
+
+    assert c.short_description() == \
+           "mapping to the following constraints: {}".format(
+               [const.short_description() for const in [EnsureInt()]*5]
+           )
+    assert c.__repr__() == 'EnsureNTuple (itemconstraints={})'.format([const for const in [EnsureInt()]*5])
 
 
 def test_EnsureMapping(tmp_path):
