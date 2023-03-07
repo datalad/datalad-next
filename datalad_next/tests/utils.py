@@ -37,7 +37,6 @@ from datalad.tests.utils_pytest import (
     skip_wo_symlink_capability,
     swallow_logs,
     with_testsui,
-    with_tree,
 )
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.cli.tests.test_main import run_main

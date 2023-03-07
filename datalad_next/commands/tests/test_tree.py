@@ -7,8 +7,7 @@ from datalad_next.tests.utils import (
     BasicGitTestRepo,
     assert_raises,
     assert_str_equal,
-    with_tree,
-    ok_exists,
+    create_tree,
     get_deeply_nested_structure,
     skip_wo_symlink_capability,
     skip_if_on_windows,
@@ -16,11 +15,7 @@ from datalad_next.tests.utils import (
     ok_broken_symlink,
     run_main,
 )
-from datalad_next.utils import (
-    rmtemp,
-    make_tempfile,
-    chpwd
-)
+from datalad_next.utils import chpwd
 from datalad_next.uis import ui_switcher as ui
 
 from datalad_next.datasets import Dataset
@@ -53,51 +48,8 @@ def ensure_no_permissions(path: Path):
             pass
 
 
-def create_temp_dir_tree(tree_dict: dict) -> Path:
-    """
-    Create a temporary directory tree.
-
-    This is a shim for the ``with_tree()`` decorator so it can be used
-    in a module-scoped pytest fixture.
-
-    Parameters
-    ----------
-    tree_dict: dict
-        A dict describing a directory tree (see parameter of ``with_tree``)
-
-    Returns
-    -------
-    Path
-        Root directory of the newly created tree
-    """
-    # function to be decorated by 'with_tree'
-    # just return the argument (will be the created temp path)
-    identity_func = lambda d: d
-
-    # give an informative name to the lambda function, since
-    # it will be included in the name of the temp dir
-    identity_func.__name__ = "test_tree"
-
-    # call the 'with_tree' decorator to return the path
-    # of the created temp dir root, without deleting it
-    temp_dir_root = with_tree(tree_dict, delete=False)(identity_func)()
-    return Path(temp_dir_root).resolve()
-
-
-@pytest.fixture(scope="function")
-def path():
-    """Generic fixture for creating a temporary directory tree.
-
-    TODO: harness pytest's native ``tmp_path`` / ``tmp_path_factory``
-    fixtures"""
-    temp_dir_root = create_temp_dir_tree({})  # empty directory
-    yield temp_dir_root
-    rmtemp(temp_dir_root)
-    assert not temp_dir_root.exists()
-
-
 @pytest.fixture(scope="module")
-def path_no_ds():
+def path_no_ds(tmp_path_factory):
     """Fixture for creating a temporary directory tree (**without** datasets)
     to be used in tests.
 
@@ -134,14 +86,13 @@ def path_no_ds():
         }
     }
 
-    temp_dir_root = create_temp_dir_tree(dir_tree)
+    temp_dir_root = tmp_path_factory.mktemp("no-ds")
+    create_tree(temp_dir_root, dir_tree)
     yield temp_dir_root
-    rmtemp(temp_dir_root)
-    assert not temp_dir_root.exists()
 
 
 @pytest.fixture(scope="module")
-def path_ds():
+def path_ds(tmp_path_factory):
     """Fixture for creating a temporary directory tree (**including** datasets)
     to be used in tests.
 
@@ -173,7 +124,11 @@ def path_ds():
         }
     }
 
-    temp_dir_root = create_temp_dir_tree(ds_tree)
+    temp_dir_root = tmp_path_factory.mktemp('ds')
+    create_tree(
+        temp_dir_root,
+        ds_tree,
+    )
 
     # create datasets / repos
     root = temp_dir_root / "root"
@@ -193,10 +148,6 @@ def path_ds():
                     recursive=True, result_renderer='disabled')
 
     yield temp_dir_root
-
-    # delete temp dir
-    rmtemp(temp_dir_root)
-    assert not temp_dir_root.exists()
 
 
 def get_tree_rendered_output(tree_cmd: list, exit_code: int = 0):
@@ -776,17 +727,15 @@ class TestDatasetTree(TestTree):
 class TestTreeFilesystemIssues:
     """Test tree with missing permissions, broken symlinks, etc."""
 
-    def test_print_tree_fails_for_nonexistent_directory(self):
+    def test_print_tree_fails_for_nonexistent_directory(self, tmp_path):
         """Obtain nonexistent directory by creating a temp dir and deleting it
         (may be safest method)"""
-        with make_tempfile(mkdir=True) as nonexistent_dir:
-            ok_exists(nonexistent_dir)  # just wait for it to be deleted
         with assert_raises(ValueError):
-            Tree(Path(nonexistent_dir), max_depth=1)
+            Tree(tmp_path / 'nonexistent_dir', max_depth=1)
 
     @skip_if_on_windows
     @skip_wo_symlink_capability
-    def test_print_tree_permission_denied(self, path):
+    def test_print_tree_permission_denied(self, tmp_path):
         """
         - If the tree contains a directory for which the user has no
           permissions (so it would not be possible to traverse it), a message
@@ -795,13 +744,13 @@ class TestTreeFilesystemIssues:
           be printed as usual
         - The command should return error exit status but not crash
         """
-        (Path(path) / 'z_dir' / 'subdir').mkdir(parents=True)
-        forbidden_dir = Path(path) / 'a_forbidden_dir'
+        (tmp_path / 'z_dir' / 'subdir').mkdir(parents=True)
+        forbidden_dir = tmp_path / 'a_forbidden_dir'
         forbidden_dir.mkdir(parents=True)
         # temporarily remove all permissions (octal 000)
         # restore permissions at the end, otherwise we can't delete temp dir
         with ensure_no_permissions(forbidden_dir):
-            command = ['tree', str(path), '--depth', '2']
+            command = ['tree', str(tmp_path), '--depth', '2']
             # expect exit code 1
             _, actual, _ = get_tree_rendered_output(command, exit_code=1)
             expected = f"""
@@ -817,40 +766,40 @@ class TestTreeFilesystemIssues:
 
     @skip_wo_symlink_capability
     @pytest.mark.parametrize("include_files", (True, False))
-    def test_tree_with_broken_symlinks(self, path, include_files):
+    def test_tree_with_broken_symlinks(self, tmp_path, include_files):
         """Test that broken symlinks are reported as such"""
         # prep
-        dir1 = path / 'real' / 'dir1'
-        file1 = path / 'real' / 'dir1' / 'file1'
+        dir1 = tmp_path / 'real' / 'dir1'
+        file1 = tmp_path / 'real' / 'dir1' / 'file1'
         dir1.mkdir(parents=True)
         file1.touch()
-        (path / 'links').mkdir()
+        (tmp_path / 'links').mkdir()
 
         # create symlinks
         # 1. broken symlink pointing to non-existent target
-        link_to_nonexistent = path / 'links' / '1_link_to_nonexistent'
-        link_to_nonexistent.symlink_to(path / 'nonexistent')
+        link_to_nonexistent = tmp_path / 'links' / '1_link_to_nonexistent'
+        link_to_nonexistent.symlink_to(tmp_path / 'nonexistent')
         ok_broken_symlink(link_to_nonexistent)
         # 2. broken symlink pointing to itself
-        link_to_self = path / 'links' / '2_link_to_self'
+        link_to_self = tmp_path / 'links' / '2_link_to_self'
         link_to_self.symlink_to(link_to_self)
         with assert_raises((RuntimeError, OSError)):  # OSError on Windows
             # resolution should fail because of infinite loop
             link_to_self.resolve()
 
         # 3. good symlink pointing to existing directory
-        link_to_dir1 = path / 'links' / '3_link_to_dir1'
+        link_to_dir1 = tmp_path / 'links' / '3_link_to_dir1'
         link_to_dir1.symlink_to(dir1, target_is_directory=True)
         ok_good_symlink(link_to_dir1)
         # 4. good symlink pointing to existing file
-        link_to_file1 = path / 'links' / '4_link_to_file1'
+        link_to_file1 = tmp_path / 'links' / '4_link_to_file1'
         link_to_file1.symlink_to(file1)
         ok_good_symlink(link_to_file1)
 
         # test results dict using python API
         # implicitly also tests that command yields tree without crashing
         actual = TreeCommand.__call__(
-            path,
+            tmp_path,
             depth=None,  # unlimited
             include_files=include_files,
             result_renderer="disabled",
@@ -879,20 +828,20 @@ class TestTreeFilesystemIssues:
     @skip_wo_symlink_capability
     @pytest.mark.parametrize("include_files", (True, False))
     def test_tree_with_broken_symlinks_to_inaccessible_targets(
-            self, path, include_files):
+            self, tmp_path, include_files):
         """Test that symlinks to targets underneath inaccessible directories
         are reported as broken, whereas symlinks to inaccessible
         file/directories themselves are not reported as broken."""
         # prep
-        root = path / "root"  # tree root
+        root = tmp_path / "root"  # tree root
         root.mkdir(parents=True)
 
         # create file and directory without permissions outside of tree
         # root (permissions will be removed later ad-hoc, because need to
         # create symlinks first)
-        forbidden_file = path / "forbidden_file"
+        forbidden_file = tmp_path / "forbidden_file"
         forbidden_file.touch()  # permissions will be removed later ad-hoc
-        forbidden_dir = path / "forbidden_dir"
+        forbidden_dir = tmp_path / "forbidden_dir"
         forbidden_dir.mkdir()
         file_in_forbidden_dir = forbidden_dir / "file_in_forbidden_dir"
         file_in_forbidden_dir.touch()
@@ -962,7 +911,7 @@ class TestTreeFilesystemIssues:
         assert set(expected) == set(actual)
 
     @skip_wo_symlink_capability
-    def test_print_tree_with_recursive_symlinks(self, path):
+    def test_print_tree_with_recursive_symlinks(self, tmp_path):
         """
         TODO: break down into separate tests
 
@@ -973,13 +922,13 @@ class TestTreeFilesystemIssues:
           themselves, but regular directories (to prevent duplicate counts
           of datasets)
         """
-        ds = get_deeply_nested_structure(str(path / 'superds'))
+        ds = get_deeply_nested_structure(str(tmp_path / 'superds'))
 
         # change current dir to create symlinks with relative path
         with chpwd(ds.path):
             # create symlink to a sibling directory of the tree
             # (should be recursed into)
-            (path / 'ext_dir' / 'ext_subdir').mkdir(parents=True)
+            (tmp_path / 'ext_dir' / 'ext_subdir').mkdir(parents=True)
             Path('link2extdir').symlink_to(Path('..') / 'ext_dir',
                                            target_is_directory=True)
 
