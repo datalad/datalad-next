@@ -5,6 +5,7 @@ import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
+from datalad_next.datasets import Dataset
 from datalad_next.tests.utils import (
     SkipTest,
     external_versions,
@@ -177,3 +178,25 @@ def credman(datalad_cfg, tmp_keyring):
     from datalad_next.credman import CredentialManager
     cm = CredentialManager(cfg)
     yield cm
+
+
+@pytest.fixture(autouse=False, scope="function")
+def dataset(tmp_path):
+    """Provides a ``Dataset`` instance for a not-yet-existing repository
+
+    The instance points to an existing temporary path, but ``create()``
+    has not been called on it yet.
+    """
+    ds = Dataset(tmp_path)
+    yield ds
+
+
+@pytest.fixture(autouse=False, scope="function")
+def existing_dataset(dataset):
+    """Provides a ``Dataset`` instance pointing to an existing dataset/repo
+
+    This fixture uses an instance provided by the ``dataset`` fixture and
+    calls ``create()`` on it, before it yields the ``Dataset`` instance.
+    """
+    dataset.create(result_renderer='disabled')
+    yield dataset

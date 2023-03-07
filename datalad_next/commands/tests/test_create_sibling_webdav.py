@@ -143,11 +143,9 @@ def check_common_workflow(
     eq_('dummy', (dsclone.pathobj / 'testfile.dat').read_text())
 
 
-@with_tempfile
-def test_bad_url_catching(path=None):
+def test_bad_url_catching(existing_dataset):
     # Ensure that bad URLs are detected and handled
-
-    ds = Dataset(path).create()
+    ds = existing_dataset
     check_pairs = [
         (
             "http://localhost:33322/abc?a",
@@ -173,11 +171,9 @@ def test_bad_url_catching(path=None):
         assert expected_message.format(url=bad_url) in str(e.value)
 
 
-@with_tempfile
-def test_http_warning(path=None):
+def test_http_warning(existing_dataset):
     # Check that usage of http: triggers a warning.
-
-    ds = Dataset(path).create()
+    ds = existing_dataset
     url = "http://localhost:33322/abc"
 
     with patch("datalad_next.commands.create_sibling_webdav._create_sibling_webdav") as csw_mock, \
@@ -197,11 +193,9 @@ def test_http_warning(path=None):
             lgr_mock.warning.mock_calls)
 
 
-@with_tempfile
-def test_constraints_checking(path=None):
+def test_constraints_checking(existing_dataset):
     # Ensure that constraints are checked internally
-
-    ds = Dataset(path).create()
+    ds = existing_dataset
     url = "http://localhost:22334/abc"
     for key in ("existing", "mode"):
         with pytest.raises(ValueError) as e:
@@ -210,11 +204,9 @@ def test_constraints_checking(path=None):
         assert "is not one of" in str(e.value)
 
 
-@with_tempfile
-def test_name_clash_detection(path=None):
+def test_name_clash_detection(existing_dataset):
     # Ensure that constraints are checked internally
-
-    ds = Dataset(path).create()
+    ds = existing_dataset
     url = "http://localhost:22334/abc"
     for mode in ("annex", 'filetree', 'annex-only', 'filetree-only'):
         with pytest.raises(ValueError) as e:
@@ -223,11 +215,9 @@ def test_name_clash_detection(path=None):
         assert "sibling names must not be equal" in str(e.value)
 
 
-@with_tempfile
-def test_unused_storage_name_warning(path=None):
+def test_unused_storage_name_warning(existing_dataset):
     # Ensure that constraints are checked internally
-
-    ds = Dataset(path).create()
+    ds = existing_dataset
     url = "https://localhost:22334/abc"
 
     with patch("datalad_next.commands.create_sibling_webdav._create_sibling_webdav") as csw_mock, \

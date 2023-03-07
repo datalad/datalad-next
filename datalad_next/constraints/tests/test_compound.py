@@ -5,7 +5,6 @@ from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 from pathlib import Path
 
-from datalad_next.datasets import Dataset
 from datalad_next.utils import on_windows
 
 from ..base import DatasetParameter
@@ -82,7 +81,7 @@ def test_EnsureIterableOf():
     assert list(EnsureIterableOf(_myiter, int)(_mygen())) == [3, 1, 2]
 
 
-def test_EnsureMapping(tmp_path):
+def test_EnsureMapping(dataset):
     true_key = 5
     true_value = False
 
@@ -119,7 +118,7 @@ def test_EnsureMapping(tmp_path):
 
     # test for_dataset()
     # smoketest
-    ds = Dataset(tmp_path)
+    ds = dataset
     cds = constraint.for_dataset(ds)
     assert cds._key_constraint == constraint._key_constraint.for_dataset(ds)
     assert cds._value_constraint == \
@@ -127,14 +126,13 @@ def test_EnsureMapping(tmp_path):
     # test that the path is resolved for the dataset
     pathconstraint = \
         EnsureMapping(key=EnsurePath(), value=EnsureInt()).for_dataset(
-            DatasetParameter(tmp_path, ds))
+            DatasetParameter(ds.pathobj, ds))
     assert pathconstraint('some:5') == {(Path.cwd() / 'some'): 5}
     pathconstraint = \
         EnsureMapping(key=EnsurePath(), value=EnsurePath()).for_dataset(
             DatasetParameter(ds, ds))
     assert pathconstraint('some:other') == \
            {(ds.pathobj / 'some'): (ds.pathobj / 'other')}
-
 
 
 def test_EnsureGeneratorFromFileLike():
@@ -193,7 +191,8 @@ def test_EnsureGeneratorFromFileLike():
     with pytest.raises(ValueError) as e:
         list(constraint('pytestNOTHEREdatalad'))
 
-def test_ConstraintWithPassthrough(tmp_path):
+
+def test_ConstraintWithPassthrough(dataset):
     wrapped = EnsureInt()
     cwp = ConstraintWithPassthrough(wrapped, passthrough='mike')
     # main purpose
@@ -207,13 +206,13 @@ def test_ConstraintWithPassthrough(tmp_path):
     # but repr reveals it
     assert repr(cwp).startswith('ConstraintWithPassthrough(')
     # tailoring for a dataset keeps the pass-through
-    ds = Dataset(tmp_path)
+    ds = dataset
     cwp_ds = cwp.for_dataset(ds)
     assert cwp_ds.passthrough == cwp.passthrough
     assert cwp.constraint == wrapped.for_dataset(ds)
 
 
-def test_WithDescription(tmp_path):
+def test_WithDescription(dataset):
     wrapped = EnsureInt()
     # confirm starting point
     assert wrapped.input_synopsis == 'int'
@@ -224,7 +223,7 @@ def test_WithDescription(tmp_path):
     assert c.input_synopsis == wrapped.input_synopsis
     assert c.input_description == wrapped.input_description
     # with no dataset docs, the wrapping is removed on tailoring
-    ds = Dataset(tmp_path)
+    ds = dataset
     assert isinstance(
         c.for_dataset(DatasetParameter(None, ds)),
         EnsureInt)
