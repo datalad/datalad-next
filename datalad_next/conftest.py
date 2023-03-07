@@ -16,4 +16,8 @@ from datalad_next.tests.fixtures import (
     dataset,
     #function-scope, Dataset instance with underlying repository
     existing_dataset,
+    # session-scope, standard webdav credential (full dict)
+    webdav_credential,
+    # function-scope, serve a local temp-path via WebDAV
+    webdav_server,
 )
