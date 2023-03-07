@@ -26,9 +26,6 @@ from datalad.api import (
 from datalad_next.utils import chpwd
 
 
-webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
-
-
 def test_common_workflow_implicit_cred(
         credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
     check_common_workflow(
