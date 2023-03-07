@@ -12,8 +12,6 @@ from datalad_next.tests.utils import (
     assert_result_count,
     assert_status,
     get_httpbin_urls,
-    serve_path_via_http,
-    with_tempfile,
     with_testsui,
 )
 from datalad_next.utils import chpwd
@@ -32,27 +30,17 @@ hbscred = (
 )
 
 
-def _get_paths(*args):
-    return [Path(p) for p in args]
-
-
-def _prep_server(path):
-    (path / 'testfile.txt').write_text('test')
-
-
-@with_tempfile(mkdir=True)
-@with_tempfile(mkdir=True)
-@serve_path_via_http
-def test_download(wdir=None, srvpath=None, srvurl=None):
-    wdir, srvpath = _get_paths(wdir, srvpath)
-    _prep_server(srvpath)
+def test_download(tmp_path, http_server):
+    wdir = tmp_path
+    srvurl = http_server.url
+    (http_server.path / 'testfile.txt').write_text('test')
 
     # simple download, taking the target filename from the URL
     # single-pass hashing with two algorithms
     with chpwd(wdir):
         res = download(f'{srvurl}testfile.txt',
-                            hash=['md5', 'SHA256'],
-                            return_type='item-or-list')
+                       hash=['md5', 'SHA256'],
+                       return_type='item-or-list')
 
     assert (wdir / 'testfile.txt').read_text() == 'test'
     # keys for hashes keep user-provided captialization
@@ -103,18 +91,12 @@ def test_download_invalid_calls(monkeypatch):
         1, status='impossible')
 
 
-def test_download_auth(credman):
-    credman.set(test_cred[0], user=test_cred[1], secret=test_cred[2],
-                type='user_password')
-    check_download_auth()
-
-
-@with_tempfile(mkdir=True)
-@with_tempfile(mkdir=True)
-@serve_path_via_http(use_ssl=False, auth=test_cred[1:])
-def check_download_auth(wdir=None, srvpath=None, srvurl=None):
-    wdir = Path(wdir)
-    srvpath = Path(srvpath)
+def test_download_auth(
+        tmp_path, credman, http_credential, http_server_with_basicauth):
+    credman.set(**http_credential)
+    wdir = tmp_path
+    srvurl = http_server_with_basicauth.url
+    srvpath = http_server_with_basicauth.path
     (srvpath / 'testfile.txt').write_text('test')
 
     # we have a credential, but there is nothing to discover from
