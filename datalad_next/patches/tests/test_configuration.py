@@ -2,7 +2,6 @@ from datalad_next.tests.utils import (
     assert_in_results,
     assert_raises,
     chpwd,
-    with_tempfile,
 )
 from datalad.api import configuration
 from datalad_next.exceptions import IncompleteResultsError
@@ -30,10 +29,9 @@ def test_config_get_global(existing_dataset, tmp_path):
         in existing_dataset.configuration.__doc__
 
 
-@with_tempfile(mkdir=True)
-def test_getset_None(path=None):
+def test_getset_None(tmp_path):
     # enter a tempdir to be confident that there is no dataset around
-    with chpwd(path):
+    with chpwd(str(tmp_path)):
         # set an empty string, this is not the same as `None`
         configuration('set', 'some.item=', scope='global', **ckwa)
         assert_in_results(
