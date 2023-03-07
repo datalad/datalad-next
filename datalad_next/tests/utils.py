@@ -42,7 +42,10 @@ from datalad.tests.utils_pytest import (
 )
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.cli.tests.test_main import run_main
-from datalad.utils import md5sum
+from datalad.utils import (
+    create_tree,
+    md5sum,
+)
 from datalad_next.utils import (
     CredentialManager,
     optional_args,
@@ -120,19 +123,10 @@ class WebDAVPath(object):
 
 @optional_args
 def serve_path_via_webdav(tfunc, *targs, auth=None):
-    """Decorator which serves content of a directory via a WebDAV server
-
-    Parameters
-    ----------
-    path : str
-        Directory with content to serve.
-    auth : tuple or None
-        If a (username, password) tuple is given, the server access will
-        be protected via HTTP basic auth.
-    """
+    """DEPRECATED: Use ``webdav_server`` fixture instead"""
     @wraps(tfunc)
     @attr('serve_path_via_webdav')
-    def  _wrap_serve_path_via_http(*args, **kwargs):
+    def _wrap_serve_path_via_http(*args, **kwargs):
 
         if len(args) > 1:
             args, path = args[:-1], args[-1]
@@ -141,7 +135,7 @@ def serve_path_via_webdav(tfunc, *targs, auth=None):
 
         with WebDAVPath(path, auth=auth) as url:
             return tfunc(*(args + (path, url)), **kwargs)
-    return  _wrap_serve_path_via_http
+    return _wrap_serve_path_via_http
 
 
 def with_credential(name, **kwargs):

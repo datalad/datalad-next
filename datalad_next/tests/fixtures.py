@@ -8,6 +8,7 @@ from unittest.mock import patch
 from datalad_next.datasets import Dataset
 from datalad_next.tests.utils import (
     SkipTest,
+    WebDAVPath,
     external_versions,
     get_git_config_global_fpath,
     md5sum,
@@ -181,13 +182,15 @@ def credman(datalad_cfg, tmp_keyring):
 
 
 @pytest.fixture(autouse=False, scope="function")
-def dataset(tmp_path):
+def dataset(datalad_cfg, tmp_path_factory):
     """Provides a ``Dataset`` instance for a not-yet-existing repository
 
     The instance points to an existing temporary path, but ``create()``
     has not been called on it yet.
     """
-    ds = Dataset(tmp_path)
+    # must use the factory to get a unique path even when a concrete
+    # test also uses `tmp_path`
+    ds = Dataset(tmp_path_factory.mktemp("dataset"))
     yield ds
 
 
@@ -200,3 +203,48 @@ def existing_dataset(dataset):
     """
     dataset.create(result_renderer='disabled')
     yield dataset
+
+
+@pytest.fixture(autouse=False, scope="function")
+def existing_noannex_dataset(dataset):
+    """just like ``existing_dataset``, but created with ``annex=False``
+    """
+    dataset.create(annex=False, result_renderer='disabled')
+    yield dataset
+
+
+@pytest.fixture(autouse=False, scope="session")
+def webdav_credential():
+    yield dict(
+        name='dltest-my&=webdav',
+        user='datalad',
+        secret='secure',
+        type='user_password',
+    )
+
+
+@pytest.fixture(autouse=False, scope="function")
+def webdav_server(tmp_path_factory, webdav_credential):
+    """Provides a WebDAV server, serving a temporary directory
+
+    The fixtures yields an instance of ``WebDAVPath``, provides the
+    following essential attributes:
+
+    - ``path``: ``Path`` instance of the served temporary directory
+    - ``url``: HTTP URL to access the WebDAV server
+
+    Server access requires HTTP Basic authentication with the credential
+    provided by the ``webdav_credential`` fixture.
+    """
+    auth = (webdav_credential['user'], webdav_credential['secret'])
+    # must use the factory to get a unique path even when a concrete
+    # test also uses `tmp_path`
+    path = tmp_path_factory.mktemp("webdav")
+    # this looks a little awkward, but is done to avoid a change in
+    # WebDAVPath. It would be better to have WebDAVPath directly
+    # set `.url` internally, but that would require adjusting
+    # the old `serve_path_via_webdav`
+    server = WebDAVPath(path, auth=auth)
+    with server as server_url:
+        server.url = server_url
+        yield server
