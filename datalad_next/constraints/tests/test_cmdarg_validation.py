@@ -11,7 +11,6 @@ from datalad_next.commands import (
     Parameter,
     eval_results,
 )
-from datalad_next.datasets import Dataset
 from datalad_next.utils import on_windows
 from .. import (
     ConstraintError,
@@ -268,7 +267,7 @@ class DsTailoringValidator(EnsureCommandParameterization):
         )
 
 
-def test_constraint_dataset_tailoring(tmp_path):
+def test_constraint_dataset_tailoring(existing_dataset):
     proper_uuid = '152f4fc0-b444-11ed-a9cb-701ab88b716c'
     no_uuid =     '152f4fc0------11ed-a9cb-701ab88b716c'
     # no tailoring works as expected
@@ -278,14 +277,14 @@ def test_constraint_dataset_tailoring(tmp_path):
         val(dict(id=no_uuid))
 
     # adding a dataset to the mix does not change a thing re the uuid
-    ds = Dataset(tmp_path).create(result_renderer='disabled')
-    res = val(dict(dataset=tmp_path, id=proper_uuid))
+    ds = existing_dataset
+    res = val(dict(dataset=ds.pathobj, id=proper_uuid))
     assert res['id'] == UUID(proper_uuid)
     assert res['dataset'].ds == ds
 
     # and we can still break it
     with pytest.raises(ValueError):
-        val(dict(dataset=tmp_path, id=no_uuid))
+        val(dict(dataset=ds.pathobj, id=no_uuid))
 
     # now with tailoring the UUID checking to a particular dataset.
     # it is enabled via parameter, because it is a use case specific
@@ -296,17 +295,17 @@ def test_constraint_dataset_tailoring(tmp_path):
     )
     # no uuid is still an issue
     with pytest.raises(ValueError):
-        tailoring_val(dict(dataset=tmp_path, id=no_uuid))
+        tailoring_val(dict(dataset=ds.pathobj, id=no_uuid))
     # what was good enough above (any UUID), no longer is
     with pytest.raises(ValueError):
-        tailoring_val(dict(dataset=tmp_path, id=proper_uuid))
+        tailoring_val(dict(dataset=ds.pathobj, id=proper_uuid))
 
     # only the actual dataset's UUID makes it past the gates
-    res = val(dict(dataset=tmp_path, id=target_uuid))
+    res = val(dict(dataset=ds.pathobj, id=target_uuid))
     assert res['id'] == UUID(target_uuid)
     assert res['dataset'].ds == ds
     # the order in the kwargs does not matter
-    assert val(dict(id=target_uuid, dataset=tmp_path))['id'] == \
+    assert val(dict(id=target_uuid, dataset=ds.pathobj))['id'] == \
         UUID(target_uuid)
 
     # but when no dataset is being provided (and the dataset-constraint
@@ -314,4 +313,4 @@ def test_constraint_dataset_tailoring(tmp_path):
     assert tailoring_val(dict(id=proper_uuid))['id'] == UUID(proper_uuid)
     # but still no luck with invalid args
     with pytest.raises(ValueError):
-        val(dict(dataset=tmp_path, id=no_uuid))
+        val(dict(dataset=ds.pathobj, id=no_uuid))

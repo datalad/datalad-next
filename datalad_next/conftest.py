@@ -12,4 +12,8 @@ from datalad_next.tests.fixtures import (
     datalad_cfg,
     # function-scope temporary keyring
     tmp_keyring,
+    # function-scope, Dataset instance
+    dataset,
+    #function-scope, Dataset instance with underlying repository
+    existing_dataset,
 )

@@ -22,10 +22,8 @@ from datalad_next.tests.utils import (
     assert_raises,
     eq_,
     neq_,
-    with_tempfile,
     with_testsui,
 )
-from datalad_next.datasets import Dataset
 from datalad_next.utils import chpwd
 
 
@@ -149,9 +147,8 @@ def test_credmanager(tmp_keyring, datalad_cfg):
     assert res == {'name': 'auto2', 'other': 'prop', 'secret': 'dummy'}
 
 
-@with_tempfile
-def test_credman_local(path=None):
-    ds = Dataset(path).create(result_renderer='disabled')
+def test_credman_local(existing_dataset):
+    ds = existing_dataset
     credman = CredentialManager(ds.config)
 
     # deposit a credential into the dataset's config, and die trying to
@@ -289,7 +286,7 @@ type = user_password
 """
 
 
-def test_legacy_credentials(tmp_keyring, tmp_path):
+def test_legacy_credentials(tmp_keyring, tmp_path, existing_dataset):
     # - the legacy code will only ever pick up a dataset credential, when
     #   PWD is inside a dataset
     # - we want all tests to bypass the actual system keyring
@@ -300,12 +297,12 @@ def test_legacy_credentials(tmp_keyring, tmp_path):
     #   fixture does this by replacing the keyring storage for the runtime
     #   of the test
     with chpwd(tmp_path):
-        check_legacy_credentials(tmp_keyring, tmp_path)
+        check_legacy_credentials(tmp_keyring, existing_dataset)
 
 
-def check_legacy_credentials(tmp_keyring, tmp_path):
+def check_legacy_credentials(tmp_keyring, existing_dataset):
     # we will use a dataset to host a legacy provider config
-    ds = Dataset(tmp_path).create(result_renderer='disabled')
+    ds = existing_dataset
     provider_path = ds.pathobj / '.datalad' / 'providers' / 'mylegacycred.cfg'
     provider_path.parent.mkdir(parents=True, exist_ok=True)
     provider_path.write_text(legacy_provider_cfg)
