@@ -6,7 +6,6 @@ import pytest
 from datalad_next.tests.utils import (
     BasicGitTestRepo,
     assert_raises,
-    assert_str_equal,
     create_tree,
     get_deeply_nested_structure,
     skip_wo_symlink_capability,
@@ -439,7 +438,7 @@ class TestTreeWithoutDatasets(TestTree):
         ui.message(expected_res)
         ui.message("actual:")
         ui.message(actual_res)
-        assert_str_equal(expected_res, actual_res)
+        assert expected_res == actual_res
 
     def test_print_stats(
             self, depth, include_files, include_hidden, expected_stats_str
@@ -454,7 +453,7 @@ class TestTreeWithoutDatasets(TestTree):
         ]
         _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
-        assert_str_equal(expected_res, actual_res)
+        assert expected_res == actual_res
 
     @pytest.mark.parametrize(
         "root_dir_name", ["root/", "root/.", "root/./", "root/../root"]
@@ -468,7 +467,7 @@ class TestTreeWithoutDatasets(TestTree):
         command = ['tree', root, '--depth', '0']
         actual, _, _ = get_tree_rendered_output(command)
         expected = str(self.path / "root")
-        assert_str_equal(expected, actual)
+        assert expected == actual
 
     def test_no_difference_if_root_path_absolute_or_relative(self):
         """Tree output should be identical whether the root directory
@@ -684,7 +683,7 @@ class TestDatasetTree(TestTree):
         ui.message(expected_res)
         ui.message("actual:")
         ui.message(actual_res)
-        assert_str_equal(expected_res, actual_res)
+        assert expected_res == actual_res
 
     def test_print_tree_without_datasets(self):
         """If there are no datasets, should only print the root"""
@@ -702,7 +701,7 @@ class TestDatasetTree(TestTree):
         ui.message(expected_res)
         ui.message("actual:")
         ui.message(actual_res)
-        assert_str_equal(expected_res, actual_res)
+        assert expected_res == actual_res
 
     def test_print_stats(
             self, dataset_depth, depth, expected_stats_str
@@ -721,7 +720,7 @@ class TestDatasetTree(TestTree):
         ]
         _, _, actual_res = get_tree_rendered_output(command)
         expected_res = expected_stats_str
-        assert_str_equal(expected_res, actual_res)
+        assert expected_res == actual_res
 
 
 class TestTreeFilesystemIssues:
@@ -762,7 +761,7 @@ class TestTreeFilesystemIssues:
             ui.message(expected)
             ui.message("actual:")
             ui.message(actual)
-            assert_str_equal(expected, actual)
+            assert expected == actual
 
     @skip_wo_symlink_capability
     @pytest.mark.parametrize("include_files", (True, False))
@@ -975,4 +974,4 @@ class TestTreeFilesystemIssues:
         ui.message(expected_res)
         ui.message("actual:")
         ui.message(actual_res)
-        assert_str_equal(expected_res, actual_res)
+        assert expected_res == actual_res

@@ -25,7 +25,6 @@ from datalad_next.tests.utils import (
     assert_raises,
     assert_status,
     eq_,
-    neq_,
     rmtree,
 )
 from datalad_next.utils import on_windows
@@ -145,7 +144,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, tmp_path):
     # the remote has received the new state
     eq_dla_branch_state(dsrepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     # verify that there is something to update
-    neq_(dsrepo.get_hexsha(DEFAULT_BRANCH), dsclonerepo.get_hexsha(DEFAULT_BRANCH))
+    assert dsrepo.get_hexsha(DEFAULT_BRANCH) != dsclonerepo.get_hexsha(DEFAULT_BRANCH)
     # pull
     dsclonerepo.call_git(['pull', DEFAULT_REMOTE, DEFAULT_BRANCH])
     # source and clone are now equal
@@ -164,7 +163,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, tmp_path):
     # push/pull in reverse from clone to source
     (dsclone.pathobj / 'file2').write_text('file2text')
     assert_status('ok', dsclone.save())
-    neq_(dsrepo.get_hexsha(DEFAULT_BRANCH), dsclonerepo.get_hexsha(DEFAULT_BRANCH))
+    assert dsrepo.get_hexsha(DEFAULT_BRANCH) != dsclonerepo.get_hexsha(DEFAULT_BRANCH)
     dsclonerepo.call_git(['push', DEFAULT_REMOTE])
     eq_dla_branch_state(dsclonerepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     dsrepo.call_git(['pull', 'dla', DEFAULT_BRANCH])

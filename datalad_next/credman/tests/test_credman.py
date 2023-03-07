@@ -18,10 +18,8 @@ from ..manager import (
 )
 from datalad_next.tests.utils import (
     assert_in,
-    assert_not_in,
     assert_raises,
     eq_,
-    neq_,
     with_testsui,
 )
 from datalad_next.utils import chpwd
@@ -59,7 +57,7 @@ def test_credmanager(tmp_keyring, datalad_cfg):
     setprops_new = credman.set('lastusedcred', _lastused=True,
                                **credman.get('lastusedcred'))
     # must have updated 'last-used'
-    neq_(setprops['last-used'], setprops_new['last-used'])
+    assert setprops['last-used'] != setprops_new['last-used']
     # first property store attempt
     eq_(credman.set('changed', secret='some', prop='val'),
         dict(secret='some', prop='val'))
@@ -77,7 +75,7 @@ def test_credmanager(tmp_keyring, datalad_cfg):
 
     # remove non-existing property, secret not report, because unchanged
     eq_(credman.set('mycred', dummy=None), dict(dummy=None))
-    assert_not_in(_get_cred_cfg_var("mycred", "dummy"), datalad_cfg)
+    assert _get_cred_cfg_var("mycred", "dummy") not in datalad_cfg
 
     # set property
     eq_(credman.set('mycred', dummy='good', this='that'),
