@@ -35,79 +35,57 @@ API
 High-level API commands
 -----------------------
 
-.. currentmodule:: datalad.api
-.. autosummary::
-   :toctree: generated
+.. toctree::
+   :maxdepth: 2
 
-   create_sibling_webdav
-   credentials
-   download
-   tree
-
+   api.rst
 
 Command line reference
 ----------------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   generated/man/datalad-create-sibling-webdav
-   generated/man/datalad-credentials
-   generated/man/datalad-download
-   generated/man/datalad-tree
+   cmd.rst
 
 
 Python utilities
 ----------------
 
-.. currentmodule:: datalad_next
-.. autosummary::
-   :toctree: generated
+.. toctree::
+   :maxdepth: 2
 
-   commands.ValidatedInterface
-   constraints
-   credman.manager
-   exceptions
-   url_operations
-   url_operations.any
-   url_operations.file
-   url_operations.http
-   url_operations.ssh
-   utils
-   utils.http_helpers
-   utils.requests_auth
-   tests.fixtures
+   pyutils.rst
 
 
 Git remote helpers
 ------------------
 
-.. currentmodule:: datalad_next.gitremotes
-.. autosummary::
-   :toctree: generated
+.. toctree::
+   :maxdepth: 2
 
-   datalad_annex
+   git-remote-helpers.rst
 
 
 Git-annex backends
 ------------------
 
-.. currentmodule:: datalad_next.annexbackends
-.. autosummary::
-   :toctree: generated
+.. toctree::
+   :maxdepth: 2
 
-   base
-   xdlra
+   annex-backends.rst
+
 
 
 Git-annex special remotes
 -------------------------
 
-.. currentmodule:: datalad_next.annexremotes
-.. autosummary::
-   :toctree: generated
 
-   uncurl
+.. toctree::
+   :maxdepth: 2
+
+   annex-specialremotes.rst
+
 
 
 DataLad patches
@@ -116,20 +94,12 @@ DataLad patches
 Patches that are automatically applied to DataLad when loading the
 ``datalad-next`` extension package.
 
-.. currentmodule:: datalad_next.patches
-.. autosummary::
-   :toctree: generated
+.. toctree::
+   :maxdepth: 2
 
-   annexrepo
-   common_cfg
-   configuration
-   create_sibling_ghlike
-   distribution_dataset
-   interface_utils
-   push_optimize
-   push_to_export_remote
-   test_keyring
-   siblings
+   patches.rst
+
+
 
 
 Indices and tables
