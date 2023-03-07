@@ -73,7 +73,7 @@ class Constraint:
         fashion. However, if this is impossible or leads to imprecisions or
         confusion, it should focus on use within Python code and with Python
         data types. Tailored documentation can be provided via the
-        ``CustomDocumentationConstraint`` wrapper.
+        ``WithDescription`` wrapper.
         """
         # return the legacy short description for now
         return self.short_description()
@@ -96,7 +96,7 @@ class Constraint:
         fashion. However, if this is impossible or leads to imprecisions or
         confusion, it should focus on use within Python code and with Python
         data types. Tailored documentation can be provided via the
-        ``CustomDocumentationConstraint`` wrapper.
+        ``WithDescription`` wrapper.
         """
         # return the legacy short description for now
         return self.long_description()

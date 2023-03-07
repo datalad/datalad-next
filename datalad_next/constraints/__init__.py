@@ -41,6 +41,7 @@ from .compound import (
     EnsureTupleOf,
     EnsureMapping,
     EnsureGeneratorFromFileLike,
+    WithDescription,
 )
 # this is the key type, almost all consuming code will want to
 # have this for `except` clauses

@@ -369,3 +369,99 @@ class ConstraintWithPassthrough(Constraint):
 
     def short_description(self) -> str:
         return self._constraint.short_description()
+
+
+class WithDescription(Constraint):
+    """Contraint that wraps another constraint and replaces its description
+
+    Whenever a constraint's self-description does not fit an application
+    context, it can be wrapped with this class. The given synopsis and
+    description of valid inputs replaces those of the wrapped constraint.
+    """
+    def __init__(self,
+                 constraint: Constraint,
+                 *,
+                 input_synopsis: str | None = None,
+                 input_description: str | None = None,
+                 input_synopsis_for_ds: str | None = None,
+                 input_description_for_ds: str | None = None,
+    ):
+        """
+        Parameters
+        ----------
+        constraint: Constraint
+          Any ``Constraint`` subclass instance that will be used to validate
+          values.
+        input_synopsis: optional
+          If given, text to be returned as the constraint's ``input_synopsis``.
+          Otherwise the wrapped constraint's ``input_synopsis`` is returned.
+        input_description: optional
+          If given, text to be returned as the constraint's
+          ``input_description``. Otherwise the wrapped constraint's
+          ``input_description`` is returned.
+        input_synopsis_for_ds: optional
+          If either this or ``input_description_for_ds`` are given, the
+          result of tailoring a constraint for a particular dataset
+          (``for_dataset()``) will also be wrapped with this custom
+          synopsis.
+        input_description_for_ds: optional
+          If either this or ``input_synopsis_for_ds`` are given, the
+          result of tailoring a constraint for a particular dataset
+          (``for_dataset()``) will also be wrapped with this custom
+          description.
+        """
+        super().__init__()
+        self._constraint = constraint
+        self._synopsis = input_synopsis
+        self._description = input_description
+        self._synopsis_for_ds = input_synopsis_for_ds
+        self._description_for_ds = input_description_for_ds
+
+    @property
+    def constraint(self) -> Constraint:
+        """Returns the wrapped constraint instance"""
+        return self._constraint
+
+    def __call__(self, value) -> Any:
+        return self._constraint(value)
+
+    def __str__(self) -> str:
+        return \
+            f'<{self._constraint.__class__.__name__} with custom description>'
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}' \
+               f'({self._constraint!r}, ' \
+               f'input_synopsis={self._synopsis!r}, ' \
+               f'input_description={self._description!r}, ' \
+               f'input_synopsis_for_ds={self._synopsis_for_ds!r}, ' \
+               f'input_description_for_ds={self._description_for_ds!r})'
+
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
+        """Wrap the wrapped constraint again after tailoring it for the dataset
+        """
+        if self._synopsis_for_ds is not None \
+                or self._description_for_ds is not None:
+            # we also want to wrap the tailored constraint
+            return self.__class__(
+                self._constraint.for_dataset(dataset),
+                input_synopsis=self._synopsis_for_ds,
+                input_description=self._description_for_ds,
+            )
+        else:
+            return self._constraint.for_dataset(dataset)
+
+    @property
+    def input_synopsis(self):
+        return self._synopsis or self.constraint.input_synopsis
+
+    @property
+    def input_description(self):
+        return self._description or self.constraint.input_description
+
+    # legacy compatibility
+    def long_description(self) -> str:
+        return self.input_description
+
+    def short_description(self) -> str:
+        return self.input_synopsis
