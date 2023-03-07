@@ -181,13 +181,15 @@ def credman(datalad_cfg, tmp_keyring):
 
 
 @pytest.fixture(autouse=False, scope="function")
-def dataset(tmp_path):
+def dataset(datalad_cfg, tmp_path_factory):
     """Provides a ``Dataset`` instance for a not-yet-existing repository
 
     The instance points to an existing temporary path, but ``create()``
     has not been called on it yet.
     """
-    ds = Dataset(tmp_path)
+    # must use the factory to get a unique path even when a concrete
+    # test also uses `tmp_path`
+    ds = Dataset(tmp_path_factory.mktemp("dataset"))
     yield ds
 
 
