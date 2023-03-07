@@ -6,7 +6,6 @@ from unittest.mock import (
 from urllib.parse import quote as urlquote
 
 from datalad_next.tests.utils import (
-    assert_equal,
     assert_in,
     assert_in_results,
     assert_raises,
@@ -374,7 +373,7 @@ def check_existing_switch(ds, webdav_credential, webdav_server):
                                    recursive=True, **ca)
     assert_result_count(res, 8, status='notneeded')
     remote_content = list(srv_rt.glob('**'))
-    assert_equal(len(remote_content), 1)  # nothing but root dir
+    assert len(remote_content) == 1  # nothing but root dir
 
     # reconfigure to move target one directory level:
     dlaurl += 'reconfigure'

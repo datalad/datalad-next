@@ -4,11 +4,10 @@ import re
 
 from datalad_next.utils import on_windows
 from datalad_next.tests.utils import (
+    create_tree,
     get_httpbin_urls,
     skip_ssh,
     skip_if_on_windows,
-    with_tempfile,
-    with_tree,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.exceptions import (
@@ -174,13 +173,11 @@ def test_uncurl_addurl_unredirected(existing_dataset):
                for r in ds.repo.whereis('dummy', output='full').values())
 
 
-@with_tempfile
-@with_tree(tree={
-    'lvlA1': {'lvlB2_flavor1.tar': 'data_A1B2F1'},
-})
-def test_uncurl(wdir=None, archive_path=None):
+def test_uncurl(existing_dataset, tmp_path):
+    archive_path = tmp_path
+    create_tree(archive_path, {'lvlA1': {'lvlB2_flavor1.tar': 'data_A1B2F1'}})
+    ds = existing_dataset
     archive_path = Path(archive_path)
-    ds = EnsureDataset()(wdir).ds.create(**res_kwargs)
     dsca = ds.repo.call_annex
     dsca(['initremote', 'myuncurl'] + std_initargs + [
         'match=bingofile://(?P<basepath>.*)/(?P<lvlA>[^/]+)/(?P<lvlB>[^/]+)_(?P<flavor>.*)$ someothermatch',

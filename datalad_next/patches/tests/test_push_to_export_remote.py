@@ -9,10 +9,8 @@ from unittest.mock import (
 from datalad.runner.exception import CommandError
 from datalad_next.tests.utils import (
     SkipTest,
-    assert_false,
     assert_in,
     assert_in_results,
-    assert_true,
     eq_,
 )
 
@@ -91,14 +89,14 @@ def _call_transfer(target: str,
 
 def test_is_export_remote():
     # Ensure that None is handled properly
-    assert_false(_is_export_remote(None))
+    assert not _is_export_remote(None)
 
     # Ensure that dicts without "exporttree" keyword are handled correctly
-    assert_false(_is_export_remote({}))
+    assert not _is_export_remote({})
 
     # Ensure that "exporttree" is interpreted correctly
-    assert_false(_is_export_remote({"exporttree": "no"}))
-    assert_true(_is_export_remote({"exporttree": "yes"}))
+    assert not _is_export_remote({"exporttree": "no"})
+    assert _is_export_remote({"exporttree": "yes"})
 
 
 def test_patch_pass_through():
@@ -245,8 +243,8 @@ def test_is_valid_treeish():
 
     # Check successful validation
     export_entry = {"treeish": "00002"}
-    assert_true(_is_valid_treeish(LogRepo(), export_entry))
+    assert _is_valid_treeish(LogRepo(), export_entry)
 
     # Check unsuccessful validation
     export_entry = {"treeish": "10000"}
-    assert_false(_is_valid_treeish(LogRepo(), export_entry))
+    assert not _is_valid_treeish(LogRepo(), export_entry)

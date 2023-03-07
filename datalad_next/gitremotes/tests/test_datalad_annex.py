@@ -25,9 +25,7 @@ from datalad_next.tests.utils import (
     assert_raises,
     assert_status,
     eq_,
-    neq_,
     rmtree,
-    with_tempfile,
 )
 from datalad_next.utils import on_windows
 from datalad_next.exceptions import CommandError
@@ -54,33 +52,29 @@ def eq_dla_branch_state(state, path, branch=DEFAULT_BRANCH):
     assert None, f'Could not find state for branch {branch} at {path}'
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_annex_remote(dspath=None, remotepath=None):
+def test_annex_remote(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_push_fetch_cycle(ds, dlaurl, remotepath)
+    ds = existing_noannex_dataset
+    _check_push_fetch_cycle(ds, dlaurl, remotepath, tmp_path)
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_export_remote(dspath=None, remotepath=None):
+def test_export_remote(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_push_fetch_cycle(ds, dlaurl, remotepath)
+    ds = existing_noannex_dataset
+    _check_push_fetch_cycle(ds, dlaurl, remotepath, tmp_path)
 
 
-@with_tempfile
-@with_tempfile
-def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepath):
+def _check_push_fetch_cycle(ds, remoteurl, remotepath, tmp_path):
     """Test helper
 
     - add a dla remote to the dataset
@@ -91,9 +85,11 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
     - repeated supposed-to-be-noop push/fetch calls
     - update cycle starting from the clone
     """
+    localtargetpath = tmp_path / 'ltarget'
+    probepath = tmp_path / 'probe'
+    remotepath.mkdir()
     dsrepo = ds.repo
     dsrepo.call_git(['remote', 'add', 'dla', remoteurl])
-    remotepath = Path(remotepath)
 
     # basic push/clone roundtrip on clean locations
     # Since some version of git > 2.30.2 and <= 2.35.1
@@ -148,7 +144,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
     # the remote has received the new state
     eq_dla_branch_state(dsrepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     # verify that there is something to update
-    neq_(dsrepo.get_hexsha(DEFAULT_BRANCH), dsclonerepo.get_hexsha(DEFAULT_BRANCH))
+    assert dsrepo.get_hexsha(DEFAULT_BRANCH) != dsclonerepo.get_hexsha(DEFAULT_BRANCH)
     # pull
     dsclonerepo.call_git(['pull', DEFAULT_REMOTE, DEFAULT_BRANCH])
     # source and clone are now equal
@@ -167,7 +163,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
     # push/pull in reverse from clone to source
     (dsclone.pathobj / 'file2').write_text('file2text')
     assert_status('ok', dsclone.save())
-    neq_(dsrepo.get_hexsha(DEFAULT_BRANCH), dsclonerepo.get_hexsha(DEFAULT_BRANCH))
+    assert dsrepo.get_hexsha(DEFAULT_BRANCH) != dsclonerepo.get_hexsha(DEFAULT_BRANCH)
     dsclonerepo.call_git(['push', DEFAULT_REMOTE])
     eq_dla_branch_state(dsclonerepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     dsrepo.call_git(['pull', 'dla', DEFAULT_BRANCH])
@@ -184,28 +180,24 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
         dsclonerepo.get_hexsha('refs/datalad/dummy'))
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_annex_remote_autorepush(dspath=None, remotepath=None):
+def test_annex_remote_autorepush(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_repush_after_vanish(ds, dlaurl, remotepath)
+    _check_repush_after_vanish(existing_noannex_dataset, dlaurl, remotepath)
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_export_remote_autorepush(dspath=None, remotepath=None):
+def test_export_remote_autorepush(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_repush_after_vanish(ds, dlaurl, remotepath)
+    _check_repush_after_vanish(existing_noannex_dataset, dlaurl, remotepath)
 
 
 def _check_repush_after_vanish(ds, remoteurl, remotepath):
