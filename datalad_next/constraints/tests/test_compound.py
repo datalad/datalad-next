@@ -5,6 +5,7 @@ from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 from pathlib import Path
 
+from datalad_next.exceptions import CapturedException
 from datalad_next.utils import on_windows
 
 from ..base import DatasetParameter
@@ -167,7 +168,7 @@ def test_EnsureGeneratorFromFileLike():
         )(invalid_input)
     )
     # we get the result after the exception occurred
-    assert isinstance(res[0], ValueError)
+    assert isinstance(res[0], CapturedException)
     assert res[1] == {5: True}
 
     # read from STDIN
