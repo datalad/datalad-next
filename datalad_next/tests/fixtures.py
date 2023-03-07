@@ -242,9 +242,7 @@ def webdav_server(tmp_path_factory, webdav_credential):
     # test also uses `tmp_path`
     path = tmp_path_factory.mktemp("webdav")
     # this looks a little awkward, but is done to avoid a change in
-    # WebDAVPath. It would be better to have WebDAVPath directly
-    # set `.url` internally, but that would require adjusting
-    # the old `serve_path_via_webdav`
+    # WebDAVPath.
     server = WebDAVPath(path, auth=auth)
     with server as server_url:
         server.url = server_url

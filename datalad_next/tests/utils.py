@@ -40,7 +40,6 @@ from datalad.utils import (
 )
 from datalad_next.utils import (
     CredentialManager,
-    optional_args,
 )
 
 lgr = logging.getLogger("datalad.tests.utils")
@@ -111,23 +110,6 @@ class WebDAVPath(object):
         # wait for shutdown
         self.server_thread.join()
         lgr.debug('WebDAV server thread exited')
-
-
-@optional_args
-def serve_path_via_webdav(tfunc, *targs, auth=None):
-    """DEPRECATED: Use ``webdav_server`` fixture instead"""
-    @wraps(tfunc)
-    @attr('serve_path_via_webdav')
-    def _wrap_serve_path_via_http(*args, **kwargs):
-
-        if len(args) > 1:
-            args, path = args[:-1], args[-1]
-        else:
-            args, path = (), args[0]
-
-        with WebDAVPath(path, auth=auth) as url:
-            return tfunc(*(args + (path, url)), **kwargs)
-    return _wrap_serve_path_via_http
 
 
 def with_credential(name, **kwargs):
