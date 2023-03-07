@@ -12,12 +12,10 @@ from datalad_next.tests.utils import (
     assert_raises,
     assert_result_count,
     assert_status,
+    create_tree,
     eq_,
     ok_,
     run_main,
-    serve_path_via_webdav,
-    with_tempfile,
-    with_tree
 )
 import pytest
 
@@ -25,54 +23,57 @@ from datalad.api import (
     clone,
     create_sibling_webdav,
 )
-from datalad_next.datasets import Dataset
 from datalad_next.utils import chpwd
 
 
 webdav_cred = ('dltest-my&=webdav', 'datalad', 'secure')
 
 
-def test_common_workflow_implicit_cred(credman):
-    check_common_workflow(credman, False, 'annex')
+def test_common_workflow_implicit_cred(
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
+    check_common_workflow(
+        False, 'annex',
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server)
 
 
-def test_common_workflow_explicit_cred(credman):
-    check_common_workflow(credman, True, 'annex')
+def test_common_workflow_explicit_cred(
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
+    check_common_workflow(
+        True, 'annex',
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server)
 
 
-def test_common_workflow_export(credman):
-    check_common_workflow(credman, False, 'filetree')
+def test_common_workflow_export(
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
+    check_common_workflow(
+        False, 'filetree',
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server)
 
 
-@with_tempfile
-@with_tempfile
-@with_tempfile
-@serve_path_via_webdav(auth=webdav_cred[1:])
 def check_common_workflow(
-        credman, declare_credential, mode,
-        clonepath, localpath, remotepath, url):
-    credman.set(webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
-                type='user_password')
+        declare_credential, mode,
+        credman, ds, clonepath, webdav_credential, webdav_server):
+    credman.set(**webdav_credential)
     ca = dict(result_renderer='disabled')
-    ds = Dataset(localpath).create(**ca)
     # need to amend the test credential, can only do after we know the URL
     ds.credentials(
         'set',
-        name=webdav_cred[0],
+        name=webdav_credential['name'],
         # the test webdav webserver uses a realm label '/'
-        spec=dict(realm=url + '/'),
+        spec=dict(realm=webdav_server.url + '/'),
         **ca)
 
     # we use a nasty target directory that has the potential to ruin the
     # git-remote URL handling
     targetdir_name = 'tar&get=mike'
-    targetdir = Path(remotepath) / targetdir_name
-    url = f'{url}/{targetdir_name}'
+    targetdir = Path(webdav_server.path) / targetdir_name
+    url = f'{webdav_server.url}/{targetdir_name}'
 
     with chpwd(ds.path):
         res = create_sibling_webdav(
             url,
-            credential=webdav_cred[0] if declare_credential else None,
+            credential=webdav_credential['name']
+            if declare_credential else None,
             mode=mode,
             **ca)
     assert_in_results(
@@ -96,7 +97,7 @@ def check_common_workflow(
         exp='yes' if 'filetree' in mode else 'no',
     )
     if declare_credential:
-        dlaurl += f'&dlacredential={urlquote(webdav_cred[0])}'
+        dlaurl += f'&dlacredential={urlquote(webdav_credential["name"])}'
 
     assert_in_results(
         res,
@@ -240,21 +241,21 @@ def test_unused_storage_name_warning(existing_dataset):
         eq_(lgr_mock.warning.call_count, len(mode_values))
 
 
-def test_existing_switch(credman):
-    credman.set('dltest-mywebdav', user=webdav_cred[1], secret=webdav_cred[2],
-                type='user_password')
-    check_existing_switch()
+def test_existing_switch(existing_dataset, credman, webdav_credential,
+                         webdav_server):
+    credman.set(**webdav_credential)
+    check_existing_switch(existing_dataset, webdav_credential, webdav_server)
 
 
-@with_tree(tree={'sub': {'f0': '0'},
-                 'sub2': {'subsub': {'f1': '1'},
-                          'f2': '2'},
-                 'f3': '3'})
-@with_tempfile
-@serve_path_via_webdav(auth=webdav_cred[1:])
-def check_existing_switch(localpath=None, remotepath=None, url=None):
+def check_existing_switch(ds, webdav_credential, webdav_server):
     ca = dict(result_renderer='disabled')
-    ds = Dataset(localpath).create(force=True, **ca)
+    create_tree(
+        ds.path,
+        {'sub': {'f0': '0'},
+         'sub2': {'subsub': {'f1': '1'},
+                  'f2': '2'},
+         'f3': '3'}
+    )
     # use a tricky name: '3f7' will be the hashdir of the XDLRA
     # key containing the superdataset's datalad-annex archive after a push
     sub = ds.create('3f7', force=True, **ca)
@@ -262,10 +263,11 @@ def check_existing_switch(localpath=None, remotepath=None, url=None):
     subsub = sub2.create('subsub', force=True, **ca)
     ds.save(recursive=True, **ca)
 
+    url = webdav_server.url
     # need to amend the test credential, can only do after we know the URL
     ds.credentials(
         'set',
-        name='dltest-mywebdav',
+        name=webdav_credential['name'],
         # the test webdav webserver uses a realm label '/'
         spec=dict(realm=url + '/'),
         **ca)
@@ -364,7 +366,7 @@ def check_existing_switch(localpath=None, remotepath=None, url=None):
     assert all("is already configured" in r['message'][0] for r in res)
     assert all(r['action'].startswith('create_sibling_webdav') for r in res)
 
-    srv_rt = Path(remotepath)
+    srv_rt = Path(webdav_server.path)
     (srv_rt / '3f7').rmdir()
     (srv_rt / 'sub2' / 'subsub').rmdir()
     (srv_rt / 'sub2').rmdir()
@@ -393,27 +395,17 @@ def check_existing_switch(localpath=None, remotepath=None, url=None):
     assert_in(new_root / 'sub2' / 'subsub', remote_content)
 
 
-def test_result_renderer(credman):
-    credman.set(webdav_cred[0], user=webdav_cred[1], secret=webdav_cred[2],
-                type='user_password')
-    check_result_renderer()
-
-
-@with_tempfile
-@with_tempfile
-@serve_path_via_webdav(auth=webdav_cred[1:])
-def check_result_renderer(localpath=None, remotepath=None, url=None):
-    ca = dict(result_renderer='disabled')
-    ds = Dataset(localpath).create(**ca)
+def test_result_renderer(existing_dataset, credman,
+                         webdav_credential, webdav_server):
     # need to amend the test credential, can only do after we know the URL
-    ds.credentials(
-        'set',
-        name=webdav_cred[0],
-        # the test webdav webserver uses a realm label '/'
-        spec=dict(realm=url + '/'),
-        **ca)
-
-    out, err = run_main(['create-sibling-webdav', '-d', localpath, url])
+    # the test webdav webserver uses a realm label '/'
+    credman.set(realm=f'{webdav_server.url}/', **webdav_credential)
+    # consume stdout to make test self-contained
+    out, err = run_main([
+        'create-sibling-webdav',
+        '-d', existing_dataset.path,
+        webdav_server.url,
+    ])
     # url is somehow reported
     assert_in('datalad-annex::?type=webdav', out)
     # and the two custom result renderings
