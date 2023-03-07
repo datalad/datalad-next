@@ -205,6 +205,14 @@ def existing_dataset(dataset):
     yield dataset
 
 
+@pytest.fixture(autouse=False, scope="function")
+def existing_noannex_dataset(dataset):
+    """just like ``existing_dataset``, but created with ``annex=False``
+    """
+    dataset.create(annex=False, result_renderer='disabled')
+    yield dataset
+
+
 @pytest.fixture(autouse=False, scope="session")
 def webdav_credential():
     yield dict(
