@@ -20,11 +20,8 @@ def test_serve_webdav_fixture(webdav_credential, webdav_server):
 #
 
 from pathlib import Path
-from datalad_next.tests.utils import (
-    ok_,
-    with_tempfile,
-    serve_path_via_webdav,
-)
+from datalad_next.tests.utils import serve_path_via_webdav
+from datalad.tests.utils_pytest import with_tempfile
 
 webdav_cred = ('datalad', 'secure')
 
@@ -43,7 +40,7 @@ def test_serve_webdav(localpath=None, remotepath=None, url=None):
     # plain use should work without error
     webdav.list()
     (Path(remotepath) / 'probe').touch()
-    ok_('probe' in webdav.list())
+    assert 'probe' in webdav.list()
 
 
 # while technically possible, there is no practical application of an
@@ -60,4 +57,4 @@ def test_serve_webdav_noauth(localpath=None, remotepath=None, url=None):
     # plain use should work without error
     webdav.list()
     (Path(remotepath) / 'probe').touch()
-    ok_('probe' in webdav.list())
+    assert 'probe' in webdav.list()

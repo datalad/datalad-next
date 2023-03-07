@@ -36,7 +36,6 @@ from datalad.tests.utils_pytest import (
     skip_ssh,
     skip_wo_symlink_capability,
     swallow_logs,
-    with_tempfile,
     with_testsui,
     with_tree,
 )
