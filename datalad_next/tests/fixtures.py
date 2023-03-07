@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from datalad_next.datasets import Dataset
 from datalad_next.tests.utils import (
+    HTTPPath,
     SkipTest,
     WebDAVPath,
     external_versions,
@@ -227,7 +228,7 @@ def webdav_credential():
 def webdav_server(tmp_path_factory, webdav_credential):
     """Provides a WebDAV server, serving a temporary directory
 
-    The fixtures yields an instance of ``WebDAVPath``, provides the
+    The fixtures yields an instance of ``WebDAVPath``, providing the
     following essential attributes:
 
     - ``path``: ``Path`` instance of the served temporary directory
@@ -247,4 +248,52 @@ def webdav_server(tmp_path_factory, webdav_credential):
     server = WebDAVPath(path, auth=auth)
     with server as server_url:
         server.url = server_url
+        yield server
+
+
+@pytest.fixture(autouse=False, scope="session")
+def http_credential():
+    yield dict(
+        name='dltest-my&=http',
+        user='datalad',
+        secret='secure',
+        type='user_password',
+    )
+
+
+@pytest.fixture(autouse=False, scope="function")
+def http_server(tmp_path_factory):
+    """Provides an HTTP server, serving a temporary directory
+
+    The fixtures yields an instance of ``HTTPPath``, providing the
+    following essential attributes:
+
+    - ``path``: ``Path`` instance of the served temporary directory
+    - ``url``: HTTP URL to access the HTTP server
+
+    Server access requires HTTP Basic authentication with the credential
+    provided by the ``webdav_credential`` fixture.
+    """
+    # must use the factory to get a unique path even when a concrete
+    # test also uses `tmp_path`
+    path = tmp_path_factory.mktemp("webdav")
+    server = HTTPPath(path, use_ssl=False, auth=None)
+    with server:
+        # overwrite path with Path object for convenience
+        server.path = path
+        yield server
+
+
+@pytest.fixture(autouse=False, scope="function")
+def http_server_with_basicauth(tmp_path_factory, http_credential):
+    """Like ``http_server`` but requiering authenticat with ``http_credential``
+    """
+    path = tmp_path_factory.mktemp("webdav")
+    server = HTTPPath(
+        path, use_ssl=False,
+        auth=(http_credential['user'], http_credential['secret']),
+    )
+    with server:
+        # overwrite path with Path object for convenience
+        server.path = path
         yield server

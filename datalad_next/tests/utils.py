@@ -10,6 +10,7 @@ from datalad.support.external_versions import external_versions
 from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
+    HTTPPath,
     SkipTest,
     assert_equal,
     assert_false,
@@ -31,7 +32,6 @@ from datalad.tests.utils_pytest import (
     ok_exists,
     ok_good_symlink,
     rmtree,
-    serve_path_via_http,
     skip_if_on_windows,
     skip_ssh,
     skip_wo_symlink_capability,

@@ -27,7 +27,6 @@ from datalad_next.tests.utils import (
     eq_,
     neq_,
     rmtree,
-    serve_path_via_http,
     with_tempfile,
 )
 from datalad_next.utils import on_windows
@@ -252,28 +251,34 @@ def test_params_from_url():
          'url=http://example.com/path/to/something'])
 
 
-def test_typeweb_annex():
+def test_typeweb_annex(existing_noannex_dataset, http_server, tmp_path):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none' \
         if on_windows else
         'datalad-annex::file://{export}?type=directory&directory={{path}}&encryption=none',
         'datalad-annex::{url}?type=web&url={{noquery}}',
+        existing_noannex_dataset,
+        http_server,
+        tmp_path,
     )
 
 
 # just to exercise the code path leading to an uncompressed ZIP
-def test_typeweb_annex_uncompressed():
+def test_typeweb_annex_uncompressed(existing_noannex_dataset, http_server, tmp_path):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none&dladotgit=uncompressed' \
         if on_windows else
         'datalad-annex::file://{export}?type=directory&directory={{path}}&encryption=none&dladotgit=uncompressed',
         'datalad-annex::{url}?type=web&url={{noquery}}',
+        existing_noannex_dataset,
+        http_server,
+        tmp_path,
     )
 
 
-def test_typeweb_export():
+def test_typeweb_export(existing_noannex_dataset, http_server, tmp_path):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none&exporttree=yes' \
@@ -281,19 +286,17 @@ def test_typeweb_export():
         'datalad-annex::file://{export}?type=directory&directory={{path}}&encryption=none&exporttree=yes',
         # when nothing is given type=web&exporttree=yes is the default
         'datalad-annex::{url}',
+        existing_noannex_dataset,
+        http_server,
+        tmp_path,
     )
 
 
-@with_tempfile(mkdir=True)
-@serve_path_via_http
-@with_tempfile
-@with_tempfile
-def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
-    ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
+def _check_typeweb(pushtmpl, clonetmpl, ds, server, clonepath):
     ds.repo.call_git([
         'remote', 'add',
         'dla',
-        pushtmpl.format(**locals()),
+        pushtmpl.format(export=server.path),
     ])
     ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # must override git-annex security setting for localhost
@@ -303,19 +306,18 @@ def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
                 "GIT_CONFIG_KEY_0": "annex.security.allowed-ip-addresses",
                 "GIT_CONFIG_VALUE_0": "127.0.0.1"}):
         dsclone = clone(
-            clonetmpl.format(**locals()),
+            clonetmpl.format(url=server.url),
             clonepath)
     eq_(ds.repo.get_hexsha(DEFAULT_BRANCH),
         dsclone.repo.get_hexsha(DEFAULT_BRANCH))
 
 
-@with_tempfile(mkdir=True)
-@serve_path_via_http
-@with_tempfile
-def test_submodule_url(servepath=None, url=None, workdir=None):
-    workdir = Path(workdir)
+def test_submodule_url(tmp_path, existing_noannex_dataset, http_server):
+    ckwa = dict(result_renderer='disabled')
+    servepath = http_server.path
+    url = http_server.url
     # a future subdataset that we want to register under a complex URL
-    tobesubds = Dataset(workdir / 'subdsprep').create(annex=False, result_renderer='disabled')
+    tobesubds = existing_noannex_dataset
     # push to test web server, this URL doesn't matter yet
     tobesubds.repo.call_git([
         'remote', 'add', 'dla',
@@ -326,7 +328,7 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
     ])
     tobesubds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # create a superdataset to register the subds to
-    super = Dataset(workdir / 'super').create()
+    super = Dataset(tmp_path / 'super').create(**ckwa)
     with patch.dict(
             "os.environ", {
                 "GIT_CONFIG_COUNT": "1",
@@ -337,11 +339,12 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
         # in the submodule record
         super.clone(
             f'datalad-annex::{url}?type=web&url={{noquery}}&exporttree=yes',
-            'subds')
+            'subds',
+            **ckwa)
     # no clone the entire super
-    superclone = clone(super.path, workdir / 'superclone')
+    superclone = clone(super.path, tmp_path / 'superclone', **ckwa)
     # and auto-fetch the sub via the datalad-annex remote helper
-    superclone.get('subds', get_data=False, recursive=True)
+    superclone.get('subds', get_data=False, recursive=True, **ckwa)
     # we got the original subds
     subdsclone = Dataset(superclone.pathobj / 'subds')
     eq_(tobesubds.id, subdsclone.id)
