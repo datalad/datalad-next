@@ -100,7 +100,13 @@ Patches that are automatically applied to DataLad when loading the
    patches.rst
 
 
+Developer Guide
+---------------
 
+.. toctree::
+   :maxdepth: 2
+
+   developer_guide/index.rst
 
 Indices and tables
 ==================
