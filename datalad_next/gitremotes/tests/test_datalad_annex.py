@@ -13,6 +13,7 @@
 from pathlib import Path
 from stat import S_IREAD, S_IRGRP, S_IROTH
 from unittest.mock import patch
+from urllib.parse import quote as urlquote
 
 from datalad.api import (
     Dataset,
@@ -28,7 +29,6 @@ from datalad_next.tests.utils import (
     rmtree,
     serve_path_via_http,
     with_tempfile,
-    serve_path_via_webdav,
 )
 from datalad_next.utils import on_windows
 from datalad_next.exceptions import CommandError
@@ -347,30 +347,25 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
     eq_(tobesubds.id, subdsclone.id)
 
 
-def test_webdav_auth(credman):
-    credman.set('dltest-mystuff', user=webdav_cred[0], secret=webdav_cred[1],
-                type='user_password')
-    check_webdav_auth()
-
-
-@with_tempfile
-@with_tempfile
-@with_tempfile
-@serve_path_via_webdav(auth=webdav_cred)
-def check_webdav_auth(preppath=None, clnpath=None, remotepath=None, webdavurl=None):
+def test_webdav_auth(existing_noannex_dataset,
+                     tmp_path,
+                     credman,
+                     webdav_credential,
+                     webdav_server):
+    credman.set(**webdav_credential)
     # this is the dataset we want to roundtrip through webdav
-    ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
+    ds = existing_noannex_dataset
 
     remoteurl = \
-        f'datalad-annex::{webdavurl}' \
+        f'datalad-annex::{webdav_server.url}' \
         '?type=webdav&url={noquery}&encryption=none&' \
-        'dlacredential=dltest-mystuff'
+        f'dlacredential={urlquote(webdav_credential["name"])}'
 
     ds.repo.call_git(['remote', 'add', 'dla', remoteurl])
 
     # roundtrip
     ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
-    cln = clone(remoteurl, clnpath)
+    cln = clone(remoteurl, tmp_path)
     # must give the same thing
     eq_(ds.repo.get_hexsha(DEFAULT_BRANCH),
         cln.repo.get_hexsha(DEFAULT_BRANCH))
