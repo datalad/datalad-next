@@ -537,6 +537,15 @@ class EnsureCommandParameterization(Constraint):
                 if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
 
+        # do not bother with joint validation when the set of expected
+        # arguments is not complete
+        expected_for_joint_validation = set()
+        for jv in self._joint_constraints or []:
+            expected_for_joint_validation.update(jv.parameters)
+
+        if not expected_for_joint_validation.issubset(validated):
+            raise CommandParametrizationError(exceptions)
+
         try:
             # call (subclass) method to perform holistic, cross-parameter
             # validation of the full parameterization
