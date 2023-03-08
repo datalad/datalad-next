@@ -53,7 +53,9 @@ class ConstraintError(ValueError):
         ctx: dict, optional
           Mapping with context information on the violation. This information
           is used to interpolate a message, but may also contain additional
-          key-value mappings.
+          key-value mappings. A recognized key is ``'__caused_by__'``, with
+          a value of one exception (or a list of exceptions) that led to a
+          ``ConstraintError`` being raised.
         """
         # the msg/ctx setup is inspired by pydantic
         # we put `msg` in the `.args` container first to match where
@@ -84,15 +86,8 @@ class ConstraintError(ValueError):
         """Get the value that violated the constraint"""
         return self.args[2]
 
-    def _tostr(self, istr):
-        if self.caused_by:
-            cb = '\n'.join(f'- {c}' for c in self.caused_by)
-            return f'{self.msg}:\n{indent(cb, "  ")}'
-        else:
-            return self.msg
-
     def __str__(self):
-        return self._tostr('')
+        return self.msg
 
     def __repr__(self):
         # rematch constructor arg-order, because we put `msg` first into
@@ -268,6 +263,14 @@ class ParametrizationErrors(ConstraintErrors):
 
     def _render_violations_as_indented_text_list(self, violation_subject):
         violations = len(self.errors)
+
+        def _tostr(self):
+            if hasattr(self, 'caused_by') and self.caused_by:
+                cb = '\n'.join(f'- {_tostr(c)}' for c in self.caused_by)
+                return f'{self.msg}:\n{indent(cb, "  ")}'
+            else:
+                return self.msg if hasattr(self, 'msg') else str(self)
+
         return '{ne} {vs}constraint violation{p}\n{el}'.format(
             ne=violations,
             vs=f'{violation_subject} ' if violation_subject else '',
@@ -275,7 +278,7 @@ class ParametrizationErrors(ConstraintErrors):
             el='\n'.join(
                 '{ctx}\n{msg}'.format(
                     ctx=ctx.label,
-                    msg=indent(str(c), '  '),
+                    msg=indent(_tostr(c), '  '),
                 )
                 for ctx, c in self.errors.items()
             ),
