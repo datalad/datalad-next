@@ -64,11 +64,34 @@ class ConstraintError(ValueError):
 
     @property
     def msg(self):
-        """Obtain an (interpolated) message on the contraint violation"""
-        if self.args[3]:
-            return self.args[0].format(**self.args[3])
-        else:
-            return self.args[0]
+        """Obtain an (interpolated) message on the contraint violation
+
+        The error message template can be interpolated with any information
+        available in the error context dict (``ctx``). In addition to the
+        information provided by the ``Constraint`` that raised the error,
+        the following additional placeholders are provided:
+
+        - ``__value__``: the value reported to have caused the error
+        - ``__itemized_causes__``: an indented bullet list str with on
+          item for each error in the ``caused_by`` report of the error.
+
+        Message template can use any feature of the Python format mini
+        lanuage. For example ``{__value__!r}`` to get a ``repr()``-style
+        representation of the offending value.
+        """
+        msg_tmpl = self.args[0]
+        # get interpolation values for message formatting
+        ctx = self.args[3] or {}
+        # support a few standard placeholders
+        # the verbatim value that caused the error: with !r and !s both
+        # types of stringifications are accessible
+        ctx['__value__'] = self.value
+        if self.caused_by:
+            ctx['__itemized_causes__'] = indent(
+                '\n'.join(f'- {str(c)}' for c in self.caused_by),
+                "  ",
+            )
+        return msg_tmpl.format(**ctx)
 
     @property
     def constraint(self):
@@ -264,13 +287,6 @@ class ParametrizationErrors(ConstraintErrors):
     def _render_violations_as_indented_text_list(self, violation_subject):
         violations = len(self.errors)
 
-        def _tostr(self):
-            if hasattr(self, 'caused_by') and self.caused_by:
-                cb = '\n'.join(f'- {_tostr(c)}' for c in self.caused_by)
-                return f'{self.msg}:\n{indent(cb, "  ")}'
-            else:
-                return self.msg if hasattr(self, 'msg') else str(self)
-
         return '{ne} {vs}constraint violation{p}\n{el}'.format(
             ne=violations,
             vs=f'{violation_subject} ' if violation_subject else '',
@@ -278,7 +294,7 @@ class ParametrizationErrors(ConstraintErrors):
             el='\n'.join(
                 '{ctx}\n{msg}'.format(
                     ctx=ctx.label,
-                    msg=indent(_tostr(c), '  '),
+                    msg=indent(str(c), '  '),
                 )
                 for ctx, c in self.errors.items()
             ),
