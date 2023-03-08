@@ -48,7 +48,10 @@ import datalad_next.patches
 
 # register additional configuration items in datalad-core
 from datalad.support.extensions import register_config
-from datalad_next.constraints import EnsureBool
+from datalad_next.constraints import (
+    EnsureBool,
+    EnsureChoice,
+)
 register_config(
     'datalad.credentials.repeat-secret-entry',
     'Require entering secrets twice for interactive specification?',
@@ -73,6 +76,13 @@ register_config(
     default=(
         r',^webdav([s]*)://([^?]+)$,datalad-annex::http\1://\2?type=webdav&encryption=none&exporttree=yes&url={noquery}',
     ),
+)
+register_config(
+    'datalad.runtime.parameter-violation',
+    'Perform exhaustive command parameter validation, or fail on first error?',
+    type=EnsureChoice('raise-early', 'raise-at-end'),
+    default='raise-early',
+    dialog='question',
 )
 
 
