@@ -15,6 +15,7 @@ from datalad_next.exceptions import CapturedException
 
 from .base import (
     Constraint,
+    ConstraintError,
     DatasetParameter,
 )
 
@@ -386,8 +387,10 @@ class WithDescription(Constraint):
                  *,
                  input_synopsis: str | None = None,
                  input_description: str | None = None,
+                 error_message: str | None = None,
                  input_synopsis_for_ds: str | None = None,
                  input_description_for_ds: str | None = None,
+                 error_message_for_ds: str | None = None,
     ):
         """
         Parameters
@@ -402,23 +405,34 @@ class WithDescription(Constraint):
           If given, text to be returned as the constraint's
           ``input_description``. Otherwise the wrapped constraint's
           ``input_description`` is returned.
+        error_message: optional
+          If given, replaces the error message of a ``ConstraintError``
+          raised by the wrapped ``Constraint``. Only the message
+          (template) is replaced, not the error context dictionary.
         input_synopsis_for_ds: optional
-          If either this or ``input_description_for_ds`` are given, the
-          result of tailoring a constraint for a particular dataset
-          (``for_dataset()``) will also be wrapped with this custom
-          synopsis.
+          If either this, or ``input_description_for_ds``, or
+          ``error_message_for_ds`` are given, the result of tailoring a
+          constraint for a particular dataset (``for_dataset()``) will
+          also be wrapped with this custom synopsis.
         input_description_for_ds: optional
-          If either this or ``input_synopsis_for_ds`` are given, the
-          result of tailoring a constraint for a particular dataset
-          (``for_dataset()``) will also be wrapped with this custom
-          description.
+          If either this, or ``input_synopsis_for_ds``, or
+          ``error_message_for_ds`` are given, the result of tailoring a
+          constraint for a particular dataset (``for_dataset()``) will
+          also be wrapped with this custom description.
+        error_message: optional
+          If either this, or ``input_synopsis_for_ds``, or
+          ``input_description_for_ds`` are given, the result of tailoring a
+          constraint for a particular dataset (``for_dataset()``) will
+          also be wrapped with this custom error message (template).
         """
         super().__init__()
         self._constraint = constraint
         self._synopsis = input_synopsis
         self._description = input_description
+        self._error_message = error_message
         self._synopsis_for_ds = input_synopsis_for_ds
         self._description_for_ds = input_description_for_ds
+        self._error_message_for_ds = error_message_for_ds
 
     @property
     def constraint(self) -> Constraint:
@@ -426,7 +440,18 @@ class WithDescription(Constraint):
         return self._constraint
 
     def __call__(self, value) -> Any:
-        return self._constraint(value)
+        try:
+            return self._constraint(value)
+        except ConstraintError as e:
+            # rewrap the error to get access to the top-level
+            # self-description.
+            msg, cnstr, value, ctx = e.args
+            raise ConstraintError(
+                self,
+                value,
+                self._error_message or msg,
+                ctx,
+            ) from e
 
     def __str__(self) -> str:
         return \
@@ -443,13 +468,16 @@ class WithDescription(Constraint):
     def for_dataset(self, dataset: DatasetParameter) -> Constraint:
         """Wrap the wrapped constraint again after tailoring it for the dataset
         """
-        if self._synopsis_for_ds is not None \
-                or self._description_for_ds is not None:
+        if any(x is not None for x in (
+                self._synopsis_for_ds,
+                self._description_for_ds,
+                self._error_message_for_ds)):
             # we also want to wrap the tailored constraint
             return self.__class__(
                 self._constraint.for_dataset(dataset),
                 input_synopsis=self._synopsis_for_ds,
                 input_description=self._description_for_ds,
+                error_message=self._error_message_for_ds,
             )
         else:
             return self._constraint.for_dataset(dataset)
