@@ -6,6 +6,12 @@
 ``datalad_next.constraints`` implements a system to perform data validation, coercion, and parameter documentation for commands via a flexible set of "Constraints".
 You can find an overview of available Constraints in the respective module overview of the :ref:`pyutils`.
 
+The prefix of the Constraint is indicative of what kind of task it is performing:
+
+* A Constraint prefixed with ``Is<X>`` (e.g., ``IsStr()``) performs an input validity check and returns the original input value
+* A Constraint prefixed with ``To<X>`` (e.g., ``ToTuple()``) performs an output coercion and returns a potentially altered input value
+* A Constraint prefixed with ``Ensure<X>`` performs both input validation and output coercion (e.g., ``EnsurePath()``)
+
 Adding parameter validation to a command
 ----------------------------------------
 
