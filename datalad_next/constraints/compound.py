@@ -189,16 +189,16 @@ class EnsureMapping(Constraint):
             key, val = value.split(sep=self._delimiter, maxsplit=1)
         elif isinstance(value, dict):
             if not len(value):
-                raise ValueError('dict does not contain a key')
+                self.raise_for(value, 'dict does not contain a key')
             elif len(value) > 1:
-                raise ValueError(f'{value} contains more than one key')
+                self.raise_for(value, 'dict contains more than one key')
             key, val = value.copy().popitem()
         elif self._allow_length2_sequence and isinstance(value, (list, tuple)):
             if not len(value) == 2:
-                raise ValueError('key/value sequence does not have length 2')
+                self.raise_for(value, 'key/value sequence does not have length 2')
             key, val = value
         else:
-            raise ValueError(f'Unsupported data type for mapping: {value!r}')
+            self.raise_for(value, 'not a recognized mapping')
 
         return key, val
 
@@ -276,7 +276,10 @@ class EnsureGeneratorFromFileLike(Constraint):
             # we covered the '-' special case, so this must be a Path
             path = Path(value) if not isinstance(value, Path) else value
             if not path.is_file():
-                raise ValueError(f'{value} is not an existing file')
+                self.raise_for(
+                    value,
+                    "not '-', or a path to an existing file",
+                )
             value = path.open()
             opened_file = True
         return self._item_yielder(value, opened_file)

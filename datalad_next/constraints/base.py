@@ -191,7 +191,8 @@ class AnyOf(_MultiConstraint):
         self.raise_for(
             value,
             # plural OK, no sense in having 1 "alternative"
-            'not any of {n_alternatives} alternatives\n{__itemized_causes__}',
+            'does not match any of {n_alternatives} alternatives\n'
+            '{__itemized_causes__}',
             # if any exception would be a ConstraintError
             # this would not be needed, because they
             # know the underlying constraint

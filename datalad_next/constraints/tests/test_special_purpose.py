@@ -11,7 +11,10 @@ from ..basic import (
 )
 from ..compound import EnsureGeneratorFromFileLike
 from ..dataset import EnsureDataset
-from ..exceptions import NoDatasetFound
+from ..exceptions import (
+    ConstraintError,
+    NoDatasetFound,
+)
 from ..formats import (
     EnsureJSON,
     EnsureURL,
@@ -260,9 +263,9 @@ def test_EnsureURL():
         cnotag_parsed = EnsureParsedURL(forbidden=[t])
         for url, tags in url_testcases.items():
             if t in tags:
-                with pytest.raises(ValueError) as e:
+                with pytest.raises(ConstraintError) as e:
                     cnotag(url)
-                assert f"forbidden '{t}'" in str(e)
+                assert f"forbidden '{t}'" in str(e.value)
             else:
                 cnotag(url)
                 cnotag_parsed(url)
@@ -270,9 +273,9 @@ def test_EnsureURL():
         ctag_parsed = EnsureParsedURL(required=[t])
         for url, tags in url_testcases.items():
             if t not in tags:
-                with pytest.raises(ValueError) as e:
+                with pytest.raises(ConstraintError) as e:
                     ctag(url)
-                assert f"missing '{t}'" in str(e)
+                assert f"missing '{t}'" in str(e.value)
             else:
                 ctag(url)
                 ctag_parsed(url)
