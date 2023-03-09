@@ -81,7 +81,8 @@ class ConstraintError(ValueError):
         """
         msg_tmpl = self.args[0]
         # get interpolation values for message formatting
-        ctx = self.args[3] or {}
+        # we need a copy, because we need to mutate the dict
+        ctx = dict(self.context)
         # support a few standard placeholders
         # the verbatim value that caused the error: with !r and !s both
         # types of stringifications are accessible
@@ -100,14 +101,21 @@ class ConstraintError(ValueError):
 
     @property
     def caused_by(self):
-        if not self.args[3]:
-            return
-        return self.args[3].get('__caused_by__', None)
+        return self.context.get('__caused_by__', None)
 
     @property
     def value(self):
         """Get the value that violated the constraint"""
         return self.args[2]
+
+    @property
+    def context(self) -> MappingProxyType:
+        """Get a constraint violation's context
+
+        This is a mapping of key/value-pairs matching the ``ctx`` constructor
+        argument.
+        """
+        return MappingProxyType(self.args[3] or {})
 
     def __str__(self):
         return self.msg
