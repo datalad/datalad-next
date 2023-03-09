@@ -18,6 +18,7 @@ from .base import (
     ConstraintError,
     DatasetParameter,
 )
+from .utils import DeprecationHelper
 
 
 class ToIterableOf(Constraint):
@@ -94,6 +95,9 @@ class ToIterableOf(Constraint):
         return f'{self._iter_type}({self._item_constraint})'
 
 
+EnsureIterableOf = DeprecationHelper('EnsureIterableOf', ToIterableOf)
+
+
 class ToListOf(ToIterableOf):
     def __init__(self,
                  item_constraint: Callable,
@@ -119,6 +123,9 @@ class ToListOf(ToIterableOf):
         return f'list({self._item_constraint})'
 
 
+EnsureListOf = DeprecationHelper('EnsureListOf', ToListOf)
+
+
 class ToTupleOf(ToIterableOf):
     def __init__(self,
                  item_constraint: Callable,
@@ -142,6 +149,9 @@ class ToTupleOf(ToIterableOf):
 
     def short_description(self):
         return f'tuple({self._item_constraint})'
+
+
+EnsureTupleOf = DeprecationHelper('EnsureTupleOf', ToTupleOf)
 
 
 class EnsureMapping(Constraint):

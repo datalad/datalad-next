@@ -21,7 +21,10 @@ from .base import (
     Constraint,
     DatasetParameter,
 )
-from .utils import _type_str
+from .utils import (
+    _type_str,
+    DeprecationHelper,
+)
 
 
 class NoConstraint(Constraint):
@@ -50,6 +53,9 @@ class IsValue(Constraint):
 
     def long_description(self):
         return f'value must be {self.short_description()}'
+
+
+EnsureValue = DeprecationHelper('EnsureValue', IsValue)
 
 
 class EnsureDType(Constraint):
@@ -170,6 +176,9 @@ class IsStr(Constraint):
         )
 
 
+EnsureStr = DeprecationHelper('EnsureStr', IsStr)
+
+
 # TODO possibly consolidate on EnsureStr from -gooey, which can take
 # a regex that could perform this. CON: documentation less clear.
 # But if custom documentation will be supported, it might get even
@@ -201,10 +210,16 @@ class IsStrPrefix(IsStr):
         return '{}...'.format(self._prefix)
 
 
+EnsureStrPrefix = DeprecationHelper('EnsureStrPrefix', IsStrPrefix)
+
+
 class IsNone(IsValue):
     """Check that an input is of value `None`"""
     def __init__(self):
         super().__init__(None)
+
+
+EnsureNone = DeprecationHelper('EnsureNone', IsNone)
 
 
 class IsCallable(Constraint):
@@ -220,6 +235,9 @@ class IsCallable(Constraint):
 
     def long_description(self):
         return 'value must be a callable'
+
+
+EnsureCallable = DeprecationHelper('EnsureCallable', IsCallable)
 
 
 class IsChoice(Constraint):
@@ -254,6 +272,9 @@ class IsChoice(Constraint):
         return '{%s}' % ', '.join([repr(c) for c in self._allowed])
 
 
+EnsureChoice = DeprecationHelper('EnsureChoice', IsChoice)
+
+
 class IsKeyChoice(IsChoice):
     """Check that value under key in an input is in a set of possible values"""
 
@@ -281,6 +302,9 @@ class IsKeyChoice(IsChoice):
 
     def short_description(self):
         return '%s:{%s}' % (self._key, ', '.join([repr(c) for c in self._allowed]))
+
+
+EnsureKeyChoice = DeprecationHelper('EnsureKeyChoice', IsKeyChoice)
 
 
 class IsRange(Constraint):
@@ -330,6 +354,9 @@ class IsRange(Constraint):
         else:
             # it is inclusive, but spelling it out would be wordy
             return f'in range from {self._min!r} to {self._max!r}'
+
+
+EnsureRange = DeprecationHelper('EnsureRange', IsRange)
 
 
 class EnsurePath(Constraint):

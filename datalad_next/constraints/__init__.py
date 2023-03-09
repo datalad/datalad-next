@@ -51,3 +51,20 @@ from .formats import (
     IsURL,
     EnsureParsedURL,
 )
+# dedicated imports of deprecated classes
+from .basic import (
+    EnsureCallable,
+    EnsureChoice,
+    EnsureKeyChoice,
+    EnsureNone,
+    EnsureStr,
+    EnsureStrPrefix,
+    EnsureRange,
+    EnsureValue
+)
+from .compound import (
+    EnsureIterableOf,
+    EnsureListOf,
+    EnsureTupleOf
+)
+from .formats import EnsureURL

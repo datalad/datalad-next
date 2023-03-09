@@ -11,6 +11,7 @@ from urllib.parse import (
 )
 
 from .base import Constraint
+from .utils import DeprecationHelper
 
 
 class EnsureJSON(Constraint):
@@ -111,6 +112,9 @@ class IsURL(Constraint):
             f' with no {self._forbidden}' if self._forbidden else '',
             ' component(s)' if self._required or self._forbidden else '',
         )
+
+
+EnsureURL = DeprecationHelper('EnsureURL', IsURL)
 
 
 class EnsureParsedURL(IsURL):

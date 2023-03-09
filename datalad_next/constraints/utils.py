@@ -29,3 +29,23 @@ def _type_str(t):
         s = ' or '.join(map(_type_str, t))
         return ("(%s)" % s) if len(t) > 1 else s
     return _strip_typerepr(str(t))
+
+
+class DeprecationHelper(object):
+    def __init__(self, old_name, new_name):
+        self.old_name = old_name
+        self.new_name = new_name
+
+    def _warn(self):
+        from warnings import warn
+        warn("%s has been deprecated; use %s instead." %
+             (self.old_name, self.new_name),
+             DeprecationWarning)
+
+    def __call__(self, *args, **kwargs):
+        self._warn()
+        return self.new_name(*args, **kwargs)
+
+    def __getattr__(self, attr):
+        self._warn()
+        return getattr(self.new_name, attr)
