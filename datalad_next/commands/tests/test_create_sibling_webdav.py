@@ -158,7 +158,7 @@ def test_bad_url_catching(existing_dataset):
         ),
         (
             "xxx://localhost:33322/abc",
-            "URL does not match expression '^(http|https)://'"
+            "url={url!r}\n  does not match expression '^(http|https)://'"
         ),
     ]
 
