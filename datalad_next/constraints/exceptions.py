@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from textwrap import indent
 from types import MappingProxyType
 from typing import (
     Any,
@@ -52,7 +53,9 @@ class ConstraintError(ValueError):
         ctx: dict, optional
           Mapping with context information on the violation. This information
           is used to interpolate a message, but may also contain additional
-          key-value mappings.
+          key-value mappings. A recognized key is ``'__caused_by__'``, with
+          a value of one exception (or a list of exceptions) that led to a
+          ``ConstraintError`` being raised.
         """
         # the msg/ctx setup is inspired by pydantic
         # we put `msg` in the `.args` container first to match where
@@ -61,11 +64,35 @@ class ConstraintError(ValueError):
 
     @property
     def msg(self):
-        """Obtain an (interpolated) message on the contraint violation"""
-        if self.args[3]:
-            return self.args[0].format(**self.args[3])
-        else:
-            return self.args[0]
+        """Obtain an (interpolated) message on the contraint violation
+
+        The error message template can be interpolated with any information
+        available in the error context dict (``ctx``). In addition to the
+        information provided by the ``Constraint`` that raised the error,
+        the following additional placeholders are provided:
+
+        - ``__value__``: the value reported to have caused the error
+        - ``__itemized_causes__``: an indented bullet list str with on
+          item for each error in the ``caused_by`` report of the error.
+
+        Message template can use any feature of the Python format mini
+        lanuage. For example ``{__value__!r}`` to get a ``repr()``-style
+        representation of the offending value.
+        """
+        msg_tmpl = self.args[0]
+        # get interpolation values for message formatting
+        # we need a copy, because we need to mutate the dict
+        ctx = dict(self.context)
+        # support a few standard placeholders
+        # the verbatim value that caused the error: with !r and !s both
+        # types of stringifications are accessible
+        ctx['__value__'] = self.value
+        if self.caused_by:
+            ctx['__itemized_causes__'] = indent(
+                '\n'.join(f'- {str(c)}' for c in self.caused_by),
+                "  ",
+            )
+        return msg_tmpl.format(**ctx)
 
     @property
     def constraint(self):
@@ -73,9 +100,25 @@ class ConstraintError(ValueError):
         return self.args[1]
 
     @property
+    def caused_by(self):
+        return self.context.get('__caused_by__', None)
+
+    @property
     def value(self):
         """Get the value that violated the constraint"""
         return self.args[2]
+
+    @property
+    def context(self) -> MappingProxyType:
+        """Get a constraint violation's context
+
+        This is a mapping of key/value-pairs matching the ``ctx`` constructor
+        argument.
+        """
+        return MappingProxyType(self.args[3] or {})
+
+    def __str__(self):
+        return self.msg
 
     def __repr__(self):
         # rematch constructor arg-order, because we put `msg` first into
@@ -218,6 +261,15 @@ class ParameterConstraintContext:
             descr=f" ({self.description})" if self.description else '',
         )
 
+    def get_label_with_parameter_values(self, values: dict) -> str:
+        """Like ``.label`` but each parameter will also state a value"""
+        # TODO truncate the values after repr() to ensure a somewhat compact
+        # output
+        return '{param}{descr}'.format(
+            param=", ".join(f'{p}={values[p]!r}' for p in self.parameters),
+            descr=f" ({self.description})" if self.description else '',
+        )
+
 
 class ParametrizationErrors(ConstraintErrors):
     """Exception type raised on violating parameter constraints
@@ -251,14 +303,19 @@ class ParametrizationErrors(ConstraintErrors):
 
     def _render_violations_as_indented_text_list(self, violation_subject):
         violations = len(self.errors)
+
         return '{ne} {vs}constraint violation{p}\n{el}'.format(
             ne=violations,
             vs=f'{violation_subject} ' if violation_subject else '',
             p='s' if violations > 1 else '',
             el='\n'.join(
-                '{ctx}\n  {msg}'.format(
-                    ctx=ctx.label,
-                    msg=c.msg,
+                '{ctx}\n{msg}'.format(
+                    ctx=ctx.get_label_with_parameter_values(
+                        c.value
+                        if isinstance(c.value, dict)
+                        else {ctx.parameters[0]: c.value}
+                    ),
+                    msg=indent(str(c), '  '),
                 )
                 for ctx, c in self.errors.items()
             ),

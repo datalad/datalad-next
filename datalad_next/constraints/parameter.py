@@ -520,9 +520,31 @@ class EnsureCommandParameterization(Constraint):
             # it may be an indication of something being wrong with validation
             # itself
             except ConstraintError as e:
+                # standard exception type, record and proceed
                 exceptions[ParameterConstraintContext((argname,))] = e
                 if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
+            except Exception as e:
+                # non-standard exception type
+                # we need to achieve uniform CommandParametrizationError
+                # raising, so let's create a ConstraintError for this
+                # exception
+                e = ConstraintError(
+                    validator, arg, '{__caused_by__}',
+                    ctx=dict(__caused_by__=e),
+                )
+                exceptions[ParameterConstraintContext((argname,))] = e
+                if on_error == 'raise-early':
+                    raise CommandParametrizationError(exceptions)
+
+        # do not bother with joint validation when the set of expected
+        # arguments is not complete
+        expected_for_joint_validation = set()
+        for jv in self._joint_constraints or []:
+            expected_for_joint_validation.update(jv.parameters)
+
+        if not expected_for_joint_validation.issubset(validated):
+            raise CommandParametrizationError(exceptions)
 
         try:
             # call (subclass) method to perform holistic, cross-parameter

@@ -35,6 +35,7 @@ from datalad_next.constraints import (
     EnsurePath,
     EnsureURL,
     EnsureValue,
+    WithDescription,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.url_operations.any import AnyUrlOperations
@@ -101,37 +102,64 @@ class Download(ValidatedInterface):
     # The special value '-' is used to indicate stdout
     # if given as a single string, we support single-space-delimited items:
     # "<url> <path>"
-    url2path_constraint = EnsureMapping(
-        key=url_constraint,
-        value=EnsureValue('-') | EnsurePath(),
-        delimiter=' ',
-        # we disallow length-2 sequences to be able to distinguish from
-        # a length-2 list of URLs.
-        # the key issue is the flexibility of EnsurePath -- pretty much
-        # anything could be a valid unix path
-        allow_length2_sequence=False,
+    url2path_constraint = WithDescription(
+        EnsureMapping(
+            key=url_constraint,
+            value=EnsureValue('-') | EnsurePath(),
+            delimiter=' ',
+            # we disallow length-2 sequences to be able to distinguish from
+            # a length-2 list of URLs.
+            # the key issue is the flexibility of EnsurePath -- pretty much
+            # anything could be a valid unix path
+            allow_length2_sequence=False,
+        ),
+        error_message=f'not a dict, length-2-iterable, or space-delimited str',
     )
     # each specification items is either a mapping url->path, just a url, or a
     # JSON-encoded url->path mapping.  the order is complex-to-simple for the
     # first two (to be able to distinguish a mapping from an encoded URL. The
     # JSON-encoding is tried last, it want match accidentally)
-    spec_item_constraint = url2path_constraint | (
-        (
-            EnsureJSON() | EnsureURLFilenamePairFromURL()
-        ) & url2path_constraint)
+    urlonly_item_constraint = WithDescription(
+        EnsureURLFilenamePairFromURL() & url2path_constraint,
+        error_message='not a URL with a path component '
+        'from which a filename can be derived',
+    )
+    json_item_constraint = WithDescription(
+        EnsureJSON() & url2path_constraint,
+        error_message='not a JSON-encoded str with an object or length-2-array',
+    )
+    any_item_constraint = WithDescription(
+        AnyOf(
+            # TODO explain
+            url2path_constraint,
+            urlonly_item_constraint,
+            json_item_constraint,
+        ),
+        error_message='not a single item\n{__itemized_causes__}',
+    )
 
     # we support reading specification items (matching any format defined
     # above) as
     # - a single item
     # - as a list of items
     # - a list given in a file, or via stdin (or any file-like in Python)
-    spec_constraint = AnyOf(
-        spec_item_constraint,
-        EnsureListOf(spec_item_constraint),
-        EnsureGeneratorFromFileLike(
-            spec_item_constraint,
-            exc_mode='yield',
+    spec_constraint = WithDescription(
+        AnyOf(
+            any_item_constraint,
+            WithDescription(
+                EnsureListOf(any_item_constraint),
+                error_message='not a list of any such item',
+            ),
+            WithDescription(
+                EnsureGeneratorFromFileLike(
+                    any_item_constraint,
+                    exc_mode='yield',
+                ),
+                error_message="not a path to a file with one such item per-line, "
+                "nor '-' to read any such item from STDIN",
+            ),
         ),
+        error_message="does not provide URL->(PATH|-) mapping(s)\n{__itemized_causes__}"
     )
 
     force_choices = EnsureChoice('overwrite-existing')

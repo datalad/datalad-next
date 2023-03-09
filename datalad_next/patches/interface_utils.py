@@ -131,12 +131,19 @@ def _execute_command_(
             interface)
     else:
         lgr.debug('Command parameter validation for %s', interface)
+        validator_kwargs = dict(
+            at_default=at_default,
+        )
+        # make immediate vs exhaustive parameter validation
+        # configurable
+        raise_on_error = dlcfg.get(
+            'datalad.runtime.parameter-violation', None)
+        if raise_on_error:
+            validator_kwargs['on_error'] = raise_on_error
+
         allkwargs = param_validator(
             allkwargs,
-            at_default=at_default,
-            # TODO make immediate vs exhaustive parameter validation
-            # configurable here
-            #on_error='raise-at-end',
+            **validator_kwargs
         )
         lgr.debug('Command parameter validation ended for %s', interface)
 

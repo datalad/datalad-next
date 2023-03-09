@@ -56,12 +56,12 @@ def test_parameterizationerrors():
     pes = ParametrizationErrors(emap)
     assert str(pes) == """\
 1 parameter constraint violation
-c1
+c1='noint'
   yeah, bullshit"""
 
     # CommandParametrizationError is pretty much the same thing
     cpes = CommandParametrizationError(emap)
     assert str(cpes) == """\
 1 command parameter constraint violation
-c1
+c1='noint'
   yeah, bullshit"""

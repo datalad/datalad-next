@@ -140,7 +140,7 @@ def test_multi_validation():
     errors = e.value.errors
     assert len(errors) == 3
     # the spec-param-only error
-    assert errors.messages[0].startswith('not any of')
+    assert errors.messages[0].startswith('does not match any of')
     # higher-order issue traces (their order is deterministic)
     assert 'not all values are unique' == errors.messages[1]
     assert 'p1, p2 (identity)' == errors.context_labels[1]
@@ -152,7 +152,7 @@ def test_multi_validation():
     # and we only get one!
     assert len(errors) == 1
     # the spec-param-only error
-    assert errors.messages[0].startswith('not any of')
+    assert errors.messages[0].startswith('does not match any of')
     assert 'not all values are unique' not in errors.messages
     # now we do it again, but with a valid spec, such that the first
     # and only error is a higher order error

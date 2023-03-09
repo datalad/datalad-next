@@ -189,8 +189,16 @@ class AnyOf(_MultiConstraint):
             except Exception as e:
                 e_list.append(e)
         self.raise_for(
-            value, 'not any of {constraints}',
+            value,
+            # plural OK, no sense in having 1 "alternative"
+            'does not match any of {n_alternatives} alternatives\n'
+            '{__itemized_causes__}',
+            # if any exception would be a ConstraintError
+            # this would not be needed, because they
+            # know the underlying constraint
             constraints=self.constraints,
+            n_alternatives=len(self.constraints),
+            __caused_by__=e_list,
         )
 
     def long_description(self):
