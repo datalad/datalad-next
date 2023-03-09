@@ -39,7 +39,7 @@ from datalad_next.constraints import (
     EnsureBool,
     EnsureInt,
     EnsurePath,
-    EnsureRange,
+    IsRange,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import get_dataset_root
@@ -228,9 +228,9 @@ class TreeCommand(ValidatedInterface):
 
     _validator_ = EnsureCommandParameterization(dict(
         path=EnsurePath(),
-        depth=EnsureInt() & EnsureRange(min=0),
+        depth=EnsureInt() & IsRange(min=0),
         recursive=EnsureBool(),
-        recursion_limit=EnsureInt() & EnsureRange(min=0),
+        recursion_limit=EnsureInt() & IsRange(min=0),
         include_files=EnsureBool(),
         include_hidden=EnsureBool(),
     ))

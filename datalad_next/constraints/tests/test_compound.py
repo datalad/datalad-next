@@ -17,9 +17,9 @@ from ..basic import (
 )
 from ..compound import (
     ConstraintWithPassthrough,
-    EnsureIterableOf,
-    EnsureListOf,
-    EnsureTupleOf,
+    ToIterableOf,
+    ToListOf,
+    ToTupleOf,
     EnsureMapping,
     EnsureGeneratorFromFileLike,
     WithDescription,
@@ -29,7 +29,7 @@ from ..compound import (
 # imported from ancient test code in datalad-core,
 # main test is test_EnsureIterableOf
 def test_EnsureTupleOf():
-    c = EnsureTupleOf(str)
+    c = ToTupleOf(str)
     assert c(['a', 'b']) == ('a', 'b')
     assert c(['a1', 'b2']) == ('a1', 'b2')
     assert c.short_description() == "tuple(<class 'str'>)"
@@ -38,35 +38,35 @@ def test_EnsureTupleOf():
 # imported from ancient test code in datalad-core,
 # main test is test_EnsureIterableOf
 def test_EnsureListOf():
-    c = EnsureListOf(str)
+    c = ToListOf(str)
     assert c(['a', 'b']) == ['a', 'b']
     assert c(['a1', 'b2']) == ['a1', 'b2']
     assert c.short_description() == "list(<class 'str'>)"
 
 
 def test_EnsureIterableOf():
-    c = EnsureIterableOf(list, int)
+    c = ToIterableOf(list, int)
     assert c.short_description() == "<class 'list'>(<class 'int'>)"
     assert c.item_constraint == int
     # testing aspects that are not covered by test_EnsureListOf
     tgt = [True, False, True]
-    assert EnsureIterableOf(list, bool)((1, 0, 1)) == tgt
-    assert EnsureIterableOf(list, bool, min_len=3, max_len=3)((1, 0, 1)) == tgt
+    assert ToIterableOf(list, bool)((1, 0, 1)) == tgt
+    assert ToIterableOf(list, bool, min_len=3, max_len=3)((1, 0, 1)) == tgt
     with pytest.raises(ValueError):
         # too many items
-        EnsureIterableOf(list, bool, max_len=2)((1, 0, 1))
+        ToIterableOf(list, bool, max_len=2)((1, 0, 1))
     with pytest.raises(ValueError):
         # too few items
-        EnsureIterableOf(list, bool, min_len=4)((1, 0, 1))
+        ToIterableOf(list, bool, min_len=4)((1, 0, 1))
     with pytest.raises(ValueError):
         # invalid specification min>max
-        EnsureIterableOf(list, bool, min_len=1, max_len=0)
+        ToIterableOf(list, bool, min_len=1, max_len=0)
     with pytest.raises(TypeError):
         # item_constraint fails
-        EnsureIterableOf(list, dict)([5.6, 3.2])
+        ToIterableOf(list, dict)([5.6, 3.2])
     with pytest.raises(ValueError):
         # item_constraint fails
-        EnsureIterableOf(list, EnsureBool())([5.6, 3.2])
+        ToIterableOf(list, EnsureBool())([5.6, 3.2])
 
     seq = [3.3, 1, 2.6]
 
@@ -79,7 +79,7 @@ def test_EnsureIterableOf():
             yield i
 
     # feeding a generator into EnsureIterableOf and getting one out
-    assert list(EnsureIterableOf(_myiter, int)(_mygen())) == [3, 1, 2]
+    assert list(ToIterableOf(_myiter, int)(_mygen())) == [3, 1, 2]
 
 
 def test_EnsureMapping(dataset):

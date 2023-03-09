@@ -16,15 +16,15 @@ from typing import (
 from .base import Constraint
 from .basic import (
     EnsureBool,
-    EnsureChoice,
+    IsChoice,
     EnsureFloat,
     EnsureInt,
-    EnsureStr,
+    IsStr,
     NoConstraint,
 )
 from .compound import (
     ConstraintWithPassthrough,
-    EnsureIterableOf,
+    ToIterableOf,
     EnsureMapping,
 )
 from .dataset import DatasetParameter
@@ -86,7 +86,7 @@ class EnsureParameterConstraint(EnsureMapping):
           placeholder values to indicate the optional nature of a parameter.
         """
         super().__init__(
-            key=EnsureStr(
+            key=IsStr(
                 match=EnsureParameterConstraint.valid_param_name_regex),
             value=ConstraintWithPassthrough(
                 constraint,
@@ -152,7 +152,7 @@ _constraint_spec_map = {
     'float': EnsureFloat(),
     'int': EnsureInt(),
     'bool': EnsureBool(),
-    'str': EnsureStr(),
+    'str': IsStr(),
 }
 
 
@@ -180,7 +180,7 @@ def _get_comprehensive_constraint(
         if action in ('store_true', 'store_false'):
             constraint = EnsureBool()
         elif param_spec.cmd_kwargs.get('choices'):
-            constraint = EnsureChoice(*param_spec.cmd_kwargs.get('choices'))
+            constraint = IsChoice(*param_spec.cmd_kwargs.get('choices'))
         else:
             # always have one for simplicity
             constraint = NoConstraint()
@@ -210,16 +210,16 @@ def _get_comprehensive_constraint(
         # single item, not a forced single-item list
         if nargs > 1:
             # sequence of a particular length
-            constraint = EnsureIterableOf(
+            constraint = ToIterableOf(
                 list, constraint, min_len=nargs, max_len=nargs)
     elif nargs == '*':
         # datalad expects things often/always to also work for a single item
-        constraint = EnsureIterableOf(list, constraint) | constraint
+        constraint = ToIterableOf(list, constraint) | constraint
     elif nargs == '+':
         # sequence of at least 1 item, always a sequence,
         # but again datalad expects things often/always to also work for
         # a single item
-        constraint = EnsureIterableOf(
+        constraint = ToIterableOf(
             list, constraint, min_len=1) | constraint
     # handling of `default` and `const` would be here
     #elif nargs == '?'
@@ -227,7 +227,7 @@ def _get_comprehensive_constraint(
     if action == 'append':
         # wrap into a(nother) sequence
         # (think: list of 2-tuples, etc.
-        constraint = EnsureIterableOf(list, constraint)
+        constraint = ToIterableOf(list, constraint)
 
     return constraint
 

@@ -32,8 +32,8 @@ class EnsureJSON(Constraint):
         return 'JSON'
 
 
-class EnsureURL(Constraint):
-    """Ensures that a string is a valid URL with a select set of components
+class IsURL(Constraint):
+    """Checks that a string is a valid URL with a select set of components
 
     and/or:
 
@@ -113,7 +113,7 @@ class EnsureURL(Constraint):
         )
 
 
-class EnsureParsedURL(EnsureURL):
+class EnsureParsedURL(IsURL):
     """Like `EnsureURL`, but returns a parsed URL"""
     def __call__(self, value: str) -> ParseResult:
         return self._validate_parsed(value)

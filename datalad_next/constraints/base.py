@@ -128,9 +128,9 @@ class _MultiConstraint(Constraint):
     """
     def __init__(self, *constraints):
         # TODO Why is EnsureNone needed? Remove if possible
-        from .basic import EnsureNone
+        from .basic import IsNone
         self._constraints = [
-            EnsureNone() if c is None else c for c in constraints
+            IsNone() if c is None else c for c in constraints
         ]
 
     def __repr__(self):

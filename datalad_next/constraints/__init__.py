@@ -23,22 +23,22 @@ from .base import (
 # base and helper classes
 from .basic import (
     EnsureBool,
-    EnsureCallable,
-    EnsureChoice,
+    IsCallable,
+    IsChoice,
     EnsureFloat,
     EnsureInt,
-    EnsureKeyChoice,
-    EnsureNone,
+    IsKeyChoice,
+    IsNone,
     EnsurePath,
-    EnsureStr,
-    EnsureRange,
-    EnsureValue,
+    IsStr,
+    IsRange,
+    IsValue,
     NoConstraint,
 )
 from .compound import (
-    EnsureIterableOf,
-    EnsureListOf,
-    EnsureTupleOf,
+    ToIterableOf,
+    ToListOf,
+    ToTupleOf,
     EnsureMapping,
     EnsureGeneratorFromFileLike,
     WithDescription,
@@ -48,6 +48,6 @@ from .compound import (
 from .exceptions import ConstraintError
 from .formats import (
     EnsureJSON,
-    EnsureURL,
+    IsURL,
     EnsureParsedURL,
 )

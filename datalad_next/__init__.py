@@ -50,7 +50,7 @@ import datalad_next.patches
 from datalad.support.extensions import register_config
 from datalad_next.constraints import (
     EnsureBool,
-    EnsureChoice,
+    IsChoice,
 )
 register_config(
     'datalad.credentials.repeat-secret-entry',
@@ -80,7 +80,7 @@ register_config(
 register_config(
     'datalad.runtime.parameter-violation',
     'Perform exhaustive command parameter validation, or fail on first error?',
-    type=EnsureChoice('raise-early', 'raise-at-end'),
+    type=IsChoice('raise-early', 'raise-at-end'),
     default='raise-early',
     dialog='question',
 )

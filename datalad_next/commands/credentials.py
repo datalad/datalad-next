@@ -34,9 +34,9 @@ from datalad_next.commands import (
 from datalad_next.exceptions import CapturedException
 from datalad_next.datasets import datasetmethod
 from datalad_next.constraints import (
-    EnsureChoice,
-    EnsureNone,
-    EnsureStr,
+    IsChoice,
+    IsNone,
+    IsStr,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import ParamDictator
@@ -51,15 +51,15 @@ class CredentialsParamValidator(EnsureCommandParameterization):
     def __init__(self):
         super().__init__(
             param_constraints=dict(
-                action=EnsureChoice(*credential_actions),
+                action=IsChoice(*credential_actions),
                 dataset=EnsureDataset(
                     # if given, it must also exist as a source for
                     # configuration items and/or credentials
                     installed=True,
                     purpose='manage credentials',
                 ),
-                name=EnsureStr(),
-                prompt=EnsureStr(),
+                name=IsStr(),
+                prompt=IsStr(),
             ),
             # order in joint_constraints is relevant!
             joint_constraints={

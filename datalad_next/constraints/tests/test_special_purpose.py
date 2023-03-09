@@ -6,7 +6,7 @@ from datalad_next.utils import chpwd
 
 from ..basic import (
     EnsureInt,
-    EnsureStr,
+    IsStr,
     NoConstraint,
 )
 from ..compound import EnsureGeneratorFromFileLike
@@ -17,7 +17,7 @@ from ..exceptions import (
 )
 from ..formats import (
     EnsureJSON,
-    EnsureURL,
+    IsURL,
     EnsureParsedURL,
 )
 from ..git import (
@@ -127,7 +127,7 @@ def test_EnsureParameterConstraint():
     c = EnsureParameterConstraint.from_parameter(
         Parameter(nargs=2, constraints=EnsureInt(), action='append'),
         None,
-        item_constraint=EnsureStr(),
+        item_constraint=IsStr(),
         nargs=1)
     assert c({'some': ['5']}) == dict(some=['5'])
     # literal constraint label
@@ -241,25 +241,25 @@ url_testcases = {
 def test_EnsureURL():
     with pytest.raises(ValueError):
         # only str input
-        EnsureURL()(5)
-    assert EnsureURL().short_description() == 'URL'
-    assert EnsureURL(
+        IsURL()(5)
+    assert IsURL().short_description() == 'URL'
+    assert IsURL(
         required=['scheme', 'netloc']
     ).short_description() == "URL with required ['scheme', 'netloc'] component(s)"
-    assert EnsureURL(
+    assert IsURL(
         forbidden=['fragment']
     ).short_description() == "URL with no ['fragment'] component(s)"
-    assert EnsureURL(
+    assert IsURL(
         # yes, it need not make sense
         required=['a'], forbidden=['b']
     ).short_description() == "URL with required ['a'] and with no ['b'] component(s)"
 
-    any_url = EnsureURL()
+    any_url = IsURL()
     for tc in url_testcases.keys():
         any_url(tc)
 
     for t in ['netloc', 'path', 'scheme']:
-        cnotag = EnsureURL(forbidden=[t])
+        cnotag = IsURL(forbidden=[t])
         cnotag_parsed = EnsureParsedURL(forbidden=[t])
         for url, tags in url_testcases.items():
             if t in tags:
@@ -269,7 +269,7 @@ def test_EnsureURL():
             else:
                 cnotag(url)
                 cnotag_parsed(url)
-        ctag = EnsureURL(required=[t])
+        ctag = IsURL(required=[t])
         ctag_parsed = EnsureParsedURL(required=[t])
         for url, tags in url_testcases.items():
             if t not in tags:
@@ -283,7 +283,7 @@ def test_EnsureURL():
 
 def test_EnsureURL_match():
     # must contain a UUID
-    c = EnsureURL(
+    c = IsURL(
         match='^.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*$',
     )
     with pytest.raises(ValueError):

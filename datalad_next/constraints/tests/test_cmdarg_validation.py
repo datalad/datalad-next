@@ -16,12 +16,12 @@ from .. import (
     ConstraintError,
     EnsureGeneratorFromFileLike,
     EnsureJSON,
-    EnsureListOf,
+    ToListOf,
     EnsureMapping,
     EnsurePath,
-    EnsureRange,
-    EnsureURL,
-    EnsureValue,
+    IsRange,
+    IsURL,
+    IsValue,
 )
 from ..base import (
     AnyOf,
@@ -40,7 +40,7 @@ class EnsureAllUnique(Constraint):
 
 
 class BasicCmdValidator(EnsureCommandParameterization):
-    url_constraint = EnsureURL(required=['scheme'])
+    url_constraint = IsURL(required=['scheme'])
     url2path_constraint = EnsureMapping(
         key=url_constraint, value=EnsurePath(),
         delimiter='\t'
@@ -49,7 +49,7 @@ class BasicCmdValidator(EnsureCommandParameterization):
         | (EnsureJSON() & url2path_constraint)
 
     spec_constraint = AnyOf(
-        EnsureListOf(spec_item_constraint),
+        ToListOf(spec_item_constraint),
         EnsureGeneratorFromFileLike(spec_item_constraint),
         spec_item_constraint,
     )
@@ -67,7 +67,7 @@ class SophisticatedCmdValidator(BasicCmdValidator):
         EnsureAllUnique()(kwargs.values())
 
     def _check_sum_range(self, p1, p2):
-        EnsureRange(min=3)(p1 + p2)
+        IsRange(min=3)(p1 + p2)
 
     def _limit_sum_range(self, p1, p2):
         # random example of a joint constraint that modifies the parameter
@@ -252,7 +252,7 @@ class EnsureDatasetID(EnsureUUID):
     """Makes sure that something is a dataset ID (UUID), or the dataset UUID
     of a particular dataset when tailored"""
     def for_dataset(self, dsarg):
-        return EnsureValue(UUID(dsarg.ds.id))
+        return IsValue(UUID(dsarg.ds.id))
 
 
 class DsTailoringValidator(EnsureCommandParameterization):

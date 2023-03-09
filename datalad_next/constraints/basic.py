@@ -33,8 +33,8 @@ class NoConstraint(Constraint):
         return value
 
 
-class EnsureValue(Constraint):
-    """Ensure an input is a particular value"""
+class IsValue(Constraint):
+    """Check that an input is a particular value"""
     def __init__(self, value):
         super().__init__()
         self._target_value = value
@@ -118,8 +118,8 @@ class EnsureBool(Constraint):
         return 'bool'
 
 
-class EnsureStr(Constraint):
-    """Ensure an input is a string of some min. length and matching a pattern
+class IsStr(Constraint):
+    """Check that an input is a string of some min. length and matching a pattern
 
     Pattern matching is optional and minimum length is zero (empty string is
     OK).
@@ -174,8 +174,8 @@ class EnsureStr(Constraint):
 # a regex that could perform this. CON: documentation less clear.
 # But if custom documentation will be supported, it might get even
 # more clear nevertheless
-class EnsureStrPrefix(EnsureStr):
-    """Ensure an input is a string that starts with a given prefix.
+class IsStrPrefix(IsStr):
+    """Check that an input is a string that starts with a given prefix.
     """
     def __init__(self, prefix):
         """
@@ -201,14 +201,14 @@ class EnsureStrPrefix(EnsureStr):
         return '{}...'.format(self._prefix)
 
 
-class EnsureNone(EnsureValue):
-    """Ensure an input is of value `None`"""
+class IsNone(IsValue):
+    """Check that an input is of value `None`"""
     def __init__(self):
         super().__init__(None)
 
 
-class EnsureCallable(Constraint):
-    """Ensure an input is a callable object"""
+class IsCallable(Constraint):
+    """Check that an input is a callable object"""
     def __call__(self, value):
         if hasattr(value, '__call__'):
             return value
@@ -222,8 +222,8 @@ class EnsureCallable(Constraint):
         return 'value must be a callable'
 
 
-class EnsureChoice(Constraint):
-    """Ensure an input is element of a set of possible values"""
+class IsChoice(Constraint):
+    """Check that an input is element of a set of possible values"""
 
     def __init__(self, *values):
         """
@@ -233,7 +233,7 @@ class EnsureChoice(Constraint):
            Possible accepted values.
         """
         self._allowed = values
-        super(EnsureChoice, self).__init__()
+        super(IsChoice, self).__init__()
 
     def __call__(self, value):
         if value not in self._allowed:
@@ -254,8 +254,8 @@ class EnsureChoice(Constraint):
         return '{%s}' % ', '.join([repr(c) for c in self._allowed])
 
 
-class EnsureKeyChoice(EnsureChoice):
-    """Ensure value under a key in an input is in a set of possible values"""
+class IsKeyChoice(IsChoice):
+    """Check that value under key in an input is in a set of possible values"""
 
     def __init__(self, key, values):
         """
@@ -268,12 +268,12 @@ class EnsureKeyChoice(EnsureChoice):
            Possible accepted values.
         """
         self._key = key
-        super(EnsureKeyChoice, self).__init__(*values)
+        super(IsKeyChoice, self).__init__(*values)
 
     def __call__(self, value):
         if self._key not in value:
             raise ValueError("value not dict-like")
-        super(EnsureKeyChoice, self).__call__(value[self._key])
+        super(IsKeyChoice, self).__call__(value[self._key])
         return value
 
     def long_description(self):
@@ -283,8 +283,8 @@ class EnsureKeyChoice(EnsureChoice):
         return '%s:{%s}' % (self._key, ', '.join([repr(c) for c in self._allowed]))
 
 
-class EnsureRange(Constraint):
-    """Ensure an input is within a particular range
+class IsRange(Constraint):
+    """Check that an input is within a particular range
 
     No type checks are performed.
     """
@@ -301,7 +301,7 @@ class EnsureRange(Constraint):
         self._max = max
         if self._min is None and self._max is None:
             raise ValueError('No range given, min == max == None')
-        super(EnsureRange, self).__init__()
+        super(IsRange, self).__init__()
 
     def __call__(self, value):
         if self._min is not None:

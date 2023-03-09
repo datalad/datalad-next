@@ -34,11 +34,11 @@ from datalad.interface.common_opts import (
 )
 from datalad_next.constraints import (
     EnsureBool,
-    EnsureChoice,
+    IsChoice,
     EnsureInt,
     EnsureParsedURL,
-    EnsureRange,
-    EnsureStr,
+    IsRange,
+    IsStr,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import CredentialManager
@@ -259,16 +259,16 @@ class CreateSiblingWebDAV(ValidatedInterface):
         ),
         dataset=EnsureDataset(
             installed=True, purpose='create WebDAV sibling(s)'),
-        name=EnsureStr(),
-        storage_name=EnsureStr(),
-        mode=EnsureChoice(
+        name=IsStr(),
+        storage_name=IsStr(),
+        mode=IsChoice(
             'annex', 'filetree', 'annex-only', 'filetree-only', 'git-only'
         ),
         # TODO https://github.com/datalad/datalad-next/issues/131
-        credential=EnsureStr(),
-        existing=EnsureChoice('skip', 'error', 'reconfigure'),
+        credential=IsStr(),
+        existing=IsChoice('skip', 'error', 'reconfigure'),
         recursive=EnsureBool(),
-        recursion_limit=EnsureInt() & EnsureRange(min=0),
+        recursion_limit=EnsureInt() & IsRange(min=0),
     )
     _validator_ = CreateSiblingWebDAVParamValidator(
         _validators,

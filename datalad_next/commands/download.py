@@ -27,14 +27,14 @@ from datalad_next.exceptions import (
 from datalad_next.utils import ensure_list
 from datalad_next.constraints import (
     AnyOf,
-    EnsureChoice,
+    IsChoice,
     EnsureGeneratorFromFileLike,
     EnsureJSON,
-    EnsureListOf,
+    ToListOf,
     EnsureMapping,
     EnsurePath,
-    EnsureURL,
-    EnsureValue,
+    IsURL,
+    IsValue,
     WithDescription,
 )
 from datalad_next.constraints.dataset import EnsureDataset
@@ -43,7 +43,7 @@ from datalad_next.url_operations.any import AnyUrlOperations
 lgr = getLogger('datalad.local.download')
 
 
-class EnsureURLFilenamePairFromURL(EnsureURL):
+class EnsureURLFilenamePairFromURL(IsURL):
     """Accept a URL and derive filename from it path component
 
     Return original URL and filename as a mapping
@@ -97,7 +97,7 @@ class Download(ValidatedInterface):
     # any URL that we would take must have a scheme, because we switch
     # protocol handling based on that. It is also crucial for distinguishing
     # stuff like local paths and file names from URLs
-    url_constraint = EnsureURL(required=['scheme'])
+    url_constraint = IsURL(required=['scheme'])
     # other than a plain URL we take a mapping from a URL to a local path.
     # The special value '-' is used to indicate stdout
     # if given as a single string, we support single-space-delimited items:
@@ -105,7 +105,7 @@ class Download(ValidatedInterface):
     url2path_constraint = WithDescription(
         EnsureMapping(
             key=url_constraint,
-            value=EnsureValue('-') | EnsurePath(),
+            value=IsValue('-') | EnsurePath(),
             delimiter=' ',
             # we disallow length-2 sequences to be able to distinguish from
             # a length-2 list of URLs.
@@ -147,7 +147,7 @@ class Download(ValidatedInterface):
         AnyOf(
             any_item_constraint,
             WithDescription(
-                EnsureListOf(any_item_constraint),
+                ToListOf(any_item_constraint),
                 error_message='not a list of any such item',
             ),
             WithDescription(
@@ -162,7 +162,7 @@ class Download(ValidatedInterface):
         error_message="does not provide URL->(PATH|-) mapping(s)\n{__itemized_causes__}"
     )
 
-    force_choices = EnsureChoice('overwrite-existing')
+    force_choices = IsChoice('overwrite-existing')
 
     # Interface.validate_args() will inspect this dict for the presence of a
     # validator for particular parameters
@@ -171,7 +171,7 @@ class Download(ValidatedInterface):
         # if given, it must also exist as a source for configuration items
         # and/or credentials
         dataset=EnsureDataset(installed=True),
-        force=force_choices | EnsureListOf(force_choices),
+        force=force_choices | ToListOf(force_choices),
         # TODO EnsureCredential
         #credential=
         # TODO EnsureHashAlgorithm

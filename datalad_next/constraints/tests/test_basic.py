@@ -6,15 +6,15 @@ from ..basic import (
     EnsureInt,
     EnsureFloat,
     EnsureBool,
-    EnsureStr,
-    EnsureStrPrefix,
-    EnsureNone,
-    EnsureCallable,
-    EnsureChoice,
-    EnsureKeyChoice,
-    EnsureRange,
+    IsStr,
+    IsStrPrefix,
+    IsNone,
+    IsCallable,
+    IsChoice,
+    IsKeyChoice,
+    IsRange,
     EnsurePath,
-    EnsureValue,
+    IsValue,
     NoConstraint,
 )
 
@@ -86,7 +86,7 @@ def test_bool():
 
 
 def test_str():
-    c = EnsureStr()
+    c = IsStr()
     # this should always work
     assert c('hello') == 'hello'
     assert c('7.0') == '7.0'
@@ -104,13 +104,13 @@ def test_str():
 
 
 def test_str_min_len():
-    c = EnsureStr(min_len=1)
+    c = IsStr(min_len=1)
     assert c('hello') == 'hello'
     assert c('h') == 'h'
     with pytest.raises(ValueError):
         c('')
 
-    c = EnsureStr(min_len=2)
+    c = IsStr(min_len=2)
     assert c('hello') == 'hello'
     with pytest.raises(ValueError):
         c('h')
@@ -119,7 +119,7 @@ def test_str_min_len():
 def test_EnsureStr_match():
     # alphanum plus _ and ., non-empty
     pattern = '[a-zA-Z0-9-.]+'
-    constraint = EnsureStr(match=pattern)
+    constraint = IsStr(match=pattern)
 
     # reports the pattern in the description
     for m in (constraint.short_description, constraint.long_description):
@@ -134,7 +134,7 @@ def test_EnsureStr_match():
 
 
 def test_EnsureStrPrefix():
-    c = EnsureStrPrefix('some-')
+    c = IsStrPrefix('some-')
     c('some-mess') == 'some-mess'
     with pytest.raises(ValueError):
         c('mess')
@@ -143,7 +143,7 @@ def test_EnsureStrPrefix():
 
 
 def test_EnsureValue():
-    c = EnsureValue(5)
+    c = IsValue(5)
     assert c.short_description() == '5'
     # this should always work
     assert c(5) == 5
@@ -159,7 +159,7 @@ def test_EnsureValue():
 
 # special case of EnsureValue
 def test_none():
-    c = EnsureNone()
+    c = IsNone()
     assert c.short_description() == 'None'
     # this should always work
     assert c(None) is None
@@ -171,7 +171,7 @@ def test_none():
 
 
 def test_callable():
-    c = EnsureCallable()
+    c = IsCallable()
     assert c.short_description() == 'callable'
     assert c.long_description() == 'value must be a callable'
     # this should always work
@@ -181,7 +181,7 @@ def test_callable():
 
 
 def test_choice():
-    c = EnsureChoice('choice1', 'choice2', None)
+    c = IsChoice('choice1', 'choice2', None)
     descr = c.long_description()
     for i in ('choice1', 'choice2', 'CMD', 'PY'):
         assert i in descr
@@ -198,7 +198,7 @@ def test_choice():
 
 
 def test_keychoice():
-    c = EnsureKeyChoice(key='some', values=('choice1', 'choice2', None))
+    c = IsKeyChoice(key='some', values=('choice1', 'choice2', None))
     descr = c.long_description()
     for i in ('some', 'choice1', 'choice2'):
         assert i in descr
@@ -220,10 +220,10 @@ def test_keychoice():
 
 def test_range():
     with pytest.raises(ValueError):
-        EnsureRange(min=None, max=None)
-    c = EnsureRange(max=7)
+        IsRange(min=None, max=None)
+    c = IsRange(max=7)
     assert c.short_description() == 'not greater than 7'
-    c = EnsureRange(min=3, max=7)
+    c = IsRange(min=3, max=7)
     # this should always work
     assert c(3.0) == 3.0
 
@@ -241,7 +241,7 @@ def test_range():
         c('7')
 
     # Range doesn't have to be numeric
-    c = EnsureRange(min="e", max="qqq")
+    c = IsRange(min="e", max="qqq")
     assert c.short_description() == "in range from 'e' to 'qqq'"
     assert c('e') == 'e'
     assert c('fa') == 'fa'

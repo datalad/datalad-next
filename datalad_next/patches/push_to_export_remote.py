@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 import datalad.core.distributed.push as mod_push
 from datalad.runner.exception import CommandError
-from datalad_next.constraints import EnsureChoice
+from datalad_next.constraints import IsChoice
 from datalad_next.exceptions import CapturedException
 from datalad_next.commands import Parameter
 from datalad_next.datasets import (
@@ -277,7 +277,7 @@ mod_push.Push._params_["force"] = Parameter(
     do not use --fast with git-annex copy ('checkdatapresent'); force an
     annex export (to git annex remotes with "exporttree" set to "yes");
     combine all force modes ('all').""",
-    constraints=EnsureChoice(
+    constraints=IsChoice(
         'all', 'gitpush', 'checkdatapresent', 'export', None))
 
 

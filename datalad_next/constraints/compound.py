@@ -20,8 +20,8 @@ from .base import (
 )
 
 
-class EnsureIterableOf(Constraint):
-    """Ensure that an input is a list of a particular data type
+class ToIterableOf(Constraint):
+    """Transform an input into a particular iterable of a particular data type
     """
     # TODO support a delimiter to be able to take str-lists?
     def __init__(self,
@@ -94,7 +94,7 @@ class EnsureIterableOf(Constraint):
         return f'{self._iter_type}({self._item_constraint})'
 
 
-class EnsureListOf(EnsureIterableOf):
+class ToListOf(ToIterableOf):
     def __init__(self,
                  item_constraint: Callable,
                  min_len: int | None = None,
@@ -119,7 +119,7 @@ class EnsureListOf(EnsureIterableOf):
         return f'list({self._item_constraint})'
 
 
-class EnsureTupleOf(EnsureIterableOf):
+class ToTupleOf(ToIterableOf):
     def __init__(self,
                  item_constraint: Callable,
                  min_len: int | None = None,
