@@ -346,6 +346,7 @@ class UrlOperations:
 # Exceptions to be used by all handlers
 #
 
+
 class UrlOperationsRemoteError(Exception):
     def __init__(self, url, message=None, status_code: Any = None):
         # use base exception feature to store all arguments in a tuple
@@ -355,6 +356,21 @@ class UrlOperationsRemoteError(Exception):
             message,
             status_code,
         )
+
+    def __str__(self):
+        url, message, status_code = self.args
+        if message:
+            return message
+
+        if status_code:
+            return f"error {status_code} for {url!r}"
+
+        return f"{self.__class__.__name__} for {url!r}"
+
+    def __repr__(self) -> str:
+        url, message, status_code = self.args
+        return f"{self.__class__.__name__}(" \
+               f"{url!r}, {message!r}, {status_code!r})"
 
     @property
     def url(self):
