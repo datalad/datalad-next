@@ -24,6 +24,7 @@ from ..compound import (
     EnsureGeneratorFromFileLike,
     WithDescription,
 )
+from ..exceptions import ConstraintError
 
 
 # imported from ancient test code in datalad-core,
@@ -42,6 +43,8 @@ def test_EnsureListOf():
     assert c(['a', 'b']) == ['a', 'b']
     assert c(['a1', 'b2']) == ['a1', 'b2']
     assert c.short_description() == "list(<class 'str'>)"
+    assert repr(c) == \
+        "EnsureListOf(item_constraint=<class 'str'>, min_len=None, max_len=None)"
 
 
 def test_EnsureIterableOf():
@@ -92,6 +95,8 @@ def test_EnsureMapping(dataset):
         constraint(true_key)
 
     assert 'mapping of int -> bool' in constraint.short_description()
+    assert repr(constraint) == \
+        "EnsureMapping(key=EnsureInt(), value=EnsureBool(), delimiter='::')"
 
     # must all work
     for v in ('5::no',
@@ -142,6 +147,10 @@ def test_EnsureGeneratorFromFileLike():
 
     assert 'items of type "mapping of int -> bool" read from a file-like' \
         == constraint.short_description()
+    assert repr(constraint) == \
+        "EnsureGeneratorFromFileLike(" \
+        "item_constraint=EnsureMapping(key=EnsureInt(), " \
+        "value=EnsureBool(), delimiter='::'))"
 
     c = constraint(StringIO("5::yes\n1234::no\n"))
     assert isgenerator(c)
@@ -235,6 +244,8 @@ def test_WithDescription(dataset):
         input_description='mydescription',
         input_synopsis_for_ds='dssynopsis',
         input_description_for_ds='dsdescription',
+        error_message='myerror',
+        error_message_for_ds='dserror',
     )
     # function is maintained
     assert c('5') is 5
@@ -244,7 +255,9 @@ def test_WithDescription(dataset):
         "input_synopsis='mysynopsis', " \
         "input_description='mydescription', " \
         "input_synopsis_for_ds='dssynopsis', " \
-        "input_description_for_ds='dsdescription')"
+        "input_description_for_ds='dsdescription', " \
+        "error_message='myerror', " \
+        "error_message_for_ds='dserror')"
     assert c.constraint is wrapped
     assert c.input_synopsis == 'mysynopsis'
     assert c.input_description == 'mydescription'
@@ -253,6 +266,12 @@ def test_WithDescription(dataset):
     assert isinstance(cds, WithDescription)
     assert cds.input_synopsis == 'dssynopsis'
     assert cds.input_description == 'dsdescription'
+
+    # when the wrapped constraint raises, the wrapper
+    # interjects and reports a different error
+    with pytest.raises(ConstraintError) as e:
+        c(None)
+    assert e.value.msg == 'myerror'
 
     # legacy functionality
     c.short_description() == c.input_synopsis

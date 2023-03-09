@@ -66,7 +66,13 @@ class EnsureDType(Constraint):
         self._dtype = dtype
 
     def __call__(self, value):
-        return self._dtype(value)
+        try:
+            return self._dtype(value)
+        except Exception as e:
+            self.raise_for(
+                value,
+                str(e),
+            )
 
     def short_description(self):
         return _type_str(self._dtype)
