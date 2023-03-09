@@ -23,7 +23,7 @@ from ..formats import (
 from ..git import (
     EnsureGitRefName,
 )
-from ..parameter import EnsureParameterConstraint
+from ..parameter_legacy import EnsureParameterConstraint
 
 
 def test_EnsureGitRefName():
