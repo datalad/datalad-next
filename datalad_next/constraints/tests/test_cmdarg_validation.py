@@ -15,11 +15,13 @@ from datalad_next.utils import on_windows
 from .. import (
     ConstraintError,
     EnsureGeneratorFromFileLike,
+    EnsureInt,
     EnsureJSON,
     EnsureListOf,
     EnsureMapping,
     EnsurePath,
     EnsureRange,
+    EnsureStr,
     EnsureURL,
     EnsureValue,
 )
@@ -57,7 +59,10 @@ class BasicCmdValidator(EnsureCommandParameterization):
     def __init__(self, **kwargs):
         # this is the key bit: a mapping of parameter names to validators
         super().__init__(
-            dict(spec=self.spec_constraint),
+            dict(
+                spec=self.spec_constraint,
+                p1=EnsureInt() | EnsureStr(),
+            ),
             **kwargs
         )
 
@@ -162,6 +167,13 @@ def test_multi_validation():
     assert len(errors) == 1
     assert 'not all values are unique' == errors.messages[0]
     assert 'p1, p2 (identity)' == errors.context_labels[0]
+
+    # a single-parameter validation error does not lead to a crash
+    # in higher-order validation, instead the latter is performed
+    # when a require argument could not be provided
+    with pytest.raises(ConstraintError) as e:
+        # p1 must be int|str
+        val(dict(spec=5, p1=None, p2=1), on_error='raise-at-end')
 
 
 def test_invalid_multi_validation():
