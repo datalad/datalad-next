@@ -261,6 +261,15 @@ class ParameterConstraintContext:
             descr=f" ({self.description})" if self.description else '',
         )
 
+    def get_label_with_parameter_values(self, values: dict) -> str:
+        """Like ``.label`` but each parameter will also state a value"""
+        # TODO truncate the values after repr() to ensure a somewhat compact
+        # output
+        return '{param}{descr}'.format(
+            param=", ".join(f'{p}={values[p]!r}' for p in self.parameters),
+            descr=f" ({self.description})" if self.description else '',
+        )
+
 
 class ParametrizationErrors(ConstraintErrors):
     """Exception type raised on violating parameter constraints
@@ -301,7 +310,11 @@ class ParametrizationErrors(ConstraintErrors):
             p='s' if violations > 1 else '',
             el='\n'.join(
                 '{ctx}\n{msg}'.format(
-                    ctx=ctx.label,
+                    ctx=ctx.get_label_with_parameter_values(
+                        c.value
+                        if isinstance(c.value, dict)
+                        else {ctx.parameters[0]: c.value}
+                    ),
                     msg=indent(str(c), '  '),
                 )
                 for ctx, c in self.errors.items()
