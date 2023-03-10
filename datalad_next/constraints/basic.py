@@ -54,9 +54,16 @@ class EnsureValue(Constraint):
 
 class EnsureDType(Constraint):
     """Ensure that an input (or several inputs) are of a particular data type.
+    Examples:
+
+        >>> c = EnsureDType(float)
+        >>> type(c(8))                  # doctest: +SKIP
+        float
+        >>> import numpy as np          # doctest: +SKIP
+        >>> c = EnsureDType(np.float64) # doctest: +SKIP
+        >>> type(c(8))                  # doctest: +SKIP
+        numpy.float64
     """
-    # TODO extend to support numpy-like dtype specs, e.g. 'int64'
-    # in addition to functors
     def __init__(self, dtype):
         """
         Parameters
