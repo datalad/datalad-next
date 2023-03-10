@@ -24,7 +24,12 @@ from ..compound import (
     EnsureGeneratorFromFileLike,
     WithDescription,
 )
-
+# dedicated imports of deprecated functions
+from ..compound import (
+    EnsureIterableOf,
+    EnsureTupleOf,
+    EnsureListOf
+)
 
 # imported from ancient test code in datalad-core,
 # main test is test_EnsureIterableOf
@@ -257,3 +262,14 @@ def test_WithDescription(dataset):
     # legacy functionality
     c.short_description() == c.input_synopsis
     c.long_description() == c.input_description
+
+
+def test_deprecation():
+    for cls, initvals, val in [
+        (EnsureIterableOf, {'iter_type': list, 'item_constraint': EnsureInt()}, [2]),
+        (EnsureTupleOf, {'item_constraint': EnsureInt()}, [2]),
+        (EnsureListOf, {'item_constraint': EnsureInt()}, [2])
+    ]:
+        with pytest.deprecated_call():
+            c = cls(**initvals)
+            c(val)

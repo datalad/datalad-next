@@ -17,6 +17,17 @@ from ..basic import (
     IsValue,
     NoConstraint,
 )
+# dedicated import of deprecated classes
+from ..basic import (
+    EnsureStr,
+    EnsureStrPrefix,
+    EnsureNone,
+    EnsureCallable,
+    EnsureChoice,
+    EnsureKeyChoice,
+    EnsureRange,
+    EnsureValue
+)
 
 from ..utils import _type_str
 
@@ -317,3 +328,24 @@ def test_EnsurePath_fordataset(existing_dataset):
     # 2. dataset is given as a dataset object
     tc = c.for_dataset(DatasetParameter(ds, ds))
     assert tc('relpath') == (ds.pathobj / 'relpath')
+
+
+def test_deprecations():
+    for cls, initvals, val in [
+        (EnsureStr, {'min_len': 0}, 'some'),
+        (EnsureStrPrefix, {'prefix':'some'}, 'somemore'),
+        (EnsureNone, {}, None),
+        (EnsureCallable, {}, print),
+        (EnsureKeyChoice, dict(key='some', values=['more']), {'some':'more'}),
+        (EnsureRange, {'min': 0, 'max': 5}, 4)
+    ]:
+        with pytest.deprecated_call():
+            c = cls(**initvals)
+            c(val)
+    for cls, initvals, val in [
+        (EnsureChoice, ['no', 'yes'], 'yes'),
+        (EnsureValue, ['some'], 'some')
+    ]:
+        with pytest.deprecated_call():
+            c = cls(*initvals)
+            c(val)
