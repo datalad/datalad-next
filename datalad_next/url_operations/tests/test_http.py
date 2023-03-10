@@ -1,7 +1,6 @@
 from pathlib import Path
 import pytest
 
-from datalad_next.tests.utils import get_httpbin_urls
 from ..http import (
     HttpUrlOperations,
     UrlOperationsRemoteError,
@@ -9,15 +8,14 @@ from ..http import (
 )
 
 
-hbsurl = get_httpbin_urls()['standard']
-hbscred = (
-    'hbscred',
-    dict(user='mike', secret='dummy', type='user_password',
-         realm=f'{hbsurl}/Fake Realm'),
-)
+def test_http_url_operations(credman, httpbin, tmp_path):
+    hbsurl = httpbin['standard']
+    hbscred = (
+        'hbscred',
+        dict(user='mike', secret='dummy', type='user_password',
+             realm=f'{hbsurl}/Fake Realm'),
+    )
 
-
-def test_http_url_operations(credman, tmp_path):
     credman.set(hbscred[0], **hbscred[1])
     ops = HttpUrlOperations()
     # authentication after redirect

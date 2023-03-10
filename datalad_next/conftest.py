@@ -24,6 +24,8 @@ from datalad_next.tests.fixtures import (
     http_server,
     # function-scope, HTTP server with required authentication
     http_server_with_basicauth,
+    # session-scope HTTPBIN URLs
+    httpbin,
     # session-scope, standard webdav credential (full dict)
     webdav_credential,
     # function-scope, serve a local temp-path via WebDAV

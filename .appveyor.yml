@@ -69,7 +69,6 @@ environment:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-      DEPLOY_HTTPBIN: yes
     # Windows core tests
     - ID: WinP39core
       # ~35 min
@@ -248,7 +247,7 @@ install:
   # enable the git-annex provisioned by the installer
   - "[ -f ${HOME}/dlinstaller_env.sh ] && . ${HOME}/dlinstaller_env.sh || true"
   # HTTPBIN
-  - sh: "[ -n \"$DEPLOY_HTTPBIN\" ] && tools/appveyor/docker-load-httpbin && docker run -p 8765:80 kennethreitz/httpbin &"
+  - sh: tools/appveyor/docker-load-httpbin
 
 
 #before_build:

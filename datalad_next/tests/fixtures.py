@@ -1,9 +1,12 @@
 import logging
 import os
 from pathlib import Path
+import subprocess
 import pytest
 from tempfile import NamedTemporaryFile
+from time import sleep
 from unittest.mock import patch
+from urllib.request import urlopen
 
 from datalad_next.datasets import Dataset
 from datalad_next.tests.utils import (
@@ -295,3 +298,57 @@ def http_server_with_basicauth(tmp_path_factory, http_credential):
         # overwrite path with Path object for convenience
         server.path = path
         yield server
+
+
+@pytest.fixture(scope="session")
+def httpbin():
+    """Return cannonical access URLs for the HTTPBIN service
+
+    This fixture tries to spin up a httpbin Docker container at localhost:8765;
+    if successful, it returns this URL as the 'standard' URL.  If the attempt
+    fails, a URL pointing to the cannonical instance is returned.
+
+    For tests that need to have the service served via a specific
+    protocol (https vs http), the corresponding URLs are returned
+    too. They always point to the cannonical deployment, as some
+    tests require both protocols simultaneously and a local deployment
+    generally won't have https.
+    """
+    hburl = 'http://httpbin.org'
+    hbsurl = 'https://httpbin.org'
+    ciurl = 'http://localhost:8765'
+    if os.name == "posix":
+        try:
+            r = subprocess.run(
+                ["docker", "run", "-d", "-p", "127.0.0.1:8765:80", "kennethreitz/httpbin"],
+                check=True,
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            lgr.warning("Failed to spin up httpbin Docker container:", exc_info=True)
+            container_id = None
+        else:
+            container_id = r.stdout.strip()
+    else:
+        container_id = None
+    try:
+        if container_id is not None:
+            # Wait for container to fully start:
+            for _ in range(25):
+                try:
+                    urlopen(ciurl)
+                except Exception:
+                    sleep(1)
+                else:
+                    break
+            else:
+                raise RuntimeError("httpbin container did not start up in time")
+        yield {
+            "standard": ciurl if container_id is not None else hbsurl,
+            "http": hburl,
+            "https": hbsurl,
+        }
+    finally:
+        if container_id is not None:
+            subprocess.run(["docker", "rm", "-f", container_id], check=True)
