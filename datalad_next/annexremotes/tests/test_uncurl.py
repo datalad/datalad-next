@@ -145,7 +145,7 @@ def test_uncurl_checkurl(tmp_path):
     # of external redirector service
     r.url_tmpl = f'{hbsurl}/redirect-to?url={{origurl}}'
     r.match = [
-        re.compile('.*(?P<origurl>http://.*)$'),
+        re.compile('.*(?P<origurl>https?://.*)$'),
     ]
     assert not r.checkurl(f'garbled{hbsurl}/status/404')
     assert r.checkurl(f'garbled{hbsurl}/bytes/24')
@@ -157,7 +157,7 @@ def test_uncurl_addurl_unredirected(existing_dataset):
     dsca = ds.repo.call_annex
     # same set as in `test_uncurl_checkurl()`
     dsca(['initremote', 'myuncurl'] + std_initargs + [
-        'match=.*(?P<origurl>http://.*)$',
+        'match=.*(?P<origurl>https?://.*)$',
         f'url={hbsurl}/redirect-to?url={{origurl}}',
     ])
     # feed it a broken URL, which must be getting fixed by the rewritting
