@@ -30,11 +30,12 @@ def test_base():
     assert id(generic) == id(generic.for_dataset('some'))
 
 
-def test_constraints():
+def test_allof():
     # this should always work
     c = AllOf(EnsureFloat())
     assert c(7.0) == 7.0
     c = AllOf(EnsureFloat(), EnsureRange(min=4.0))
+    assert repr(c) == 'AllOf(EnsureFloat(), EnsureRange())'
     assert c(7.0) == 7.0
     # __and__ form
     c = EnsureFloat() & EnsureRange(min=4.0)
@@ -75,13 +76,14 @@ def test_constraints():
         c(4)
 
 
-def test_altconstraints():
+def test_anyof():
     # this should always work
     c = AnyOf(EnsureFloat())
     # passes the docs through
     assert c.short_description() == EnsureFloat().short_description()
     assert c(7.0) == 7.0
     c = AnyOf(EnsureFloat(), EnsureNone())
+    assert repr(c) == 'AnyOf(EnsureFloat(), EnsureNone())'
     # wraps docs in parenthesis to help appreciate the scope of the
     # OR'ing
     assert c.short_description().startswith(

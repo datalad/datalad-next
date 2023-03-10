@@ -17,6 +17,7 @@ from ..basic import (
     EnsureValue,
     NoConstraint,
 )
+from ..exceptions import ConstraintError
 
 from ..utils import _type_str
 
@@ -34,7 +35,7 @@ def test_int():
     assert c(7.0) == 7
     assert c('7') == 7
     # no automatic inspection of iterables, should use EnsureIterableOf
-    with pytest.raises(TypeError):
+    with pytest.raises(ConstraintError):
         c([7, 3])
     # this should always fail
     with pytest.raises(ValueError):
@@ -52,7 +53,7 @@ def test_float():
     assert c(7) == 7.0
     assert c('7') == 7.0
     # no automatic inspection of iterables, should use EnsureIterableOf
-    with pytest.raises(TypeError):
+    with pytest.raises(ConstraintError):
         c([7.0, '3.0'])
     # this should always fail
     with pytest.raises(ValueError):

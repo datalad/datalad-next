@@ -466,7 +466,9 @@ class WithDescription(Constraint):
                f'input_synopsis={self._synopsis!r}, ' \
                f'input_description={self._description!r}, ' \
                f'input_synopsis_for_ds={self._synopsis_for_ds!r}, ' \
-               f'input_description_for_ds={self._description_for_ds!r})'
+               f'input_description_for_ds={self._description_for_ds!r}, ' \
+               f'error_message={self._error_message!r}, ' \
+               f'error_message_for_ds={self._error_message_for_ds!r})'
 
     def for_dataset(self, dataset: DatasetParameter) -> Constraint:
         """Wrap the wrapped constraint again after tailoring it for the dataset
