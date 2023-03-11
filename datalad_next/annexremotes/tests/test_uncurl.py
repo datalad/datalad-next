@@ -5,7 +5,6 @@ import re
 from datalad_next.utils import on_windows
 from datalad_next.tests.utils import (
     create_tree,
-    get_httpbin_urls,
     skip_ssh,
     skip_if_on_windows,
 )
@@ -21,9 +20,6 @@ from ..uncurl import (
     RemoteError,
     UncurlRemote,
 )
-
-# this is the URL against which the httpbin calls will be made
-hbsurl = get_httpbin_urls()['standard']
 
 # for some tests below it is important that this base config contains no
 # url= or match= declaration (or any other tailoring to a specific use case)
@@ -106,7 +102,10 @@ def test_uncurl_claimurl(tmp_path):
     assert not r.claimurl('bongo://joe')
 
 
-def test_uncurl_checkurl(tmp_path):
+def test_uncurl_checkurl(httpbin, tmp_path):
+    # this is the URL against which the httpbin calls will be made
+    hbsurl = httpbin['standard']
+
     exists_path = tmp_path / 'testfile'
     exists_path.write_text('123')
     exists_url = exists_path.as_uri()
@@ -152,7 +151,10 @@ def test_uncurl_checkurl(tmp_path):
 
 
 # sibling of `test_uncurl_checkurl()`, but more high-level
-def test_uncurl_addurl_unredirected(existing_dataset):
+def test_uncurl_addurl_unredirected(existing_dataset, httpbin):
+    # this is the URL against which the httpbin calls will be made
+    hbsurl = httpbin['standard']
+
     ds = existing_dataset
     dsca = ds.repo.call_annex
     # same set as in `test_uncurl_checkurl()`

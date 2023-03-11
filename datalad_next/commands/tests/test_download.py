@@ -11,23 +11,26 @@ from datalad.api import (
 from datalad_next.tests.utils import (
     assert_result_count,
     assert_status,
-    get_httpbin_urls,
     with_testsui,
 )
 from datalad_next.utils import chpwd
 
 from datalad_next.utils import CredentialManager
 
-httpbin_urls = get_httpbin_urls()
-# shortcut for the standard URL
-hbsurl = httpbin_urls['standard']
+@pytest.fixture
+def hbsurl(httpbin):
+    # shortcut for the standard URL
+    return httpbin["standard"]
 
 test_cred = ('dltest-my&=http', 'datalad', 'secure')
-hbscred = (
-    'hbscred',
-    dict(user='mike', secret='dummy', type='user_password',
-         realm=f'{hbsurl}/Fake Realm'),
-)
+
+@pytest.fixture
+def hbscred(hbsurl):
+    return (
+        'hbscred',
+        dict(user='mike', secret='dummy', type='user_password',
+             realm=f'{hbsurl}/Fake Realm'),
+    )
 
 
 def test_download(tmp_path, http_server):
@@ -117,7 +120,7 @@ def test_download_auth(
 auth_ok_response = {"authenticated": True, "user": "mike"}
 
 
-def test_download_basic_auth(credman, capsys):
+def test_download_basic_auth(credman, capsys, hbscred, hbsurl):
     credman.set(hbscred[0], **hbscred[1])
     # consume stdout to make test self-contained
     capsys.readouterr()
@@ -126,7 +129,7 @@ def test_download_basic_auth(credman, capsys):
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
-def test_download_bearer_token_auth(credman, capsys):
+def test_download_bearer_token_auth(credman, capsys, hbsurl):
     credman.set('dummy', realm=f'{hbsurl}/', type='token', secret='very')
     # consume stdout to make test self-contained
     capsys.readouterr()
@@ -138,7 +141,7 @@ def test_download_bearer_token_auth(credman, capsys):
     }
 
 
-def test_download_digest_auth(credman, capsys):
+def test_download_digest_auth(credman, capsys, hbscred, hbsurl):
     credman.set(hbscred[0],
                 **dict(hbscred[1],
                        realm=f'{hbsurl}/me@kennethreitz.com'))
@@ -155,7 +158,7 @@ def test_download_digest_auth(credman, capsys):
         assert capsys.readouterr().out == ''
 
 
-def test_download_explicit_credential(credman, capsys):
+def test_download_explicit_credential(credman, capsys, hbscred, hbsurl):
     # the provided credential has the wrong 'realm' for auto-detection.
     # but chosing it explicitly must put things to work
     credman.set(hbscred[0], **hbscred[1])
@@ -166,7 +169,7 @@ def test_download_explicit_credential(credman, capsys):
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
-def test_download_auth_after_redirect(credman, capsys):
+def test_download_auth_after_redirect(credman, capsys, hbscred, hbsurl):
     credman.set(hbscred[0], **hbscred[1])
     # consume stdout to make test self-contained
     capsys.readouterr()
@@ -175,13 +178,13 @@ def test_download_auth_after_redirect(credman, capsys):
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
-def test_download_no_credential_leak_to_http(credman, capsys):
+def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin):
     credman.set(hbscred[0], **hbscred[1])
-    redirect_url = f'{httpbin_urls["http"]}/basic-auth/mike/dummy'
+    redirect_url = f'{httpbin["http"]}/basic-auth/mike/dummy'
     res = download(
         # redirect from https to http, must drop provideded credential
         # to avoid leakage
-        {f'{httpbin_urls["https"]}/redirect-to?url={redirect_url}': '-'},
+        {f'{httpbin["https"]}/redirect-to?url={redirect_url}': '-'},
         credential=hbscred[0],
         on_failure='ignore')
     assert_status('error', res)
@@ -194,7 +197,7 @@ def test_download_no_credential_leak_to_http(credman, capsys):
     res = download(
         # redirect from https to http, must drop provideded credential
         # to avoid leakage
-        {f'{httpbin_urls["https"]}/redirect-to?url={redirect_url}': '-'},
+        {f'{httpbin["https"]}/redirect-to?url={redirect_url}': '-'},
         on_failure='ignore')
     assert_status('error', res)
 
@@ -204,7 +207,7 @@ def test_download_no_credential_leak_to_http(credman, capsys):
     # after download, it asks for a name
     'dataladtest_test_download_new_bearer_token',
 ])
-def test_download_new_bearer_token(tmp_keyring, capsys):
+def test_download_new_bearer_token(tmp_keyring, capsys, hbsurl):
     try:
         download({f'{hbsurl}/bearer': '-'})
         # and it was saved under this name
@@ -226,7 +229,7 @@ def test_download_new_bearer_token(tmp_keyring, capsys):
     # after download, it asks for a name, but skip to save
     'skip',
 ])
-def test_download_new_bearer_token_nosave(capsys):
+def test_download_new_bearer_token_nosave(capsys, hbsurl):
     download({f'{hbsurl}/bearer': '-'})
     # and it was saved under this name
     assert_result_count(
@@ -237,7 +240,7 @@ def test_download_new_bearer_token_nosave(capsys):
 
 # make sure a 404 is easily discoverable
 # https://github.com/datalad/datalad/issues/6545
-def test_download_404():
+def test_download_404(hbsurl):
     assert_result_count(
         download(f'{hbsurl}/status/404', on_failure='ignore'),
         1, status_code=404, status='error')

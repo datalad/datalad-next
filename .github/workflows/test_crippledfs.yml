@@ -65,7 +65,6 @@ jobs:
         # enable git-annex
         . ~/dlinstaller_env.sh
         # run httpbin container
-        docker run -p 8765:80 kennethreitz/httpbin &
         mkdir -p __testhome__
         cd __testhome__
         # give detailed info on actual test setup
