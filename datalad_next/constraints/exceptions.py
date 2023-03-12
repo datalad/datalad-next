@@ -59,12 +59,12 @@ class ConstraintError(ValueError):
         """
         # the msg/ctx setup is inspired by pydantic
         # we put `msg` in the `.args` container first to match where
-        # `ValueError` would have it. Everthing else goes after it.
+        # `ValueError` would have it. Everything else goes after it.
         super().__init__(msg, constraint, value, ctx)
 
     @property
     def msg(self):
-        """Obtain an (interpolated) message on the contraint violation
+        """Obtain an (interpolated) message on the constraint violation
 
         The error message template can be interpolated with any information
         available in the error context dict (``ctx``). In addition to the
@@ -76,7 +76,7 @@ class ConstraintError(ValueError):
           item for each error in the ``caused_by`` report of the error.
 
         Message template can use any feature of the Python format mini
-        lanuage. For example ``{__value__!r}`` to get a ``repr()``-style
+        language. For example ``{__value__!r}`` to get a ``repr()``-style
         representation of the offending value.
         """
         msg_tmpl = self.args[0]
@@ -133,7 +133,7 @@ class ConstraintErrors(ConstraintError):
     """Exception representing context-specific ConstraintError instances
 
     This class enables the association of a context in which any particular
-    contraint was violated. This is done by passing a mapping, of a context
+    constraint was violated. This is done by passing a mapping, of a context
     identifier (e.g., a label) to the particular ``ConstraintError`` that
     occurred in this context, to the constructor.
 
@@ -275,7 +275,7 @@ class ParametrizationErrors(ConstraintErrors):
     """Exception type raised on violating parameter constraints
 
     This is a ``ConstraintErrors`` variant that uses parameter names (i.e,
-    ``str`` labels) as context identifiers. In addition to individal
+    ``str`` labels) as context identifiers. In addition to individual
     parameter names an additional ``__all__`` identifier is recognized. It
     can be used to record a ``ConstraintError`` arising from high-order
     constraints, such as the violation of "mutually exclusive" requirements

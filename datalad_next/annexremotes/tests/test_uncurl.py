@@ -162,7 +162,7 @@ def test_uncurl_addurl_unredirected(existing_dataset, httpbin):
         'match=.*(?P<origurl>https?://.*)$',
         f'url={hbsurl}/redirect-to?url={{origurl}}',
     ])
-    # feed it a broken URL, which must be getting fixed by the rewritting
+    # feed it a broken URL, which must be getting fixed by the rewriting
     # (pulls 24 bytes)
     testurl = f'garbled{hbsurl}/bytes/24'
     dsca(['addurl', '--file=dummy', testurl])

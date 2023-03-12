@@ -11,7 +11,7 @@ from .exceptions import ConstraintError
 
 
 class DatasetParameter:
-    """Utitlity class to report an original and resolve dataset parameter value
+    """Utility class to report an original and resolve dataset parameter value
 
     This is used by `EnsureDataset` to be able to report the original argument
     semantics of a dataset parameter to a receiving command. It is consumed

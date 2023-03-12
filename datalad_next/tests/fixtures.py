@@ -287,7 +287,7 @@ def http_server(tmp_path_factory):
 
 @pytest.fixture(autouse=False, scope="function")
 def http_server_with_basicauth(tmp_path_factory, http_credential):
-    """Like ``http_server`` but requiering authenticat with ``http_credential``
+    """Like ``http_server`` but requiring authenticat with ``http_credential``
     """
     path = tmp_path_factory.mktemp("webdav")
     server = HTTPPath(
@@ -302,15 +302,15 @@ def http_server_with_basicauth(tmp_path_factory, http_credential):
 
 @pytest.fixture(scope="session")
 def httpbin():
-    """Return cannonical access URLs for the HTTPBIN service
+    """Return canonical access URLs for the HTTPBIN service
 
     This fixture tries to spin up a httpbin Docker container at localhost:8765;
     if successful, it returns this URL as the 'standard' URL.  If the attempt
-    fails, a URL pointing to the cannonical instance is returned.
+    fails, a URL pointing to the canonical instance is returned.
 
     For tests that need to have the service served via a specific
     protocol (https vs http), the corresponding URLs are returned
-    too. They always point to the cannonical deployment, as some
+    too. They always point to the canonical deployment, as some
     tests require both protocols simultaneously and a local deployment
     generally won't have https.
     """

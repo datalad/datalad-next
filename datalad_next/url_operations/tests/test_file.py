@@ -68,7 +68,7 @@ def test_file_url_upload(tmp_path, monkeypatch):
         assert props['md5'] == '321c3cf486ed509164edec1e1981fec8'
         assert props['content-length'] == len(payload)
 
-    # TODO test missing write permissons
+    # TODO test missing write permissions
 
 def test_file_url_delete(tmp_path):
     payload = 'payload'

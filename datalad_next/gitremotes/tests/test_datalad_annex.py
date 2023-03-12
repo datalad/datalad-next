@@ -214,7 +214,7 @@ def _check_repush_after_vanish(ds, remoteurl, remotepath):
     remotepath.mkdir(parents=True)
 
     # helper must detect the discrepancy and re-push, despite the local mirror
-    # repo already being uptodate
+    # repo already being up-to-date
     dsrepo.call_git(['push', 'dla'])
     eq_dla_branch_state(dsrepo.get_hexsha(DEFAULT_BRANCH), remotepath)
 
