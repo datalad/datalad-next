@@ -1,4 +1,4 @@
-# 1.0.0b2 (2023-03-??)
+# 1.0.0b2 (2023-03-17)
 
 ## 💫 Enhancements and new features
 
