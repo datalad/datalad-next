@@ -107,7 +107,7 @@ package and its commands.
 - Improved composition of importable functionality. Key components for `commands`,
   `annexremotes`, `datasets` (etc) are collected in topical top-level modules that
   provide "all" necessary pieces in a single place.
-- `serve_path_via_webdav` test decorator that automatically deploys a local WebDAV
+- `webdav_server` fixture that automatically deploys a local WebDAV
   server.
 - Utilities for HTTP handling
   - `probe_url()` discovers redirects and authentication requirements for an HTTP
