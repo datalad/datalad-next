@@ -65,6 +65,10 @@ def deprecated(msg, version, parameter=None, parameter_choice=None):
                     if parameter_choice not in val:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
+                elif isinstance(parameter_choice, list):
+                    if val not in parameter_choice:
+                        # there is nothing to deprecate
+                        return func(*args, **kwargs)
                 else:
                     if val != parameter_choice:
                         # there is nothing to deprecate
