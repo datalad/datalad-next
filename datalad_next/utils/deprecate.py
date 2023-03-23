@@ -33,10 +33,10 @@ def deprecated(
 
     Parameters
     ----------
-    version: str
-      Software version number at which the deprecation was made
     msg: str
       Custom message to append to a deprecation warning
+    version: str
+      Software version number at which the deprecation was made
     kwarg: str, optional
       Name of the particular deprecated keyword argument (instead of entire
       function/class)
