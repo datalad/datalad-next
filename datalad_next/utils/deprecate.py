@@ -9,7 +9,13 @@ _kwarg_tmpl = f"argument {{kwarg!r}} of {_base_tmpl}"
 _kwarg_val_tmpl = f"Use of value {{kwarg_value!r}} for {_kwarg_tmpl}"
 
 
-def deprecated(msg, version, kwarg=None, kwarg_value=None):
+# we must have a secret value that indicates "no value deprecation", otherwise
+# we cannot tell whether `None` is deprecated or not
+class _NoDeprecatedValue:
+    pass
+
+
+def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
     """Annotate functions, classes, or (required) keyword-arguments
     with standardized deprecation warnings.
 
@@ -59,7 +65,7 @@ def deprecated(msg, version, kwarg=None, kwarg_value=None):
                 # there is nothing to deprecate
                 return func(*args, **kwargs)
             # has a deprecated kwarg value been used?
-            if kwarg_value is not None:
+            if kwarg_value is not _NoDeprecatedValue:
                 val = kwargs[kwarg]
                 if isinstance(val, list):
                     if kwarg_value not in val:

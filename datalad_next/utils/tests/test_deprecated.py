@@ -40,6 +40,12 @@ def deprecated_function_param_value(inputmode='default'):
     return inputmode
 
 
+@deprecated(msg='nothing to see here', kwarg='inputmode',
+            kwarg_value=None, version='1.0')
+def deprecated_function_param_value_none(inputmode=None):
+    return inputmode
+
+
 class RandomClassParamValue(object):
 
     @deprecated(msg="nothing to see here", kwarg='inputmode',
@@ -91,6 +97,13 @@ def test_deprecated():
                 match="Use of value 'default' for argument 'inputmode'"):
             res = func(inputmode=inputmode)
             assert res == inputmode
+
+    # `None` value deprecation is supported
+    with pytest.warns(
+            DeprecationWarning,
+            match="Use of value None for argument 'inputmode'"):
+        res = deprecated_function_param_value_none(inputmode=None)
+        assert res is None
 
     # no deprecations for an unused deprecated parameter or parameter value
     for func in [deprecated_function_param_value,
