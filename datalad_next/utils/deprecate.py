@@ -20,6 +20,7 @@ class _NoDeprecatedValue:
 
 def deprecated(
         msg: str,
+        *,
         version: str,
         kwarg: str | None = None,
         kwarg_values: list | _NoDeprecatedValue = _NoDeprecatedValue,
