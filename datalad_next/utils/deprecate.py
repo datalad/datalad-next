@@ -35,53 +35,35 @@ def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
     kwarg_value: str
       Particular deprecated value of the specified keyword-argument
     """
-
-    if kwarg is None:
-        # the entire class/function is deprecated
-        def decorator(func):
-            @wraps(func)
-            def func_with_deprecation_warning(*args, **kwargs):
-                warnings.warn(
-                    _base_tmpl.format(
-                        mod=func.__module__,
-                        func=func.__name__,
-                        version=version,
-                        msg=msg,
-                    ),
-                    DeprecationWarning,
-                )
-                return func(*args, **kwargs)
-
-            return func_with_deprecation_warning
-
-        return decorator
-
-    # a single kwarg, or kwarg value is deprecated
     def decorator(func):
         @wraps(func)
         def func_with_deprecation_warning(*args, **kwargs):
             # this is the layer that run for a deprecated call
 
-            # has a deprecated kwarg been used? if not, quick way out
-            if kwarg not in kwargs.keys():
+            # do we have a deprecated kwargs, but it has not been used?
+            # -> quick way out
+            if kwarg is not None and kwarg not in kwargs.keys():
                 # there is nothing to deprecate
                 return func(*args, **kwargs)
 
-            # has a deprecated kwarg value been used?
             # pick the right message template
-            template = _kwarg_tmpl if kwarg_value is _NoDeprecatedValue \
+            # whole thing deprecated, or kwargs, or particular kwarg-value
+            template = _base_tmpl if kwarg is None \
+                else _kwarg_tmpl if kwarg_value is _NoDeprecatedValue \
                 else _kwarg_val_tmpl
 
-            # deprecated value to compare against, we know it is in kwargs
-            val = kwargs[kwarg]
+            # deprecated value to compare against
+            val = kwargs.get(kwarg, _NoDeprecatedValue)
 
             # comprehensive set of conditions when to issue deprecation
             # warning
+            # - no particular kwarg is deprecated, but the whole callable
             # - no particular value is deprecated, but the whole argument
             # - given list contains deprecated value
             # - given value in list of deprecated value
             # - given value matches deprecated value
-            if kwarg_value is _NoDeprecatedValue \
+            if kwarg is None \
+                    or kwarg_value is _NoDeprecatedValue \
                     or (isinstance(val, list) and kwarg_value in val) \
                     or (isinstance(kwarg_value, list) and val in kwarg_value) \
                     or val == kwarg_value:
