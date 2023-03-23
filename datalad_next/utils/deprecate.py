@@ -2,8 +2,8 @@ import warnings
 from functools import wraps
 
 
-def deprecated(msg, version, parameter=None, parameter_choice=None):
-    """Annotate functions, classes, or function parameters with standardized
+def deprecated(msg, version, kwarg=None, kwarg_choice=None):
+    """Annotate functions, classes, or keyword-arguments with standardized
     deprecation warnings.
 
     Parameters
@@ -12,15 +12,16 @@ def deprecated(msg, version, parameter=None, parameter_choice=None):
       Software version number at which the deprecation was made
     msg: str
       Custom message to append to a deprecation warning
-    parameter: str
-      Individual parameter being deprecated (instead of entire function/class)
-    parameter_choice: str
-      Individual parameter choice of specified parameter being deprecated
+    kwarg: str
+      Individual keyword argument being deprecated (instead of entire
+      function/class)
+    kwarg_choice: str
+      Individual choice of the specified keyword-argument being deprecated
     """
 
     base_template = "{func} was deprecated in version {version}. {msg}"
 
-    if parameter is None:
+    if kwarg is None:
         # the entire class/function is deprecated
         def decorator(func):
             @wraps(func)
@@ -39,38 +40,38 @@ def deprecated(msg, version, parameter=None, parameter_choice=None):
 
         return decorator
 
-    # a single parameter, or parameter choice is deprecated
+    # a single kwarg, or kwarg choice is deprecated
     def decorator(func):
         @wraps(func)
         def func_with_deprecation_warning(*args, **kwargs):
-            # has a deprecated parameter been used?
-            if parameter not in kwargs.keys():
+            # has a deprecated kwarg been used?
+            if kwarg not in kwargs.keys():
                 # there is nothing to deprecate
                 return func(*args, **kwargs)
-            # has a deprecated parameter choice been used?
-            if parameter_choice is not None:
-                val = kwargs[parameter]
+            # has a deprecated kwarg choice been used?
+            if kwarg_choice is not None:
+                val = kwargs[kwarg]
                 if isinstance(val, list):
-                    if parameter_choice not in val:
+                    if kwarg_choice not in val:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
-                elif isinstance(parameter_choice, list):
-                    if val not in parameter_choice:
+                elif isinstance(kwarg_choice, list):
+                    if val not in kwarg_choice:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
                 else:
-                    if val != parameter_choice:
+                    if val != kwarg_choice:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
                 template = (
-                    f"The parameter value {parameter_choice} of "
-                    f"parameter {parameter} of " + base_template
+                    f"Use of value {kwarg_choice!r} for "
+                    f"argument {kwarg!r} of " + base_template
                 )
             else:
-                template = "The {parameter} parameter of " + base_template
+                template = "The {kwarg!r} parameter of " + base_template
             warnings.warn(
                 template.format(
-                    parameter=parameter,
+                    kwarg=kwarg,
                     func=f'{func.__module__}.{func.__name__}',
                     version=version,
                     msg=msg,

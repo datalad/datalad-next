@@ -22,40 +22,40 @@ class DeprecatedClass(object):
         return inputstring
 
 
-@deprecated(msg='nothing to see here', parameter='inputmode', version='1.0')
+@deprecated(msg='nothing to see here', kwarg='inputmode', version='1.0')
 def deprecated_function_param(inputmode='default', other_param=None):
     return inputmode
 
 
 class RandomClassParam(object):
 
-    @deprecated(msg="nothing to see here", parameter='inputmode', version='1.0')
+    @deprecated(msg="nothing to see here", kwarg='inputmode', version='1.0')
     def deprecated_method(self, inputmode='default', other_param=None):
         return inputmode
 
 
-@deprecated(msg='nothing to see here', parameter='inputmode',
-            parameter_choice='default', version='1.0')
+@deprecated(msg='nothing to see here', kwarg='inputmode',
+            kwarg_choice='default', version='1.0')
 def deprecated_function_param_value(inputmode='default'):
     return inputmode
 
 
 class RandomClassParamValue(object):
 
-    @deprecated(msg="nothing to see here", parameter='inputmode',
-                parameter_choice='default', version='1.0')
+    @deprecated(msg="nothing to see here", kwarg='inputmode',
+                kwarg_choice='default', version='1.0')
     def deprecated_method(self, inputmode='default'):
         return inputmode
 
 
-@deprecated(msg='nothing to see here', version='1.0', parameter='mode')
-@deprecated(msg='even less to see here', version='1.0', parameter='othermode')
+@deprecated(msg='nothing to see here', version='1.0', kwarg='mode')
+@deprecated(msg='even less to see here', version='1.0', kwarg='othermode')
 def double_deprecated_function(mode='default', othermode='moredefault'):
     return (mode, othermode)
 
 
-@deprecated(msg='nothing to see here', version='1.0', parameter='mode',
-            parameter_choice=['1', '2'])
+@deprecated(msg='nothing to see here', version='1.0', kwarg='mode',
+            kwarg_choice=['1', '2'])
 def two_deprecated_values(mode='default'):
     return mode
 
@@ -74,21 +74,21 @@ def test_deprecated():
     with pytest.warns(DeprecationWarning, match="nothing to see here"):
         DeprecatedClass()
 
-    # deprecations for a parameter
+    # deprecations for a kwarg
     inputmode = 'default'
     for func in [deprecated_function_param,
                  RandomClassParam().deprecated_method]:
-        with pytest.warns(DeprecationWarning, match="The inputmode parameter"):
+        with pytest.warns(DeprecationWarning, match="The 'inputmode' parameter"):
             res = func(inputmode=inputmode)
             assert res == inputmode
 
-    # deprecations for a parameter value
+    # deprecations for a kwarg value
     for func in [deprecated_function_param_value,
                  RandomClassParamValue().deprecated_method,
                  ]:
         with pytest.warns(
                 DeprecationWarning,
-                match="The parameter value default of parameter inputmode"):
+                match="Use of value 'default' for argument 'inputmode'"):
             res = func(inputmode=inputmode)
             assert res == inputmode
 
@@ -114,7 +114,7 @@ def test_deprecated():
                  ]:
         with pytest.warns(
                 DeprecationWarning,
-                match="The parameter value default of parameter inputmode"):
+                match="Use of value 'default' for argument 'inputmode'"):
             res = func(inputmode=[inputmode])
             assert res == [inputmode]
         with pytest.warns(None) as record:
