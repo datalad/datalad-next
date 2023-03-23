@@ -60,39 +60,42 @@ def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
     def decorator(func):
         @wraps(func)
         def func_with_deprecation_warning(*args, **kwargs):
-            # has a deprecated kwarg been used?
+            # this is the layer that run for a deprecated call
+
+            # has a deprecated kwarg been used? if not, quick way out
             if kwarg not in kwargs.keys():
                 # there is nothing to deprecate
                 return func(*args, **kwargs)
+
             # has a deprecated kwarg value been used?
-            if kwarg_value is not _NoDeprecatedValue:
-                val = kwargs[kwarg]
-                if isinstance(val, list):
-                    if kwarg_value not in val:
-                        # there is nothing to deprecate
-                        return func(*args, **kwargs)
-                elif isinstance(kwarg_value, list):
-                    if val not in kwarg_value:
-                        # there is nothing to deprecate
-                        return func(*args, **kwargs)
-                else:
-                    if val != kwarg_value:
-                        # there is nothing to deprecate
-                        return func(*args, **kwargs)
-                template = _kwarg_val_tmpl
-            else:
-                template = _kwarg_tmpl
-            warnings.warn(
-                template.format(
-                    mod=func.__module__,
-                    func=func.__name__,
-                    kwarg=kwarg,
-                    kwarg_value=kwarg_value,
-                    version=version,
-                    msg=msg,
-                ),
-                DeprecationWarning,
-            )
+            # pick the right message template
+            template = _kwarg_tmpl if kwarg_value is _NoDeprecatedValue \
+                else _kwarg_val_tmpl
+
+            # deprecated value to compare against, we know it is in kwargs
+            val = kwargs[kwarg]
+
+            # comprehensive set of conditions when to issue deprecation
+            # warning
+            # - no particular value is deprecated, but the whole argument
+            # - given list contains deprecated value
+            # - given value in list of deprecated value
+            # - given value matches deprecated value
+            if kwarg_value is _NoDeprecatedValue \
+                    or (isinstance(val, list) and kwarg_value in val) \
+                    or (isinstance(kwarg_value, list) and val in kwarg_value) \
+                    or val == kwarg_value:
+                warnings.warn(
+                    template.format(
+                        mod=func.__module__,
+                        func=func.__name__,
+                        kwarg=kwarg,
+                        kwarg_value=kwarg_value,
+                        version=version,
+                        msg=msg,
+                    ),
+                    DeprecationWarning,
+                )
             return func(*args, **kwargs)
 
         return func_with_deprecation_warning
