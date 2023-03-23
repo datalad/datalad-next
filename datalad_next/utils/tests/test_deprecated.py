@@ -35,7 +35,7 @@ class RandomClassParam(object):
 
 
 @deprecated(msg='nothing to see here', kwarg='inputmode',
-            kwarg_choice='default', version='1.0')
+            kwarg_value='default', version='1.0')
 def deprecated_function_param_value(inputmode='default'):
     return inputmode
 
@@ -43,7 +43,7 @@ def deprecated_function_param_value(inputmode='default'):
 class RandomClassParamValue(object):
 
     @deprecated(msg="nothing to see here", kwarg='inputmode',
-                kwarg_choice='default', version='1.0')
+                kwarg_value='default', version='1.0')
     def deprecated_method(self, inputmode='default'):
         return inputmode
 
@@ -55,7 +55,7 @@ def double_deprecated_function(mode='default', othermode='moredefault'):
 
 
 @deprecated(msg='nothing to see here', version='1.0', kwarg='mode',
-            kwarg_choice=['1', '2'])
+            kwarg_value=['1', '2'])
 def two_deprecated_values(mode='default'):
     return mode
 
@@ -135,7 +135,7 @@ def test_deprecated():
     with pytest.warns(DeprecationWarning):
         res = two_deprecated_values(mode='1')
         assert res == '1'
-        # shouldn't matter if the parameterchoice is a list
+        # shouldn't matter if the parameter value is a list
         res = two_deprecated_values(mode=['1'])
         assert res == ['1']
     with pytest.warns(None) as record:

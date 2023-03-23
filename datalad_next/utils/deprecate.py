@@ -2,9 +2,13 @@ import warnings
 from functools import wraps
 
 
-def deprecated(msg, version, kwarg=None, kwarg_choice=None):
-    """Annotate functions, classes, or keyword-arguments with standardized
-    deprecation warnings.
+def deprecated(msg, version, kwarg=None, kwarg_value=None):
+    """Annotate functions, classes, or (required) keyword-arguments
+    with standardized deprecation warnings.
+
+    Support for deprecation messages on individual keyword arguments
+    is limited to calls with explicit keyword-argument use, not (implicit)
+    use as a positional argument.
 
     Parameters
     ----------
@@ -13,10 +17,10 @@ def deprecated(msg, version, kwarg=None, kwarg_choice=None):
     msg: str
       Custom message to append to a deprecation warning
     kwarg: str
-      Individual keyword argument being deprecated (instead of entire
+      Name of the particular deprecated keyword argument (instead of entire
       function/class)
-    kwarg_choice: str
-      Individual choice of the specified keyword-argument being deprecated
+    kwarg_value: str
+      Particular deprecated value of the specified keyword-argument
     """
 
     base_template = "{func} was deprecated in version {version}. {msg}"
@@ -40,7 +44,7 @@ def deprecated(msg, version, kwarg=None, kwarg_choice=None):
 
         return decorator
 
-    # a single kwarg, or kwarg choice is deprecated
+    # a single kwarg, or kwarg value is deprecated
     def decorator(func):
         @wraps(func)
         def func_with_deprecation_warning(*args, **kwargs):
@@ -48,23 +52,23 @@ def deprecated(msg, version, kwarg=None, kwarg_choice=None):
             if kwarg not in kwargs.keys():
                 # there is nothing to deprecate
                 return func(*args, **kwargs)
-            # has a deprecated kwarg choice been used?
-            if kwarg_choice is not None:
+            # has a deprecated kwarg value been used?
+            if kwarg_value is not None:
                 val = kwargs[kwarg]
                 if isinstance(val, list):
-                    if kwarg_choice not in val:
+                    if kwarg_value not in val:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
-                elif isinstance(kwarg_choice, list):
-                    if val not in kwarg_choice:
+                elif isinstance(kwarg_value, list):
+                    if val not in kwarg_value:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
                 else:
-                    if val != kwarg_choice:
+                    if val != kwarg_value:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
                 template = (
-                    f"Use of value {kwarg_choice!r} for "
+                    f"Use of value {kwarg_value!r} for "
                     f"argument {kwarg!r} of " + base_template
                 )
             else:
