@@ -78,7 +78,7 @@ def test_deprecated():
     inputmode = 'default'
     for func in [deprecated_function_param,
                  RandomClassParam().deprecated_method]:
-        with pytest.warns(DeprecationWarning, match="The 'inputmode' parameter"):
+        with pytest.warns(DeprecationWarning, match="argument 'inputmode'"):
             res = func(inputmode=inputmode)
             assert res == inputmode
 

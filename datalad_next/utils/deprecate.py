@@ -1,6 +1,13 @@
 import warnings
 from functools import wraps
 
+__all__ = ['deprecated']
+
+
+_base_tmpl = "{mod}.{func} was deprecated in version {version}. {msg}"
+_kwarg_tmpl = f"argument {{kwarg!r}} of {_base_tmpl}"
+_kwarg_val_tmpl = f"Use of value {{kwarg_value!r}} for {_kwarg_tmpl}"
+
 
 def deprecated(msg, version, kwarg=None, kwarg_value=None):
     """Annotate functions, classes, or (required) keyword-arguments
@@ -23,16 +30,15 @@ def deprecated(msg, version, kwarg=None, kwarg_value=None):
       Particular deprecated value of the specified keyword-argument
     """
 
-    base_template = "{func} was deprecated in version {version}. {msg}"
-
     if kwarg is None:
         # the entire class/function is deprecated
         def decorator(func):
             @wraps(func)
             def func_with_deprecation_warning(*args, **kwargs):
                 warnings.warn(
-                    base_template.format(
-                        func=f'{func.__module__}.{func.__name__}',
+                    _base_tmpl.format(
+                        mod=func.__module__,
+                        func=func.__name__,
                         version=version,
                         msg=msg,
                     ),
@@ -67,16 +73,15 @@ def deprecated(msg, version, kwarg=None, kwarg_value=None):
                     if val != kwarg_value:
                         # there is nothing to deprecate
                         return func(*args, **kwargs)
-                template = (
-                    f"Use of value {kwarg_value!r} for "
-                    f"argument {kwarg!r} of " + base_template
-                )
+                template = _kwarg_val_tmpl
             else:
-                template = "The {kwarg!r} parameter of " + base_template
+                template = _kwarg_tmpl
             warnings.warn(
                 template.format(
+                    mod=func.__module__,
+                    func=func.__name__,
                     kwarg=kwarg,
-                    func=f'{func.__module__}.{func.__name__}',
+                    kwarg_value=kwarg_value,
                     version=version,
                     msg=msg,
                 ),
