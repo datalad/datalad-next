@@ -1,5 +1,8 @@
-import warnings
+from __future__ import annotations
+
+from collections.abc import Callable
 from functools import wraps
+import warnings
 
 __all__ = ['deprecated']
 
@@ -16,11 +19,11 @@ class _NoDeprecatedValue:
 
 
 def deprecated(
-        msg,
-        version,
-        kwarg=None,
-        kwarg_values: tuple | _NoDeprecatedValue = _NoDeprecatedValue,
-):
+        msg: str,
+        version: str,
+        kwarg: str | None = None,
+        kwarg_values: list | _NoDeprecatedValue = _NoDeprecatedValue,
+) -> Callable:
     """Annotate functions, classes, or (required) keyword-arguments
     with standardized deprecation warnings.
 
@@ -34,10 +37,10 @@ def deprecated(
       Software version number at which the deprecation was made
     msg: str
       Custom message to append to a deprecation warning
-    kwarg: str
+    kwarg: str, optional
       Name of the particular deprecated keyword argument (instead of entire
       function/class)
-    kwarg_values: tuple or list, optional
+    kwarg_values: list, optional
       Particular deprecated values of the specified keyword-argument
     """
     # normalize to a set(), when the set is empty, no particular value
@@ -76,6 +79,7 @@ def deprecated(
                 # no particular value is deprecated, but the whole argument
                 or not kwarg_values
                 # given value matches any deprecated value
+                # exluce tuple/list, because they are not hashable
                 or (not isinstance(val, (list, dict))
                     and val in kwarg_values)
                 # given list/tuple-item or dict-key match any deprecated value
