@@ -6,7 +6,7 @@ __all__ = ['deprecated']
 
 _base_tmpl = "{mod}.{func} was deprecated in version {version}. {msg}"
 _kwarg_tmpl = f"argument {{kwarg!r}} of {_base_tmpl}"
-_kwarg_val_tmpl = f"Use of value {{kwarg_value!r}} for {_kwarg_tmpl}"
+_kwarg_val_tmpl = f"Use of values {{kwarg_values!r}} for {_kwarg_tmpl}"
 
 
 # we must have a secret value that indicates "no value deprecation", otherwise
@@ -15,7 +15,12 @@ class _NoDeprecatedValue:
     pass
 
 
-def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
+def deprecated(
+        msg,
+        version,
+        kwarg=None,
+        kwarg_values: tuple | _NoDeprecatedValue = _NoDeprecatedValue,
+):
     """Annotate functions, classes, or (required) keyword-arguments
     with standardized deprecation warnings.
 
@@ -32,9 +37,14 @@ def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
     kwarg: str
       Name of the particular deprecated keyword argument (instead of entire
       function/class)
-    kwarg_value: str
-      Particular deprecated value of the specified keyword-argument
+    kwarg_values: tuple or list, optional
+      Particular deprecated values of the specified keyword-argument
     """
+    # normalize to a set(), when the set is empty, no particular value
+    # was deprecated
+    kwarg_values = set() \
+        if kwarg_values is _NoDeprecatedValue else set(kwarg_values)
+
     def decorator(func):
         @wraps(func)
         def func_with_deprecation_warning(*args, **kwargs):
@@ -49,7 +59,7 @@ def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
             # pick the right message template
             # whole thing deprecated, or kwargs, or particular kwarg-value
             template = _base_tmpl if kwarg is None \
-                else _kwarg_tmpl if kwarg_value is _NoDeprecatedValue \
+                else _kwarg_tmpl if not kwarg_values \
                 else _kwarg_val_tmpl
 
             # deprecated value to compare against
@@ -59,20 +69,25 @@ def deprecated(msg, version, kwarg=None, kwarg_value=_NoDeprecatedValue):
             # warning
             # - no particular kwarg is deprecated, but the whole callable
             # - no particular value is deprecated, but the whole argument
-            # - given list contains deprecated value
-            # - given value in list of deprecated value
-            # - given value matches deprecated value
-            if kwarg is None \
-                    or kwarg_value is _NoDeprecatedValue \
-                    or (isinstance(val, list) and kwarg_value in val) \
-                    or (isinstance(kwarg_value, list) and val in kwarg_value) \
-                    or val == kwarg_value:
+            # - given value matches any deprecated value
+            # - given list/tuple/dict-keys match any deprecated value
+            if (# no particular kwarg is deprecated, but the whole callable
+                kwarg is None
+                # no particular value is deprecated, but the whole argument
+                or not kwarg_values
+                # given value matches any deprecated value
+                or (not isinstance(val, (list, dict))
+                    and val in kwarg_values)
+                # given list/tuple-item or dict-key match any deprecated value
+                or (isinstance(val, (tuple, list, dict))
+                    and kwarg_values.intersection(val))
+            ):
                 warnings.warn(
                     template.format(
                         mod=func.__module__,
                         func=func.__name__,
                         kwarg=kwarg,
-                        kwarg_value=kwarg_value,
+                        kwarg_values=kwarg_values,
                         version=version,
                         msg=msg,
                     ),
