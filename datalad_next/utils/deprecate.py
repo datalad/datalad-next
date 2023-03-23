@@ -1,8 +1,6 @@
 import warnings
 from functools import wraps
 
-from datalad_next.utils import get_wrapped_class
-
 
 def deprecated(msg, version, parameter=None, parameter_choice=None):
     """Annotate functions, classes, or function parameters with standardized
@@ -21,18 +19,18 @@ def deprecated(msg, version, parameter=None, parameter_choice=None):
     """
 
     base_template = "{func} was deprecated in version {version}. {msg}"
+
     if parameter is None:
         # the entire class/function is deprecated
         def decorator(func):
             @wraps(func)
             def func_with_deprecation_warning(*args, **kwargs):
-                fname = (
-                    get_wrapped_class(func)
-                    if func.__name__ == "__call__"
-                    else func.__name__
-                )
                 warnings.warn(
-                    base_template.format(func=fname, version=version, msg=msg),
+                    base_template.format(
+                        func=f'{func.__module__}.{func.__name__}',
+                        version=version,
+                        msg=msg,
+                    ),
                     DeprecationWarning,
                 )
                 return func(*args, **kwargs)
@@ -70,14 +68,12 @@ def deprecated(msg, version, parameter=None, parameter_choice=None):
                 )
             else:
                 template = "The {parameter} parameter of " + base_template
-            fname = (
-                get_wrapped_class(func)
-                if func.__name__ == "__call__"
-                else func.__name__
-            )
             warnings.warn(
                 template.format(
-                    parameter=parameter, func=fname, version=version, msg=msg
+                    parameter=parameter,
+                    func=f'{func.__module__}.{func.__name__}',
+                    version=version,
+                    msg=msg,
                 ),
                 DeprecationWarning,
             )
