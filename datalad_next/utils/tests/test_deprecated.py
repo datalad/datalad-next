@@ -67,7 +67,7 @@ def test_deprecated():
                  RandomClass().deprecated_method]:
         with pytest.warns(
                 DeprecationWarning,
-                match="deprecated in version 1.0. nothing to see here"):
+                match=f"{func.__name__} was deprecated in version 1.0. nothing to see here"):
             res = func(inputstring=input_string)
             assert res == input_string
 
