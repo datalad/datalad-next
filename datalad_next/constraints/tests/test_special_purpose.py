@@ -4,6 +4,7 @@ import pytest
 from datalad_next.commands import Parameter
 from datalad_next.utils import chpwd
 
+from ..base import DatasetParameter
 from ..basic import (
     EnsureInt,
     EnsureStr,
@@ -22,6 +23,7 @@ from ..formats import (
 )
 from ..git import (
     EnsureGitRefName,
+    EnsureRemoteName
 )
 from ..parameter_legacy import EnsureParameterConstraint
 
@@ -50,6 +52,35 @@ def test_EnsureGitRefName():
         EnsureGitRefName()('refs/heads/*')
     assert EnsureGitRefName(refspec_pattern=True)(
         'refs/heads/*') == 'refs/heads/*'
+
+
+def test_EnsureRemoteName(existing_dataset):
+    # empty sibling name must raise
+    with pytest.raises(ValueError):
+        c = EnsureRemoteName()('')
+    assert EnsureRemoteName().short_description() == 'Sibling name'
+    assert EnsureRemoteName(
+        existing=True).short_description() == 'Sibling name that exists'
+    assert EnsureRemoteName(
+        existing=False).short_description() == 'Sibling name that does not yet exist'
+    ds = existing_dataset
+    c = EnsureRemoteName(existing=False)
+    tc = c.for_dataset(DatasetParameter(None, ds))
+    assert tc('newremotename') == 'newremotename'
+    # add a remote
+    ds._repo.add_remote('my-remote', 'here')
+    # check should fail when it shouldn't exist
+    with pytest.raises(ValueError):
+        tc('my-remote')
+    # should work when it should exist
+    c = EnsureRemoteName(existing=True)
+    tc = c.for_dataset(DatasetParameter(None, ds))
+    assert tc('my-remote') == 'my-remote'
+    # but fail with non-existing remote
+    with pytest.raises(ValueError):
+        tc('not-my-remote')
+    # return sibling name with no existence checks
+    assert EnsureRemoteName()('anything') == 'anything'
 
 
 def test_EnsureParameterConstraint():
