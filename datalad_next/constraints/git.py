@@ -1,8 +1,12 @@
 """Constraints for Git-related concepts and parameters"""
+from __future__ import annotations
 
 import subprocess
 
-from .base import Constraint
+from .base import (
+    Constraint,
+    DatasetParameter,
+)
 
 
 class EnsureGitRefName(Constraint):
@@ -73,4 +77,70 @@ class EnsureGitRefName(Constraint):
         return '{}Git refname{}'.format(
             '(single-level) ' if self._allow_onelevel else '',
             ' or refspec pattern' if self._refspec_pattern else '',
+        )
+
+
+class EnsureRemoteName(EnsureGitRefName):
+    """Ensures a remote name is provided, and if it fulfills optional
+    requirements"""
+
+    def __init__(self,
+                 existing: bool | None = None,
+                 dsarg: DatasetParameter | None = None):
+        """
+        Parameters
+        ----------
+        existing: bool
+           If true, validates that the remote exists, fails otherwise.
+           If false, validates that the remote doesn't exist, fails otherwise.
+
+        """
+        self._existing = existing
+        self._dsarg = dsarg
+        super().__init__(allow_onelevel=True,
+                         refspec_pattern=False)
+
+    def __call__(self, value: str) -> str:
+        if not value:
+            # simple, do here
+            raise ValueError('must state a sibling name')
+        super().__call__(value)
+
+        if self._existing is None:
+            # we only need to know that something was provided, no further check
+            return value
+
+        from datalad.runner import GitRunner, StdOutCapture
+        from datalad_next.exceptions import CommandError
+        runner = GitRunner()
+        cmd = ['git', 'remote'] if not self._dsarg else \
+              ['git', '-C', f'{self._dsarg.ds.path}', 'remote']
+        remotes = runner.run(cmd, protocol=StdOutCapture)['stdout'].split()
+        if self._existing and value not in remotes:
+            raise ValueError(
+                f'Sibling {value} is not among available remotes {remotes}'
+            )
+        elif not self._existing and value in remotes:
+            raise ValueError(
+                f'Sibling {value} is already among available remotes {remotes}'
+            )
+        else:
+            return value
+
+    def short_description(self):
+        if self._existing is not None:
+            desc = ' that exists' if self._existing else ' that does not yet exist'
+        else:
+            desc = ''
+        return "Sibling name{}".format(desc)
+
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
+        """Return an similarly parametrized variant that resolves
+        paths against a given dataset (argument)
+
+
+        """
+        return self.__class__(
+            existing=self._existing,
+            dsarg=dataset,
         )
