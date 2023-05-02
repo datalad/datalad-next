@@ -1,3 +1,102 @@
+# 1.0.0b2 (2023-03-17)
+
+## 💫 Enhancements and new features
+
+- `CredentialManager`
+  - The Credential Manager gained a new helper, ``obtain()``, that supports a credential selection by name/ID, falls back to querying with a set of properties, and would finally resort to an interactive credential query from the user. ([#216](https://github.com/datalad/datalad-next/pull/216) by @mih)
+
+  - All optional arguments of the CredentialManager are now keyword-argument-only ([#230](https://github.com/datalad/datalad-next/pull/230) by @mih)
+
+  - Users no longer need to provide type hints for legacy credentials in "provider" configurations ([#247](https://github.com/datalad/datalad-next/pull/247) by @mih)
+
+  - Credential reporting supports a ``cred_type`` annotation ([#257](https://github.com/datalad/datalad-next/pull/257) by @mih)
+
+  - Credential errors for Github-like remotes were improved to hint users how to update or set new credentials ([#235](https://github.com/datalad/datalad-next/pull/235) by @mih)
+
+- `UrlOperations`
+  - The URL handler can now load configurations from config files ([#222](https://github.com/datalad/datalad-next/pull/222) by @mih)
+
+  - Improved messaging within `URLOperationsRemoteError` ([#308](https://github.com/datalad/datalad-next/pull/308) by @mih)
+
+- `Parameter validation`
+  - A new `validate_defaults` parameter of ``EnsureCommandParameterization`` allows opt-in parameter validation, which causes processing of any specified parameter's default. ([#227](https://github.com/datalad/datalad-next/pull/227) by @mih)
+
+  - A new base class ``ConstraintError`` can communicate parameter validation errors and can associate constraint violations with a particular context.  ``CommandParametrizationError`` uses it to communicate violations for a full command parameterization at once and is used in an improved `EnsureCommandParametrization` constraint. Callers can now also decide whether to perform an exhaustive parameter validation, or fail on first error. ([#234](https://github.com/datalad/datalad-next/pull/234) by @mih)
+
+  - A new ``ConstraintWithPassthrough`` constraint exposes `EnsureParameterConstraint`'s pass-through feature ([#244](https://github.com/datalad/datalad-next/pull/244) by @mih)
+
+  - `EnsureCommandParameterization` learned a `tailor_for_dataset()` parameter that can be used to identify which parameters' constraints should be tailored for which dataset. This allows tailoring constraints for particular datasets ([#260](https://github.com/datalad/datalad-next/pull/260) by @mih)
+
+  - ``EnsurePath`` can be tailored to dataset instances to resolve paths against a given Dataset ([#271](https://github.com/datalad/datalad-next/pull/271) by @mih)
+
+  - The ``EnsureDataset`` constraint learned an optional check for a valid dataset ID ([#279](https://github.com/datalad/datalad-next/pull/279) by @adswa)
+
+  - A ``WithDescription`` meta constraints paves the way for custom docs for parameters: If given, it replaces the original parameter documentation, and can be used to tailor descriptions for specific use cases. ([#294](https://github.com/datalad/datalad-next/pull/294) by @mih)
+
+  - Parameter violations gained structured error reporting and customized rendering of parameter violations ([#306](https://github.com/datalad/datalad-next/pull/306) by @mih)
+
+  - ``EnsureGeneratorFromFileLike`` became more suitable for batch mode use by learning to yield instead of raise internal exceptions, if configured by the caller ([#278](https://github.com/datalad/datalad-next/pull/278) by @mih)
+
+
+
+## 🐛 Bug Fixes
+
+- Previously, the last used credential matching a ``realm`` was used unconditionally. Now, credentials without secrets are excluded. ([#248](https://github.com/datalad/datalad-next/pull/248) by @mih)
+
+- ``AND`` and ``OR`` compounds for Constraints do not modify Constraints in place anymore, but return a new instance. ([#292](https://github.com/datalad/datalad-next/pull/292) by @mih)
+
+- Even though the ``EnsureDataset`` constraint returns ``DatasetParameter`` objects, ``_execute_command`` that would patch up DataLad commands wasn't able to work with them ([#269](https://github.com/datalad/datalad-next/pull/269) by @adswa)
+
+## 🪓 Deprecations and removals
+
+- The URL operation ``sniff`` was renamed to ``stat``. ([#231](https://github.com/datalad/datalad-next/pull/231) by @adswa)
+
+- `serve_path_via_webdav()` that came with 0.2 was deprecated in favor of the `webdav_server` fixture ([#301](https://github.com/datalad/datalad-next/pull/301) by @mih)
+
+## 📝 Documentation
+
+- A dedicated Developer Guide section of the docs was introduced ([#304](https://github.com/datalad/datalad-next/pull/304) by @adswa)
+
+- The README mentions the `uncurl` special remote, and the documentation now provide installation information
+
+- ``CONTRIBUTING.md`` was updated on patching ([#262](https://github.com/datalad/datalad-next/pull/262/) by @mih)
+## 🏠 Internal
+
+- Package dependencies were made explicit ([#212](https://github.com/datalad/datalad-next/pull/212) by @mih)
+229
+- Misc. code reorganization:
+
+  - The CredentialManager was elevated to a toplevel module ([#229](https://github.com/datalad/datalad-next/pull/220) by @mih)
+
+  - Dataset-lookup behavior of the ``credentials`` command became identical to ``downlad`` ([#256](https://github.com/datalad/datalad-next/pull/256) by @mih)
+
+- The DataLad runner performance patch and all patches to clone
+  functionality were removed as they are included in datalad-0.18.1; The dependency was adjusted accordingly. ([#218](https://github.com/datalad/datalad-next/pull/218) by @mih)
+
+- Compound constraints got a comprehensive ``__repr__`` to improve debugging ([#276](https://github.com/datalad/datalad-next/pull/276) by @mih)
+
+- discontinue legacy code ([#300](https://github.com/datalad/datalad-next/pull/300/) by @mih)
+
+## 🛡 Tests
+
+- Automatic CI builds were disabled for changes constrained to the following files and directories: `.github/`, `CHANGELOG.md`, `CITATION.cff`, `CONTRIBUTORS`, `LICENSE`, `Makefile`, `README.md`, `readthedocs.yml`
+
+- Coverage reports for the uncurl special remote ([#220](https://github.com/datalad/datalad-next/pull/220) by @mih)
+
+- Tests will not fail if coverage uploads fail ([#241](https://github.com/datalad/datalad-next/pull/241/files) by @mih)
+
+- GitHub actions use the `datalad-installer` to install git-annex ([#239](https://github.com/datalad/datalad-next/pull/239/files) by @mih)
+
+- A bug in DataLad's test setup causes configuration managers to leak across datasets (https://github.com/datalad/datalad/issues/7297). Next implemented test isolation for keyring and config as a fix ([#263](https://github.com/datalad/datalad-next/pull/263) by @mih)
+
+- A number of new pytest fixtures were introduced:
+  - `memory_keyring` ([#254](https://github.com/datalad/datalad-next/pull/254) by @mih), which was then replaced by ``tmp_keywing`` ([#264](https://github.com/datalad/datalad-next/pull/264))
+  - `dataset` and `existing_dataset` ([#296](https://github.com/datalad/datalad-next/pull/296) by @mih)
+  - `webdav_server` ([#297](https://github.com/datalad/datalad-next/pull/297/) by @mih)
+  - `httpbin` ([#313](https://github.com/datalad/datalad-next/pull/313) by @jwodder)
+
+- 100% coverage for constraints ([#259](https://github.com/datalad/datalad-next/pull/259/))
+
 
 # 1.0.0b1 (2022-12-23)
 

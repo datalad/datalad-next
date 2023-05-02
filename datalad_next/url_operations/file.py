@@ -39,14 +39,14 @@ class FileUrlOperations(UrlOperations):
         path = request.url2pathname(parsed.path)
         return Path(path)
 
-    def sniff(self,
-              url: str,
-              *,
-              credential: str | None = None,
-              timeout: float | None = None) -> Dict:
+    def stat(self,
+             url: str,
+             *,
+             credential: str | None = None,
+             timeout: float | None = None) -> Dict:
         """Gather information on a URL target, without downloading it
 
-        See :meth:`datalad_next.url_operations.UrlOperations.sniff`
+        See :meth:`datalad_next.url_operations.UrlOperations.stat`
         for parameter documentation and exception behavior.
 
         Raises
@@ -56,11 +56,11 @@ class FileUrlOperations(UrlOperations):
         """
         # filter out internals
         return {
-            k: v for k, v in self._sniff(url, credential).items()
+            k: v for k, v in self._stat(url, credential).items()
             if not k.startswith('_')
         }
 
-    def _sniff(self, url: str, credential: str | None = None) -> Dict:
+    def _stat(self, url: str, credential: str | None = None) -> Dict:
         # turn url into a native path
         from_path = self._file_url_to_path(url)
         # if anything went wrong with the conversion, or we lack
@@ -96,7 +96,7 @@ class FileUrlOperations(UrlOperations):
         """
         dst_fp = None
         try:
-            props = self._sniff(from_url, credential=credential)
+            props = self._stat(from_url, credential=credential)
             from_path = props['_path']
             expected_size = props['content-length']
             dst_fp = sys.stdout.buffer if to_path is None \
@@ -118,7 +118,7 @@ class FileUrlOperations(UrlOperations):
             # would be a local issue, pass-through
             raise
         except UrlOperationsResourceUnknown:
-            # would come from sniff(), pass_through
+            # would come from stat(), pass_through
             raise
         except Exception as e:
             # wrap this into the datalad-standard, but keep the

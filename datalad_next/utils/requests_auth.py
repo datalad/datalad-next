@@ -38,7 +38,7 @@ class DataladAuth(requests.auth.AuthBase):
         'bearer': 'token',
     }
 
-    def __init__(self, cfg: CredentialManager, credential: str = None):
+    def __init__(self, cfg: CredentialManager, credential: str | None = None):
         """
         Parameters
         ----------
@@ -51,8 +51,8 @@ class DataladAuth(requests.auth.AuthBase):
         self._credential = credential
         self._entered_credential = None
 
-    def save_entered_credential(self, suggested_name: str = None,
-                                context: str = None) -> Dict | None:
+    def save_entered_credential(self, suggested_name: str | None = None,
+                                context: str | None = None) -> Dict | None:
         """Utility method to save a pending credential in the store
 
         Pending credentials have been entered manually, and were subsequently
@@ -122,11 +122,17 @@ class DataladAuth(requests.auth.AuthBase):
             # get a realm ID for this authentication scheme
             realm = get_auth_realm(url, auth_schemes, scheme=ascheme)
             # ask for matching credentials
-            creds = self._credman.query(
-                _sortby='last-used',
-                type=ctype,
-                realm=realm,
-            )
+            creds = [
+                (name, cred) for name, cred in self._credman.query(
+                    _sortby='last-used',
+                    type=ctype,
+                    realm=realm,
+                )
+                # we can only work with complete credentials, although
+                # query() might return others. We exclude them here
+                # to be able to fall back on manual entry further down
+                if cred.get('secret')
+            ]
             if creds:
                 # we have matches, go with the last used one
                 name, cred = creds[0]

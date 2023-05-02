@@ -69,6 +69,7 @@ environment:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+      DEPLOY_HTTPBIN_IMAGE: yes
     # Windows core tests
     - ID: WinP39core
       # ~35 min
@@ -152,7 +153,6 @@ matrix:
   allow_failures:
     - KNOWN2FAIL: 1
 
-
 # do not run the CI if only documentation changes were made
 # documentation builds are tested elsewhere and cheaper
 skip_commits:
@@ -179,6 +179,12 @@ cache:
   # TODO: Can we cache `brew`?
   #- /usr/local/Cellar
   #- /usr/local/bin
+  # cache the docker image for httpbin. in 2023 it has not changed in
+  # 4 years, not worth pulling each time
+  # given the low change frequency we also do not invalidate the cache
+  # but would do manually, if needed
+  - /home/appveyor/cache/httpbin.dockerimg
+  - C:\Users\appveyor\httpbin.dockerimg
 
 
 # turn of support for MS project build support (not needed)
@@ -212,7 +218,6 @@ init:
   - cmd: "set TEMP=C:\\DLTMP"
   - sh: export TMPDIR=~/DLTMP
 
-
 install:
   # enable external SSH access to CI worker on all other systems
   # needs APPVEYOR_SSH_KEY defined in project settings (or environment)
@@ -242,6 +247,8 @@ install:
   - sh: tools/appveyor/install-git-annex ${INSTALL_GITANNEX}
   # enable the git-annex provisioned by the installer
   - "[ -f ${HOME}/dlinstaller_env.sh ] && . ${HOME}/dlinstaller_env.sh || true"
+  # HTTPBIN
+  - sh: "[ -n \"$DEPLOY_HTTPBIN_IMAGE\" ] && tools/appveyor/docker-load-httpbin || true"
 
 
 #before_build:

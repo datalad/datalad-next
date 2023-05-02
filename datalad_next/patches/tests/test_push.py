@@ -1,7 +1,6 @@
 from datalad_next.tests.utils import (
     DEFAULT_REMOTE,
     assert_result_count,
-    with_tempfile,
 )
 from datalad.core.distributed.clone import Clone
 
@@ -13,9 +12,9 @@ from datalad_next.datasets import Dataset
 
 # we override this specific test, because the original behavior is no longer
 # value, because our implementation behaves "better"
-@with_tempfile()
-@with_tempfile()
-def test_gh1811(srcpath=None, clonepath=None):
+def test_gh1811(tmp_path):
+    srcpath = tmp_path / 'src'
+    clonepath = tmp_path / 'clone'
     # `annex=false` is the only change from the -core implementation
     # of the test. For normal datasets with an annex, the problem underlying
     # gh1811 is no longer valid, because of more comprehensive analysis of

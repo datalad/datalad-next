@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e -u
+
+imgfile=~/cache/httpbin.dockerimg
+
+if [ -f "$imgfile" ]; then
+  # we have the image cached
+  docker load < $imgfile
+else
+  # pull from dockerhub
+  docker pull kennethreitz/httpbin
+  # and export for caching
+  mkdir -p $(dirname $imgfile)
+  docker save kennethreitz/httpbin > "$imgfile"
+fi

@@ -3,20 +3,28 @@ from io import StringIO
 import pytest
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
+from pathlib import Path
 
+from datalad_next.exceptions import CapturedException
 from datalad_next.utils import on_windows
+
+from ..base import DatasetParameter
 
 from ..basic import (
     EnsureInt,
     EnsureBool,
+    EnsurePath,
 )
 from ..compound import (
+    ConstraintWithPassthrough,
     EnsureIterableOf,
     EnsureListOf,
     EnsureTupleOf,
     EnsureMapping,
     EnsureGeneratorFromFileLike,
+    WithDescription,
 )
+from ..exceptions import ConstraintError
 
 
 # imported from ancient test code in datalad-core,
@@ -35,6 +43,8 @@ def test_EnsureListOf():
     assert c(['a', 'b']) == ['a', 'b']
     assert c(['a1', 'b2']) == ['a1', 'b2']
     assert c.short_description() == "list(<class 'str'>)"
+    assert repr(c) == \
+        "EnsureListOf(item_constraint=<class 'str'>, min_len=None, max_len=None)"
 
 
 def test_EnsureIterableOf():
@@ -75,7 +85,7 @@ def test_EnsureIterableOf():
     assert list(EnsureIterableOf(_myiter, int)(_mygen())) == [3, 1, 2]
 
 
-def test_EnsureMapping():
+def test_EnsureMapping(dataset):
     true_key = 5
     true_value = False
 
@@ -85,6 +95,8 @@ def test_EnsureMapping():
         constraint(true_key)
 
     assert 'mapping of int -> bool' in constraint.short_description()
+    assert repr(constraint) == \
+        "EnsureMapping(key=EnsureInt(), value=EnsureBool(), delimiter='::')"
 
     # must all work
     for v in ('5::no',
@@ -110,7 +122,23 @@ def test_EnsureMapping():
         with pytest.raises(ValueError):
             d = constraint(v)
 
-    # TODO test for_dataset() once we have a simple EnsurePathInDataset
+    # test for_dataset()
+    # smoketest
+    ds = dataset
+    cds = constraint.for_dataset(ds)
+    assert cds._key_constraint == constraint._key_constraint.for_dataset(ds)
+    assert cds._value_constraint == \
+        constraint._value_constraint.for_dataset(ds)
+    # test that the path is resolved for the dataset
+    pathconstraint = \
+        EnsureMapping(key=EnsurePath(), value=EnsureInt()).for_dataset(
+            DatasetParameter(ds.pathobj, ds))
+    assert pathconstraint('some:5') == {(Path.cwd() / 'some'): 5}
+    pathconstraint = \
+        EnsureMapping(key=EnsurePath(), value=EnsurePath()).for_dataset(
+            DatasetParameter(ds, ds))
+    assert pathconstraint('some:other') == \
+           {(ds.pathobj / 'some'): (ds.pathobj / 'other')}
 
 
 def test_EnsureGeneratorFromFileLike():
@@ -118,7 +146,11 @@ def test_EnsureGeneratorFromFileLike():
     constraint = EnsureGeneratorFromFileLike(item_constraint)
 
     assert 'items of type "mapping of int -> bool" read from a file-like' \
-        ==  constraint.short_description()
+        == constraint.short_description()
+    assert repr(constraint) == \
+        "EnsureGeneratorFromFileLike(" \
+        "item_constraint=EnsureMapping(key=EnsureInt(), " \
+        "value=EnsureBool(), delimiter='::'))"
 
     c = constraint(StringIO("5::yes\n1234::no\n"))
     assert isgenerator(c)
@@ -129,14 +161,32 @@ def test_EnsureGeneratorFromFileLike():
     assert list(c) == [{5: True}, {1234: False}]
 
     # item constraint violation
-    c = constraint(StringIO("5::yes\n1234::BANG"))
+    invalid_input = StringIO("1234::BANG\n5::yes")
+    # immediate raise is default
     with pytest.raises(ValueError) as e:
-        list(c)
+        list(constraint(invalid_input))
     assert 'be convertible to boolean' in str(e)
+    # but optionally it yields the exception to be able to
+    # continue and enable a caller to raise/report/ignore
+    # (must redefine `invalid_input` to read from start)
+    invalid_input = StringIO("1234::BANG\n5::yes")
+    res = list(
+        EnsureGeneratorFromFileLike(
+            item_constraint,
+            exc_mode='yield',
+        )(invalid_input)
+    )
+    # we get the result after the exception occurred
+    assert isinstance(res[0], CapturedException)
+    assert res[1] == {5: True}
 
     # read from STDIN
     with patch("sys.stdin", StringIO("5::yes\n1234::no")):
         assert list(constraint('-')) == [{5: True}, {1234: False}]
+
+    with patch("sys.stdin", StringIO("5::yes\n1234::no")):
+        # will unpack a length-1 sequence for convenience
+        assert list(constraint(['-'])) == [{5: True}, {1234: False}]
 
     # read from file
     if not on_windows:
@@ -150,3 +200,79 @@ def test_EnsureGeneratorFromFileLike():
     # invalid file
     with pytest.raises(ValueError) as e:
         list(constraint('pytestNOTHEREdatalad'))
+
+
+def test_ConstraintWithPassthrough(dataset):
+    wrapped = EnsureInt()
+    cwp = ConstraintWithPassthrough(wrapped, passthrough='mike')
+    # main purpose
+    assert cwp('mike') == 'mike'
+    assert cwp('5') == 5
+    # most info is coming straight from `wrapped`, the pass-through is
+    # meant to be transparent
+    assert str(cwp) == str(wrapped)
+    assert cwp.short_description() == wrapped.short_description()
+    assert cwp.long_description() == wrapped.long_description()
+    # but repr reveals it
+    assert repr(cwp).startswith('ConstraintWithPassthrough(')
+    # tailoring for a dataset keeps the pass-through
+    ds = dataset
+    cwp_ds = cwp.for_dataset(ds)
+    assert cwp_ds.passthrough == cwp.passthrough
+    assert cwp.constraint == wrapped.for_dataset(ds)
+
+
+def test_WithDescription(dataset):
+    wrapped = EnsureInt()
+    # confirm starting point
+    assert wrapped.input_synopsis == 'int'
+    assert wrapped.input_description \
+        == "value must be convertible to type 'int'"
+    # we are actually not replacing anything
+    c = WithDescription(wrapped)
+    assert c.input_synopsis == wrapped.input_synopsis
+    assert c.input_description == wrapped.input_description
+    # with no dataset docs, the wrapping is removed on tailoring
+    ds = dataset
+    assert isinstance(
+        c.for_dataset(DatasetParameter(None, ds)),
+        EnsureInt)
+    # check all replacements are working
+    c = WithDescription(
+        wrapped,
+        input_synopsis='mysynopsis',
+        input_description='mydescription',
+        input_synopsis_for_ds='dssynopsis',
+        input_description_for_ds='dsdescription',
+        error_message='myerror',
+        error_message_for_ds='dserror',
+    )
+    # function is maintained
+    assert c('5') is 5
+    assert str(c) == '<EnsureInt with custom description>'
+    assert repr(c) == \
+        "WithDescription(EnsureInt(), " \
+        "input_synopsis='mysynopsis', " \
+        "input_description='mydescription', " \
+        "input_synopsis_for_ds='dssynopsis', " \
+        "input_description_for_ds='dsdescription', " \
+        "error_message='myerror', " \
+        "error_message_for_ds='dserror')"
+    assert c.constraint is wrapped
+    assert c.input_synopsis == 'mysynopsis'
+    assert c.input_description == 'mydescription'
+    # description propagates through tailoring
+    cds = c.for_dataset(DatasetParameter(None, ds))
+    assert isinstance(cds, WithDescription)
+    assert cds.input_synopsis == 'dssynopsis'
+    assert cds.input_description == 'dsdescription'
+
+    # when the wrapped constraint raises, the wrapper
+    # interjects and reports a different error
+    with pytest.raises(ConstraintError) as e:
+        c(None)
+    assert e.value.msg == 'myerror'
+
+    # legacy functionality
+    c.short_description() == c.input_synopsis
+    c.long_description() == c.input_description

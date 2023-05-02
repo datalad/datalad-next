@@ -1,6 +1,7 @@
 import pathlib
 import pytest
 
+from ..base import DatasetParameter
 from ..basic import (
     EnsureInt,
     EnsureFloat,
@@ -16,6 +17,7 @@ from ..basic import (
     EnsureValue,
     NoConstraint,
 )
+from ..exceptions import ConstraintError
 
 from ..utils import _type_str
 
@@ -33,7 +35,7 @@ def test_int():
     assert c(7.0) == 7
     assert c('7') == 7
     # no automatic inspection of iterables, should use EnsureIterableOf
-    with pytest.raises(TypeError):
+    with pytest.raises(ConstraintError):
         c([7, 3])
     # this should always fail
     with pytest.raises(ValueError):
@@ -51,7 +53,7 @@ def test_float():
     assert c(7) == 7.0
     assert c('7') == 7.0
     # no automatic inspection of iterables, should use EnsureIterableOf
-    with pytest.raises(TypeError):
+    with pytest.raises(ConstraintError):
         c([7.0, '3.0'])
     # this should always fail
     with pytest.raises(ValueError):
@@ -241,6 +243,7 @@ def test_range():
 
     # Range doesn't have to be numeric
     c = EnsureRange(min="e", max="qqq")
+    assert c.short_description() == "in range from 'e' to 'qqq'"
     assert c('e') == 'e'
     assert c('fa') == 'fa'
     assert c('qq') == 'qq'
@@ -298,3 +301,20 @@ def test_EnsurePath(tmp_path):
     c = EnsurePath(ref=target, ref_is='stupid')
     with pytest.raises(ValueError):
         c('doesnotmatter')
+
+
+def test_EnsurePath_fordataset(existing_dataset):
+    P = pathlib.Path
+    ds = existing_dataset
+    # standard: relative in, relative out
+    c = EnsurePath()
+    assert c('relpath') == P('relpath')
+    # tailor constraint for our dataset
+    # (this is what would be done by EnsureCommandParameterization
+    # 1. dataset given as a path -- resolve against CWD
+    #    output is always absolute
+    tc = c.for_dataset(DatasetParameter(None, ds))
+    assert tc('relpath') == (P.cwd() / 'relpath')
+    # 2. dataset is given as a dataset object
+    tc = c.for_dataset(DatasetParameter(ds, ds))
+    assert tc('relpath') == (ds.pathobj / 'relpath')

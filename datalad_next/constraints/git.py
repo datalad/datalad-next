@@ -1,3 +1,5 @@
+"""Constraints for Git-related concepts and parameters"""
+
 from .base import Constraint
 
 

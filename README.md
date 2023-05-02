@@ -1,7 +1,7 @@
 # DataLad NEXT extension
 
 [![Build status](https://ci.appveyor.com/api/projects/status/dxomp8wysjb7x2os/branch/main?svg=true)](https://ci.appveyor.com/project/mih/datalad-next/branch/main)
-[![codecov.io](https://codecov.io/github/datalad/datalad-next/coverage.svg?branch=main)](https://codecov.io/github/datalad/datalad-next?branch=main)
+[![codecov](https://codecov.io/gh/datalad/datalad-next/branch/main/graph/badge.svg?token=2P8rak7lSX)](https://codecov.io/gh/datalad/datalad-next)
 [![crippled-filesystems](https://github.com/datalad/datalad-next/workflows/crippled-filesystems/badge.svg)](https://github.com/datalad/datalad-next/actions?query=workflow%3Acrippled-filesystems)
 [![docs](https://github.com/datalad/datalad-next/workflows/docs/badge.svg)](https://github.com/datalad/datalad-next/actions?query=workflow%3Adocs)
 [![Documentation Status](https://readthedocs.org/projects/datalad-next/badge/?version=latest)](http://docs.datalad.org/projects/next/en/latest/?badge=latest)
@@ -73,7 +73,7 @@ package and its commands.
 - New modular framework for URL operations. This framework directly supports operation
   on `http(s)`, `ssh`, and `file` URLs, and can be extended with custom functionality
   for additional protocols or even interaction with specific individual servers.
-  The basic operations `download`, `upload`, `delete`, and `sniff` are recognized,
+  The basic operations `download`, `upload`, `delete`, and `stat` are recognized,
   and can be implemented. The framework offers uniform progress reporting and
   simultaneous content has computation. This framework is meant to replace and
   extend the downloader/provide framework in the DataLad core package. In contrast
@@ -107,10 +107,8 @@ package and its commands.
 - Improved composition of importable functionality. Key components for `commands`,
   `annexremotes`, `datasets` (etc) are collected in topical top-level modules that
   provide "all" necessary pieces in a single place.
-- `serve_path_via_webdav` test decorator that automatically deploys a local WebDAV
+- `webdav_server` fixture that automatically deploys a local WebDAV
   server.
-- `with_credential` test decorator that temporarily deploys a credential to the
-  local credential system.
 - Utilities for HTTP handling
   - `probe_url()` discovers redirects and authentication requirements for an HTTP
     URL
@@ -125,6 +123,15 @@ package and its commands.
     from a credential for a particular special remote type
 - Helper for runtime-patching other datalad code (`datalad_next.utils.patch`)
 - Base class for implementing custom `git-annex` backends.
+- A set of `pytest` fixtures to:
+  - check that no global configuration side-effects are left behind by a test
+  - check that no secrets are left behind by a test
+  - provide a temporary configuration that is isolated from a user environment
+    and from other tests
+  - provide a temporary secret store that is isolated from a user environment
+    and from other tests
+  - provide a temporary credential manager to perform credential deployment
+    and manipulation isolated from a user environment and from other tests
 
 ## Patching the DataLad core package.
 

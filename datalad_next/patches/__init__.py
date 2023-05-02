@@ -7,4 +7,5 @@ from . import (
     push_to_export_remote,
     push_optimize,
     siblings,
+    test_keyring,
 )

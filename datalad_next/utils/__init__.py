@@ -15,11 +15,10 @@ from datalad.utils import (
     ensure_list,
     get_dataset_root,
     getargspec,
+    get_wrapped_class,
     knows_annex,
-    make_tempfile,
     on_linux,
     on_windows,
-    optional_args,
     rmtemp,
     rmtree,
     swallow_outputs,
@@ -27,7 +26,7 @@ from datalad.utils import (
 from datalad.distribution.utils import _yield_ds_w_matching_siblings
 from datalad.support.external_versions import external_versions
 
-from .credman import CredentialManager
+from datalad_next.credman import CredentialManager
 from .log import log_progress
 
 

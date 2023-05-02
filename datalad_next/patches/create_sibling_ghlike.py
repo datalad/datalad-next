@@ -78,15 +78,26 @@ def _set_request_headers(self, credential_name, auth_info, require_token):
         f'token {credential.get("secret", "NO-TOKEN-AVAILABLE")}',
     }
 
-    if from_query or credential.pop('_edited', None):
+    edited_credential = credential.pop('_edited', False)
+    if from_query or edited_credential:
         # if the credential was determined based on the api realm or edited,
         # test it so we know it (still) works before we save/update it
         try:
             self.authenticated_user
         except Exception as e:
             raise ValueError(
-                f"Credential {credential_name!r} did not yield successful "
-                "authorization") from e
+                ("{state} credential {name!r} did not yield successful "
+                 "authorization. {advice}").format(
+                    state='Entered' if edited_credential else "Auto-selected",
+                    name=credential_name,
+                    advice='Please try again with a valid credential'
+                    if edited_credential
+                    else 'Please select a different credential via the '
+                    '`credential` option of this command, '
+                    'or remove/edit the credential with the DataLad command '
+                    '`credentials`.'
+                )
+            ) from e
         # this went well, store
         try:
             credman.set(
