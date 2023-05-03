@@ -148,6 +148,15 @@ class FsspecUrlOperations(UrlOperations):
     type URLs. Credentials are auto-determined, if possible, based on the
     accessed location (in the case of s3 this is a bucket), and can be
     entered manually if none can be found.
+
+    S3 versioning specifics:
+    Users can parametrize the ``fs_kwargs` dictionary with a boolean
+    ``version_aware`` key to explicitly set whether versioned S3 URLs are
+    parsed. It is not recommended to set this key, though: The underlying
+    S3-specific libraries detect versioned URLs automatically and set the flag
+    if necessary. If a user sets ``fs_kwargs={'version_aware': False}`` but
+    supplies versioned URLs nevertheless, internal errors occur.
+
     """
     def __init__(self,
                  cfg=None,
