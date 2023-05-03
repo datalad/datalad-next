@@ -88,3 +88,32 @@ def test_fsspec_delete(tmp_path):
     # we get a standard stat report on what the deleted content
     # used to be
     assert res['content-length'] == 6
+
+
+def test_fsspec_s3versioned(tmp_path):
+    """Test that S3 version awareness retrieves files corresponding to the
+     specified version."""
+    versions = {'version3': 'Tro_UjqVFJfr32v5tuPfjwtOzeqYCxi2',
+                'version2': 'kSfP3GbdkO0t3cLOJw64UxskCehdJCGb',
+                'version1': '49rhVNma2VnCNTAdjWSDzu0.dUaPd1rs'}
+    # configure the handler for anonymous access (the bucket is public)
+    ops = FsspecUrlOperations(fs_kwargs={'anon': True})
+    target_path = tmp_path / 'dummy'
+
+    base_url = 's3://mslw-datalad-test0-versioned/3versions-allversioned.txt'
+    # check that version URL handling retrieves the desired version
+    for content, version in versions.items():
+        url = base_url + f'?versionId={version}'
+        res = ops.download(url, tmp_path / 'dummy', hash=['md5'])
+        # read the file (it is tiny) to make sure that the entire
+        # download workflow worked and the expected version is present
+        assert target_path.read_text() == content
+    # check that unversioned urls work for version-aware handlers, too
+    res = ops.download(base_url, tmp_path / 'dummy', hash=['md5'])
+    assert target_path.read_text() == 'version3'
+
+    # now, disable version awareness. The resulting file should always be the
+    # most recent one.
+    ops = FsspecUrlOperations(fs_kwargs={'version_aware': False, 'anon': True})
+    res = ops.download(base_url, tmp_path / 'dummy', hash=['md5'])
+    assert target_path.read_text() == 'version3'
