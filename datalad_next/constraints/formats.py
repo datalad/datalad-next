@@ -20,7 +20,13 @@ class EnsureJSON(Constraint):
         super().__init__()
 
     def __call__(self, value: str):
-        return loads(value)
+        try:
+            return loads(value)
+        except Exception as e:
+            self.raise_for(
+                value,
+                str(e),
+            )
 
     def short_description(self):
         return 'JSON'
@@ -74,17 +80,28 @@ class EnsureURL(Constraint):
 
     def _validate_parsed(self, value: str) -> ParseResult:
         if not isinstance(value, str):
-            raise ValueError('URL is not a string')
+            self.raise_for(value, 'not a string')
         if self._match_exp and not self._match_exp.match(value):
-            raise ValueError(
-                f'URL does not match expression {self._match_exp.pattern!r}')
+            self.raise_for(
+                value,
+                'does not match expression {match_expression!r}',
+                match_expression=self._match_exp.pattern,
+            )
         parsed = urlparse(value, scheme='', allow_fragments=True)
         for r in (self._required or []):
             if not getattr(parsed, r, None):
-                raise ValueError(f'URL is missing {r!r} component')
+                self.raise_for(
+                    value,
+                    'URL is missing {component!r} component',
+                    component=r,
+                )
         for f in (self._forbidden or []):
             if getattr(parsed, f, None):
-                raise ValueError(f'URL has forbidden {f!r} component')
+                self.raise_for(
+                    value,
+                    'URL has forbidden {component!r} component',
+                    component=f,
+                )
         return parsed
 
     def short_description(self):

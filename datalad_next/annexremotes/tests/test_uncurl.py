@@ -4,11 +4,9 @@ import re
 
 from datalad_next.utils import on_windows
 from datalad_next.tests.utils import (
-    get_httpbin_urls,
+    create_tree,
     skip_ssh,
     skip_if_on_windows,
-    with_tempfile,
-    with_tree,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.exceptions import (
@@ -22,9 +20,6 @@ from ..uncurl import (
     RemoteError,
     UncurlRemote,
 )
-
-# this is the URL against which the httpbin calls will be made
-hbsurl = get_httpbin_urls()['standard']
 
 # for some tests below it is important that this base config contains no
 # url= or match= declaration (or any other tailoring to a specific use case)
@@ -107,7 +102,10 @@ def test_uncurl_claimurl(tmp_path):
     assert not r.claimurl('bongo://joe')
 
 
-def test_uncurl_checkurl(tmp_path):
+def test_uncurl_checkurl(httpbin, tmp_path):
+    # this is the URL against which the httpbin calls will be made
+    hbsurl = httpbin['standard']
+
     exists_path = tmp_path / 'testfile'
     exists_path.write_text('123')
     exists_url = exists_path.as_uri()
@@ -146,19 +144,22 @@ def test_uncurl_checkurl(tmp_path):
     # of external redirector service
     r.url_tmpl = f'{hbsurl}/redirect-to?url={{origurl}}'
     r.match = [
-        re.compile('.*(?P<origurl>http://.*)$'),
+        re.compile('.*(?P<origurl>https?://.*)$'),
     ]
     assert not r.checkurl(f'garbled{hbsurl}/status/404')
     assert r.checkurl(f'garbled{hbsurl}/bytes/24')
 
 
 # sibling of `test_uncurl_checkurl()`, but more high-level
-def test_uncurl_addurl_unredirected(tmp_path):
-    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+def test_uncurl_addurl_unredirected(existing_dataset, httpbin):
+    # this is the URL against which the httpbin calls will be made
+    hbsurl = httpbin['standard']
+
+    ds = existing_dataset
     dsca = ds.repo.call_annex
     # same set as in `test_uncurl_checkurl()`
     dsca(['initremote', 'myuncurl'] + std_initargs + [
-        'match=.*(?P<origurl>http://.*)$',
+        'match=.*(?P<origurl>https?://.*)$',
         f'url={hbsurl}/redirect-to?url={{origurl}}',
     ])
     # feed it a broken URL, which must be getting fixed by the rewritting
@@ -174,13 +175,11 @@ def test_uncurl_addurl_unredirected(tmp_path):
                for r in ds.repo.whereis('dummy', output='full').values())
 
 
-@with_tempfile
-@with_tree(tree={
-    'lvlA1': {'lvlB2_flavor1.tar': 'data_A1B2F1'},
-})
-def test_uncurl(wdir=None, archive_path=None):
+def test_uncurl(existing_dataset, tmp_path):
+    archive_path = tmp_path
+    create_tree(archive_path, {'lvlA1': {'lvlB2_flavor1.tar': 'data_A1B2F1'}})
+    ds = existing_dataset
     archive_path = Path(archive_path)
-    ds = EnsureDataset()(wdir).ds.create(**res_kwargs)
     dsca = ds.repo.call_annex
     dsca(['initremote', 'myuncurl'] + std_initargs + [
         'match=bingofile://(?P<basepath>.*)/(?P<lvlA>[^/]+)/(?P<lvlB>[^/]+)_(?P<flavor>.*)$ someothermatch',
@@ -315,8 +314,8 @@ def test_uncurl_ria_access(tmp_path):
     assert (ds.pathobj / target_fname).read_text() == testfile_content
 
 
-def test_uncurl_store(tmp_path):
-    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+def test_uncurl_store(tmp_path, existing_dataset):
+    ds = existing_dataset
     testfile = ds.pathobj / 'testfile1.txt'
     testfile_content = 'uppytyup!'
     testfile.write_text(testfile_content)
@@ -326,7 +325,7 @@ def test_uncurl_store(tmp_path):
     # as annex/objects within a bare remote repo
     dsca(['initremote', 'myuncurl'] + std_initargs + [
         # intentional double-braces at the end to get templates into the template
-        f'url={(tmp_path / "upload").as_uri()}/{{annex_dirhash_lower}}{{annex_key}}/{{annex_key}}',
+        f'url={(tmp_path).as_uri()}/{{annex_dirhash_lower}}{{annex_key}}/{{annex_key}}',
     ])
     # store file at remote
     dsca(['copy', '-t', 'myuncurl', str(testfile)])
@@ -335,7 +334,7 @@ def test_uncurl_store(tmp_path):
     # doublecheck
     testfile_props = ds.status(testfile, annex='basic',
                                return_type='item-or-list', **res_kwargs)
-    assert (tmp_path / "upload" / testfile_props['hashdirlower'] /
+    assert (tmp_path / testfile_props['hashdirlower'] /
             testfile_props['key'] / testfile_props['key']
         ).read_text() == testfile_content
     # we have no URLs recorded
@@ -367,8 +366,8 @@ def test_uncurl_store(tmp_path):
 
 
 @skip_ssh
-def test_uncurl_store_via_ssh(tmp_path):
-    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+def test_uncurl_store_via_ssh(tmp_path, existing_dataset):
+    ds = existing_dataset
     testfile = ds.pathobj / 'testfile1.txt'
     testfile_content = 'uppytyup!'
     testfile.write_text(testfile_content)
@@ -378,7 +377,7 @@ def test_uncurl_store_via_ssh(tmp_path):
     # as annex/objects within a bare remote repo
     dsca(['initremote', 'myuncurl'] + std_initargs + [
         # intentional double-braces at the end to get templates into the template
-        f'url={(tmp_path / "upload").as_uri().replace("file://", "ssh://localhost")}/{{annex_key}}',
+        f'url={(tmp_path).as_uri().replace("file://", "ssh://localhost")}/{{annex_key}}',
     ])
     # store file at remote
     dsca(['copy', '-t', 'myuncurl', str(testfile)])
@@ -386,12 +385,12 @@ def test_uncurl_store_via_ssh(tmp_path):
     dsca(['fsck', '-q', '-f', 'myuncurl'])
 
 
-def test_uncurl_remove(tmp_path):
+def test_uncurl_remove(existing_dataset, tmp_path):
     testfile = tmp_path / 'testdeposit' / 'testfile1.txt'
     testfile_content = 'uppytyup!'
     testfile.parent.mkdir()
     testfile.write_text(testfile_content)
-    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+    ds = existing_dataset
     dsca = ds.repo.call_annex
     # init without URL template
     dsca(['initremote', 'myuncurl'] + std_initargs)
@@ -419,13 +418,13 @@ def test_uncurl_remove(tmp_path):
 
 
 # >30s
-def test_uncurl_testremote(tmp_path):
+def test_uncurl_testremote(tmp_path, existing_dataset):
     "Point git-annex's testremote at uncurl"
-    ds = EnsureDataset()(tmp_path / 'ds').ds.create(**res_kwargs)
+    ds = existing_dataset
     dsca = ds.repo.call_annex
     dsca(['initremote', 'myuncurl'] + std_initargs
          # file://<basepath>/key
-         + [f'url=file://{tmp_path / "remotepath"}/{{annex_key}}'])
+         + [f'url=file://{tmp_path}/{{annex_key}}'])
     # Temporarily disable this until
     # https://github.com/datalad/datalad-dataverse/issues/127
     # is sorted out. Possibly via

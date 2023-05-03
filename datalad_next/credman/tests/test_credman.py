@@ -10,7 +10,6 @@
 
 """
 import pytest
-from unittest.mock import patch
 
 from datalad.config import ConfigManager
 from ..manager import (
@@ -19,20 +18,15 @@ from ..manager import (
 )
 from datalad_next.tests.utils import (
     assert_in,
-    assert_not_in,
     assert_raises,
     eq_,
-    neq_,
-    with_tempfile,
     with_testsui,
 )
-from datalad_next.datasets import Dataset
 from datalad_next.utils import chpwd
 
 
-def test_credmanager(memory_keyring):
-    cfg = ConfigManager()
-    credman = CredentialManager(cfg)
+def test_credmanager(tmp_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # doesn't work with thing air
     assert_raises(ValueError, credman.get)
     eq_(credman.get('donotexiststest'), None)
@@ -63,7 +57,7 @@ def test_credmanager(memory_keyring):
     setprops_new = credman.set('lastusedcred', _lastused=True,
                                **credman.get('lastusedcred'))
     # must have updated 'last-used'
-    neq_(setprops['last-used'], setprops_new['last-used'])
+    assert setprops['last-used'] != setprops_new['last-used']
     # first property store attempt
     eq_(credman.set('changed', secret='some', prop='val'),
         dict(secret='some', prop='val'))
@@ -72,15 +66,16 @@ def test_credmanager(memory_keyring):
     eq_(credman.set('changed', prop='val'), dict())
     # change secret, with value pulled from config
     try:
-        cfg.set('datalad.credential.changed.secret', 'envsec',
-                scope='override')
+        datalad_cfg.set('datalad.credential.changed.secret', 'envsec',
+                        scope='override')
         eq_(credman.set('changed', secret=None), dict(secret='envsec'))
     finally:
-        cfg.unset('datalad.credential.changed.secret', scope='override')
+        datalad_cfg.unset('datalad.credential.changed.secret',
+                          scope='override')
 
     # remove non-existing property, secret not report, because unchanged
     eq_(credman.set('mycred', dummy=None), dict(dummy=None))
-    assert_not_in(_get_cred_cfg_var("mycred", "dummy"), cfg)
+    assert _get_cred_cfg_var("mycred", "dummy") not in datalad_cfg
 
     # set property
     eq_(credman.set('mycred', dummy='good', this='that'),
@@ -150,9 +145,8 @@ def test_credmanager(memory_keyring):
     assert res == {'name': 'auto2', 'other': 'prop', 'secret': 'dummy'}
 
 
-@with_tempfile
-def test_credman_local(path=None):
-    ds = Dataset(path).create(result_renderer='disabled')
+def test_credman_local(existing_dataset):
+    ds = existing_dataset
     credman = CredentialManager(ds.config)
 
     # deposit a credential into the dataset's config, and die trying to
@@ -165,9 +159,8 @@ def test_credman_local(path=None):
     credman.remove('notstupid')
 
 
-def test_query(memory_keyring):
-    cfg = ConfigManager()
-    credman = CredentialManager(cfg)
+def test_query(tmp_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # set a bunch of credentials with a common realm AND timestamp
     for i in range(3):
         credman.set(
@@ -200,9 +193,9 @@ def test_query(memory_keyring):
         [i[0] for i in slist])
 
 
-def test_credman_get():
+def test_credman_get(datalad_cfg):
     # we are not making any writes, any config must work
-    credman = CredentialManager(ConfigManager())
+    credman = CredentialManager(datalad_cfg)
     # must be prompting for missing properties
     res = with_testsui(responses=['myuser'])(credman.get)(
         None, _type_hint='user_password', _prompt='myprompt',
@@ -230,8 +223,8 @@ def test_credman_get_guess_type():
     }
 
 
-def test_credman_obtain(memory_keyring):
-    credman = CredentialManager(ConfigManager())
+def test_credman_obtain(tmp_keyring, datalad_cfg):
+    credman = CredentialManager(datalad_cfg)
     # senseless, but valid call
     # could not possibly report a credential without any info
     with pytest.raises(ValueError):
@@ -291,23 +284,23 @@ type = user_password
 """
 
 
-def test_legacy_credentials(memory_keyring, tmp_path):
+def test_legacy_credentials(tmp_keyring, existing_dataset):
     # - the legacy code will only ever pick up a dataset credential, when
     #   PWD is inside a dataset
     # - we want all tests to bypass the actual system keyring
     #   'datalad.downloaders.credentials.keyring_' is what the UserPassword
     #   credential will use to store the credential
     # - 'datalad.support.keyring_' is what credman uses
-    # - we need to make them one and the same thing, and the memory_keyring
-    #   fixture does this by replacing the keyring backend for the runtime
+    # - we need to make them one and the same thing, and the tmp_keyring
+    #   fixture does this by replacing the keyring storage for the runtime
     #   of the test
-    with chpwd(tmp_path):
-        check_legacy_credentials(memory_keyring, tmp_path)
+    with chpwd(existing_dataset.path):
+        check_legacy_credentials(tmp_keyring, existing_dataset)
 
 
-def check_legacy_credentials(memory_keyring, tmp_path):
+def check_legacy_credentials(tmp_keyring, existing_dataset):
     # we will use a dataset to host a legacy provider config
-    ds = Dataset(tmp_path).create(result_renderer='disabled')
+    ds = existing_dataset
     provider_path = ds.pathobj / '.datalad' / 'providers' / 'mylegacycred.cfg'
     provider_path.parent.mkdir(parents=True, exist_ok=True)
     provider_path.write_text(legacy_provider_cfg)
@@ -351,11 +344,11 @@ def check_legacy_credentials(memory_keyring, tmp_path):
         # the legacy backend, in order to keep old code working
         # with the old info
         # confirm starting point: legacy code keeps user in secret store
-        assert memory_keyring.store[(f'datalad-{cname}', 'user')] == 'mike'
+        assert tmp_keyring.get_password(f'datalad-{cname}', 'user') == 'mike'
         assert ds.config.get(f'datalad.credential.{cname}.user') is None
         credman.set(cname, **cred)
         # it remains there
-        assert memory_keyring.store[(f'datalad-{cname}', 'user')] == 'mike'
+        assert tmp_keyring.get_password(f'datalad-{cname}', 'user') == 'mike'
         # but is also migrated
         assert ds.config.get(f'datalad.credential.{cname}.user') == 'mike'
         # NOTE: This setup is not without problems. Users will update
@@ -363,7 +356,7 @@ def check_legacy_credentials(memory_keyring, tmp_path):
         # however, I did not come up with a better approach that gradually
         # brings users over.
         credman.set(cname, user='newmike', secret='othersecret')
-        assert memory_keyring.store[(f'datalad-{cname}', 'user')] == 'mike'
+        assert tmp_keyring.get_password(f'datalad-{cname}', 'user') == 'mike'
         # finally check that the update is reported now
         cred = credman.get(cname)
         assert cred['user'] == 'newmike'

@@ -1,48 +1,43 @@
 import logging
 from functools import wraps
+from os import environ
 from pathlib import Path
 
-import urllib
-
+from datalad.support.external_versions import external_versions
 # all datalad-core test utils needed for datalad-next
 from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
+    HTTPPath,
     SkipTest,
-    assert_equal,
-    assert_false,
     assert_in,
     assert_in_results,
-    assert_not_in,
     assert_raises,
     assert_result_count,
     assert_status,
-    assert_str_equal,
-    assert_true,
     attr,
     chpwd,
     eq_,
     get_deeply_nested_structure,
-    neq_,
     ok_,
     ok_broken_symlink,
     ok_exists,
     ok_good_symlink,
     rmtree,
-    serve_path_via_http,
     skip_if_on_windows,
     skip_ssh,
     skip_wo_symlink_capability,
     swallow_logs,
-    with_tempfile,
     with_testsui,
-    with_tree,
 )
 from datalad.tests.test_utils_testrepos import BasicGitTestRepo
 from datalad.cli.tests.test_main import run_main
+from datalad.utils import (
+    create_tree,
+    md5sum,
+)
 from datalad_next.utils import (
     CredentialManager,
-    optional_args,
 )
 
 lgr = logging.getLogger("datalad.tests.utils")
@@ -115,32 +110,6 @@ class WebDAVPath(object):
         lgr.debug('WebDAV server thread exited')
 
 
-@optional_args
-def serve_path_via_webdav(tfunc, *targs, auth=None):
-    """Decorator which serves content of a directory via a WebDAV server
-
-    Parameters
-    ----------
-    path : str
-        Directory with content to serve.
-    auth : tuple or None
-        If a (username, password) tuple is given, the server access will
-        be protected via HTTP basic auth.
-    """
-    @wraps(tfunc)
-    @attr('serve_path_via_webdav')
-    def  _wrap_serve_path_via_http(*args, **kwargs):
-
-        if len(args) > 1:
-            args, path = args[:-1], args[-1]
-        else:
-            args, path = (), args[0]
-
-        with WebDAVPath(path, auth=auth) as url:
-            return tfunc(*(args + (path, url)), **kwargs)
-    return  _wrap_serve_path_via_http
-
-
 def with_credential(name, **kwargs):
     """A decorator to temporarily deploy a credential.
 
@@ -150,6 +119,14 @@ def with_credential(name, **kwargs):
     In pretty much all cases, the keyword arguments need to include
     `secret`. Otherwise any properties are supported.
     """
+    import warnings
+    warnings.warn(
+        "datalad_next.tests.utils.with_credential was replaced by a `credman` "
+        "fixture in datalad_next 1.0, and will be removed in "
+        "datalad_next 2.0.",
+        DeprecationWarning,
+    )
+
     def with_credential_decorator(fx):
         @wraps(fx)
         def _with_credential(*dargs, **dkw):
@@ -170,34 +147,14 @@ def with_credential(name, **kwargs):
     return with_credential_decorator
 
 
-def get_httpbin_urls():
-    """Return cannonical access URLs for the HTTPBIN service
+def get_git_config_global_fpath() -> Path:
+    """Returns the file path for the "global" (aka user) Git config scope"""
+    fpath = environ.get('GIT_CONFIG_GLOBAL')
+    if fpath is None:
+        # this can happen with the datalad-core setup for Git < 2.32.
+        # we provide a fallback, but we do not aim to support all
+        # possible variants
+        fpath = Path(environ['HOME']) / '.gitconfig'
 
-    This function checks whether a service is deployed at
-    localhost:8765 and if so, it return this URL as the 'standard' URL.
-    If not, a URL pointing to the cannonical instance is returned.
-
-    For tests that need to have the service served via a specific
-    protocol (https vs http), the corresponding URLs are returned
-    too. They always point to the cannonical deployment, as some
-    tests require both protocols simultaneously and a local deployment
-    generally won't have https.
-    """
-    hburl = 'http://httpbin.org'
-    hbsurl = 'https://httpbin.org'
-    ciurl = 'http://localhost:8765'
-
-    ci_httpbin = False
-    try:
-        # if we have a CI deployment of a dedicated HTTPBIN
-        # it would be here
-        urllib.request.urlopen(ciurl)
-        ci_httpbin = True
-    except urllib.error.URLError:
-        pass
-
-    return dict(
-        standard=ciurl if ci_httpbin else hbsurl,
-        http=hburl,
-        https=hbsurl,
-    )
+    fpath = Path(fpath)
+    return fpath

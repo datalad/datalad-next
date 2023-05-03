@@ -3,43 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Container
+from itertools import chain
 from typing import (
-    Any,
     Callable,
     Dict,
-    TYPE_CHECKING,
-    Type,
-    TypeVar,
 )
 
 from .base import Constraint
 from .basic import (
-    EnsureBool,
-    EnsureChoice,
-    EnsureFloat,
-    EnsureInt,
-    EnsureStr,
     NoConstraint,
 )
-from .compound import (
-    ConstraintWithPassthrough,
-    EnsureIterableOf,
-    EnsureMapping,
-)
-
+from .dataset import DatasetParameter
 from .exceptions import (
     ConstraintError,
     ParametrizationErrors,
     CommandParametrizationError,
     ParameterConstraintContext,
-)
-
-if TYPE_CHECKING:  # pragma: no cover
-    from datalad_next.commands import Parameter
-
-EnsureParameterConstraint_T = TypeVar(
-    'EnsureParameterConstraint_T',
-    bound='EnsureParameterConstraint',
 )
 
 
@@ -51,184 +30,6 @@ class NoValue:
     type.
     """
     pass
-
-
-class EnsureParameterConstraint(EnsureMapping):
-    """Ensures a mapping from a Python parameter name to a value constraint
-
-    An optional "pass-though" value can be declare that is then exempt from
-    validation and is returned as-is. This can be used to support, for example,
-    special default values that only indicate the optional nature of a
-    parameter. Declaring them as "pass-through" avoids a needless
-    complexity-increase of a value constraint that would translate onto
-    user-targeted error reporting.
-    """
-    # valid parameter name for Python and CLI
-    # - must start with a lower-case letter
-    # - must not contain symbols other than lower-case letters,
-    #   digits, and underscore
-    valid_param_name_regex = r'[a-z]{1}[a-z0-9_]*'
-
-    def __init__(self,
-                 constraint: Constraint,
-                 passthrough: Any = NoValue):
-        """
-        Parameters
-        ----------
-        constraint:
-          Any ``Constraint`` subclass instance that will be used to validate
-          parameter values.
-        passthrough:
-          A value that will not be subjected to validation by the value
-          constraint, but is returned as-is. This can be used to exempt
-          default values from validation, e.g. when defaults are only
-          placeholder values to indicate the optional nature of a parameter.
-        """
-        super().__init__(
-            key=EnsureStr(
-                match=EnsureParameterConstraint.valid_param_name_regex),
-            value=ConstraintWithPassthrough(
-                constraint,
-                passthrough,
-            ),
-            # make it look like dict(...)
-            delimiter='=',
-        )
-
-    @property
-    def parameter_constraint(self):
-        return self._value_constraint
-
-    @property
-    def passthrough_value(self):
-        return self._value_constraint.passthrough
-
-    def __call__(self, value) -> Dict:
-        key, val = self._get_key_value(value)
-        key = self._key_constraint(key)
-        val = self._value_constraint(val) \
-            if val != self.passthrough_value else val
-        return {key: val}
-
-    @classmethod
-    def from_parameter(
-            cls: Type[EnsureParameterConstraint_T],
-            spec: Parameter,
-            default: Any,
-            item_constraint: Constraint | None = None,
-            nargs: str | int | None = None) -> EnsureParameterConstraint_T:
-        """
-        Parameters
-        ----------
-        spec: Parameter
-          Instance of a datalad-core Parameter. If not overwritten by values
-          given to the other arguments of this method, item constraints,
-          number of arguments and other argparse-specific information
-          is taken from this object and processed to built a comprehensive
-          constraint that handles all aspects of the specification in a
-          homogenous fashion via the Constraint interface.
-        default: Any
-          A parameter's default value. It is configured as a "pass-through"
-          value that will not be subjected to validation.
-        item_constraint:
-          If given, it override any constraint declared in the Parameter
-          instance given to `spec`
-        nargs:
-          If given, it override any nargs setting declared in the Parameter
-          instance given to `spec`.
-        """
-        value_constraint = _get_comprehensive_constraint(
-            spec,
-            item_constraint,
-            nargs,
-        )
-        return cls(value_constraint, passthrough=default)
-
-
-# that mapping is NOT to be expanded!
-# it is a legacy leftover. It's usage triggers a DeprecationWarning
-_constraint_spec_map = {
-    'float': EnsureFloat(),
-    'int': EnsureInt(),
-    'bool': EnsureBool(),
-    'str': EnsureStr(),
-}
-
-
-def _get_comprehensive_constraint(
-        param_spec: Parameter,
-        # TODO remove `str` when literal constraint support is removed
-        item_constraint_override: Constraint | str | None = None,
-        nargs_override: str | int | None = None):
-    action = param_spec.cmd_kwargs.get('action')
-    # definitive per-item constraint, consider override
-    # otherwise fall back on Parameter.constraints
-    constraint = item_constraint_override or param_spec.constraints
-
-    if not (constraint is None or hasattr(constraint, '__call__')):
-        import warnings
-        warnings.warn("Literal constraint labels are no longer supported.",
-                      DeprecationWarning)
-        try:
-            return _constraint_spec_map[constraint]
-        except KeyError:
-            raise ValueError(
-                f"unsupported constraint specification '{constraint}'")
-
-    if not constraint:
-        if action in ('store_true', 'store_false'):
-            constraint = EnsureBool()
-        elif param_spec.cmd_kwargs.get('choices'):
-            constraint = EnsureChoice(*param_spec.cmd_kwargs.get('choices'))
-        else:
-            # always have one for simplicity
-            constraint = NoConstraint()
-
-    # we must addtionally consider the following nargs spec for
-    # a complete constraint specification
-    # (int, '*', '+'), plus action=
-    # - 'store_const' TODO
-    # - 'store_true' and 'store_false' TODO
-    # - 'append'
-    # - 'append_const' TODO
-    # - 'count' TODO
-    # - 'extend' TODO
-
-    # get the definitive argparse "nargs" value
-    nargs = nargs_override or param_spec.cmd_kwargs.get('nargs', None)
-    # try making a specific number explicit via dtype change
-    try:
-        nargs = int(nargs)
-    except (ValueError, TypeError):
-        pass
-
-    # TODO reconsider using `list`, with no length-check it could
-    # be a generator
-    if isinstance(nargs, int):
-        # we currently consider nargs=1 to be a request of a
-        # single item, not a forced single-item list
-        if nargs > 1:
-            # sequence of a particular length
-            constraint = EnsureIterableOf(
-                list, constraint, min_len=nargs, max_len=nargs)
-    elif nargs == '*':
-        # datalad expects things often/always to also work for a single item
-        constraint = EnsureIterableOf(list, constraint) | constraint
-    elif nargs == '+':
-        # sequence of at least 1 item, always a sequence,
-        # but again datalad expects things often/always to also work for
-        # a single item
-        constraint = EnsureIterableOf(
-            list, constraint, min_len=1) | constraint
-    # handling of `default` and `const` would be here
-    #elif nargs == '?'
-
-    if action == 'append':
-        # wrap into a(nother) sequence
-        # (think: list of 2-tuples, etc.
-        constraint = EnsureIterableOf(list, constraint)
-
-    return constraint
 
 
 class EnsureCommandParameterization(Constraint):
@@ -283,6 +84,11 @@ class EnsureCommandParameterization(Constraint):
     communicated by raising a ``CommandParametrizationError`` exception, which
     can be inspected by a caller for details on number and nature of all
     discovered violations.
+
+    Exhaustive validation and joint reporting are only supported for individual
+    constraint implementations that raise `ConstraintError` exceptions. For
+    legacy constraints, any raised exception of another type are not caught
+    and reraised immediately.
     """
     def __init__(
         self,
@@ -291,6 +97,7 @@ class EnsureCommandParameterization(Constraint):
         validate_defaults: Container[str] | None = None,
         joint_constraints:
             Dict[ParameterConstraintContext, Callable] | None = None,
+        tailor_for_dataset: Dict[str, str] | None = None,
     ):
         """
         Parameters
@@ -310,11 +117,22 @@ class EnsureCommandParameterization(Constraint):
           they are declared in the mapping. Earlier validators can modify
           the parameter values that are eventually passed to validators
           executed later.
+        tailor_for_dataset: dict, optional
+          If given, this is a mapping of a name of a parameter whose
+          constraint should be tailored to a particular dataset, to a name
+          of a parameter providing this dataset. The dataset-providing
+          parameter constraints will be evaluated first, and the resulting
+          Dataset instances are used to tailor the constraints that
+          require a dataset-context. The tailoring is performed if, and
+          only if, the dataset-providing parameter actually evaluated
+          to a `Dataset` instance. The non-tailored constraint is used
+          otherwise.
         """
         super().__init__()
         self._param_constraints = param_constraints
         self._joint_constraints = joint_constraints
         self._validate_defaults = validate_defaults or set()
+        self._tailor_for_dataset = tailor_for_dataset or {}
 
     def joint_validation(self, params: Dict, on_error: str) -> Dict:
         """Higher-order validation considering multiple parameters at a time
@@ -434,9 +252,32 @@ class EnsureCommandParameterization(Constraint):
           pass through.
         """
         assert on_error in ('raise-early', 'raise-at-end')
+
+        # validators to work with. make a copy of the dict to be able to tailor
+        # them for this run only
+        # TODO copy likely not needed
+        param_constraints = self._param_constraints.copy()
+
+        # names of parameters we need to process
+        to_validate = set(kwargs)
+        # check for any dataset that are required for tailoring other parameters
+        ds_provider_params = set(self._tailor_for_dataset.values())
+        # take these out of the set of parameters to validate, because we need
+        # to process them first.
+        # the approach is to simply sort them first, but otherwise apply standard
+        # handling
+        to_validate.difference_update(ds_provider_params)
+        # strip all args provider args that have not been provided
+        ds_provider_params.intersection_update(kwargs)
+
         exceptions = {}
         validated = {}
-        for argname, arg in kwargs.items():
+        # process all parameters. starts with those that are needed as
+        # dependencies for others.
+        # this dependency-based sorting is very crude for now. it does not
+        # consider possible dependencies within `ds_provider_params` at all
+        for argname in chain(ds_provider_params, to_validate):
+            arg = kwargs[argname]
             if at_default \
                     and argname not in self._validate_defaults \
                     and argname in at_default:
@@ -456,7 +297,21 @@ class EnsureCommandParameterization(Constraint):
                 # code
                 validated[argname] = arg
                 continue
-            validator = self._param_constraints.get(argname, lambda x: x)
+
+            # look-up validator for this parameter, if there is none use
+            # NoConstraint to avoid complex conditionals in the code below
+            validator = param_constraints.get(argname, NoConstraint())
+
+            # do we need to tailor this constraint for a specific dataset?
+            # only do if instructed AND the respective other parameter
+            # validated to a Dataset instance. Any such parameter was sorted
+            # to be validated first in this loop, so the outcome of that is
+            # already available
+            tailor_for = self._tailor_for_dataset.get(argname)
+            if tailor_for and isinstance(validated.get(tailor_for),
+                                         DatasetParameter):
+                validator = validator.for_dataset(validated[tailor_for])
+
             try:
                 validated[argname] = validator(arg)
             # we catch only ConstraintError -- only these exceptions have what
@@ -465,9 +320,31 @@ class EnsureCommandParameterization(Constraint):
             # it may be an indication of something being wrong with validation
             # itself
             except ConstraintError as e:
+                # standard exception type, record and proceed
                 exceptions[ParameterConstraintContext((argname,))] = e
                 if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
+            except Exception as e:
+                # non-standard exception type
+                # we need to achieve uniform CommandParametrizationError
+                # raising, so let's create a ConstraintError for this
+                # exception
+                e = ConstraintError(
+                    validator, arg, '{__caused_by__}',
+                    ctx=dict(__caused_by__=e),
+                )
+                exceptions[ParameterConstraintContext((argname,))] = e
+                if on_error == 'raise-early':
+                    raise CommandParametrizationError(exceptions)
+
+        # do not bother with joint validation when the set of expected
+        # arguments is not complete
+        expected_for_joint_validation = set()
+        for jv in self._joint_constraints or []:
+            expected_for_joint_validation.update(jv.parameters)
+
+        if not expected_for_joint_validation.issubset(validated):
+            raise CommandParametrizationError(exceptions)
 
         try:
             # call (subclass) method to perform holistic, cross-parameter
@@ -477,7 +354,7 @@ class EnsureCommandParameterization(Constraint):
             # implementation could be faulty, and we want to report this
             # problem in the right context
             try:
-                final.keys() == validated.keys()
+                assert final.keys() == validated.keys()
             except Exception as e:
                 raise RuntimeError(
                     f"{self.__class__.__name__}.joint_validation() "
@@ -496,7 +373,3 @@ class EnsureCommandParameterization(Constraint):
             raise CommandParametrizationError(exceptions)
 
         return final
-
-    def short_description(self):
-        # TODO Constraint.__repr__ is shit!
-        return "I have to be here, but I do not want to"

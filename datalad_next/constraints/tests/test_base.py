@@ -2,15 +2,17 @@ import pytest
 
 from ..base import (
     Constraint,
-    Constraints,
-    AltConstraints,
+    AllOf,
+    AnyOf,
 )
 from ..basic import (
+    EnsureDType,
     EnsureInt,
     EnsureFloat,
     EnsureBool,
     EnsureNone,
     EnsureRange,
+    EnsureStr,
 )
 
 
@@ -28,11 +30,12 @@ def test_base():
     assert id(generic) == id(generic.for_dataset('some'))
 
 
-def test_constraints():
+def test_allof():
     # this should always work
-    c = Constraints(EnsureFloat())
+    c = AllOf(EnsureFloat())
     assert c(7.0) == 7.0
-    c = Constraints(EnsureFloat(), EnsureRange(min=4.0))
+    c = AllOf(EnsureFloat(), EnsureRange(min=4.0))
+    assert repr(c) == 'AllOf(EnsureFloat(), EnsureRange())'
     assert c(7.0) == 7.0
     # __and__ form
     c = EnsureFloat() & EnsureRange(min=4.0)
@@ -41,7 +44,7 @@ def test_constraints():
     assert c(7.0) == 7.0
     with pytest.raises(ValueError):
         c(3.9)
-    c = Constraints(EnsureFloat(), EnsureRange(min=4), EnsureRange(max=9))
+    c = AllOf(EnsureFloat(), EnsureRange(min=4), EnsureRange(max=9))
     assert c(7.0) == 7.0
     with pytest.raises(ValueError):
         c(3.9)
@@ -55,26 +58,32 @@ def test_constraints():
     with pytest.raises(ValueError):
         c(9.01)
     # and reordering should not have any effect
-    c = Constraints(EnsureRange(max=4), EnsureRange(min=9), EnsureFloat())
+    c = AllOf(EnsureRange(max=4), EnsureRange(min=9), EnsureFloat())
     with pytest.raises(ValueError):
         c(3.99)
     with pytest.raises(ValueError):
         c(9.01)
     # smoke test concat AND constraints
-    c = Constraints(EnsureRange(max=10), EnsureRange(min=5)) & \
-            Constraints(EnsureRange(max=6), EnsureRange(min=2))
+    c1 = AllOf(EnsureRange(max=10), EnsureRange(min=5))
+    c2 = AllOf(EnsureRange(max=6), EnsureRange(min=2))
+    c = c1 & c2
+    # make sure that neither c1, nor c2 is modified
+    assert len(c1.constraints) == 2
+    assert len(c2.constraints) == 2
+    assert len(c.constraints) == 4
     assert c(6) == 6
     with pytest.raises(ValueError):
         c(4)
 
 
-def test_altconstraints():
+def test_anyof():
     # this should always work
-    c = AltConstraints(EnsureFloat())
+    c = AnyOf(EnsureFloat())
     # passes the docs through
     assert c.short_description() == EnsureFloat().short_description()
     assert c(7.0) == 7.0
-    c = AltConstraints(EnsureFloat(), EnsureNone())
+    c = AnyOf(EnsureFloat(), EnsureNone())
+    assert repr(c) == 'AnyOf(EnsureFloat(), EnsureNone())'
     # wraps docs in parenthesis to help appreciate the scope of the
     # OR'ing
     assert c.short_description().startswith(
@@ -86,7 +95,7 @@ def test_altconstraints():
     c = c | EnsureInt()
     assert c.short_description(), '(float or None or int)'
     # OR with an alternative combo also extends
-    c = c | AltConstraints(EnsureBool(), EnsureInt())
+    c = c | AnyOf(EnsureBool(), EnsureInt())
     # yes, no de-duplication
     assert c.short_description(), '(float or None or int or bool or int)'
     # spot check long_description, must have some number
@@ -97,7 +106,7 @@ def test_altconstraints():
     assert c(None) is None
 
     # this should always fail
-    c = Constraints(EnsureRange(min=0, max=4), EnsureRange(min=9, max=11))
+    c = AllOf(EnsureRange(min=0, max=4), EnsureRange(min=9, max=11))
     with pytest.raises(ValueError):
         c(7.0)
     c = EnsureRange(min=0, max=4) | EnsureRange(min=9, max=11)
@@ -108,14 +117,25 @@ def test_altconstraints():
     with pytest.raises(ValueError):
         c(-1.0)
 
+    # verify no inplace modification
+    c1 = EnsureInt() | EnsureStr()
+    c2 = c1 | EnsureDType(c1)
+    # OR'ing does not "append" the new alternative to c1.
+    assert len(c1.constraints) == 2
+    # at the same time, c2 does not contain an AnyOf
+    # as an internal constraint, because this would be needless
+    # complexity re the semantics of OR
+    assert len(c2.constraints) == 3
+
 
 def test_both():
     # this should always work
-    c = AltConstraints(
-        Constraints(
+    c = AnyOf(
+        AllOf(
             EnsureFloat(),
             EnsureRange(min=7.0, max=44.0)),
-        EnsureNone())
+        EnsureNone(),
+    )
     assert c(7.0) == 7.0
     assert c(None) is None
     # this should always fail

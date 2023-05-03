@@ -13,6 +13,7 @@
 from pathlib import Path
 from stat import S_IREAD, S_IRGRP, S_IROTH
 from unittest.mock import patch
+from urllib.parse import quote as urlquote
 
 from datalad.api import (
     Dataset,
@@ -24,12 +25,7 @@ from datalad_next.tests.utils import (
     assert_raises,
     assert_status,
     eq_,
-    neq_,
     rmtree,
-    serve_path_via_http,
-    with_tempfile,
-    serve_path_via_webdav,
-    with_credential,
 )
 from datalad_next.utils import on_windows
 from datalad_next.exceptions import CommandError
@@ -56,33 +52,29 @@ def eq_dla_branch_state(state, path, branch=DEFAULT_BRANCH):
     assert None, f'Could not find state for branch {branch} at {path}'
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_annex_remote(dspath=None, remotepath=None):
+def test_annex_remote(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_push_fetch_cycle(ds, dlaurl, remotepath)
+    ds = existing_noannex_dataset
+    _check_push_fetch_cycle(ds, dlaurl, remotepath, tmp_path)
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_export_remote(dspath=None, remotepath=None):
+def test_export_remote(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_push_fetch_cycle(ds, dlaurl, remotepath)
+    ds = existing_noannex_dataset
+    _check_push_fetch_cycle(ds, dlaurl, remotepath, tmp_path)
 
 
-@with_tempfile
-@with_tempfile
-def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepath):
+def _check_push_fetch_cycle(ds, remoteurl, remotepath, tmp_path):
     """Test helper
 
     - add a dla remote to the dataset
@@ -93,9 +85,11 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
     - repeated supposed-to-be-noop push/fetch calls
     - update cycle starting from the clone
     """
+    localtargetpath = tmp_path / 'ltarget'
+    probepath = tmp_path / 'probe'
+    remotepath.mkdir()
     dsrepo = ds.repo
     dsrepo.call_git(['remote', 'add', 'dla', remoteurl])
-    remotepath = Path(remotepath)
 
     # basic push/clone roundtrip on clean locations
     # Since some version of git > 2.30.2 and <= 2.35.1
@@ -150,7 +144,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
     # the remote has received the new state
     eq_dla_branch_state(dsrepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     # verify that there is something to update
-    neq_(dsrepo.get_hexsha(DEFAULT_BRANCH), dsclonerepo.get_hexsha(DEFAULT_BRANCH))
+    assert dsrepo.get_hexsha(DEFAULT_BRANCH) != dsclonerepo.get_hexsha(DEFAULT_BRANCH)
     # pull
     dsclonerepo.call_git(['pull', DEFAULT_REMOTE, DEFAULT_BRANCH])
     # source and clone are now equal
@@ -169,7 +163,7 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
     # push/pull in reverse from clone to source
     (dsclone.pathobj / 'file2').write_text('file2text')
     assert_status('ok', dsclone.save())
-    neq_(dsrepo.get_hexsha(DEFAULT_BRANCH), dsclonerepo.get_hexsha(DEFAULT_BRANCH))
+    assert dsrepo.get_hexsha(DEFAULT_BRANCH) != dsclonerepo.get_hexsha(DEFAULT_BRANCH)
     dsclonerepo.call_git(['push', DEFAULT_REMOTE])
     eq_dla_branch_state(dsclonerepo.get_hexsha(DEFAULT_BRANCH), remotepath)
     dsrepo.call_git(['pull', 'dla', DEFAULT_BRANCH])
@@ -186,28 +180,24 @@ def _check_push_fetch_cycle(ds, remoteurl, remotepath, localtargetpath, probepat
         dsclonerepo.get_hexsha('refs/datalad/dummy'))
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_annex_remote_autorepush(dspath=None, remotepath=None):
+def test_annex_remote_autorepush(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_repush_after_vanish(ds, dlaurl, remotepath)
+    _check_repush_after_vanish(existing_noannex_dataset, dlaurl, remotepath)
 
 
-@with_tempfile
-@with_tempfile(mkdir=True)
-def test_export_remote_autorepush(dspath=None, remotepath=None):
+def test_export_remote_autorepush(existing_noannex_dataset, tmp_path):
+    remotepath = tmp_path
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
         f'datalad-annex::?type=directory&directory={remotepath}&encryption=none&exporttree=yes' \
         if on_windows else \
         f'datalad-annex::file://{remotepath}?type=directory&directory={{path}}&encryption=none&exporttree=yes'
-    ds = Dataset(dspath).create(annex=False, result_renderer='disabled')
-    _check_repush_after_vanish(ds, dlaurl, remotepath)
+    _check_repush_after_vanish(existing_noannex_dataset, dlaurl, remotepath)
 
 
 def _check_repush_after_vanish(ds, remoteurl, remotepath):
@@ -253,28 +243,34 @@ def test_params_from_url():
          'url=http://example.com/path/to/something'])
 
 
-def test_typeweb_annex():
+def test_typeweb_annex(existing_noannex_dataset, http_server, tmp_path):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none' \
         if on_windows else
         'datalad-annex::file://{export}?type=directory&directory={{path}}&encryption=none',
         'datalad-annex::{url}?type=web&url={{noquery}}',
+        existing_noannex_dataset,
+        http_server,
+        tmp_path,
     )
 
 
 # just to exercise the code path leading to an uncompressed ZIP
-def test_typeweb_annex_uncompressed():
+def test_typeweb_annex_uncompressed(existing_noannex_dataset, http_server, tmp_path):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none&dladotgit=uncompressed' \
         if on_windows else
         'datalad-annex::file://{export}?type=directory&directory={{path}}&encryption=none&dladotgit=uncompressed',
         'datalad-annex::{url}?type=web&url={{noquery}}',
+        existing_noannex_dataset,
+        http_server,
+        tmp_path,
     )
 
 
-def test_typeweb_export():
+def test_typeweb_export(existing_noannex_dataset, http_server, tmp_path):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none&exporttree=yes' \
@@ -282,19 +278,17 @@ def test_typeweb_export():
         'datalad-annex::file://{export}?type=directory&directory={{path}}&encryption=none&exporttree=yes',
         # when nothing is given type=web&exporttree=yes is the default
         'datalad-annex::{url}',
+        existing_noannex_dataset,
+        http_server,
+        tmp_path,
     )
 
 
-@with_tempfile(mkdir=True)
-@serve_path_via_http
-@with_tempfile
-@with_tempfile
-def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
-    ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
+def _check_typeweb(pushtmpl, clonetmpl, ds, server, clonepath):
     ds.repo.call_git([
         'remote', 'add',
         'dla',
-        pushtmpl.format(**locals()),
+        pushtmpl.format(export=server.path),
     ])
     ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # must override git-annex security setting for localhost
@@ -304,19 +298,18 @@ def _check_typeweb(pushtmpl, clonetmpl, export, url, preppath, clonepath):
                 "GIT_CONFIG_KEY_0": "annex.security.allowed-ip-addresses",
                 "GIT_CONFIG_VALUE_0": "127.0.0.1"}):
         dsclone = clone(
-            clonetmpl.format(**locals()),
+            clonetmpl.format(url=server.url),
             clonepath)
     eq_(ds.repo.get_hexsha(DEFAULT_BRANCH),
         dsclone.repo.get_hexsha(DEFAULT_BRANCH))
 
 
-@with_tempfile(mkdir=True)
-@serve_path_via_http
-@with_tempfile
-def test_submodule_url(servepath=None, url=None, workdir=None):
-    workdir = Path(workdir)
+def test_submodule_url(tmp_path, existing_noannex_dataset, http_server):
+    ckwa = dict(result_renderer='disabled')
+    servepath = http_server.path
+    url = http_server.url
     # a future subdataset that we want to register under a complex URL
-    tobesubds = Dataset(workdir / 'subdsprep').create(annex=False, result_renderer='disabled')
+    tobesubds = existing_noannex_dataset
     # push to test web server, this URL doesn't matter yet
     tobesubds.repo.call_git([
         'remote', 'add', 'dla',
@@ -327,7 +320,7 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
     ])
     tobesubds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # create a superdataset to register the subds to
-    super = Dataset(workdir / 'super').create()
+    super = Dataset(tmp_path / 'super').create(**ckwa)
     with patch.dict(
             "os.environ", {
                 "GIT_CONFIG_COUNT": "1",
@@ -338,37 +331,36 @@ def test_submodule_url(servepath=None, url=None, workdir=None):
         # in the submodule record
         super.clone(
             f'datalad-annex::{url}?type=web&url={{noquery}}&exporttree=yes',
-            'subds')
+            'subds',
+            **ckwa)
     # no clone the entire super
-    superclone = clone(super.path, workdir / 'superclone')
+    superclone = clone(super.path, tmp_path / 'superclone', **ckwa)
     # and auto-fetch the sub via the datalad-annex remote helper
-    superclone.get('subds', get_data=False, recursive=True)
+    superclone.get('subds', get_data=False, recursive=True, **ckwa)
     # we got the original subds
     subdsclone = Dataset(superclone.pathobj / 'subds')
     eq_(tobesubds.id, subdsclone.id)
 
 
-@with_credential(
-    'dltest-mystuff', user=webdav_cred[0], secret=webdav_cred[1],
-    type='user_password')
-@with_tempfile
-@with_tempfile
-@with_tempfile
-@serve_path_via_webdav(auth=webdav_cred)
-def test_webdav_auth(preppath=None, clnpath=None, remotepath=None, webdavurl=None):
+def test_webdav_auth(existing_noannex_dataset,
+                     tmp_path,
+                     credman,
+                     webdav_credential,
+                     webdav_server):
+    credman.set(**webdav_credential)
     # this is the dataset we want to roundtrip through webdav
-    ds = Dataset(preppath).create(annex=False, result_renderer='disabled')
+    ds = existing_noannex_dataset
 
     remoteurl = \
-        f'datalad-annex::{webdavurl}' \
+        f'datalad-annex::{webdav_server.url}' \
         '?type=webdav&url={noquery}&encryption=none&' \
-        'dlacredential=dltest-mystuff'
+        f'dlacredential={urlquote(webdav_credential["name"])}'
 
     ds.repo.call_git(['remote', 'add', 'dla', remoteurl])
 
     # roundtrip
     ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
-    cln = clone(remoteurl, clnpath)
+    cln = clone(remoteurl, tmp_path)
     # must give the same thing
     eq_(ds.repo.get_hexsha(DEFAULT_BRANCH),
         cln.repo.get_hexsha(DEFAULT_BRANCH))

@@ -13,7 +13,12 @@
    dataset
    exceptions
 """
-
+from .base import (
+    AllOf,
+    AnyOf,
+    Constraint,
+    DatasetParameter,
+)
 # expose constraints with direct applicability, but not
 # base and helper classes
 from .basic import (
@@ -36,6 +41,7 @@ from .compound import (
     EnsureTupleOf,
     EnsureMapping,
     EnsureGeneratorFromFileLike,
+    WithDescription,
 )
 # this is the key type, almost all consuming code will want to
 # have this for `except` clauses

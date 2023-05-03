@@ -11,7 +11,10 @@ from ..basic import (
 )
 from ..compound import EnsureGeneratorFromFileLike
 from ..dataset import EnsureDataset
-from ..exceptions import NoDatasetFound
+from ..exceptions import (
+    ConstraintError,
+    NoDatasetFound,
+)
 from ..formats import (
     EnsureJSON,
     EnsureURL,
@@ -20,7 +23,7 @@ from ..formats import (
 from ..git import (
     EnsureGitRefName,
 )
-from ..parameter import EnsureParameterConstraint
+from ..parameter_legacy import EnsureParameterConstraint
 
 
 def test_EnsureGitRefName():
@@ -149,7 +152,7 @@ def test_EnsureParameterConstraint_passthrough():
     # and passes through
     assert c(dict(p=None)) == {'p': None}
     # even when the actual value constraint would not
-    with pytest.raises(TypeError):
+    with pytest.raises(ConstraintError):
         c.parameter_constraint.constraint(None)
     # setting is retrievable
     assert c.passthrough_value is None
@@ -236,6 +239,9 @@ url_testcases = {
 
 
 def test_EnsureURL():
+    with pytest.raises(ValueError):
+        # only str input
+        EnsureURL()(5)
     assert EnsureURL().short_description() == 'URL'
     assert EnsureURL(
         required=['scheme', 'netloc']
@@ -257,9 +263,9 @@ def test_EnsureURL():
         cnotag_parsed = EnsureParsedURL(forbidden=[t])
         for url, tags in url_testcases.items():
             if t in tags:
-                with pytest.raises(ValueError) as e:
+                with pytest.raises(ConstraintError) as e:
                     cnotag(url)
-                assert f"forbidden '{t}'" in str(e)
+                assert f"forbidden '{t}'" in str(e.value)
             else:
                 cnotag(url)
                 cnotag_parsed(url)
@@ -267,9 +273,9 @@ def test_EnsureURL():
         ctag_parsed = EnsureParsedURL(required=[t])
         for url, tags in url_testcases.items():
             if t not in tags:
-                with pytest.raises(ValueError) as e:
+                with pytest.raises(ConstraintError) as e:
                     ctag(url)
-                assert f"missing '{t}'" in str(e)
+                assert f"missing '{t}'" in str(e.value)
             else:
                 ctag(url)
                 ctag_parsed(url)
@@ -291,6 +297,9 @@ def test_EnsureURL_match():
 
 
 def test_EnsureDataset(tmp_path):
+    with pytest.raises(TypeError):
+        # will not return a Dataset from sensless input
+        EnsureDataset()(5)
     # by default the installation state is not checked
     # this matches the behavior of the original implementation
     # from datalad-core
@@ -350,3 +359,13 @@ def test_EnsureDataset(tmp_path):
     assert EnsureDataset(
         installed=False).short_description() == \
         '(path to) a non-existing Dataset'
+
+    # smoke test for idcheck:
+    assert EnsureDataset(require_id=True)(ds).ds == ds
+    assert EnsureDataset(require_id=False)(ds).ds == ds
+    # unset the dataset ID to test whether an ID check would raise, but
+    # bring it back later in case future tests need it
+    id = ds.config.get('datalad.dataset.id')
+    ds.config.unset('datalad.dataset.id', scope='branch')
+    with pytest.raises(NoDatasetFound):
+        EnsureDataset(require_id=True)(tmp_path)

@@ -1,5 +1,7 @@
 """Constraints for DataLad datasets"""
 
+from __future__ import annotations
+
 from pathlib import (
     Path,
     PurePath,
@@ -7,22 +9,11 @@ from pathlib import (
 
 from datalad_next.datasets import Dataset
 
-from .base import Constraint
+from .base import (
+    Constraint,
+    DatasetParameter,
+)
 from .exceptions import NoDatasetFound
-
-
-class DatasetParameter:
-    """Utitlity class to report an original and resolve dataset parameter value
-
-    This is used by `EnsureDataset` to be able to report the original argument
-    semantics of a dataset parameter to a receiving command.
-
-    The original argument is provided via the `original` property.
-    A corresponding `Dataset` instance is provided via the `ds` property.
-    """
-    def __init__(self, original, ds):
-        self.original = original
-        self.ds = ds
 
 
 class EnsureDataset(Constraint):
@@ -50,7 +41,10 @@ class EnsureDataset(Constraint):
     the DataLad core package). With ``installed=False`` no exception is
     raised and a dataset instances matching PWD is returned.
     """
-    def __init__(self, installed: bool = None, purpose: str = None):
+    def __init__(self,
+                 installed: bool | None = None,
+                 purpose: str | None = None,
+                 require_id: bool | None = None):
         """
         Parameters
         ----------
@@ -60,28 +54,46 @@ class EnsureDataset(Constraint):
         purpose: str, optional
           If given, will be used in generated error messages to communicate
           why a dataset is required (to exist)
+        idcheck: bool, option
+          If given, performs an additional check whether the dataset has a
+          valid dataset ID.
         """
         self._installed = installed
         self._purpose = purpose
+        self._require_id = require_id
         super().__init__()
 
     def __call__(self, value) -> DatasetParameter:
         # good-enough test to recognize a dataset instance cheaply
         if hasattr(value, 'repo') and hasattr(value, 'pathobj'):
-            if self._installed is not None:
-                is_installed = value.is_installed()
-                if self._installed and not is_installed:
-                    # for uniformity with require_dataset() below, use
-                    # this custom exception
-                    raise NoDatasetFound(f'{value} is not installed')
-                elif not self._installed and is_installed:
-                    raise ValueError(f'{value} already exists locally')
-            return DatasetParameter(value, value)
+            ds = value
         # anticipate what require_dataset() could handle and fail if we got
         # something else
         elif not isinstance(value, (str, PurePath, type(None))):
             raise TypeError(f"Cannot create Dataset from {type(value)}")
+        else:
+            ds = self._require_dataset(value)
+        assert ds
+        if self._installed is not None:
+            is_installed = ds.is_installed()
+            if self._installed is False and is_installed:
+                raise ValueError(f'{ds} already exists locally')
+            if self._installed and not is_installed:
+                # for uniformity with require_dataset() below, use
+                # this custom exception
+                raise NoDatasetFound(f'{ds} is not installed')
+        if self._require_id and not ds.id:
+            raise NoDatasetFound(f'{ds} does not have a valid '
+                                 f'datalad-id')
+        return DatasetParameter(value, ds)
 
+    def short_description(self) -> str:
+        return "(path to) {}Dataset".format(
+            'an existing ' if self._installed is True
+            else 'a non-existing ' if self._installed is False else 'a ')
+
+
+    def _require_dataset(self, value):
         from datalad.distribution.dataset import require_dataset
         try:
             ds = require_dataset(
@@ -89,6 +101,7 @@ class EnsureDataset(Constraint):
                 check_installed=self._installed is True,
                 purpose=self._purpose,
             )
+            return ds
         except NoDatasetFound:
             # mitigation of non-uniform require_dataset() behavior.
             # with value == None it does not honor check_installed
@@ -101,13 +114,4 @@ class EnsureDataset(Constraint):
                 # find a dataset in any parent dir either, so this is
                 # the best we can do. Installation absence verification
                 # will happen further down
-                ds = Dataset(Path.cwd())
-
-        if self._installed is False and ds.is_installed():
-            raise ValueError(f'{ds} already exists locally')
-        return DatasetParameter(value, ds)
-
-    def short_description(self) -> str:
-        return "(path to) {}Dataset".format(
-            'an existing ' if self._installed is True
-            else 'a non-existing ' if self._installed is False else 'a ')
+                return Dataset(Path.cwd())
