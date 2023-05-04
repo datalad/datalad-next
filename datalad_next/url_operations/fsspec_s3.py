@@ -72,7 +72,7 @@ def get_fs(url, target_url, *, cfg, credential, **kwargs) -> Tuple:
     # if we get here, access failed in a credential-related fashion.
     # try to determine credentials for this target bucket.
 
-    # compose a standard realm identifer.
+    # compose a standard realm identifier.
     # look for alternative endpoints and fall back onto AWS if none can be found
     endpoint_url = kwargs.get(
         # look at top-level (unchained URLs)
