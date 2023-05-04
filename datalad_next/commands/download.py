@@ -73,7 +73,7 @@ class Download(ValidatedInterface):
     In contrast to other downloader tools, this command integrates with the
     DataLad credential management and is able to auto-discover credentials.
     If no credential is available, it automatically prompts for them, and
-    offers to store them for re-use after a successfull authentication.
+    offers to store them for re-use after a successful authentication.
 
     Simultaneous hashing (checksumming) of downloaded content is supported
     with user-specified algorithms.
@@ -89,7 +89,7 @@ class Download(ValidatedInterface):
     :class:`datalad_next.url_operations.UrlOperations` and implementing
     the `download()` method. Extension packages can register new handlers,
     by patching them into the `datalad_next.download._urlscheme_handlers`
-    registery dict.
+    registry dict.
     """
     #
     # argument format specifications

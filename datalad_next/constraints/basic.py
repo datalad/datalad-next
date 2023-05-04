@@ -25,7 +25,7 @@ from .utils import _type_str
 
 
 class NoConstraint(Constraint):
-    """A contraint that represents no constraints"""
+    """A constraint that represents no constraints"""
     def short_description(self):
         return ''
 
@@ -373,7 +373,7 @@ class EnsurePath(Constraint):
           absolute.
         lexists:
           If not None, the path is tested to confirmed exists or not. A symlink
-          need not point to an existing path to fullfil the "exists" condition.
+          need not point to an existing path to fulfil the "exists" condition.
         is_mode:
           If set, this callable will receive the path's `.lstat().st_mode`,
           and an exception is raised, if the return value does not evaluate

@@ -14,7 +14,7 @@ from .base import Constraint
 
 
 class EnsureJSON(Constraint):
-    """Ensures that string is JSON formated and can be deserialized.
+    """Ensures that string is JSON formatted and can be deserialized.
     """
     def __init__(self):
         super().__init__()
@@ -41,7 +41,7 @@ class EnsureURL(Constraint):
     - matches a particular regular expression
 
     Given that a large variety of strings are also a valid URL, a typical use
-    of this contraint would involve using a `required=['scheme']` setting.
+    of this constraint would involve using a `required=['scheme']` setting.
 
     All URL attribute names supported by `urllib.parse.urlparse()` are also
     supported here: scheme, netloc, path, params, query, fragment, username,

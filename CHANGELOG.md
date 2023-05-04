@@ -160,7 +160,7 @@
   datalad-core. With this patch, commands are now exclusively called
   with keyword-style parameters only.
 
-  This feature is in an early stage of development (although all incldued
+  This feature is in an early stage of development (although all included
   commands have already been ported to use it) that will likely undergo
   substantial changes in the coming releases.
 
@@ -369,7 +369,7 @@
 
 # 0.2.0 (2022-04-28) --  WebDAV
 
-This release primarly brings the ability to store DataLad datasets on a WebDAV
+This release primarily brings the ability to store DataLad datasets on a WebDAV
 server. This is done in a way that allows for cloning such dataset with
 `datalad clone` from such a WebDAV server too. This feature enables
 full-featured DataLad-based collaborative workflows on widely available cloud
@@ -425,7 +425,7 @@ B2DROP service.
   query of credentials with any number of properties associated with a secret.
   These properties are stored as regular configuration items, following the
   scheme `datalad.credential.<name>.<property>`. The special property `secret`
-  lives in a keystore, but can be overriden using the normal configuration
+  lives in a keystore, but can be overridden using the normal configuration
   mechanisms. The new system continues to support the previous credential storage
   setup. Fixes [#6519](https://github.com/datalad/datalad/issues/6519)
   ([@mih](https://github.com/mih))
