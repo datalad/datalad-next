@@ -215,6 +215,12 @@ class FsspecUrlOperations(UrlOperations):
         fs, urlpath, props = self._get_fs(from_url, credential=credential)
         dst_fp = None
 
+        if props is None:
+            # stat'ing has failed, and we would crash once we'd try to access
+            # any expected property. Instead, we raise early and orderly before
+            raise FileNotFoundError(
+                f"Access to {from_url} has failed, can't attempt download")
+
         try:
             # we cannot always have an expected size
             expected_size = props.get('stat_size')
