@@ -301,7 +301,7 @@ def http_server_with_basicauth(tmp_path_factory, http_credential):
 
 
 @pytest.fixture(scope="session")
-def httpbin():
+def httpbin_service():
     """Return canonical access URLs for the HTTPBIN service
 
     This fixture tries to spin up a httpbin Docker container at localhost:8765;
@@ -352,3 +352,22 @@ def httpbin():
     finally:
         if container_id is not None:
             subprocess.run(["docker", "rm", "-f", container_id], check=True)
+
+
+@pytest.fixture(scope="function")
+def httpbin(httpbin_service):
+    """Does the same thing as ``httpbin_service``, but skips on function-scope
+
+    ``httpbin_service`` always returns access URLs for HTTPBIN. However,
+    in some cases it is simply not desirable to run a test. For example,
+    the appveyor workers are more or less constantly unable to access the
+    public service. This fixture is evaluated at function-scope and
+    raises ``SkipTest`` whenever any of these undesired conditions is
+    detected. Otherwise it just relays ``httpbin_service``.
+    """
+    if 'APPVEYOR' in os.environ and 'DEPLOY_HTTPBIN_IMAGE' not in os.environ:
+        raise SkipTest(
+            "Not running httpbin-based test on appveyor without "
+            "docker-deployed instance -- too unreliable"
+        )
+    yield httpbin_service
