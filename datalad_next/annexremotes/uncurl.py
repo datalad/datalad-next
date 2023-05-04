@@ -267,14 +267,14 @@ class UncurlRemote(SpecialRemote):
             # be sent to a downloader
 
         # unconditionally ask git-annex for a match-url setting, any local
-        # config ammends, and does not override
+        # config amends, and does not override
         self.match = self.annex.getconfig('match')
         if self.match:
             self.match = self.match.split()
             # TODO implement sanity checks, but running it through re.compile()
             # might just be enough
             self.match = [re.compile(m) for m in self.match]
-        # extend with additonal matchers from local config
+        # extend with additional matchers from local config
         self.match = (self.match or []) + [
             re.compile(m)
             for m in ensure_list(self.repo.cfg.get(
@@ -287,7 +287,7 @@ class UncurlRemote(SpecialRemote):
             f'Active URL match expressions: {[e.pattern for e in self.match]!r}',
             type='debug')
 
-        # let the URL hander use the repo's config
+        # let the URL handler use the repo's config
         self.url_handler = AnyUrlOperations(cfg=self.repo.cfg)
 
         # cache template properties
@@ -344,7 +344,7 @@ class UncurlRemote(SpecialRemote):
                 f'{e}, continuing with original URL',
                 type='debug',
             )
-            # otherwise go ahead with the orginal URL. the template might
+            # otherwise go ahead with the original URL. the template might
             # just be here to aid structured uploads
         try:
             urlprops = self.url_handler.stat(url)
@@ -447,7 +447,7 @@ class UncurlRemote(SpecialRemote):
             allprops['annex_key'] = key
             # if we are working on a specific key, check the template if it
             # needs more key-specific properties. The conditionals below
-            # are intentionally unprecise to avoid false-negatives given the
+            # are intentionally imprecise to avoid false-negatives given the
             # flexibility of the format-string-syntax
             if 'annex_dirhash' in tmpl:
                 allprops['annex_dirhash'] = self.annex.dirhash(key)

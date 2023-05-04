@@ -255,7 +255,7 @@ class Master(object):
 
     def __init__(self, output=sys.stdout):
         """
-        Initialize the Master with an ouput.
+        Initialize the Master with an output.
 
         Parameters
         ----------

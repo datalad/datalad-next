@@ -55,7 +55,7 @@ lgr = logging.getLogger('datalad.local.tree')
 class TreeCommand(ValidatedInterface):
     """Visualize directory and dataset hierarchies
 
-    This command mimics the UNIX/MSDOS 'tree' utility to generate and
+    This command mimics the UNIX/MS-DOS 'tree' utility to generate and
     display a directory tree, with DataLad-specific enhancements.
 
     It can serve the following purposes:

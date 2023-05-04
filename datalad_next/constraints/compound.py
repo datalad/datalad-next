@@ -83,7 +83,7 @@ class EnsureIterableOf(Constraint):
             if self._min_len is not None and iter_len < self._min_len:
                 raise ValueError(
                     f'Length-{iter_len} iterable is shorter than '
-                    f'required minmum length {self._min_len}')
+                    f'required minimum length {self._min_len}')
             if self._max_len is not None and iter_len > self._max_len:
                 raise ValueError(
                     f'Length-{iter_len} iterable is longer than '
@@ -264,7 +264,7 @@ class EnsureGeneratorFromFileLike(Constraint):
             'read from a file-like'
 
     def __call__(self, value) -> Generator[Any, None, None]:
-        # we only support a single file-like source. If we happend to get
+        # we only support a single file-like source. If we happened to get
         # a length-1 sequence (for technical reasons, such as argparse
         # having collected the value), we unpack it.
         if isinstance(value, (list, tuple)) and len(value) == 1:
@@ -304,7 +304,7 @@ class EnsureGeneratorFromFileLike(Constraint):
 
 
 class ConstraintWithPassthrough(Constraint):
-    """Regular contraint, but with a "pass-through" value that is not processed
+    """Regular constraint, but with a "pass-through" value that is not processed
 
     This is different from a `Constraint() | EnsureValue(...)` construct,
     because the pass-through value is not communicated. This can be useful
@@ -379,7 +379,7 @@ class ConstraintWithPassthrough(Constraint):
 
 
 class WithDescription(Constraint):
-    """Contraint that wraps another constraint and replaces its description
+    """Constraint that wraps another constraint and replaces its description
 
     Whenever a constraint's self-description does not fit an application
     context, it can be wrapped with this class. The given synopsis and

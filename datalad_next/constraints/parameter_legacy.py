@@ -108,7 +108,7 @@ class EnsureParameterConstraint(EnsureMapping):
           number of arguments and other argparse-specific information
           is taken from this object and processed to built a comprehensive
           constraint that handles all aspects of the specification in a
-          homogenous fashion via the Constraint interface.
+          homogeneous fashion via the Constraint interface.
         default: Any
           A parameter's default value. It is configured as a "pass-through"
           value that will not be subjected to validation.
@@ -166,7 +166,7 @@ def _get_comprehensive_constraint(
             # always have one for simplicity
             constraint = NoConstraint()
 
-    # we must addtionally consider the following nargs spec for
+    # we must additionally consider the following nargs spec for
     # a complete constraint specification
     # (int, '*', '+'), plus action=
     # - 'store_const' TODO
