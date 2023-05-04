@@ -63,7 +63,7 @@ class SshUrlOperations(UrlOperations):
     # exit code, to be able to distinguish the original exit=2 that ls-call
     # from a later exit=2 from awk in case of a "fatal error".
     # when executed through ssh, only a missing file would yield 244, while
-    # a conenction error or other problem unrelated to the present of a file
+    # a connection error or other problem unrelated to the present of a file
     # would a different error code (255 in case of a connection error)
     _stat_cmd = "printf \"\1\2\3\"; ls '{fpath}' &> /dev/null " \
                 "&& ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}' " \

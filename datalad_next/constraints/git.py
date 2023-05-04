@@ -6,7 +6,7 @@ from .base import Constraint
 class EnsureGitRefName(Constraint):
     """Ensures that a reference name is well formed
 
-    Validation is peformed by calling `git check-ref-format`.
+    Validation is performed by calling `git check-ref-format`.
     """
     def __init__(self,
                  allow_onelevel: bool = True,

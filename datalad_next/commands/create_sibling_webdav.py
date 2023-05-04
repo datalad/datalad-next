@@ -162,11 +162,11 @@ class CreateSiblingWebDAV(ValidatedInterface):
                  "tree, suitable for data exchange with non-DataLad users, "
                  "but only able to host a single version of each file",
            code_py="create_sibling_webdav(url='https://example.com/browseable', mode='filetree')",
-           code_cmd='datalad create-sibling-webdav --mode filetree "https://example.com/browseable"'),
+           code_cmd='datalad create-sibling-webdav --mode filetree "https://example.com/browsable"'),
        dict(text="Cloning such dataset siblings is possible via a convenience "
                  "URL",
             code_py="clone('webdavs://example.com/browseable')",
-            code_cmd='datalad clone "webdavs://example.com/browseable"'),
+            code_cmd='datalad clone "webdavs://example.com/browsable"'),
        dict(text="In all cases, the storage sibling needs to explicitly "
                  "enabled prior to file content retrieval",
             code_py="siblings('enable', name='example.com-storage')",
@@ -508,7 +508,7 @@ def _create_git_sibling(
     existing: {skip, error, reconfigure}
     known: bool
         Flag whether the sibling is a known remote (no implied
-        necessary existance of content on the remote).
+        necessary existence of content on the remote).
     publish_depends: str or None
         publication dependency to set
     """
@@ -566,7 +566,7 @@ def _create_storage_sibling(
         (Presently unused)
     known: bool
         Flag whether the sibling is a known remote (no implied
-        necessary existance of content on the remote).
+        necessary existence of content on the remote).
     """
     if known and existing == 'skip':
         yield _get_skip_sibling_result(name, ds, 'storage')

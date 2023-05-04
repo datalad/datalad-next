@@ -675,9 +675,9 @@ class RepoAnnexGitRemote(object):
                         self.replace_remote_deposit_from_mirrorrepo()
                     except Exception:
                         # the bad thing is that we have no way of properly
-                        # signaling to git that this happended,
+                        # signaling to git that this happened,
                         # the refs for this remote will look as if the upload
-                        # was successfull
+                        # was successful
 
                         # we do not need to roll-back the refs in the
                         # mirrorrepo as it will be rsync'ed to the remote on
@@ -712,7 +712,7 @@ class RepoAnnexGitRemote(object):
                 self.send('\n')
                 # must not capture -- git is talking to it directly from here.
                 # the `self.mirrorrepo` access will ensure that the mirror
-                # is uptodate
+                # is up-to-date
                 self.mirrorrepo._git_runner.run(
                     ['git', 'upload-pack', self.mirrorrepo.path],
                     protocol=NoCapture,

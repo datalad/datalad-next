@@ -13,7 +13,7 @@ providers setup.
 This automatic realm-based credential lookup is now also implemented.
 When no credential name is specified, the most recently used
 credential matching the API realm will be used automatically.
-If determined like this, it will be tested for successfull
+If determined like this, it will be tested for successful
 authorization, and will then be stored again with an updated
 ``last-used`` timestamp.
 """

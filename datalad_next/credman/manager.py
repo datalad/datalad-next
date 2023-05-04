@@ -70,7 +70,7 @@ class CredentialManager(object):
     The ``obtain()`` method is provided as an additional convenience, and
     implements a standard workflow for obtaining a credential in a wide variety
     of scenarios (credential name, credential properties, secret either
-    respectively already known or yet unkown).
+    respectively already known or yet unknown).
     """
     valid_property_names_regex = re.compile(r'[a-z0-9]+[a-z0-9-]*$')
 
@@ -595,7 +595,7 @@ class CredentialManager(object):
                expected_props: List | Tuple | None = None):
         """Obtain a credential by query or prompt (if needed)
 
-        This convienence method implements a standard workflow to obtain a
+        This convenience method implements a standard workflow to obtain a
         credential.  It supports credential selection by credential
         name/identifier, and falls back onto querying for a credential matching
         a set of specified properties (as key-value mappings). If no suitable
@@ -1042,7 +1042,7 @@ def _yield_legacy_credential_types():
     legacy_credentials = set(
         (p.credential.name, type(p.credential))
         # without reload, no changes in files since the last call
-        # will be considered. That last call might have happended
+        # will be considered. That last call might have happened
         # in datalad-core, and may have been in another directory
         for p in Providers.from_config_files(reload=True)
         if p.credential
