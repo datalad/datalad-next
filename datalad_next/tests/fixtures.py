@@ -287,7 +287,7 @@ def http_server(tmp_path_factory):
 
 @pytest.fixture(autouse=False, scope="function")
 def http_server_with_basicauth(tmp_path_factory, http_credential):
-    """Like ``http_server`` but requiering authenticat with ``http_credential``
+    """Like ``http_server`` but requiring authenticat with ``http_credential``
     """
     path = tmp_path_factory.mktemp("webdav")
     server = HTTPPath(
@@ -301,16 +301,16 @@ def http_server_with_basicauth(tmp_path_factory, http_credential):
 
 
 @pytest.fixture(scope="session")
-def httpbin():
-    """Return cannonical access URLs for the HTTPBIN service
+def httpbin_service():
+    """Return canonical access URLs for the HTTPBIN service
 
     This fixture tries to spin up a httpbin Docker container at localhost:8765;
     if successful, it returns this URL as the 'standard' URL.  If the attempt
-    fails, a URL pointing to the cannonical instance is returned.
+    fails, a URL pointing to the canonical instance is returned.
 
     For tests that need to have the service served via a specific
     protocol (https vs http), the corresponding URLs are returned
-    too. They always point to the cannonical deployment, as some
+    too. They always point to the canonical deployment, as some
     tests require both protocols simultaneously and a local deployment
     generally won't have https.
     """
@@ -352,3 +352,22 @@ def httpbin():
     finally:
         if container_id is not None:
             subprocess.run(["docker", "rm", "-f", container_id], check=True)
+
+
+@pytest.fixture(scope="function")
+def httpbin(httpbin_service):
+    """Does the same thing as ``httpbin_service``, but skips on function-scope
+
+    ``httpbin_service`` always returns access URLs for HTTPBIN. However,
+    in some cases it is simply not desirable to run a test. For example,
+    the appveyor workers are more or less constantly unable to access the
+    public service. This fixture is evaluated at function-scope and
+    raises ``SkipTest`` whenever any of these undesired conditions is
+    detected. Otherwise it just relays ``httpbin_service``.
+    """
+    if 'APPVEYOR' in os.environ and 'DEPLOY_HTTPBIN_IMAGE' not in os.environ:
+        raise SkipTest(
+            "Not running httpbin-based test on appveyor without "
+            "docker-deployed instance -- too unreliable"
+        )
+    yield httpbin_service

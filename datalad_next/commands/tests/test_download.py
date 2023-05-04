@@ -160,7 +160,7 @@ def test_download_digest_auth(credman, capsys, hbscred, hbsurl):
 
 def test_download_explicit_credential(credman, capsys, hbscred, hbsurl):
     # the provided credential has the wrong 'realm' for auto-detection.
-    # but chosing it explicitly must put things to work
+    # but choosing it explicitly must put things to work
     credman.set(hbscred[0], **hbscred[1])
     # consume stdout to make test self-contained
     capsys.readouterr()

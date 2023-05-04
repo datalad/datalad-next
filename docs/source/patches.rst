@@ -9,6 +9,7 @@ DataLad patches
    common_cfg
    configuration
    create_sibling_ghlike
+   customremotes_main
    distribution_dataset
    interface_utils
    push_optimize

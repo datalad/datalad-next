@@ -22,7 +22,7 @@ __all__ = ['AnyUrlOperations']
 _defaults = {
     's3': (
         'datalad_next.url_operations.fsspec.FsspecUrlOperations',
-        # any S3 is intepreted as AWS-S3 by default.
+        # any S3 is interpreted as AWS-S3 by default.
         # attempt anonymous access first (unless a credential is given).
         # this can impair performance when, in fact, a credential is
         # known to be needed, but need not, or cannot be declared
