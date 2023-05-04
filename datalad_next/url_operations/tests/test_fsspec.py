@@ -1,5 +1,5 @@
 import os
-
+import pytest
 from datalad_next.tests.utils import SkipTest
 
 from ..fsspec import (
@@ -30,6 +30,10 @@ def test_fsspec_download(tmp_path):
         props = ops.download(url, tmp_path / 'dummy', hash=['md5'])
         assert props['md5'] == target_reqfile_md5sum
         assert (tmp_path / 'dummy').read_text() == target_reqfile_content
+    # test that we raise if access to a given URL fails
+    url = 'github://something:non-existent@0.18.0/requirements-devel.txt'
+    with pytest.raises(FileNotFoundError):
+        props = ops.download(url, tmp_path / 'dummy', hash=['md5'])
 
 
 def test_fsspec_download_authenticated(tmp_path):
