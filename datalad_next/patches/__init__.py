@@ -8,4 +8,5 @@ from . import (
     push_optimize,
     siblings,
     test_keyring,
+    customremotes_main,
 )
