@@ -1,7 +1,10 @@
 import os
 import pytest
 from datalad_next.tests.utils import SkipTest
-from datalad_next.utils import on_windows
+from datalad_next.utils import (
+    check_symlink_capability,
+    on_windows,
+)
 
 from ..fsspec import (
     FsspecUrlOperations,
@@ -30,9 +33,9 @@ def test_fsspec_download(tmp_path):
         assert props['md5'] == target_reqfile_md5sum
         assert (tmp_path / 'dummy').read_text() == target_reqfile_content
 
-    if not on_windows:
-        # included in a ZIP archive - currently seemingly broken for Windows in
-        # fsspec (https://github.com/fsspec/filesystem_spec/issues/1256)
+    if check_symlink_capability(tmp_path / 'link', tmp_path / 'target') and not on_windows:
+        # included in a ZIP archive - currently seemingly broken for crippledFS/
+        # Win in fsspec (https://github.com/fsspec/filesystem_spec/issues/1256)
         url = 'zip://datalad-datalad-cddbe22/requirements-devel.txt::https://zenodo.org/record/7497306/files/datalad/datalad-0.18.0.zip?download=1'
         props = ops.download(url, tmp_path / 'dummy', hash=['md5'])
         assert props['md5'] == target_reqfile_md5sum
