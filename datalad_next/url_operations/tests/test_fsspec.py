@@ -32,7 +32,7 @@ def test_fsspec_download(tmp_path):
         assert (tmp_path / 'dummy').read_text() == target_reqfile_content
 
 
-def test_fsspec_download_authenticated(tmp_path):
+def test_fsspec_download_authenticated(tmp_path, tmp_keyring):
     if 'DATALAD_CREDENTIAL_awshcp_SECRET' not in os.environ:
         # only attempt if we have a dedicated test credential
         # full set of requirements is:
