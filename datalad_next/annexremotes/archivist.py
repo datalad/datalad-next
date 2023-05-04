@@ -320,7 +320,7 @@ class ArchivistRemote(SpecialRemote):
             self.message(f'Invalid URL {url!r}: {e}', type='debug')
             return False
 
-        # TODO possible make additonal checks of the particular properties
+        # TODO possible make additional checks of the particular properties
         # reported
 
         # we should be able to work with this.
@@ -514,7 +514,7 @@ class ArchivistRemote(SpecialRemote):
                          type='debug')
             return
 
-        # load arbitrary FSSPEC constructur arguments from configuration
+        # load arbitrary FSSPEC constructor arguments from configuration
         fs_kwargs = json.loads(self._getcfg('fsspec-fsargs', default='{}'))
 
         if self._archive_cache_mode == 'persistent-whole':

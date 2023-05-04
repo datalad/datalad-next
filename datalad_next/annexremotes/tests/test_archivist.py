@@ -66,7 +66,7 @@ def make_archive_dataset(wpath):
         archive_path = wpath / f"{archive_root}.{archivetype}{ext}"
 
         archive_path_inds = ads.pathobj / '.archives' / archive_path.name
-        # create an archive, the easiy way, by simply exporting the
+        # create an archive, the easy way, by simply exporting the
         # entire dataset worktree
         srcds.export_archive(wpath / archive_root, archivetype=archivetype,
                              **nonoise)
