@@ -15,6 +15,7 @@ from datalad.utils import (
     ensure_list,
     get_dataset_root,
     getargspec,
+    get_wrapped_class,
     knows_annex,
     on_linux,
     on_windows,
