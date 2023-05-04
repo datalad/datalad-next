@@ -1,6 +1,7 @@
 import os
 import pytest
 from datalad_next.tests.utils import SkipTest
+from datalad_next.utils import on_windows
 
 from ..fsspec import (
     FsspecUrlOperations,
@@ -20,8 +21,6 @@ def test_fsspec_download(tmp_path):
     # on different persistent storage locations
     ops = FsspecUrlOperations()
     for url in (
-        # included in a ZIP archive
-        'zip://datalad-datalad-cddbe22/requirements-devel.txt::https://zenodo.org/record/7497306/files/datalad/datalad-0.18.0.zip?download=1',
         # included in a TAR archive
         'tar://datalad-0.18.0/requirements-devel.txt::https://files.pythonhosted.org/packages/dd/5e/9be11886ef4c3c64e78a8cdc3f9ac3f27d2dac403a6337d5685cd5686770/datalad-0.18.0.tar.gz',
         # pushed to github
@@ -30,6 +29,15 @@ def test_fsspec_download(tmp_path):
         props = ops.download(url, tmp_path / 'dummy', hash=['md5'])
         assert props['md5'] == target_reqfile_md5sum
         assert (tmp_path / 'dummy').read_text() == target_reqfile_content
+
+    if not on_windows:
+        # included in a ZIP archive - currently seemingly broken for Windows in
+        # fsspec (https://github.com/fsspec/filesystem_spec/issues/1256)
+        url = 'zip://datalad-datalad-cddbe22/requirements-devel.txt::https://zenodo.org/record/7497306/files/datalad/datalad-0.18.0.zip?download=1'
+        props = ops.download(url, tmp_path / 'dummy', hash=['md5'])
+        assert props['md5'] == target_reqfile_md5sum
+        assert (tmp_path / 'dummy').read_text() == target_reqfile_content
+
     # test that we raise if access to a given URL fails
     url = 'github://something:non-existent@0.18.0/requirements-devel.txt'
     with pytest.raises(FileNotFoundError):
