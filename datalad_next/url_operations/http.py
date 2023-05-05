@@ -36,13 +36,28 @@ class HttpUrlOperations(UrlOperations):
     authentication challenges.
     """
 
-    _headers = {
-        'user-agent': user_agent('datalad', datalad.__version__),
-    }
+    def __init__(self, cfg=None, headers: Dict | None = None):
+        """
+        Parameters
+        ----------
+        cfg: ConfigManager, optional
+          A config manager instance that is consulted for any configuration
+          filesystem configuration individual handlers may support.
+        headers: dict, optional
+          Additional or alternative headers to add to a request. The default
+          headers contain a ``user-agent`` declaration. Any headers provided
+          here override corresponding defaults.
+        """
+        super().__init__(cfg=cfg)
+        self._headers = {
+            'user-agent': user_agent('datalad', datalad.__version__),
+        }
+        if headers:
+            self._headers.update(headers)
 
     def get_headers(self, headers: Dict | None = None) -> Dict:
         # start with the default
-        hdrs = dict(HttpUrlOperations._headers)
+        hdrs = dict(self._headers)
         if headers is not None:
             hdrs.update(headers)
         return hdrs
