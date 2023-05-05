@@ -52,7 +52,7 @@ from datalad_next.datasets import (
     LegacyAnnexRepo as AnnexRepo,
     Dataset,
 )
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')

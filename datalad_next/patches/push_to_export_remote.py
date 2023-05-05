@@ -32,7 +32,7 @@ from datalad_next.utils import (
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
 )
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')
