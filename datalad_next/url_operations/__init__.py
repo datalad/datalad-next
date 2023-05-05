@@ -11,6 +11,7 @@ from typing import (
 )
 
 import datalad
+from datalad_next.config import ConfigManager
 from datalad_next.utils import log_progress
 from datalad_next.utils.multihash import (
     MultiHash,
@@ -35,7 +36,7 @@ class UrlOperations:
     This class provides a range of helper methods to aid computation of
     hashes and progress reporting.
     """
-    def __init__(self, *, cfg=None):
+    def __init__(self, *, cfg: ConfigManager | None = None):
         """
         Parameters
         ----------
@@ -46,7 +47,7 @@ class UrlOperations:
         self._cfg = cfg
 
     @property
-    def cfg(self):
+    def cfg(self) -> ConfigManager:
 
         if self._cfg is None:
             self._cfg = datalad.cfg
