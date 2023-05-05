@@ -71,12 +71,12 @@ environment:
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
       DEPLOY_HTTPBIN_IMAGE: yes
     # Windows core tests
-    - ID: WinP39core
+    - ID: WinP310core
       # ~35 min
       DTS: datalad_next
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
       # Python version specification is non-standard on windows
-      PY: 39-x64
+      PY: 310-x64
       INSTALL_GITANNEX: git-annex -m datalad/packages
     # MacOS core tests
     - ID: MacP38core
