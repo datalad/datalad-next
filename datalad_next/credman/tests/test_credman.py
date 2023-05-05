@@ -11,7 +11,7 @@
 """
 import pytest
 
-from datalad.config import ConfigManager
+from datalad_next.config import ConfigManager
 from ..manager import (
     CredentialManager,
     _get_cred_cfg_var,

@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 from typing import Dict
 
+from datalad_next.config import ConfigManager
 from datalad_next.exceptions import CapturedException
 
 from . import UrlOperations
@@ -59,7 +60,7 @@ class AnyUrlOperations(UrlOperations):
     operations, such that held connections or cached credentials can be reused
     efficiently.
     """
-    def __init__(self, cfg=None):
+    def __init__(self, cfg: ConfigManager | None = None):
         """
         Parameters
         ----------
