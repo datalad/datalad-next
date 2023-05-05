@@ -9,7 +9,7 @@ a string-type parameter in this context.
 
 import logging
 
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 
 # use same logger as -core, looks weird but is correct
 lgr = logging.getLogger('datalad.dataset')

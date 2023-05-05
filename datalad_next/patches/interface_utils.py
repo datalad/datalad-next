@@ -32,7 +32,7 @@ from datalad.interface.utils import (
     _process_results,
 )
 from datalad_next.exceptions import IncompleteResultsError
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 from datalad_next.constraints.dataset import DatasetParameter
 
 # use same logger as -core

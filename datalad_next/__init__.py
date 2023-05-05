@@ -48,7 +48,7 @@ command_suite = (
 
 
 # patch datalad-core
-import datalad_next.patches
+import datalad_next.patches.enabled
 
 # register additional configuration items in datalad-core
 from datalad.support.extensions import register_config
