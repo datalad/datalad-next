@@ -39,6 +39,11 @@ command_suite = (
         (
             'datalad_next.commands.download', 'Download', 'download',
         ),
+        (
+            'datalad_next.commands.list_collection',
+            'ListCollection',
+            'list-collection',
+        ),
     ]
 )
 
