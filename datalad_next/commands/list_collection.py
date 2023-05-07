@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os.path
+from pathlib import Path
+from urllib.parse import urlparse
+
+import fsspec
 
 from datalad.interface.base import eval_results
 from datalad_next.commands import (
@@ -35,21 +38,50 @@ lgr = logging.getLogger('datalad.local.list_collection')
 action_name = 'list-collection'
 
 
-class ListCollectionParamValidator(EnsureCommandParameterization):
+# Collection types that are supported. Most are auto-detected. `annex` has to be
+# specified, because it always exists in combination with `git`, and  git` takes
+# preference. Therefore `annex` is never auto-detected.
+#
+# DataLad datasets (`dataset`-type) also always exists in combination with `git`
+# and take precedence over `git` and `annex`.
+#
+# A bare git repository is always autodetected as `git-bare`, even if it
+# contains a DataLad dataset or an annex
+known_types = [
+    'tar',
+    'zip',
+    'dataset',
+    'git',
+    'git-bare',
+    'directory',
+    'annex',
+    '7z',
+]
 
-    known_types = [
-        'tar',
-        'zip',
-        'dataset',
-        'git',
-        'directory',
-        'annex'
-    ]
+# File type identification by suffix
+known_suffixes = {
+    'tar': [['.tar'], ['.tgz'], ['.tar', '.gz']],
+    'zip': [['.zip']],
+    '7z': [['.7z']],
+}
+
+# Directory type identification by child names, the order of the entries matters
+identifying_children = {
+    'git-bare': [
+        'branches', 'config', 'description', 'HEAD',
+        'hooks', 'info', 'objects', 'refs'
+    ],
+    'dataset': ['.datalad'],
+    'git': ['.git'],
+}
+
+
+class ListCollectionParamValidator(EnsureCommandParameterization):
 
     def __init__(self):
         super().__init__(
             param_constraints=dict(
-                collection_type=EnsureChoice(*self.known_types)))
+                collection_type=EnsureChoice(*known_types)))
 
 
 @build_doc
@@ -122,3 +154,44 @@ def show_specfs_tree(filesystem, current_path=''):
         if element['type'] == 'directory':
             yield from show_specfs_tree(
                 filesystem, element['name'])
+
+
+def detect_collection_type(url) -> str:
+
+    open_file = fsspec.open(url)
+    base_path = Path(urlparse(open_file.full_name).path)
+
+    # We use an appended '/' to detect subdirectories because
+    # some file systems signal a file at a directory
+    # name. For example, a HTTP server provide
+    # some content, e.g. a HTML page that lists the
+    # directory. We could work around that by adding
+    # a trailing '/' (at least on unix) to the path,
+    # but we can also let fsspec do that vie the `ls`
+    # file system method. We do the latter, because
+    # we need the subdirectories anyway
+
+    if open_file.fs.isdir(open_file.full_name + '/'):
+
+        # For the remaining checks, we need the relative child names.
+        children = open_file.fs.ls(open_file.full_name)
+        child_names = [Path(urlparse(url).path).name for url in children]
+
+        for type_identifier, children_list in identifying_children.items():
+            if all([identifying_child in child_names
+                    for identifying_child in children_list]):
+                collection_type = type_identifier
+                break
+        else:
+            collection_type = 'directory'
+
+    else:
+
+        for type_identifier, suffixes_list in known_suffixes.items():
+            if base_path.suffixes in suffixes_list:
+                collection_type = type_identifier
+                break
+        else:
+            collection_type = 'file'
+
+    return collection_type
