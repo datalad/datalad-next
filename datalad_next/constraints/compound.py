@@ -81,13 +81,17 @@ class EnsureIterableOf(Constraint):
             # __len__, for example
             iter_len = len(iter)
             if self._min_len is not None and iter_len < self._min_len:
-                raise ValueError(
-                    f'Length-{iter_len} iterable is shorter than '
-                    f'required minimum length {self._min_len}')
+                self.raise_for(
+                    iter,
+                    'must have minimum length {len}',
+                    len=self._min_len,
+                )
             if self._max_len is not None and iter_len > self._max_len:
-                raise ValueError(
-                    f'Length-{iter_len} iterable is longer than '
-                    f'required maximum length {self._max_len}')
+                self.raise_for(
+                    iter,
+                    'must not exceed maximum length {len}',
+                    len=self._max_len,
+                )
         return iter
 
     def short_description(self):

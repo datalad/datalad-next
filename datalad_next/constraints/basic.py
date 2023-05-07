@@ -43,7 +43,11 @@ class EnsureValue(Constraint):
         if value == self._target_value:
             return value
         else:
-            raise ValueError(f"value must be {self._target_value!r}")
+            raise self.raise_for(
+                value,
+                "must be {target_value!r}",
+                target_value=self._target_value,
+            )
 
     def short_description(self):
         return f'{self._target_value!r}'
@@ -120,9 +124,7 @@ class EnsureBool(Constraint):
                 return False
             elif value in ('1', 'yes', 'on', 'enable', 'true'):
                 return True
-        raise ValueError(
-            "value '{}' must be convertible to boolean".format(
-                value))
+        raise self.raise_for(value, "must be convertible to boolean")
 
     def long_description(self):
         return 'value must be convertible to type bool'
@@ -162,14 +164,17 @@ class EnsureStr(Constraint):
             # do not perform a blind conversion ala str(), as almost
             # anything can be converted and the result is most likely
             # unintended
-            raise ValueError("%s is not a string" % repr(value))
+            raise self.raise_for(value, "must be a string")
         if len(value) < self._min_len:
-            raise ValueError("%r is shorter than of minimal length %d"
-                             % (value, self._min_len))
+            raise self.raise_for(value, "must have minimum length {len}",
+                                 len=self._min_len)
         if self._match:
             if not self._match.match(value):
-                raise ValueError(
-                    f'{value} does not match {self._match.pattern}')
+                raise self.raise_for(
+                    value,
+                    'does not match {pattern}',
+                    pattern=self._match.pattern,
+                )
         return value
 
     def long_description(self):
@@ -203,8 +208,11 @@ class EnsureStrPrefix(EnsureStr):
     def __call__(self, value):
         super().__call__(value)
         if not value.startswith(self._prefix):
-            raise ValueError("%r does not start with '%s'"
-                             % (value, self._prefix))
+            raise self.raise_for(
+                value,
+                "does not start with {prefix!r}",
+                prefix=self._prefix,
+            )
         return value
 
     def long_description(self):
@@ -226,7 +234,7 @@ class EnsureCallable(Constraint):
         if hasattr(value, '__call__'):
             return value
         else:
-            raise ValueError("value must be a callable")
+            raise self.raise_for(value, "must be a callable")
 
     def short_description(self):
         return 'callable'
@@ -285,7 +293,7 @@ class EnsureKeyChoice(EnsureChoice):
 
     def __call__(self, value):
         if self._key not in value:
-            raise ValueError("value not dict-like")
+            self.raise_for(value, "must be dict-like")
         super(EnsureKeyChoice, self).__call__(value[self._key])
         return value
 

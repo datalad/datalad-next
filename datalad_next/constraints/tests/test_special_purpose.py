@@ -367,5 +367,5 @@ def test_EnsureDataset(tmp_path):
     # bring it back later in case future tests need it
     id = ds.config.get('datalad.dataset.id')
     ds.config.unset('datalad.dataset.id', scope='branch')
-    with pytest.raises(NoDatasetFound):
+    with pytest.raises(ValueError):
         EnsureDataset(require_id=True)(tmp_path)
