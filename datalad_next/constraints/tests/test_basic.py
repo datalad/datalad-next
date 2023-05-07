@@ -298,9 +298,8 @@ def test_EnsurePath(tmp_path):
     with pytest.raises(ValueError):
         assert c(target)
     assert c.short_description() == f'path that is parent-of {target}'
-    c = EnsurePath(ref=target, ref_is='stupid')
-    with pytest.raises(ValueError):
-        c('doesnotmatter')
+    with pytest.raises(AssertionError):
+        c = EnsurePath(ref=target, ref_is='stupid')
 
 
 def test_EnsurePath_fordataset(existing_dataset):
