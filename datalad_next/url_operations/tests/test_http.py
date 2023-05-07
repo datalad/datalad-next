@@ -1,6 +1,7 @@
 from pathlib import Path
 import pytest
 
+from ..any import AnyUrlOperations
 from ..http import (
     HttpUrlOperations,
     UrlOperationsRemoteError,
@@ -42,3 +43,17 @@ def test_http_url_operations(credman, httpbin, tmp_path):
         ops.stat(f'{hbsurl}/status/404')
     with pytest.raises(UrlOperationsResourceUnknown):
         ops.download(f'{hbsurl}/status/404', tmp_path / 'dontmatter')
+
+
+def test_custom_http_headers_via_config(datalad_cfg):
+    for k, v in (
+            ('datalad.url-handler.http.*.class',
+             'datalad_next.url_operations.http.HttpUrlOperations'),
+            ('datalad.url-handler.http.*.kwargs',
+             '{"headers": {"X-Funky": "Stuff"}}'),
+    ):
+        datalad_cfg.set(k, v, scope='global', reload=False)
+    datalad_cfg.reload()
+    auo = AnyUrlOperations()
+    huo = auo._get_handler(f'http://example.com')
+    assert huo._headers['X-Funky'] == 'Stuff'
