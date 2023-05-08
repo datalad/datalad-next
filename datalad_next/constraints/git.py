@@ -35,7 +35,7 @@ class EnsureGitRefName(Constraint):
     def __call__(self, value: str) -> str:
         if not value:
             # simple, do here
-            raise ValueError('refname must not be empty')
+            self.raise_for(value, 'refname must not be empty')
 
         from datalad.runner import GitRunner, StdOutCapture
         from datalad_next.exceptions import CommandError
@@ -54,7 +54,11 @@ class EnsureGitRefName(Constraint):
         try:
             out = runner.run(cmd, protocol=StdOutCapture)
         except CommandError as e:
-            raise ValueError(f'{value} is not a valid refname') from e
+            self.raise_for(
+                value,
+                'is not a valid refname',
+                __caused_by__=e,
+            )
 
         if self._normalize:
             return out['stdout'].strip()

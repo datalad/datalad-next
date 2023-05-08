@@ -70,21 +70,20 @@ class EnsureDataset(Constraint):
         # anticipate what require_dataset() could handle and fail if we got
         # something else
         elif not isinstance(value, (str, PurePath, type(None))):
-            raise TypeError(f"Cannot create Dataset from {type(value)}")
+            self.raise_for(
+                value, "cannot create Dataset from {type}", type=type(value)
+            )
         else:
             ds = self._require_dataset(value)
         assert ds
         if self._installed is not None:
             is_installed = ds.is_installed()
             if self._installed is False and is_installed:
-                raise ValueError(f'{ds} already exists locally')
+                self.raise_for(ds, 'already exists locally')
             if self._installed and not is_installed:
-                # for uniformity with require_dataset() below, use
-                # this custom exception
-                raise NoDatasetFound(f'{ds} is not installed')
+                self.raise_for(ds, 'not installed')
         if self._require_id and not ds.id:
-            raise NoDatasetFound(f'{ds} does not have a valid '
-                                 f'datalad-id')
+            self.raise_for(ds, 'does not have a valid datalad-id')
         return DatasetParameter(value, ds)
 
     def short_description(self) -> str:

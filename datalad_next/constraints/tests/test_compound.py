@@ -64,7 +64,7 @@ def test_EnsureIterableOf():
     with pytest.raises(ValueError):
         # invalid specification min>max
         EnsureIterableOf(list, bool, min_len=1, max_len=0)
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         # item_constraint fails
         EnsureIterableOf(list, dict)([5.6, 3.2])
     with pytest.raises(ValueError):

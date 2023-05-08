@@ -43,7 +43,11 @@ class EnsureValue(Constraint):
         if value == self._target_value:
             return value
         else:
-            raise ValueError(f"value must be {self._target_value!r}")
+            self.raise_for(
+                value,
+                "must be {target_value!r}",
+                target_value=self._target_value,
+            )
 
     def short_description(self):
         return f'{self._target_value!r}'
@@ -120,9 +124,7 @@ class EnsureBool(Constraint):
                 return False
             elif value in ('1', 'yes', 'on', 'enable', 'true'):
                 return True
-        raise ValueError(
-            "value '{}' must be convertible to boolean".format(
-                value))
+        self.raise_for(value, "must be convertible to boolean")
 
     def long_description(self):
         return 'value must be convertible to type bool'
@@ -162,14 +164,17 @@ class EnsureStr(Constraint):
             # do not perform a blind conversion ala str(), as almost
             # anything can be converted and the result is most likely
             # unintended
-            raise ValueError("%s is not a string" % repr(value))
+            self.raise_for(value, "must be a string")
         if len(value) < self._min_len:
-            raise ValueError("%r is shorter than of minimal length %d"
-                             % (value, self._min_len))
+            self.raise_for(value, "must have minimum length {len}",
+                                 len=self._min_len)
         if self._match:
             if not self._match.match(value):
-                raise ValueError(
-                    f'{value} does not match {self._match.pattern}')
+                self.raise_for(
+                    value,
+                    'does not match {pattern}',
+                    pattern=self._match.pattern,
+                )
         return value
 
     def long_description(self):
@@ -203,8 +208,11 @@ class EnsureStrPrefix(EnsureStr):
     def __call__(self, value):
         super().__call__(value)
         if not value.startswith(self._prefix):
-            raise ValueError("%r does not start with '%s'"
-                             % (value, self._prefix))
+            self.raise_for(
+                value,
+                "does not start with {prefix!r}",
+                prefix=self._prefix,
+            )
         return value
 
     def long_description(self):
@@ -226,7 +234,7 @@ class EnsureCallable(Constraint):
         if hasattr(value, '__call__'):
             return value
         else:
-            raise ValueError("value must be a callable")
+            self.raise_for(value, "must be a callable")
 
     def short_description(self):
         return 'callable'
@@ -285,7 +293,7 @@ class EnsureKeyChoice(EnsureChoice):
 
     def __call__(self, value):
         if self._key not in value:
-            raise ValueError("value not dict-like")
+            self.raise_for(value, "must be dict-like")
         super(EnsureKeyChoice, self).__call__(value[self._key])
         return value
 
@@ -382,7 +390,7 @@ class EnsurePath(Constraint):
         ref:
           If set, defines a reference Path any given path is compared to. The
           comparison operation is given by `ref_is`.
-        ref_is: {'parent-or-identical'}
+        ref_is: {'parent-or-same-as', 'parent-of'}
           Comparison operation to perform when `ref` is given.
         dsarg: DatasetParameter, optional
           If given, incoming paths are resolved in the following fashion:
@@ -399,6 +407,8 @@ class EnsurePath(Constraint):
         self._ref = ref
         self._ref_is = ref_is
         self._dsarg = dsarg
+        assert self._ref_is in ('parent-or-same-as', 'parent-of'), \
+            'Unrecognized `ref_is` operation label'
 
     def __call__(self, value):
         # turn it into the target type to make everything below
@@ -410,9 +420,9 @@ class EnsurePath(Constraint):
         if self._is_format is not None:
             is_abs = path.is_absolute()
             if self._is_format == 'absolute' and not is_abs:
-                raise ValueError(f'{path} is not an absolute path')
+                self.raise_for(path, 'is not an absolute path')
             elif self._is_format == 'relative' and is_abs:
-                raise ValueError(f'{path} is not a relative path')
+                self.raise_for(path, 'is not a relative path')
 
         # resolve relative paths against a dataset, if given
         if self._dsarg:
@@ -430,24 +440,30 @@ class EnsurePath(Constraint):
                 pass
         if self._lexists is not None:
             if self._lexists and mode is None:
-                raise ValueError(f'{path} does not exist')
+                self.raise_for(path, 'does not exist')
             elif not self._lexists and mode is not None:
-                raise ValueError(f'{path} does (already) exist')
+                self.raise_for(path, 'does (already) exist')
         if self._is_mode is not None:
             if not self._is_mode(mode):
-                raise ValueError(f'{path} does not match desired mode')
+                self.raise_for(path, 'does not match desired mode')
         if self._ref:
             ok = True
             if self._ref_is == 'parent-or-same-as':
                 ok = (path == self._ref or self._ref in path.parents)
             elif self._ref_is == 'parent-of':
                 ok = self._ref in path.parents
-            else:
-                raise ValueError('Unknown `ref_is` operation label')
+            else:  # pragma: nocover
+                # this code cannot be reached with normal usage.
+                # it is prevented by an assertion in __init__()
+                raise RuntimeError('Unknown `ref_is` operation label')
 
             if not ok:
-                raise ValueError(
-                    f'{self._ref} is not {self._ref_is} {path}')
+                self.raise_for(
+                    path,
+                    '{ref} is not {ref_is} {path}',
+                    ref=self._ref,
+                    ref_is=self._ref_is,
+                )
         return path
 
     def for_dataset(self, dataset: DatasetParameter) -> Constraint:
