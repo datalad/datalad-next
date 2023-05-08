@@ -85,7 +85,7 @@ def test_EnsureParameterConstraint():
         Parameter(nargs=2),
         (None, None))
     assert c({'some': [3, 4]}) == dict(some=[3, 4])
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         c({'some': 3})
     with pytest.raises(ValueError):
         c({'some': [3, 4, 5]})
@@ -119,9 +119,9 @@ def test_EnsureParameterConstraint():
     with pytest.raises(ValueError):
         c({'some': [[3, 2], [1]]})
     # no iterable
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         c({'some': [3, [1, 2]]})
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         c({'some': 3})
     # overwrite an item constraint and nargs
     c = EnsureParameterConstraint.from_parameter(
@@ -297,7 +297,7 @@ def test_EnsureURL_match():
 
 
 def test_EnsureDataset(tmp_path):
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         # will not return a Dataset from sensless input
         EnsureDataset()(5)
     # by default the installation state is not checked

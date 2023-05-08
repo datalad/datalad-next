@@ -73,9 +73,16 @@ class EnsureIterableOf(Constraint):
         return self._item_constraint
 
     def __call__(self, value):
-        iter = self._iter_type(
-            self._item_constraint(i) for i in value
-        )
+        try:
+            iter = self._iter_type(
+                self._item_constraint(i) for i in value
+            )
+        except TypeError as e:
+            self.raise_for(
+                value,
+                "cannot coerce to target (item) type",
+                __caused_by__=e,
+            )
         if self._min_len is not None or self._max_len is not None:
             # only do this if necessary, generators will not support
             # __len__, for example

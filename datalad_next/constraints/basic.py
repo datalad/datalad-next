@@ -43,7 +43,7 @@ class EnsureValue(Constraint):
         if value == self._target_value:
             return value
         else:
-            raise self.raise_for(
+            self.raise_for(
                 value,
                 "must be {target_value!r}",
                 target_value=self._target_value,
@@ -124,7 +124,7 @@ class EnsureBool(Constraint):
                 return False
             elif value in ('1', 'yes', 'on', 'enable', 'true'):
                 return True
-        raise self.raise_for(value, "must be convertible to boolean")
+        self.raise_for(value, "must be convertible to boolean")
 
     def long_description(self):
         return 'value must be convertible to type bool'
@@ -164,13 +164,13 @@ class EnsureStr(Constraint):
             # do not perform a blind conversion ala str(), as almost
             # anything can be converted and the result is most likely
             # unintended
-            raise self.raise_for(value, "must be a string")
+            self.raise_for(value, "must be a string")
         if len(value) < self._min_len:
-            raise self.raise_for(value, "must have minimum length {len}",
+            self.raise_for(value, "must have minimum length {len}",
                                  len=self._min_len)
         if self._match:
             if not self._match.match(value):
-                raise self.raise_for(
+                self.raise_for(
                     value,
                     'does not match {pattern}',
                     pattern=self._match.pattern,
@@ -208,7 +208,7 @@ class EnsureStrPrefix(EnsureStr):
     def __call__(self, value):
         super().__call__(value)
         if not value.startswith(self._prefix):
-            raise self.raise_for(
+            self.raise_for(
                 value,
                 "does not start with {prefix!r}",
                 prefix=self._prefix,
@@ -234,7 +234,7 @@ class EnsureCallable(Constraint):
         if hasattr(value, '__call__'):
             return value
         else:
-            raise self.raise_for(value, "must be a callable")
+            self.raise_for(value, "must be a callable")
 
     def short_description(self):
         return 'callable'

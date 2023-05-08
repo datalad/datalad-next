@@ -70,7 +70,9 @@ class EnsureDataset(Constraint):
         # anticipate what require_dataset() could handle and fail if we got
         # something else
         elif not isinstance(value, (str, PurePath, type(None))):
-            raise TypeError(f"Cannot create Dataset from {type(value)}")
+            self.raise_for(
+                value, "cannot create Dataset from {type}", type=type(value)
+            )
         else:
             ds = self._require_dataset(value)
         assert ds
