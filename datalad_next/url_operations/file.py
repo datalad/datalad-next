@@ -250,10 +250,9 @@ class FileUrlOperations(UrlOperations):
                 self._progress_report_update(
                     progress_id, update_log, chunk_size)
                 # compute hash simultaneously
-                for h in hasher:
-                    h.update(chunk)
+                hasher.update(chunk)
                 copy_size += chunk_size
-            props.update(self._get_hash_report(hash, hasher))
+            props.update(hasher.get_hexdigest())
             # return how much was copied. we could compare with
             # `expected_size` and error on mismatch, but not all
             # sources can provide that (e.g. stdin)

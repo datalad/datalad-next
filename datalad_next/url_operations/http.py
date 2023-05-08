@@ -266,9 +266,8 @@ class HttpUrlOperations(UrlOperations):
                 self._progress_report_update(
                     progress_id, ('Downloaded chunk',), len(chunk))
                 # compute hash simultaneously
-                for h in hasher:
-                    h.update(chunk)
-            props.update(self._get_hash_report(hash, hasher))
+                hasher.update(chunk)
+            props.update(hasher.get_hexdigest())
             return props
         finally:
             if fp and to_path is not None:
