@@ -6,4 +6,5 @@
 
    directory
    tarfile
+   utils
 """

@@ -1,3 +1,4 @@
+from pathlib import PurePath
 import pytest
 
 from datalad_next.tests.utils import (
@@ -8,7 +9,7 @@ from datalad_next.utils import check_symlink_capability
 
 from ..directory import (
     IterdirItem,
-    PathType,
+    FileSystemItemType,
     iterdir,
 )
 
@@ -37,18 +38,18 @@ def dir_tree(tmp_path_factory):
 
 def test_iterdir(dir_tree):
     target_paths = [
-        (dir_tree / 'random_file1.txt', PathType.file, {}),
-        (dir_tree / 'some_dir', PathType.directory, {}),
+        (dir_tree / 'random_file1.txt', FileSystemItemType.file, {}),
+        (dir_tree / 'some_dir', FileSystemItemType.directory, {}),
     ]
     if check_symlink_capability(dir_tree / '__dummy1__',
                                 dir_tree / '__dummy2__'):
         target_paths.append((
-            dir_tree / 'symlink', PathType.symlink,
+            dir_tree / 'symlink', FileSystemItemType.symlink,
             dict(link_target=dir_tree / 'some_dir' / "file_in_dir.txt"),
         ))
     target = [
         IterdirItem(
-            path=path,
+            name=PurePath(path.name),
             type=type,
             size=path.lstat().st_size,
             mode=path.lstat().st_mode,

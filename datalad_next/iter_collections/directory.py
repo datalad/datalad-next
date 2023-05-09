@@ -3,42 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 import os
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePath,
+)
 import stat
 from typing import (
-    Dict,
     Generator,
     List
 )
 
 from datalad_next.exceptions import CapturedException
-from datalad_next.utils.consts import COPY_BUFSIZE
-from datalad_next.utils.multihash import MultiHash
 
-
-# TODO Could be `StrEnum`, came with PY3.11
-class PathType(Enum):
-    """Enumeration of path types distinguished by ``iterdir()``
-
-    The associated ``str`` values are chosen to be appropriate for
-    downstream use (e.g, as type labels in DataLad result records).
-    """
-    file = 'file'
-    directory = 'directory'
-    symlink = 'symlink'
+from .utils import (
+    FileSystemItem,
+    FileSystemItemType,
+    compute_multihash_from_fp,
+)
 
 
 @dataclass(kw_only=True)
-class IterdirItem:
-    path: Path
-    type: PathType
-    size: int
-    mtime: float
-    mode: int
-    link_target: Path | None = None
-    hash: Dict[str, str] | None = None
+class IterdirItem(FileSystemItem):
+    pass
 
 
 def iterdir(
@@ -74,35 +61,29 @@ def iterdir(
             continue
         cmode = cstat.st_mode
         if stat.S_ISLNK(cmode):
-            ctype = PathType.symlink
+            ctype = FileSystemItemType.symlink
         elif stat.S_ISDIR(cmode):
-            ctype = PathType.directory
+            ctype = FileSystemItemType.directory
         else:
             # the rest is a file
             # there could be fifos and sockets, etc.
             # but we do not recognize them here
-            ctype = PathType.file
+            ctype = FileSystemItemType.file
         item = IterdirItem(
-            path=c,
+            name=PurePath(c.name),
             type=ctype,
             size=cstat.st_size,
             mode=cmode,
             mtime=cstat.st_mtime,
             hash=_compute_hash(c, hash)
-            if hash and ctype == PathType.file else None,
+            if hash and ctype == FileSystemItemType.file else None,
         )
-        if ctype == PathType.symlink:
+        if ctype == FileSystemItemType.symlink:
             # could be p.readlink() from PY3.9+
-            item.link_target = Path(os.readlink(c))
+            item.link_target = PurePath(os.readlink(c))
         yield item
 
 
 def _compute_hash(fpath: Path, hash: List[str]):
     with fpath.open('rb') as f:
-        hash = MultiHash(hash)
-        while True:
-            chunk = f.read(COPY_BUFSIZE)
-            if not chunk:
-                break
-            hash.update(chunk)
-    return hash.get_hexdigest()
+        return compute_multihash_from_fp(f, hash)
