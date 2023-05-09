@@ -8,4 +8,5 @@ High-level API commands
    create_sibling_webdav
    credentials
    download
+   ls_file_collection
    tree

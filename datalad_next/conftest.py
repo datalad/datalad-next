@@ -33,3 +33,8 @@ from datalad_next.tests.fixtures import (
     # function-scope, serve a local temp-path via WebDAV
     webdav_server,
 )
+from datalad_next.iter_collections.tests.test_itertar import (
+    # session-scope, downloads a tarball with a set of standard
+    # file/dir/link types
+    sample_tar_xz,
+)
