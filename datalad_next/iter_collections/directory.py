@@ -7,9 +7,15 @@ from enum import Enum
 import os
 from pathlib import Path
 import stat
-from typing import Generator
+from typing import (
+    Dict,
+    Generator,
+    List
+)
 
 from datalad_next.exceptions import CapturedException
+from datalad_next.utils.consts import COPY_BUFSIZE
+from datalad_next.utils.multihash import MultiHash
 
 
 class PathType(Enum):
@@ -23,10 +29,12 @@ class IterdirItem:
     path: Path
     type: PathType
     symlink_target: Path | None = None
+    hash: Dict[str, str] | None = None
 
 
 def iterdir(
     path: Path,
+    hash: List[str] | None = None,
     symlink_targets: bool = True,
 ) -> Generator[IterdirItem, None, None]:
     """Use ``Path.iterdir()`` to iterate over a directory and report content
@@ -71,8 +79,21 @@ def iterdir(
         item = IterdirItem(
             path=c,
             type=ctype,
+            hash=_compute_hash(c, hash)
+            if hash and ctype == PathType.file else None,
         )
         if ctype == PathType.symlink:
             # could be p.readlink() from PY3.9+
             item.symlink_target = Path(os.readlink(c))
         yield item
+
+
+def _compute_hash(fpath: Path, hash: List[str]):
+    with fpath.open('rb') as f:
+        hash = MultiHash(hash)
+        while True:
+            chunk = f.read(COPY_BUFSIZE)
+            if not chunk:
+                break
+            hash.update(chunk)
+    return hash.get_hexdigest()
