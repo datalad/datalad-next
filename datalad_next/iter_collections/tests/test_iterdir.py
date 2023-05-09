@@ -36,19 +36,27 @@ def dir_tree(tmp_path_factory):
 
 
 def test_iterdir(dir_tree):
-    target = [
-        IterdirItem(path=dir_tree / 'random_file1.txt', type=PathType.file),
-        IterdirItem(path=dir_tree / 'some_dir', type=PathType.directory),
+    target_paths = [
+        (dir_tree / 'random_file1.txt', PathType.file, {}),
+        (dir_tree / 'some_dir', PathType.directory, {}),
     ]
     if check_symlink_capability(dir_tree / '__dummy1__',
                                 dir_tree / '__dummy2__'):
-        target.append(
-            IterdirItem(
-                path=dir_tree / 'symlink',
-                type=PathType.symlink,
-                symlink_target=dir_tree / 'some_dir' / "file_in_dir.txt",
-            ),
+        target_paths.append((
+            dir_tree / 'symlink', PathType.symlink,
+            dict(link_target=dir_tree / 'some_dir' / "file_in_dir.txt"),
+        ))
+    target = [
+        IterdirItem(
+            path=path,
+            type=type,
+            size=path.lstat().st_size,
+            mode=path.lstat().st_mode,
+            mtime=path.lstat().st_mtime,
+            **kwa
         )
+        for path, type, kwa in target_paths
+    ]
 
     iterdir_res = list(iterdir(dir_tree))
     assert len(iterdir_res) == len(target)

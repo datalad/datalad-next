@@ -29,10 +29,13 @@ class PathType(StrEnum):
     symlink = 'symlink'
 
 
-@dataclass
+@dataclass(kw_only=True)
 class IterdirItem:
     path: Path
     type: PathType
+    size: int
+    mtime: float
+    mode: int
     link_target: Path | None = None
     hash: Dict[str, str] | None = None
 
@@ -64,10 +67,11 @@ def iterdir(
         # c could disappear while this is running. Example: temp files managed
         # by other processes.
         try:
-            cmode = c.lstat().st_mode
+            cstat = c.lstat()
         except FileNotFoundError as e:
             CapturedException(e)
             continue
+        cmode = cstat.st_mode
         if stat.S_ISLNK(cmode):
             ctype = PathType.symlink
         elif stat.S_ISDIR(cmode):
@@ -80,6 +84,9 @@ def iterdir(
         item = IterdirItem(
             path=c,
             type=ctype,
+            size=cstat.st_size,
+            mode=cmode,
+            mtime=cstat.st_mtime,
             hash=_compute_hash(c, hash)
             if hash and ctype == PathType.file else None,
         )
