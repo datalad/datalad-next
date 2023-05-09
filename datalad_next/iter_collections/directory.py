@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 import os
 from pathlib import Path
 import stat
@@ -18,7 +18,8 @@ from datalad_next.utils.consts import COPY_BUFSIZE
 from datalad_next.utils.multihash import MultiHash
 
 
-class PathType(StrEnum):
+# TODO Could be `StrEnum`, came with PY3.11
+class PathType(Enum):
     """Enumeration of path types distinguished by ``iterdir()``
 
     The associated ``str`` values are chosen to be appropriate for

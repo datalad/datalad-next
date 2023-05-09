@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 from pathlib import (
     Path,
     PurePosixPath,
@@ -19,7 +19,8 @@ from datalad_next.utils.consts import COPY_BUFSIZE
 from datalad_next.utils.multihash import MultiHash
 
 
-class TarMemberType(StrEnum):
+# TODO Could be `StrEnum`, came with PY3.11
+class TarMemberType(Enum):
     """Enumeration of member types distinguished by ``itertar()``
 
     The associated ``str`` values are chosen to be appropriate for
