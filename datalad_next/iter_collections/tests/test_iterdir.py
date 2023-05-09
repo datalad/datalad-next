@@ -39,7 +39,9 @@ def dir_tree(tmp_path_factory):
 
 def test_iterdir(dir_tree):
     target_paths = [
-        (dir_tree / 'random_file1.txt', FileSystemItemType.file, {}),
+        (dir_tree / 'random_file1.txt', FileSystemItemType.file,
+         dict(hash=dict(md5='9893532233caff98cd083a116b013c0b',
+                        SHA1='94e66df8cd09d410c62d9e0dc59d3a884e458e05'))),
         (dir_tree / 'some_dir', FileSystemItemType.directory, {}),
     ]
     if check_symlink_capability(dir_tree / '__dummy1__',
@@ -66,7 +68,8 @@ def test_iterdir(dir_tree):
 
     iterdir_res = list(iterdir(dir_tree))
     assert len(iterdir_res) == len(target)
-    for item in iterdir(dir_tree):
+    # capitalization of algorithm labels is preserved
+    for item in iterdir(dir_tree, hash=['md5', 'SHA1']):
         assert item in target
 
     # check iterdir() to be robust to concurrent removal
