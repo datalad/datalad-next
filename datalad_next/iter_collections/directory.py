@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 import os
 from pathlib import Path
 import stat
@@ -18,7 +18,12 @@ from datalad_next.utils.consts import COPY_BUFSIZE
 from datalad_next.utils.multihash import MultiHash
 
 
-class PathType(Enum):
+class PathType(StrEnum):
+    """Enumeration of path types distinguished by ``iterdir()``
+
+    The associated ``str`` values are chosen to be appropriate for
+    downstream use (e.g, as type labels in DataLad result records).
+    """
     file = 'file'
     directory = 'directory'
     symlink = 'symlink'
@@ -28,7 +33,7 @@ class PathType(Enum):
 class IterdirItem:
     path: Path
     type: PathType
-    symlink_target: Path | None = None
+    link_target: Path | None = None
     hash: Dict[str, str] | None = None
 
 
@@ -47,7 +52,7 @@ def iterdir(
     ----------
     path: Path
       Path of the directory to report content for (iterate over).
-    symlink_targets: bool, optional
+    link_targets: bool, optional
       Flag whether to read and report the target path of a symbolic link.
 
 
@@ -55,10 +60,6 @@ def iterdir(
     ------
     :class:`IterdirItem`
     """
-    # anything reported from here will be state=untracked
-    # figure out the type, as far as we need it
-    # right now we do not detect a subdir to be a dataset
-    # vs a directory, only directories
     for c in path.iterdir():
         # c could disappear while this is running. Example: temp files managed
         # by other processes.
@@ -84,7 +85,7 @@ def iterdir(
         )
         if ctype == PathType.symlink:
             # could be p.readlink() from PY3.9+
-            item.symlink_target = Path(os.readlink(c))
+            item.link_target = Path(os.readlink(c))
         yield item
 
 
