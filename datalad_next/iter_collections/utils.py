@@ -28,7 +28,7 @@ class FileSystemItemType(Enum):
     specialfile = 'file'
 
 
-@dataclass(kw_only=True)
+@dataclass  # sadly PY3.10+ only (kw_only=True)
 class FileSystemItem:
     name: PurePath
     type: FileSystemItemType

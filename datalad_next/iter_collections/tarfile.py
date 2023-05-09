@@ -20,7 +20,7 @@ from .utils import (
 )
 
 
-@dataclass(kw_only=True)
+@dataclass  # sadly PY3.10+ only (kw_only=True)
 class ItertarItem(FileSystemItem):
     pass
 
