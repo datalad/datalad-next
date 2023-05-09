@@ -1,3 +1,4 @@
+import os
 from pathlib import PurePath
 import pytest
 
@@ -45,7 +46,11 @@ def test_iterdir(dir_tree):
                                 dir_tree / '__dummy2__'):
         target_paths.append((
             dir_tree / 'symlink', FileSystemItemType.symlink,
-            dict(link_target=dir_tree / 'some_dir' / "file_in_dir.txt"),
+            # how `readlink()` behaves on windows is fairly complex
+            # rather than anticipating a result (that changes with
+            # python version, see https://bugs.python.org/issue42957),
+            # we simply test that this is compatible with `os.readlink()`
+            dict(link_target=PurePath(os.readlink(dir_tree / 'symlink'))),
         ))
     target = [
         IterdirItem(
