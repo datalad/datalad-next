@@ -12,6 +12,10 @@ from typing import (
 
 import datalad
 from datalad_next.utils import log_progress
+from datalad_next.utils.multihash import (
+    MultiHash,
+    NoOpHash,
+)
 
 lgr = logging.getLogger('datalad.ext.next.url_operations')
 
@@ -319,28 +323,9 @@ class UrlOperations:
             noninteractive_level=logging.DEBUG,
         )
 
-    def _get_hasher(self, hash: list[str] | None) -> list[callable]:
-        if not hash:
-            return []
+    def _get_hasher(self, hash: list[str] | None) -> NoOpHash | MultiHash:
+        return MultiHash(hash) if hash is not None else NoOpHash()
 
-        import hashlib
-        # yes, this will crash, if an invalid hash algorithm name
-        # is given
-        _hasher = []
-        for h in hash:
-            hr = getattr(hashlib, h.lower(), None)
-            if hr is None:
-                raise ValueError(f'unsupported hash algorithm {h}')
-            _hasher.append(hr())
-        return _hasher
-
-    def _get_hash_report(self,
-                         hash_names: list[str] | None,
-                         hashers: list) -> Dict:
-        if not hash_names:
-            return {}
-        else:
-            return dict(zip(hash_names, [h.hexdigest() for h in hashers]))
 
 #
 # Exceptions to be used by all handlers

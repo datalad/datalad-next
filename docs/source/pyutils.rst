@@ -18,5 +18,6 @@ Python utilities
    url_operations.ssh
    utils
    utils.http_helpers
+   utils.multihash
    utils.requests_auth
    tests.fixtures

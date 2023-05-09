@@ -185,11 +185,10 @@ class SshUrlOperations(UrlOperations):
                 # write data
                 dst_fp_write(chunk)
                 # compute hash simultaneously
-                for h in hasher:
-                    h.update(chunk)
+                hasher.update(chunk)
                 self._progress_report_update(
                     progress_id, ('Downloaded chunk',), len(chunk))
-            props.update(self._get_hash_report(hash, hasher))
+            props.update(hasher.get_hexdigest())
             return props
         except CommandError as e:
             if e.code == 244:
@@ -283,8 +282,7 @@ class SshUrlOperations(UrlOperations):
                     break
                 chunk_size = len(chunk)
                 # compute hash simultaneously
-                for h in hasher:
-                    h.update(chunk)
+                hasher.update(chunk)
                 # we are just putting stuff in the queue, and rely on
                 # its maxsize to cause it to block the next call to
                 # have the progress reports be anyhow valid
@@ -313,7 +311,7 @@ class SshUrlOperations(UrlOperations):
             f"return value: {ssh_runner_generator.return_code}"
 
         return {
-            **self._get_hash_report(hash_names, hasher),
+            **hasher.get_hexdigest(),
             # return how much was copied. we could compare with
             # `expected_size` and error on mismatch, but not all
             # sources can provide that (e.g. stdin)
