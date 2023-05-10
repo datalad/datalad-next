@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import (
     Path,
+    PurePath,
     PurePosixPath,
 )
 import tarfile
@@ -55,7 +56,8 @@ def itertar(
                 size=member.size,
                 mode=member.mode,
                 mtime=member.mtime,
-                link_target=member.linkname or None,
+                link_target=PurePath(PurePosixPath(member.linkname))
+                if member.linkname else None,
                 hash=_compute_hash(tar, member, hash)
                 if hash and mtype in (
                     FileSystemItemType.file, FileSystemItemType.hardlink)
