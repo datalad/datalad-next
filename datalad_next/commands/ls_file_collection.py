@@ -48,7 +48,7 @@ lgr = getLogger('datalad.local.ls_file_collection')
 
 
 # hand-maintain a list of collection type names that should be
-# advertized and supported. it makes little sense to auto-discover
+# advertised and supported. it makes little sense to auto-discover
 # them, because each collection type likely needs some custom glue
 # code, and some iterators may not even be about *file* collections
 _supported_collection_types = (
