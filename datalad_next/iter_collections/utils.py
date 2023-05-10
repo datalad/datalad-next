@@ -24,8 +24,8 @@ class FileSystemItemType(Enum):
     file = 'file'
     directory = 'directory'
     symlink = 'symlink'
-    hardlink = 'file'
-    specialfile = 'file'
+    hardlink = 'hardlink'
+    specialfile = 'specialfile'
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
@@ -33,8 +33,8 @@ class FileSystemItem:
     name: PurePath
     type: FileSystemItemType
     size: int
-    mtime: float
-    mode: int
+    mtime: float | None = None
+    mode: int | None = None
     link_target: PurePath | None = None
     hash: Dict[str, str] | None = None
 
