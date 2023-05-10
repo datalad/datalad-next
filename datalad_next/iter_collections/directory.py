@@ -1,4 +1,7 @@
-"""Report on the content of directories"""
+"""Report on the content of directories
+
+The main functionality is provided by the :func:`iterdir()` function.
+"""
 
 from __future__ import annotations
 
@@ -30,22 +33,27 @@ class IterdirItem(FileSystemItem):
 
 def iterdir(
     path: Path,
+    *,
     hash: List[str] | None = None,
-    symlink_targets: bool = True,
 ) -> Generator[IterdirItem, None, None]:
-    """Use ``Path.iterdir()`` to iterate over a directory and report content
+    """Uses ``Path.iterdir()`` to iterate over a directory and reports content
+
+    The iterator produces an :class:`IterdirItem` instance with standard
+    information on file system elements, such as ``size``, or ``mtime``.
 
     In addition to a plain ``Path.iterdir()`` the report includes a path-type
-    label (distinguished are ``file``, ``directory``, ``symlink``), and
-    (optionally) information on the target path of a symlink.
+    label (distinguished are ``file``, ``directory``, ``symlink``). Moreover,
+    any number of checksums for file content can be computed and reported.
 
     Parameters
     ----------
     path: Path
       Path of the directory to report content for (iterate over).
-    link_targets: bool, optional
-      Flag whether to read and report the target path of a symbolic link.
-
+    hash: list(str), optional
+      Any number of hash algorithm names (supported by the ``hashlib`` module
+      of the Python standard library. If given, an item corresponding to the
+      algorithm will be included in the ``hash`` property dict of each
+      reported file-type item.
 
     Yields
     ------

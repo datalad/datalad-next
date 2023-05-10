@@ -1,4 +1,7 @@
-"""Report on the content of TAR archives"""
+"""Report on the content of TAR archives
+
+The main functionality is provided by the :func:`itertar()` function.
+"""
 
 from __future__ import annotations
 
@@ -28,13 +31,30 @@ class ItertarItem(FileSystemItem):
 
 def itertar(
     path: Path,
+    *,
     hash: List[str] | None = None,
 ) -> Generator[ItertarItem, None, None]:
-    """
+    """Uses the standard library ``tarfile`` module to report on TAR archives
+
+    A TAR archive can represent more or less the full bandwidth of file system
+    properties, therefore reporting on archive members is implemented
+    similar to :func:`~datalad_next.iter_collections.directory.iterdir()`.
+    The iterator produces an :class:`ItertarItem` instance with standard
+    information on file system elements, such as ``size``, or ``mtime``.
+
+    Moreover, any number of checksums for file content can be computed and
+    reported. When computing checksums, individual archive members are read
+    sequentially without extracting the full archive.
+
     Parameters
     ----------
     path: Path
       Path of the TAR archive to report content for (iterate over).
+    hash: list(str), optional
+      Any number of hash algorithm names (supported by the ``hashlib`` module
+      of the Python standard library. If given, an item corresponding to the
+      algorithm will be included in the ``hash`` property dict of each
+      reported file-type item.
 
     Yields
     ------
