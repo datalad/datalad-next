@@ -51,7 +51,7 @@ def itertar(
                 else FileSystemItemType.hardlink if member.islnk() \
                 else FileSystemItemType.specialfile
             item = ItertarItem(
-                name=PurePosixPath(member.name),
+                name=PurePath(PurePosixPath(member.name)),
                 type=mtype,
                 size=member.size,
                 mode=member.mode,
