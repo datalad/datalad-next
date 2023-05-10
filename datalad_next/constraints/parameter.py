@@ -162,15 +162,26 @@ class EnsureCommandParameterization(Constraint):
           }
 
           def _checksum(self, p1, p2):
-              EnsureRange(min=3)(p1 + p2)
+              if (p1 + p2) < 3:
+                  self.raise_for(
+                     dict(p1=p1, p2=p2),
+                     'parameter sum is too large',
+                  )
 
         The callable will be passed the arguments named in the
         ``ParameterConstraintContext`` as keyword arguments, using the same
-        names as originally given to ``EnsureCommandParameterization``. Any
-        raised ``ConstraintError`` is caught and reported together with the
-        respective ``ParameterConstraintContext``. If the callable anyhow
-        modifies the passed arguments, it must return them as a kwargs-like
-        mapping.  If nothing is modified, it is OK to return ``None``.
+        names as originally given to ``EnsureCommandParameterization``.
+
+        Any raised ``ConstraintError`` is caught and reported together with the
+        respective ``ParameterConstraintContext``. The violating value reported
+        in such a ``ConstraintError`` must be a mapping of parameter name to
+        value, comprising the full parameter set (i.e., keys matching the
+        ``ParameterConstraintContext``).  The use of ``self.raise_for()`` is
+        encouraged.
+
+        If the callable anyhow modifies the passed arguments, it must return
+        them as a kwargs-like mapping.  If nothing is modified, it is OK to
+        return ``None``.
 
         Returns
         -------
@@ -208,6 +219,13 @@ class EnsureCommandParameterization(Constraint):
                 # from incremental coercing done in individual checks
                 res = validator(**{p: validated[p] for p in ctx.parameters})
             except ConstraintError as e:
+                if not isinstance(e.value, dict) \
+                        or set(ctx.parameters) != e.value.keys():  # pragma: no cover
+                    raise RuntimeError(
+                        f'on error the joint validator {validator} did not '
+                        'a mapping of parameter name to (violating) value '
+                        'comprising all constraint context parameters. '
+                        'This is a software defect. Please report!')
                 exceptions[ctx] = e
                 if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)

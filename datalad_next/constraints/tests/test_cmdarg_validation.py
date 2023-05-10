@@ -69,10 +69,22 @@ class BasicCmdValidator(EnsureCommandParameterization):
 
 class SophisticatedCmdValidator(BasicCmdValidator):
     def _check_unique_values(self, **kwargs):
-        EnsureAllUnique()(kwargs.values())
+        try:
+            EnsureAllUnique()(kwargs.values())
+        except ConstraintError as e:
+            self.raise_for(
+                kwargs,
+                e.msg,
+            )
 
     def _check_sum_range(self, p1, p2):
-        EnsureRange(min=3)(p1 + p2)
+        try:
+            EnsureRange(min=3)(p1 + p2)
+        except ConstraintError:
+            self.raise_for(
+                dict(p1=p1, p2=p2),
+                "it's too small"
+            )
 
     def _limit_sum_range(self, p1, p2):
         # random example of a joint constraint that modifies the parameter
