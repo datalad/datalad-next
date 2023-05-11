@@ -7,4 +7,5 @@ Command line reference
    generated/man/datalad-create-sibling-webdav
    generated/man/datalad-credentials
    generated/man/datalad-download
+   generated/man/datalad-ls-file-collection
    generated/man/datalad-tree

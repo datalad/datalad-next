@@ -39,6 +39,10 @@ command_suite = (
         (
             'datalad_next.commands.download', 'Download', 'download',
         ),
+        (
+            'datalad_next.commands.ls_file_collection', 'LsFileCollection',
+            'ls-file-collection',
+        ),
     ]
 )
 

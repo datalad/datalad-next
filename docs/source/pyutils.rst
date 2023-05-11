@@ -11,6 +11,7 @@ Python utilities
    constraints
    credman.manager
    exceptions
+   iter_collections
    url_operations
    url_operations.any
    url_operations.file

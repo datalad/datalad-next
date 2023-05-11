@@ -52,7 +52,7 @@ class ValidatedInterface(Interface):
     should either be removed, or moved to the corresponding entry in
     ``_validator_``.
     """
-    _validator_ = None
+    _validator_: EnsureCommandParameterization | None = None
 
     @classmethod
     def get_parameter_validator(cls) -> EnsureCommandParameterization | None:
