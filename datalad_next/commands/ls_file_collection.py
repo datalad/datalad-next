@@ -9,8 +9,15 @@ from dataclasses import (
     asdict,
     dataclass,
 )
+from datetime import datetime
+from humanize import (
+    naturalsize,
+    naturaldate,
+    naturaltime,
+)
 from logging import getLogger
 from pathlib import Path
+from stat import filemode
 from typing import (
     Any,
     Callable,
@@ -255,7 +262,33 @@ class LsFileCollection(ValidatedInterface):
         # given the to-be-expected diversity, this renderer only
         # outputs identifiers and type info. In almost any real use case
         # either no rendering or JSON rendering will be needed
-        ui.message('{item} ({type})'.format(
+
+        type = res.get('type', None)
+
+        # if there is no mode, produces '?---------'
+        mode = filemode(res.get('mode', 0))
+
+        size = None
+        if type in ('file', 'hardlink'):
+            size = res.get('size', None)
+        size = '-' if size is None else naturalsize(size, gnu=True)
+
+        mtime = res.get('mtime', None)
+        if mtime is None:
+            mtime = ''
+        else:
+            dt = datetime.fromtimestamp(mtime)
+            hts = naturaldate(dt)
+            if hts == 'today':
+                hts = naturaltime(dt)
+                hts = hts.replace(
+                    'minutes ago', 'min ago').replace(
+                    'seconds ago', 'sec ago')
+
+        ui.message('{mode} {size: >6} {hts: >11} {item} ({type})'.format(
+            mode=mode,
+            size=size,
+            hts=hts,
             item=ac.color_word(
                 res.get('item', '<missing-item-identifier>'),
                 ac.BOLD),
