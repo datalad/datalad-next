@@ -197,19 +197,18 @@ from urllib.parse import (
 )
 
 from datalad.core.local.repo import repo_from_path
-from datalad.runner import (
-    NoCapture,
-    StdOutCapture,
-)
+
+from datalad_next.constraints import EnsureInt
 from datalad_next.datasets import (
     LegacyAnnexRepo as AnnexRepo,
     LegacyGitRepo as GitRepo,
 )
-from datalad_next.exceptions import (
-    CapturedException,
+from datalad_next.exceptions import CapturedException
+from datalad_next.runners import (
     CommandError,
+    NoCapture,
+    StdOutCapture,
 )
-from datalad_next.constraints import EnsureInt
 from datalad_next.uis import ui_switcher as ui
 from datalad_next.utils import (
     external_versions,

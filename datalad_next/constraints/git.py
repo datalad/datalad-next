@@ -1,5 +1,11 @@
 """Constraints for Git-related concepts and parameters"""
 
+from datalad_next.runners import (
+    CommandError,
+    GitRunner,
+    StdOutCapture,
+)
+
 from .base import Constraint
 
 
@@ -37,8 +43,6 @@ class EnsureGitRefName(Constraint):
             # simple, do here
             self.raise_for(value, 'refname must not be empty')
 
-        from datalad.runner import GitRunner, StdOutCapture
-        from datalad_next.exceptions import CommandError
         runner = GitRunner()
         cmd = ['git', 'check-ref-format']
         cmd.append('--allow-onelevel'
