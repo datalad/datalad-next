@@ -1,4 +1,3 @@
-import os
 from pathlib import PurePath
 import pytest
 
@@ -7,7 +6,7 @@ from datalad.api import download
 from ..tarfile import (
     ItertarItem,
     FileSystemItemType,
-    itertar,
+    iter_tar,
 )
 
 
@@ -42,7 +41,7 @@ def sample_tar_xz(tmp_path_factory):
     tfpath.unlink()
 
 
-def test_itertar(sample_tar_xz):
+def test_iter_tar(sample_tar_xz):
     target_hash = {'SHA1': 'a8fdc205a9f19cc1c7507a60c4f01b13d11d7fd0',
                    'md5': 'ba1f2511fc30423bdbb183fe33f3dd0f'}
     targets = [
@@ -105,7 +104,7 @@ def test_itertar(sample_tar_xz):
             hash=target_hash),
     ]
     # smoke test
-    ires = list(itertar(sample_tar_xz, hash=['md5', 'SHA1']))
+    ires = list(iter_tar(sample_tar_xz, hash=['md5', 'SHA1']))
     # root + subdir, 2 files, softlink, hardlink
     assert 6 == len(ires)
     for t in targets:

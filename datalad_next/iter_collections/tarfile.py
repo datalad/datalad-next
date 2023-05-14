@@ -1,6 +1,6 @@
 """Report on the content of TAR archives
 
-The main functionality is provided by the :func:`itertar()` function.
+The main functionality is provided by the :func:`iter_tar()` function.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class ItertarItem(FileSystemItem):
     pass
 
 
-def itertar(
+def iter_tar(
     path: Path,
     *,
     hash: List[str] | None = None,
@@ -38,7 +38,7 @@ def itertar(
 
     A TAR archive can represent more or less the full bandwidth of file system
     properties, therefore reporting on archive members is implemented
-    similar to :func:`~datalad_next.iter_collections.directory.iterdir()`.
+    similar to :func:`~datalad_next.iter_collections.directory.iter_dir()`.
     The iterator produces an :class:`ItertarItem` instance with standard
     information on file system elements, such as ``size``, or ``mtime``.
 

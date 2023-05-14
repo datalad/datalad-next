@@ -46,8 +46,8 @@ from datalad_next.uis import (
 )
 from datalad_next.utils import ensure_list
 
-from datalad_next.iter_collections.directory import iterdir
-from datalad_next.iter_collections.tarfile import itertar
+from datalad_next.iter_collections.directory import iter_dir
+from datalad_next.iter_collections.tarfile import iter_tar
 from datalad_next.iter_collections.utils import FileSystemItemType
 
 
@@ -111,9 +111,9 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
             iter_kwargs = dict(path=collection, hash=hash)
             item2res = fsitem_to_dict
         if type == 'directory':
-            iter_fx = iterdir
+            iter_fx = iter_dir
         elif type == 'tarfile':
-            iter_fx = itertar
+            iter_fx = iter_tar
         else:
             raise RuntimeError('unhandled condition')
         assert iter_fx is not None

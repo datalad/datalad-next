@@ -1,6 +1,6 @@
 """Report on the content of directories
 
-The main functionality is provided by the :func:`iterdir()` function.
+The main functionality is provided by the :func:`iter_dir()` function.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ class IterdirItem(FileSystemItem):
     pass
 
 
-def iterdir(
+def iter_dir(
     path: Path,
     *,
     hash: List[str] | None = None,
