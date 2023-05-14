@@ -83,6 +83,8 @@ def iterdir(
             size=cstat.st_size,
             mode=cmode,
             mtime=cstat.st_mtime,
+            uid=cstat.st_uid,
+            gid=cstat.st_gid,
             hash=_compute_hash(c, hash)
             if hash and ctype == FileSystemItemType.file else None,
         )

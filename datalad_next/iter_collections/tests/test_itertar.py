@@ -52,6 +52,8 @@ def test_itertar(sample_tar_xz):
             size=0,
             mtime=1683657433,
             mode=509,
+            uid=1000,
+            gid=1000,
             hash=None),
         ItertarItem(
             name=PurePath('test-archive') / '123.txt',
@@ -59,6 +61,8 @@ def test_itertar(sample_tar_xz):
             size=0,
             mtime=1683657414,
             mode=511,
+            uid=1000,
+            gid=1000,
             link_target=PurePath('subdir') / 'onetwothree_again.txt',
             hash=None),
         ItertarItem(
@@ -67,6 +71,8 @@ def test_itertar(sample_tar_xz):
             size=4,
             mtime=1683657364,
             mode=436,
+            uid=1000,
+            gid=1000,
             link_target=None,
             hash=target_hash),
         ItertarItem(
@@ -74,13 +80,17 @@ def test_itertar(sample_tar_xz):
             type=FileSystemItemType.directory,
             size=0,
             mtime=1683657400,
-            mode=509),
+            mode=509,
+            uid=1000,
+            gid=1000),
         ItertarItem(
             name=PurePath('test-archive') / 'subdir' / 'onetwothree_again.txt',
             type=FileSystemItemType.file,
             size=4,
             mtime=1683657400,
             mode=436,
+            uid=1000,
+            gid=1000,
             link_target=None,
             hash=target_hash),
         ItertarItem(
@@ -89,6 +99,8 @@ def test_itertar(sample_tar_xz):
             size=0,
             mtime=1683657364,
             mode=436,
+            uid=1000,
+            gid=1000,
             link_target=PurePath('test-archive') / '123_hard.txt',
             hash=target_hash),
     ]

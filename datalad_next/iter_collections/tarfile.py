@@ -76,6 +76,8 @@ def itertar(
                 size=member.size,
                 mode=member.mode,
                 mtime=member.mtime,
+                uid=member.uid,
+                gid=member.gid,
                 link_target=PurePath(PurePosixPath(member.linkname))
                 if member.linkname else None,
                 hash=_compute_hash(tar, member, hash)

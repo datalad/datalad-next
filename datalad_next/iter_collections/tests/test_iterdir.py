@@ -61,6 +61,8 @@ def test_iterdir(dir_tree):
             size=path.lstat().st_size,
             mode=path.lstat().st_mode,
             mtime=path.lstat().st_mtime,
+            uid=path.lstat().st_uid,
+            gid=path.lstat().st_gid,
             **kwa
         )
         for path, type, kwa in target_paths

@@ -273,10 +273,8 @@ class LsFileCollection(ValidatedInterface):
             size = res.get('size', None)
         size = '-' if size is None else naturalsize(size, gnu=True)
 
-        mtime = res.get('mtime', None)
-        if mtime is None:
-            mtime = ''
-        else:
+        mtime = res.get('mtime', '')
+        if mtime:
             dt = datetime.fromtimestamp(mtime)
             hts = naturaldate(dt)
             if hts == 'today':
@@ -285,9 +283,14 @@ class LsFileCollection(ValidatedInterface):
                     'minutes ago', 'min ago').replace(
                     'seconds ago', 'sec ago')
 
-        ui.message('{mode} {size: >6} {hts: >11} {item} ({type})'.format(
+        ui.message('{mode} {size: >6} {uid: >4}:{gid: >4} {hts: >11} {item} ({type})'.format(
             mode=mode,
             size=size,
+            # stick with numerical IDs (although less accessible), we cannot
+            # know in general whether this particular system can map numerical
+            # IDs to valid target names (think stored name in tarballs)
+            uid=res.get('uid', '-'),
+            gid=res.get('gid', '-'),
             hts=hts,
             item=ac.color_word(
                 res.get('item', '<missing-item-identifier>'),
