@@ -9,7 +9,7 @@ from datalad_next.tests.utils import (
 from datalad_next.utils import check_symlink_capability
 
 from ..directory import (
-    IterdirItem,
+    DirectoryItem,
     FileSystemItemType,
     iter_dir,
 )
@@ -55,7 +55,7 @@ def test_iter_dir(dir_tree):
             dict(link_target=PurePath(os.readlink(dir_tree / 'symlink'))),
         ))
     target = [
-        IterdirItem(
+        DirectoryItem(
             name=PurePath(path.name),
             type=type,
             size=path.lstat().st_size,

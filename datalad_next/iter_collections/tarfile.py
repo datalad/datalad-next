@@ -25,7 +25,7 @@ from .utils import (
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
-class ItertarItem(FileSystemItem):
+class TarfileItem(FileSystemItem):
     pass
 
 
@@ -33,13 +33,13 @@ def iter_tar(
     path: Path,
     *,
     hash: List[str] | None = None,
-) -> Generator[ItertarItem, None, None]:
+) -> Generator[TarfileItem, None, None]:
     """Uses the standard library ``tarfile`` module to report on TAR archives
 
     A TAR archive can represent more or less the full bandwidth of file system
     properties, therefore reporting on archive members is implemented
     similar to :func:`~datalad_next.iter_collections.directory.iter_dir()`.
-    The iterator produces an :class:`ItertarItem` instance with standard
+    The iterator produces an :class:`TarfileItem` instance with standard
     information on file system elements, such as ``size``, or ``mtime``.
 
     Moreover, any number of checksums for file content can be computed and
@@ -58,7 +58,7 @@ def iter_tar(
 
     Yields
     ------
-    :class:`ItertarItem`
+    :class:`TarfileItem`
     """
     with tarfile.open(path, 'r') as tar:
         for member in tar:
@@ -70,7 +70,7 @@ def iter_tar(
                 else FileSystemItemType.symlink if member.issym() \
                 else FileSystemItemType.hardlink if member.islnk() \
                 else FileSystemItemType.specialfile
-            item = ItertarItem(
+            item = TarfileItem(
                 name=PurePath(PurePosixPath(member.name)),
                 type=mtype,
                 size=member.size,

@@ -27,7 +27,7 @@ from .utils import (
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
-class IterdirItem(FileSystemItem):
+class DirectoryItem(FileSystemItem):
     pass
 
 
@@ -35,10 +35,10 @@ def iter_dir(
     path: Path,
     *,
     hash: List[str] | None = None,
-) -> Generator[IterdirItem, None, None]:
+) -> Generator[DirectoryItem, None, None]:
     """Uses ``Path.iterdir()`` to iterate over a directory and reports content
 
-    The iterator produces an :class:`IterdirItem` instance with standard
+    The iterator produces an :class:`DirectoryItem` instance with standard
     information on file system elements, such as ``size``, or ``mtime``.
 
     In addition to a plain ``Path.iterdir()`` the report includes a path-type
@@ -57,7 +57,7 @@ def iter_dir(
 
     Yields
     ------
-    :class:`IterdirItem`
+    :class:`DirectoryItem`
     """
     for c in path.iterdir():
         # c could disappear while this is running. Example: temp files managed
@@ -77,7 +77,7 @@ def iter_dir(
             # there could be fifos and sockets, etc.
             # but we do not recognize them here
             ctype = FileSystemItemType.file
-        item = IterdirItem(
+        item = DirectoryItem(
             name=PurePath(c.name),
             type=ctype,
             size=cstat.st_size,

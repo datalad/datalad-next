@@ -4,7 +4,7 @@ import pytest
 from datalad.api import download
 
 from ..tarfile import (
-    ItertarItem,
+    TarfileItem,
     FileSystemItemType,
     iter_tar,
 )
@@ -45,7 +45,7 @@ def test_iter_tar(sample_tar_xz):
     target_hash = {'SHA1': 'a8fdc205a9f19cc1c7507a60c4f01b13d11d7fd0',
                    'md5': 'ba1f2511fc30423bdbb183fe33f3dd0f'}
     targets = [
-        ItertarItem(
+        TarfileItem(
             name=PurePath('test-archive'),
             type=FileSystemItemType.directory,
             size=0,
@@ -54,7 +54,7 @@ def test_iter_tar(sample_tar_xz):
             uid=1000,
             gid=1000,
             hash=None),
-        ItertarItem(
+        TarfileItem(
             name=PurePath('test-archive') / '123.txt',
             type=FileSystemItemType.symlink,
             size=0,
@@ -64,7 +64,7 @@ def test_iter_tar(sample_tar_xz):
             gid=1000,
             link_target=PurePath('subdir') / 'onetwothree_again.txt',
             hash=None),
-        ItertarItem(
+        TarfileItem(
             name=PurePath('test-archive') / '123_hard.txt',
             type=FileSystemItemType.file,
             size=4,
@@ -74,7 +74,7 @@ def test_iter_tar(sample_tar_xz):
             gid=1000,
             link_target=None,
             hash=target_hash),
-        ItertarItem(
+        TarfileItem(
             name=PurePath('test-archive') / 'subdir',
             type=FileSystemItemType.directory,
             size=0,
@@ -82,7 +82,7 @@ def test_iter_tar(sample_tar_xz):
             mode=509,
             uid=1000,
             gid=1000),
-        ItertarItem(
+        TarfileItem(
             name=PurePath('test-archive') / 'subdir' / 'onetwothree_again.txt',
             type=FileSystemItemType.file,
             size=4,
@@ -92,7 +92,7 @@ def test_iter_tar(sample_tar_xz):
             gid=1000,
             link_target=None,
             hash=target_hash),
-        ItertarItem(
+        TarfileItem(
             name=PurePath('test-archive') / 'onetwothree.txt',
             type=FileSystemItemType.hardlink,
             size=0,
