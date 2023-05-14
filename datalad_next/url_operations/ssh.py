@@ -23,14 +23,15 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-from datalad.runner.protocol import WitlessProtocol
-from datalad.runner.coreprotocols import NoCapture
+from datalad_next.runners import (
+    GeneratorMixIn,
+    NoCaptureGeneratorProtocol,
+    Protocol as RunnerProtocol,
+    StdOutCaptureGeneratorProtocol,
+    ThreadedRunner,
+    CommandError,
+)
 
-from datalad.runner import StdOutCapture
-from datalad.runner.protocol import GeneratorMixIn
-from datalad.runner.nonasyncrunner import ThreadedRunner
-
-from datalad_next.exceptions import CommandError
 from datalad_next.utils.consts import COPY_BUFSIZE
 
 from . import (
@@ -105,7 +106,7 @@ class SshUrlOperations(UrlOperations):
         expected_size = None
 
         ssh_cat = _SshCat(url)
-        stream = ssh_cat.run(cmd, protocol=_StdOutCaptureGeneratorProtocol)
+        stream = ssh_cat.run(cmd, protocol=StdOutCaptureGeneratorProtocol)
         for chunk in stream:
             if need_magic:
                 expected_magic = need_magic[:min(len(need_magic),
@@ -261,7 +262,7 @@ class SshUrlOperations(UrlOperations):
             # leave special exit code when writing fails, but not the
             # general SSH access
             "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244",
-            protocol=_NoCaptureGeneratorProtocol,
+            protocol=NoCaptureGeneratorProtocol,
             stdin=upload_queue,
             timeout=timeout,
         )
@@ -329,7 +330,7 @@ class _SshCat:
 
     def run(self,
             payload_cmd: str,
-            protocol: type[WitlessProtocol],
+            protocol: type[RunnerProtocol],
             stdin: Queue | None = None,
             timeout: float | None = None) -> Any | Generator:
         fpath = self._parsed.path
@@ -349,29 +350,3 @@ class _SshCat:
             stdin=subprocess.DEVNULL if stdin is None else stdin,
             timeout=timeout,
         ).run()
-
-
-#
-# Below are generic generator protocols that should be provided
-# upstream
-#
-class _NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
-    def __init__(self, done_future=None, encoding=None):
-        NoCapture.__init__(self, done_future, encoding)
-        GeneratorMixIn.__init__(self)
-
-    def timeout(self, fd):
-        raise TimeoutError(f"Runner timeout: process has not terminated yet")
-
-
-class _StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
-    def __init__(self, done_future=None, encoding=None):
-        StdOutCapture.__init__(self, done_future, encoding)
-        GeneratorMixIn.__init__(self)
-
-    def pipe_data_received(self, fd: int, data: bytes):
-        assert fd == 1
-        self.send_result(data)
-
-    def timeout(self, fd):
-        raise TimeoutError(f"Runner timeout {fd}")

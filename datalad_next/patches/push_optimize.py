@@ -43,7 +43,6 @@ import logging
 import re
 
 import datalad.core.distributed.push as mod_push
-from datalad.runner.exception import CommandError
 from datalad_next.utils import (
     ensure_list,
     log_progress,
@@ -440,7 +439,7 @@ def _sync_remote_annex_branch(repo, target, is_annex_repo):
         # from us, we just skip localsync without mutating repo into an AnnexRepo
         if is_annex_repo:
             repo.localsync(target)
-    except CommandError as e:
+    except mod_push.CommandError as e:
         # it is OK if the remote doesn't have a git-annex branch yet
         # (e.g. fresh repo)
         # TODO is this possible? we just copied? Maybe check if anything
