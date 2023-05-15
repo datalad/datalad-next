@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
 
+from hashlib import algorithms_guaranteed
 from pathlib import Path
 import re
 
@@ -497,3 +498,8 @@ class EnsurePath(Constraint):
             if self._ref
             else '',
         )
+
+
+class EnsureHashAlgorithm(EnsureChoice):
+    def __init__(self):
+        super(EnsureHashAlgorithm, self).__init__(algorithms_guaranteed)

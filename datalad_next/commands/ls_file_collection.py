@@ -39,6 +39,7 @@ from datalad_next.constraints import (
     EnsureChoice,
     EnsurePath,
     EnsureURL,
+    EnsureHashAlgorithm,
 )
 from datalad_next.uis import (
     ansi_colors as ac,
@@ -84,9 +85,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
             param_constraints=dict(
                 type=self._collection_types,
                 collection=EnsurePath(lexists=True) | EnsureURL(),
-                # TODO EnsureHashAlgorithm
-                # https://github.com/datalad/datalad-next/issues/346
-                #hash=None,
+                hash=EnsureHashAlgorithm(),
             ),
             joint_constraints={
                 ParameterConstraintContext(('type', 'collection', 'hash'),
