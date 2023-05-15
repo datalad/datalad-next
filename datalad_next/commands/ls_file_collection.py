@@ -9,8 +9,15 @@ from dataclasses import (
     asdict,
     dataclass,
 )
+from datetime import datetime
+from humanize import (
+    naturalsize,
+    naturaldate,
+    naturaltime,
+)
 from logging import getLogger
 from pathlib import Path
+from stat import filemode
 from typing import (
     Any,
     Callable,
@@ -39,8 +46,8 @@ from datalad_next.uis import (
 )
 from datalad_next.utils import ensure_list
 
-from datalad_next.iter_collections.directory import iterdir
-from datalad_next.iter_collections.tarfile import itertar
+from datalad_next.iter_collections.directory import iter_dir
+from datalad_next.iter_collections.tarfile import iter_tar
 from datalad_next.iter_collections.utils import FileSystemItemType
 
 
@@ -104,9 +111,9 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
             iter_kwargs = dict(path=collection, hash=hash)
             item2res = fsitem_to_dict
         if type == 'directory':
-            iter_fx = iterdir
+            iter_fx = iter_dir
         elif type == 'tarfile':
-            iter_fx = itertar
+            iter_fx = iter_tar
         else:
             raise RuntimeError('unhandled condition')
         assert iter_fx is not None
@@ -255,7 +262,36 @@ class LsFileCollection(ValidatedInterface):
         # given the to-be-expected diversity, this renderer only
         # outputs identifiers and type info. In almost any real use case
         # either no rendering or JSON rendering will be needed
-        ui.message('{item} ({type})'.format(
+
+        type = res.get('type', None)
+
+        # if there is no mode, produces '?---------'
+        mode = filemode(res.get('mode', 0))
+
+        size = None
+        if type in ('file', 'hardlink'):
+            size = res.get('size', None)
+        size = '-' if size is None else naturalsize(size, gnu=True)
+
+        mtime = res.get('mtime', '')
+        if mtime:
+            dt = datetime.fromtimestamp(mtime)
+            hts = naturaldate(dt)
+            if hts == 'today':
+                hts = naturaltime(dt)
+                hts = hts.replace(
+                    'minutes ago', 'min ago').replace(
+                    'seconds ago', 'sec ago')
+
+        ui.message('{mode} {size: >6} {uid: >4}:{gid: >4} {hts: >11} {item} ({type})'.format(
+            mode=mode,
+            size=size,
+            # stick with numerical IDs (although less accessible), we cannot
+            # know in general whether this particular system can map numerical
+            # IDs to valid target names (think stored name in tarballs)
+            uid=res.get('uid', '-'),
+            gid=res.get('gid', '-'),
+            hts=hts,
             item=ac.color_word(
                 res.get('item', '<missing-item-identifier>'),
                 ac.BOLD),

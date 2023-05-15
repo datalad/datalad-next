@@ -35,6 +35,8 @@ class FileSystemItem:
     size: int
     mtime: float | None = None
     mode: int | None = None
+    uid: int | None = None
+    gid: int | None = None
     link_target: PurePath | None = None
     hash: Dict[str, str] | None = None
 

@@ -9,9 +9,9 @@ from datalad_next.tests.utils import (
 from datalad_next.utils import check_symlink_capability
 
 from ..directory import (
-    IterdirItem,
+    DirectoryItem,
     FileSystemItemType,
-    iterdir,
+    iter_dir,
 )
 
 
@@ -37,7 +37,7 @@ def dir_tree(tmp_path_factory):
     rmtree(path)
 
 
-def test_iterdir(dir_tree):
+def test_iter_dir(dir_tree):
     target_paths = [
         (dir_tree / 'random_file1.txt', FileSystemItemType.file,
          dict(hash=dict(md5='9893532233caff98cd083a116b013c0b',
@@ -55,25 +55,27 @@ def test_iterdir(dir_tree):
             dict(link_target=PurePath(os.readlink(dir_tree / 'symlink'))),
         ))
     target = [
-        IterdirItem(
+        DirectoryItem(
             name=PurePath(path.name),
             type=type,
             size=path.lstat().st_size,
             mode=path.lstat().st_mode,
             mtime=path.lstat().st_mtime,
+            uid=path.lstat().st_uid,
+            gid=path.lstat().st_gid,
             **kwa
         )
         for path, type, kwa in target_paths
     ]
 
-    iterdir_res = list(iterdir(dir_tree))
-    assert len(iterdir_res) == len(target)
+    iter_dir_res = list(iter_dir(dir_tree))
+    assert len(iter_dir_res) == len(target)
     # capitalization of algorithm labels is preserved
-    for item in iterdir(dir_tree, hash=['md5', 'SHA1']):
+    for item in iter_dir(dir_tree, hash=['md5', 'SHA1']):
         assert item in target
 
-    # check iterdir() to be robust to concurrent removal
-    it = iterdir(dir_tree)
+    # check iter_dir() to be robust to concurrent removal
+    it = iter_dir(dir_tree)
     # start iteration
     next(it)
     # wipe out content

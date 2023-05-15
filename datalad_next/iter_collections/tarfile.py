@@ -1,6 +1,6 @@
 """Report on the content of TAR archives
 
-The main functionality is provided by the :func:`itertar()` function.
+The main functionality is provided by the :func:`iter_tar()` function.
 """
 
 from __future__ import annotations
@@ -25,21 +25,21 @@ from .utils import (
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
-class ItertarItem(FileSystemItem):
+class TarfileItem(FileSystemItem):
     pass
 
 
-def itertar(
+def iter_tar(
     path: Path,
     *,
     hash: List[str] | None = None,
-) -> Generator[ItertarItem, None, None]:
+) -> Generator[TarfileItem, None, None]:
     """Uses the standard library ``tarfile`` module to report on TAR archives
 
     A TAR archive can represent more or less the full bandwidth of file system
     properties, therefore reporting on archive members is implemented
-    similar to :func:`~datalad_next.iter_collections.directory.iterdir()`.
-    The iterator produces an :class:`ItertarItem` instance with standard
+    similar to :func:`~datalad_next.iter_collections.directory.iter_dir()`.
+    The iterator produces an :class:`TarfileItem` instance with standard
     information on file system elements, such as ``size``, or ``mtime``.
 
     Moreover, any number of checksums for file content can be computed and
@@ -58,7 +58,7 @@ def itertar(
 
     Yields
     ------
-    :class:`ItertarItem`
+    :class:`TarfileItem`
     """
     with tarfile.open(path, 'r') as tar:
         for member in tar:
@@ -70,12 +70,14 @@ def itertar(
                 else FileSystemItemType.symlink if member.issym() \
                 else FileSystemItemType.hardlink if member.islnk() \
                 else FileSystemItemType.specialfile
-            item = ItertarItem(
+            item = TarfileItem(
                 name=PurePath(PurePosixPath(member.name)),
                 type=mtype,
                 size=member.size,
                 mode=member.mode,
                 mtime=member.mtime,
+                uid=member.uid,
+                gid=member.gid,
                 link_target=PurePath(PurePosixPath(member.linkname))
                 if member.linkname else None,
                 hash=_compute_hash(tar, member, hash)

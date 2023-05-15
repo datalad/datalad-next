@@ -1,4 +1,7 @@
-from pathlib import PurePath
+from pathlib import (
+    Path,
+    PurePath,
+)
 import pytest
 
 from datalad.api import ls_file_collection
@@ -142,3 +145,12 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
         testfile, annex='availability', **kwa)[0]['has_content'] is False
     ds.get(testfile, **kwa)
     assert testfile.read_text() == '123\n'
+
+
+def test_ls_renderer():
+    # nothing more than a smoke test
+    ls_file_collection(
+        'directory',
+        Path(__file__).parent,
+        result_renderer='tailored',
+    )
