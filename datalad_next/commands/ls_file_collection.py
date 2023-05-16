@@ -25,6 +25,7 @@ from typing import (
     Iterator,
     List,
 )
+from urllib.parse import ParseResult as URLParseResult
 
 from datalad_next.commands import (
     EnsureCommandParameterization,
@@ -38,7 +39,7 @@ from datalad_next.commands import (
 from datalad_next.constraints import (
     EnsureChoice,
     EnsurePath,
-    EnsureURL,
+    EnsureParsedURL,
 )
 from datalad_next.uis import (
     ansi_colors as ac,
@@ -47,6 +48,7 @@ from datalad_next.uis import (
 from datalad_next.utils import ensure_list
 
 from datalad_next.iter_collections.directory import iter_dir
+from datalad_next.iter_collections.http_tarfile import iter_http_tar
 from datalad_next.iter_collections.tarfile import iter_tar
 from datalad_next.iter_collections.utils import (
     FileSystemItemType,
@@ -64,6 +66,7 @@ lgr = getLogger('datalad.local.ls_file_collection')
 _supported_collection_types = (
     'directory',
     'tarfile',
+    'http-tarfile',
 )
 
 
@@ -86,7 +89,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         super().__init__(
             param_constraints=dict(
                 type=self._collection_types,
-                collection=EnsurePath(lexists=True) | EnsureURL(),
+                collection=EnsurePath(lexists=True) | EnsureParsedURL(),
                 # TODO EnsureHashAlgorithm
                 # https://github.com/datalad/datalad-next/issues/346
                 #hash=None,
@@ -104,7 +107,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         hash = kwargs['hash']
         iter_fx = None
         iter_kwargs = None
-        if type in ('directory', 'tarfile'):
+        if type in _supported_collection_types:
             if not isinstance(collection, Path):
                 self.raise_for(
                     kwargs,
@@ -120,6 +123,8 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
             iter_fx = iter_dir
         elif type == 'tarfile':
             iter_fx = iter_tar
+        elif type == 'http-tarfile':
+            iter_fx = iter_http_tar
         else:
             raise RuntimeError('unhandled condition')
         assert iter_fx is not None

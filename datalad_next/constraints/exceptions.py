@@ -249,7 +249,7 @@ class ParameterConstraintContext:
 
       EnsureRange(min=3)(params['p1'] + params['p2'])
     """
-    parameters: Tuple[str]
+    parameters: Tuple[str, ...]
     description: str | None = None
 
     def __str__(self):

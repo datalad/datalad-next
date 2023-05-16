@@ -5,14 +5,18 @@ The main functionality is provided by the :func:`iter_tar()` function.
 
 from __future__ import annotations
 
+import tarfile
 from dataclasses import dataclass
 from pathlib import (
     Path,
     PurePath,
     PurePosixPath,
 )
-import tarfile
-from typing import Generator
+from typing import (
+    Generator,
+    IO,
+    List,
+)
 
 from .utils import (
     FileSystemItem,
@@ -55,10 +59,34 @@ def iter_tar(
     ------
     :class:`TarfileItem`
     """
-    with tarfile.open(path, 'r') as tar:
+    yield from iter_tar_on_file(path.open('rb'), fp=fp)
+
+
+def iter_tar_on_file(
+    file_object: IO,
+    *,
+    fp: bool = False,
+) -> Generator[TarfileItem, None, None]:
+    """Work horse for iter_tar
+
+    Parameters
+    ----------
+    file_object: IO
+      A file object that is used to read from
+    hash: list(str), optional
+      Any number of hash algorithm names (supported by the ``hashlib`` module
+      of the Python standard library. If given, an item corresponding to the
+      algorithm will be included in the ``hash`` property dict of each
+      reported file-type item.
+
+    Yields
+    ------
+    :class:`TarfileItem`
+    """
+    with tarfile.open(fileobj=file_object) as tar:
         for member in tar:
             # reduce the complexity of tar member types to the desired
-            # level (ie. disregard the diversity of special files and
+            # level (i.e. disregard the diversity of special files and
             # block devices)
             mtype = FileSystemItemType.file if member.isreg() \
                 else FileSystemItemType.directory if member.isdir() \
