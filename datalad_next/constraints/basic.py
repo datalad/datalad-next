@@ -502,4 +502,4 @@ class EnsurePath(Constraint):
 
 class EnsureHashAlgorithm(EnsureChoice):
     def __init__(self):
-        super(EnsureHashAlgorithm, self).__init__(algorithms_guaranteed)
+        super(EnsureHashAlgorithm, self).__init__(*algorithms_guaranteed)
