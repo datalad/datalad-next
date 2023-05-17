@@ -18,6 +18,7 @@ collections.
    :toctree: generated
 
    directory
+   gitworktree
    tarfile
    zipfile
    utils

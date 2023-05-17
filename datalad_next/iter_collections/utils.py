@@ -69,14 +69,12 @@ class FileSystemItem(PathBasedItem, TypedItem):
         path: Path,
         *,
         link_target: bool = True,
-        fp: bool = False,
     ):
         """Populate item properties from a single `stat` and `readlink` call
 
         The given ``path`` must exist. The ``link_target`` flag indicates
         whether to report the result of ``readlink`` for a symlink-type
-        path. If `fp` is set, the item includes a file-like object
-        to access the file's content.
+        path.
         """
         cstat = path.lstat()
         cmode = cstat.st_mode

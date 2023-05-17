@@ -23,3 +23,15 @@ from .protocols import (
 from datalad.runner.exception import (
     CommandError,
 )
+
+# utilities
+from datalad.runner.nonasyncrunner import (
+    STDOUT_FILENO,
+    STDERR_FILENO,
+)
+from datalad.runner.utils import (
+    LineSplitter,
+)
+from subprocess import (
+    DEVNULL,
+)

@@ -52,6 +52,11 @@ from datalad_next.iter_collections.utils import (
     FileSystemItemType,
     compute_multihash_from_fp,
 )
+from datalad_next.iter_collections.gitworktree import (
+    GitTreeItemType,
+    GitWorktreeFileSystemItem,
+    iter_gitworktree,
+)
 
 
 lgr = getLogger('datalad.local.ls_file_collection')
@@ -64,6 +69,7 @@ lgr = getLogger('datalad.local.ls_file_collection')
 _supported_collection_types = (
     'directory',
     'tarfile',
+    'gitworktree',
 )
 
 
@@ -104,7 +110,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         hash = kwargs['hash']
         iter_fx = None
         iter_kwargs = None
-        if type in ('directory', 'tarfile'):
+        if type in ('directory', 'tarfile', 'gitworktree'):
             if not isinstance(collection, Path):
                 self.raise_for(
                     kwargs,
@@ -118,10 +124,16 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
             item2res = fsitem_to_dict
         if type == 'directory':
             iter_fx = iter_dir
+            item2res = fsitem_to_dict
         elif type == 'tarfile':
             iter_fx = iter_tar
+            item2res = fsitem_to_dict
+        elif type == 'gitworktree':
+            iter_fx = iter_gitworktree
+            item2res = gitworktreeitem_to_dict
         else:
-            raise RuntimeError('unhandled condition')
+            raise RuntimeError(
+                'unhandled collection-type: this is a defect, please report.')
         assert iter_fx is not None
         return dict(
             collection=CollectionSpec(
@@ -163,6 +175,33 @@ def fsitem_to_dict(item, hash) -> Dict:
         # and we do not know whether a particular file-like even supports
         # seek() under all circumstances. we simply document the fact.
         d['fp'] = fp
+    return d
+
+
+def gitworktreeitem_to_dict(item, hash) -> Dict:
+    gitworktreeitem_type_to_res_type = {
+        # permission bits are not distinguished for types
+        GitTreeItemType.executablefile: 'file',
+        # 'dataset' is the commonly used label as the command API
+        # level
+        GitTreeItemType.submodule: 'dataset',
+    }
+
+    gittype = gitworktreeitem_type_to_res_type.get(
+        item.gittype, item.gittype.value) if item.gittype else None
+
+    if isinstance(item, GitWorktreeFileSystemItem):
+        d = fsitem_to_dict(item, hash)
+    else:
+        d = dict(item=item.name)
+        if gittype is not None:
+            d['type'] = gittype
+
+    if item.gitsha:
+        d['gitsha'] = item.gitsha
+
+    if gittype is not None:
+        d['gittype'] = gittype
     return d
 
 
@@ -310,19 +349,20 @@ class LsFileCollection(ValidatedInterface):
                     'minutes ago', 'min ago').replace(
                     'seconds ago', 'sec ago')
 
-        ui.message('{mode} {size: >6} {uid: >4}:{gid: >4} {hts: >11} {item} ({type})'.format(
+        # stick with numerical IDs (although less accessible), we cannot
+        # know in general whether this particular system can map numerical
+        # IDs to valid target names (think stored name in tarballs)
+        owner_info = f'{res["uid"]}:{res["gid"]}' if 'uid' in res else ''
+
+        ui.message('{mode} {size: >6} {owner: >9} {hts: >11} {item} ({type})'.format(
             mode=mode,
             size=size,
-            # stick with numerical IDs (although less accessible), we cannot
-            # know in general whether this particular system can map numerical
-            # IDs to valid target names (think stored name in tarballs)
-            uid=res.get('uid', '-'),
-            gid=res.get('gid', '-'),
-            hts=hts,
+            owner=owner_info,
+            hts=hts if mtime else '',
             item=ac.color_word(
-                res.get('item', '<missing-item-identifier>'),
+                res.get('item', '<no-item-identifier>'),
                 ac.BOLD),
             type=ac.color_word(
-                res.get('type', '<missing-type>'),
+                res.get('type', '<no-type-information>'),
                 ac.MAGENTA),
         ))
