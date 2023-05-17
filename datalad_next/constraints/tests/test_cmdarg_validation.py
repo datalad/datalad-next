@@ -262,6 +262,15 @@ def test_cmd_with_validation():
             return_type='item-or-list', result_renderer='disabled',
         )
 
+    # no call with a required argument missing
+    with pytest.raises(ValueError) as e:
+        CmdWithValidation.__call__()
+    exc_rendering = str(e.value)
+    # must label the issue correctly
+    assert 'missing required argument' in exc_rendering
+    # must identify the missing argument
+    assert 'spec=<no value>' in exc_rendering
+
 
 #
 # test dataset tailoring
