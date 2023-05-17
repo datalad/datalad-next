@@ -9,7 +9,6 @@ import sys
 from typing import Dict
 import requests
 from requests_toolbelt import user_agent
-from requests_toolbelt.downloadutils.tee import tee as requests_tee
 import www_authenticate
 
 import datalad
@@ -247,6 +246,8 @@ class HttpUrlOperations(UrlOperations):
         progress_id = self._get_progress_id(from_url, to_path)
         # get download size, but not every server provides it
         try:
+            # for compressed downloads the content length refers to the
+            # compressed content
             expected_size = int(r.headers.get('content-length'))
         except (ValueError, TypeError):
             expected_size = None
@@ -260,11 +261,27 @@ class HttpUrlOperations(UrlOperations):
         fp = None
         props = {}
         try:
+            # we can only write to file-likes opened in bytes mode
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')
-            # TODO make chunksize a config item
-            for chunk in requests_tee(r, fp):
+            # we need to track how much came down the pipe for progress
+            # reporting
+            downloaded_bytes = 0
+            # TODO make chunksize a config item, 65536 is the default in
+            # requests_toolbelt
+            for chunk in r.raw.stream(amt=65536, decode_content=True):
+                # update how much data was transferred from the remote server,
+                # but we cannot use the size of the chunk for that,
+                # because content might be downloaded with transparent
+                # (de)compression. ask the download stream itself for its
+                # "position"
+                tell = r.raw.tell()
                 self._progress_report_update(
-                    progress_id, ('Downloaded chunk',), len(chunk))
+                    progress_id,
+                    ('Downloaded chunk',),
+                    tell - downloaded_bytes,
+                )
+                fp.write(chunk)
+                downloaded_bytes = tell
                 # compute hash simultaneously
                 hasher.update(chunk)
             props.update(hasher.get_hexdigest())

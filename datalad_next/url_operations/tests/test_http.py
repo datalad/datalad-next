@@ -57,3 +57,17 @@ def test_custom_http_headers_via_config(datalad_cfg):
     auo = AnyUrlOperations()
     huo = auo._get_handler(f'http://example.com')
     assert huo._headers['X-Funky'] == 'Stuff'
+
+
+def test_transparent_decompression(tmp_path):
+    # this file is offered with transparent compression/decompression
+    # by the github webserver
+    url = 'https://raw.githubusercontent.com/datalad/datalad-next/' \
+          'd0c4746425a48ef20e3b1c218e68954db9412bee/pyproject.toml'
+    dpath = tmp_path / 'test.txt'
+    ops = HttpUrlOperations()
+    ops.download(from_url=url, to_path=dpath)
+
+    # make sure it ends up on disk uncompressed
+    assert dpath.read_text() == \
+        '[build-system]\nrequires = ["setuptools >= 43.0.0", "wheel"]\n'
