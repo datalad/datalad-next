@@ -3,5 +3,3 @@
 -e .[devel]
 sphinx
 sphinx_rtd_theme
-# see https://github.com/datalad/datalad-next/issues/331
-git+https://github.com/datalad/datalad@maint
