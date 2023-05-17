@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import PurePath
 from typing import (
+    Any,
     IO,
     List,
 )
@@ -28,9 +29,26 @@ class FileSystemItemType(Enum):
     specialfile = 'specialfile'
 
 
-@dataclass  # sadly PY3.10+ only (kw_only=True)
-class FileSystemItem:
+@dataclass
+class NamedItem:
+    name: Any
+
+
+@dataclass
+class TypedItem:
+    type: Any
+
+
+@dataclass
+class PathBasedItem(NamedItem):
+    # a path-identifier in an appropriate context.
+    # could be a filename, a relpath, or an absolute path.
+    # should match platform conventions
     name: PurePath
+
+
+@dataclass  # sadly PY3.10+ only (kw_only=True)
+class FileSystemItem(PathBasedItem, TypedItem):
     type: FileSystemItemType
     size: int
     mtime: float | None = None
