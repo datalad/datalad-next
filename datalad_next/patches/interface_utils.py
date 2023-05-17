@@ -50,12 +50,14 @@ def get_allargs_as_kwargs(call, args, kwargs):
 
     Returns
     -------
-    (dict, set)
+    (dict, set, set)
       The first return value is a mapping of argument names to their respective
       values.
       The second return value in the tuple is a set of argument names for
       which the effective value is identical to the default declared in the
       signature of the callable.
+      The third value is a set with names of all mandatory arguments, whether
+      or not they are included in the returned mapping.
     """
     from datalad_next.utils import getargspec
     argspec = getargspec(call, include_kwonlyargs=True)
@@ -83,7 +85,14 @@ def get_allargs_as_kwargs(call, args, kwargs):
     # API commands support more kwargs than what is discoverable
     # from their signature...
     #assert (nargs == len(kwargs_))
-    return kwargs_, at_default
+    return (
+        # argument name/value mapping
+        kwargs_,
+        # names of arguments that are at their default
+        at_default,
+        # names of mandatory arguments (set for uniformity)
+        set(argspec.args),
+    )
 
 
 # This function interface is taken from
@@ -116,7 +125,7 @@ def _execute_command_(
     # for result filters and validation
     # we need to produce a dict with argname/argvalue pairs for all args
     # incl. defaults and args given as positionals
-    allkwargs, at_default = get_allargs_as_kwargs(
+    allkwargs, at_default, required_args = get_allargs_as_kwargs(
         cmd,
         cmd_args,
         {**cmd_kwargs, **exec_kwargs},
@@ -133,6 +142,7 @@ def _execute_command_(
         lgr.debug('Command parameter validation for %s', interface)
         validator_kwargs = dict(
             at_default=at_default,
+            required=required_args or None,
         )
         # make immediate vs exhaustive parameter validation
         # configurable
