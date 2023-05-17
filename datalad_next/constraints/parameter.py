@@ -222,10 +222,12 @@ class EnsureCommandParameterization(Constraint):
                 if not isinstance(e.value, dict) \
                         or set(ctx.parameters) != e.value.keys():  # pragma: no cover
                     raise RuntimeError(
-                        f'on error the joint validator {validator} did not '
+                        'on raising a ConstraintError the joint validator '
+                        f'{validator} did not report '
                         'a mapping of parameter name to (violating) value '
                         'comprising all constraint context parameters. '
-                        'This is a software defect. Please report!')
+                        'This is a software defect of the joint validator. '
+                        'Please report!')
                 exceptions[ctx] = e
                 if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
