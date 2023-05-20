@@ -246,6 +246,8 @@ class Download(ValidatedInterface):
         {'text': 'Download from SSH server',
          'code_cmd': 'datalad download "ssh://example.com/home/user/data.xml"',
          'code_py': 'download("ssh://example.com/home/user/data.xml")'},
+        {'text': 'Stream a download to STDOUT',
+         'code_cmd': 'datalad -f disabled download "http://example.com -"'},
     ]
 
     @staticmethod

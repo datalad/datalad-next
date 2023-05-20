@@ -21,8 +21,8 @@ Requirements
 This special remote implementation requires git-annex version 8.20210127 (or
 later) to be available.
 
-Download helper with credential management support
---------------------------------------------------
+Download helper
+---------------
 
 The simplest way to use this remote is to initialize it without any particular
 configuration::
@@ -39,7 +39,24 @@ installation supports. This always includes ``file://``, ``http://``, and
 ``https://``, but is extensible, and a particular installation may also support
 ``ssh://`` (by default when openssh is installed), or other schemes.
 
-With this setup, download requests now use DataLad's credential system for
+This additional URL support is also available for other commands. Here is an
+example how ``datalad addurls`` can be given any uncurl-supported URLs
+(here an SSH-URL) directly, provided that the ``uncurl`` remote was initialized
+for a dataset (as shown above)::
+
+    $ echo '[{"url":"ssh://my.server.org/home/me/file", "file":"dummy"}]' \\
+        | datalad addurls - '{url}' {'file'}
+
+This makes legacy commands (e.g., ``datalad download-url``), unnecessary, and
+facilitates the use of more advanced ``datalad addurls`` features (e.g.,
+automatic creation of subdatasets) that are not provided by lower-level
+commands like ``git annex addurl``.
+
+
+Download helper with credential management support
+--------------------------------------------------
+
+With this setup, download requests now also use DataLad's credential system for
 authentication. DataLad will automatically lookup matching credentials, prompt
 for manual entry if none are found, and offer to store them securely for later
 use after having used them successfully::
