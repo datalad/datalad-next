@@ -268,13 +268,17 @@ class HttpUrlOperations(UrlOperations):
             downloaded_bytes = 0
             # TODO make chunksize a config item, 65536 is the default in
             # requests_toolbelt
+            tell = 0
             for chunk in r.raw.stream(amt=65536, decode_content=True):
                 # update how much data was transferred from the remote server,
                 # but we cannot use the size of the chunk for that,
                 # because content might be downloaded with transparent
                 # (de)compression. ask the download stream itself for its
                 # "position"
-                tell = r.raw.tell()
+                if expected_size:
+                    tell = r.raw.tell()
+                else:
+                    tell = tell + len(chunk)
                 self._progress_report_update(
                     progress_id,
                     ('Downloaded chunk',),
