@@ -1,4 +1,4 @@
-from pathlib import Path
+import gzip
 import pytest
 
 from ..any import AnyUrlOperations
@@ -57,3 +57,42 @@ def test_custom_http_headers_via_config(datalad_cfg):
     auo = AnyUrlOperations()
     huo = auo._get_handler(f'http://example.com')
     assert huo._headers['X-Funky'] == 'Stuff'
+
+
+def test_transparent_decompression(tmp_path):
+    # this file is offered with transparent compression/decompression
+    # by the github webserver
+    url = 'https://raw.githubusercontent.com/datalad/datalad-next/' \
+          'd0c4746425a48ef20e3b1c218e68954db9412bee/pyproject.toml'
+    dpath = tmp_path / 'test.txt'
+    ops = HttpUrlOperations()
+    ops.download(from_url=url, to_path=dpath)
+
+    # make sure it ends up on disk uncompressed
+    assert dpath.read_text() == \
+        '[build-system]\nrequires = ["setuptools >= 43.0.0", "wheel"]\n'
+
+
+def test_compressed_file_stay_compressed(tmp_path):
+    # this file is offered with transparent compression/decompression
+    # by the github webserver, but is also actually gzip'ed
+    url = \
+        'https://github.com/datalad/datalad-neuroimaging/raw/' \
+        '05b45c8c15d24b6b894eb59544daa17159a88945/' \
+        'datalad_neuroimaging/tests/data/files/nifti1.nii.gz'
+
+    # first confirm validity of the test approach, opening an
+    # uncompressed file should raise an exception
+    with pytest.raises(gzip.BadGzipFile):
+        testpath = tmp_path / 'uncompressed'
+        testpath.write_text('some')
+        with gzip.open(testpath, 'rb') as f:
+            f.read(1000)
+
+    # and now with a compressed file
+    dpath = tmp_path / 'test.nii.gz'
+    ops = HttpUrlOperations()
+    ops.download(from_url=url, to_path=dpath)
+    # make sure it ends up on disk compressed!
+    with gzip.open(dpath, 'rb') as f:
+        f.read(1000)
