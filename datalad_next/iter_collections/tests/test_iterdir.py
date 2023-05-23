@@ -13,6 +13,7 @@ from ..directory import (
     FileSystemItemType,
     iter_dir,
 )
+from ..utils import compute_multihash_from_fp
 
 
 @pytest.fixture(scope="function")
@@ -38,10 +39,10 @@ def dir_tree(tmp_path_factory):
 
 
 def test_iter_dir(dir_tree):
+    target_hash = dict(md5='9893532233caff98cd083a116b013c0b',
+                       SHA1='94e66df8cd09d410c62d9e0dc59d3a884e458e05')
     target_paths = [
-        (dir_tree / 'random_file1.txt', FileSystemItemType.file,
-         dict(hash=dict(md5='9893532233caff98cd083a116b013c0b',
-                        SHA1='94e66df8cd09d410c62d9e0dc59d3a884e458e05'))),
+        (dir_tree / 'random_file1.txt', FileSystemItemType.file, {}),
         (dir_tree / 'some_dir', FileSystemItemType.directory, {}),
     ]
     if check_symlink_capability(dir_tree / '__dummy1__',
@@ -68,11 +69,16 @@ def test_iter_dir(dir_tree):
         for path, type, kwa in target_paths
     ]
 
-    iter_dir_res = list(iter_dir(dir_tree))
+    iter_dir_res = []
+    for i in iter_dir(dir_tree, fp=True):
+        if i.fp:
+            # capitalization of algorithm labels is preserved
+            assert compute_multihash_from_fp(
+                i.fp, ['md5', 'SHA1']) == target_hash
+            # we null the file pointers to ease the comparison
+            i.fp = None
+        iter_dir_res.append(i)
     assert len(iter_dir_res) == len(target)
-    # capitalization of algorithm labels is preserved
-    for item in iter_dir(dir_tree, hash=['md5', 'SHA1']):
-        assert item in target
 
     # check iter_dir() to be robust to concurrent removal
     it = iter_dir(dir_tree)
