@@ -191,7 +191,9 @@ class LsFileCollection(ValidatedInterface):
       ``size``, ``mtime``, or ``link_target`` are included in the report.
       [PY: When hashes are computed, an ``fp`` property with a file-like
       is provided. Reading file data from it requires a ``seek(0)`` in most
-      cases. PY]
+      cases. This file handle is only open when items are yielded directly
+      by this command (``return_type='generator``) and only until the next
+      result is yielded. PY]
 
     ``tarfile``
       Reports on members of a TAR archive. The collection identifier is the
@@ -200,7 +202,9 @@ class LsFileCollection(ValidatedInterface):
       to the ``directory`` collection type.
       [PY: When hashes are computed, an ``fp`` property with a file-like
       is provided. Reading file data from it requires a ``seek(0)`` in most
-      cases. PY]
+      cases. This file handle is only open when items are yielded directly
+      by this command (``return_type='generator``) and only until the next
+      result is yielded. PY]
     """
     _validator_ = LsFileCollectionParamValidator()
 

@@ -48,7 +48,8 @@ def iter_tar(
       Path of the TAR archive to report content for (iterate over).
     fp: bool, optional
       If ``True``, each file-type item includes a file-like object
-      to access the file's content.
+      to access the file's content. This file handle will be closed
+      automatically when the next item is yielded.
 
     Yields
     ------
