@@ -107,5 +107,8 @@ def test_iter_tar(sample_tar_xz):
     ires = list(iter_tar(sample_tar_xz, hash=['md5', 'SHA1']))
     # root + subdir, 2 files, softlink, hardlink
     assert 6 == len(ires)
+    # we null the file pointers to ease the comparison
+    for i in ires:
+        i.fp = None
     for t in targets:
         assert t in ires

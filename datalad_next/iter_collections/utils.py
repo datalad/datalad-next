@@ -7,6 +7,7 @@ from enum import Enum
 from pathlib import PurePath
 from typing import (
     Dict,
+    IO,
     List,
 )
 
@@ -39,6 +40,7 @@ class FileSystemItem:
     gid: int | None = None
     link_target: PurePath | None = None
     hash: Dict[str, str] | None = None
+    fp: IO | None = None
 
 
 def compute_multihash_from_fp(fp, hash: List[str], bufsize=COPY_BUFSIZE):

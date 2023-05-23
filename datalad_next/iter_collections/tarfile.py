@@ -80,15 +80,13 @@ def iter_tar(
                 gid=member.gid,
                 link_target=PurePath(PurePosixPath(member.linkname))
                 if member.linkname else None,
-                hash=_compute_hash(tar, member, hash)
-                if hash and mtype in (
-                    FileSystemItemType.file, FileSystemItemType.hardlink)
-                else None,
             )
-            yield item
-
-
-def _compute_hash(
-        tar: tarfile.TarFile, member: tarfile.TarInfo, hash: List[str]):
-    with tar.extractfile(member) as f:
-        return compute_multihash_from_fp(f, hash)
+            if mtype in (
+                    FileSystemItemType.file, FileSystemItemType.hardlink):
+                with tar.extractfile(member) as fp:
+                    item.fp = fp
+                    if hash:
+                        item.hash = compute_multihash_from_fp(fp, hash)
+                    yield item
+            else:
+                yield item
