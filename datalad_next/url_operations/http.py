@@ -250,11 +250,16 @@ class HttpUrlOperations(UrlOperations):
             # compressed content
             expected_size = int(r.headers.get('content-length'))
         except (ValueError, TypeError):
+            # some responses do not have a `content-length` header,
+            # even though they HTTP200 and deliver the content.
+            # example:
+            # https://github.com/datalad/datalad-next/pull/365#issuecomment-1557114109
             expected_size = None
         self._progress_report_start(
             progress_id,
             ('Download %s to %s', from_url, to_path),
             'downloading',
+            # can be None, and that is OK
             expected_size,
         )
 
@@ -268,7 +273,6 @@ class HttpUrlOperations(UrlOperations):
             downloaded_bytes = 0
             # TODO make chunksize a config item, 65536 is the default in
             # requests_toolbelt
-            tell = 0
             for chunk in r.raw.stream(amt=65536, decode_content=True):
                 # update how much data was transferred from the remote server,
                 # but we cannot use the size of the chunk for that,
@@ -278,7 +282,7 @@ class HttpUrlOperations(UrlOperations):
                 if expected_size:
                     tell = r.raw.tell()
                 else:
-                    tell = tell + len(chunk)
+                    tell = downloaded_bytes + len(chunk)
                 self._progress_report_update(
                     progress_id,
                     ('Downloaded chunk',),
