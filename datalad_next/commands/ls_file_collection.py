@@ -48,7 +48,10 @@ from datalad_next.utils import ensure_list
 
 from datalad_next.iter_collections.directory import iter_dir
 from datalad_next.iter_collections.tarfile import iter_tar
-from datalad_next.iter_collections.utils import FileSystemItemType
+from datalad_next.iter_collections.utils import (
+    FileSystemItemType,
+    compute_multihash_from_fp,
+)
 
 
 lgr = getLogger('datalad.local.ls_file_collection')
@@ -98,7 +101,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
     def get_collection_iter(self, **kwargs):
         type = kwargs['type']
         collection = kwargs['collection']
-        hash = ensure_list(kwargs['hash'])
+        hash = kwargs['hash']
         iter_fx = None
         iter_kwargs = None
         if type in ('directory', 'tarfile'):
@@ -108,7 +111,10 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
                     "{type} collection requires a Path-type identifier",
                     type=type,
                 )
-            iter_kwargs = dict(path=collection, hash=hash)
+            iter_kwargs = dict(
+                path=collection,
+                fp=hash is not None,
+            )
             item2res = fsitem_to_dict
         if type == 'directory':
             iter_fx = iter_dir
@@ -125,13 +131,17 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         )
 
 
-def fsitem_to_dict(item) -> Dict:
+def fsitem_to_dict(item, hash) -> Dict:
     keymap = {'name': 'item'}
     # FileSystemItemType is too fine-grained to be used as result type
     # directly, map some cases!
     fsitem_type_to_res_type = {
         'specialfile': 'file',
     }
+
+    # file-objects need special handling (cannot be pickled for asdict())
+    fp = item.fp
+    item.fp = None
 
     # TODO likely could be faster by moving the conditional out of the
     # dict-comprehension and handling them separately upfront/after
@@ -143,10 +153,16 @@ def fsitem_to_dict(item) -> Dict:
         # strip pointless symlink target reports for anything but symlinks
         if item.type is FileSystemItemType.symlink or k != 'link_target'
     }
-    hashes = d.pop('hash', None)
-    if hashes is not None:
-        for k, v in hashes.items():
-            d[f'hash-{k}'] = v
+    if fp:
+        for hname, hdigest in compute_multihash_from_fp(fp, hash).items():
+            d[f'hash-{hname}'] = hdigest
+        # we also provide the file pointer to the consumer, although
+        # it may have been "exhausted" by the hashing above and would
+        # need a seek(0) for any further processing.
+        # however, we do not do this here, because it is generic code,
+        # and we do not know whether a particular file-like even supports
+        # seek() under all circumstances. we simply document the fact.
+        d['fp'] = fp
     return d
 
 
@@ -163,10 +179,8 @@ class LsFileCollection(ValidatedInterface):
     that is being reported on. In most cases this will be ``file``, but
     other categories like ``symlink`` or ``directory`` are recognized too.
 
-    Regardless of the collection type this command can compute one or more
-    hashes (checksums) for any file in a collection. If the collection
-    itself does not readily provide a particular hash, file content needs
-    to be read, and possibly retrieved first.
+    If a collection type provides file-access, this command can compute one or
+    more hashes (checksums) for any file in a collection.
 
     Supported file collection types are:
 
@@ -175,12 +189,18 @@ class LsFileCollection(ValidatedInterface):
       collection identifier is the path of the directory. Item identifiers
       are the name of a file within that directory. Standard properties like
       ``size``, ``mtime``, or ``link_target`` are included in the report.
+      [PY: When hashes are computed, an ``fp`` property with a file-like
+      is provided. Reading file data from it requires a ``seek(0)`` in most
+      cases. PY]
 
     ``tarfile``
       Reports on members of a TAR archive. The collection identifier is the
       path of the TAR file. Item identifiers are the relative paths
       of archive members within the archive. Reported properties are similar
       to the ``directory`` collection type.
+      [PY: When hashes are computed, an ``fp`` property with a file-like
+      is provided. Reading file data from it requires a ``seek(0)`` in most
+      cases. PY]
     """
     _validator_ = LsFileCollectionParamValidator()
 
@@ -249,7 +269,10 @@ class LsFileCollection(ValidatedInterface):
             hash: str | List[str] | None = None,
     ):
         for item in collection.iter:
-            res = collection.item2res(item)
+            res = collection.item2res(
+                item,
+                hash=ensure_list(hash),
+            )
             res.update(get_status_dict(
                 action='ls_file_collection',
                 status='ok',

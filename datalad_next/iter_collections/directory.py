@@ -12,17 +12,13 @@ from pathlib import (
     PurePath,
 )
 import stat
-from typing import (
-    Generator,
-    List
-)
+from typing import Generator
 
 from datalad_next.exceptions import CapturedException
 
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
-    compute_multihash_from_fp,
 )
 
 
@@ -34,7 +30,7 @@ class DirectoryItem(FileSystemItem):
 def iter_dir(
     path: Path,
     *,
-    hash: List[str] | None = None,
+    fp: bool = False,
 ) -> Generator[DirectoryItem, None, None]:
     """Uses ``Path.iterdir()`` to iterate over a directory and reports content
 
@@ -49,11 +45,9 @@ def iter_dir(
     ----------
     path: Path
       Path of the directory to report content for (iterate over).
-    hash: list(str), optional
-      Any number of hash algorithm names (supported by the ``hashlib`` module
-      of the Python standard library. If given, an item corresponding to the
-      algorithm will be included in the ``hash`` property dict of each
-      reported file-type item.
+    fp: bool, optional
+      If ``True``, each file-type item includes a file-like object
+      to access the file's content.
 
     Yields
     ------
@@ -85,15 +79,13 @@ def iter_dir(
             mtime=cstat.st_mtime,
             uid=cstat.st_uid,
             gid=cstat.st_gid,
-            hash=_compute_hash(c, hash)
-            if hash and ctype == FileSystemItemType.file else None,
         )
         if ctype == FileSystemItemType.symlink:
             # could be p.readlink() from PY3.9+
             item.link_target = PurePath(os.readlink(c))
-        yield item
-
-
-def _compute_hash(fpath: Path, hash: List[str]):
-    with fpath.open('rb') as f:
-        return compute_multihash_from_fp(f, hash)
+        if fp and ctype == FileSystemItemType.file:
+            with c.open('rb') as fp:
+                item.fp = fp
+                yield item
+        else:
+            yield item

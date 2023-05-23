@@ -8,6 +8,7 @@ from ..tarfile import (
     FileSystemItemType,
     iter_tar,
 )
+from ..utils import compute_multihash_from_fp
 
 
 @pytest.fixture(scope="session")
@@ -52,8 +53,7 @@ def test_iter_tar(sample_tar_xz):
             mtime=1683657433,
             mode=509,
             uid=1000,
-            gid=1000,
-            hash=None),
+            gid=1000),
         TarfileItem(
             name=PurePath('test-archive') / '123.txt',
             type=FileSystemItemType.symlink,
@@ -62,8 +62,7 @@ def test_iter_tar(sample_tar_xz):
             mode=511,
             uid=1000,
             gid=1000,
-            link_target=PurePath('subdir') / 'onetwothree_again.txt',
-            hash=None),
+            link_target=PurePath('subdir') / 'onetwothree_again.txt'),
         TarfileItem(
             name=PurePath('test-archive') / '123_hard.txt',
             type=FileSystemItemType.file,
@@ -72,8 +71,7 @@ def test_iter_tar(sample_tar_xz):
             mode=436,
             uid=1000,
             gid=1000,
-            link_target=None,
-            hash=target_hash),
+            link_target=None),
         TarfileItem(
             name=PurePath('test-archive') / 'subdir',
             type=FileSystemItemType.directory,
@@ -90,8 +88,7 @@ def test_iter_tar(sample_tar_xz):
             mode=436,
             uid=1000,
             gid=1000,
-            link_target=None,
-            hash=target_hash),
+            link_target=None),
         TarfileItem(
             name=PurePath('test-archive') / 'onetwothree.txt',
             type=FileSystemItemType.hardlink,
@@ -100,15 +97,18 @@ def test_iter_tar(sample_tar_xz):
             mode=436,
             uid=1000,
             gid=1000,
-            link_target=PurePath('test-archive') / '123_hard.txt',
-            hash=target_hash),
+            link_target=PurePath('test-archive') / '123_hard.txt'),
     ]
-    # smoke test
-    ires = list(iter_tar(sample_tar_xz, hash=['md5', 'SHA1']))
+    ires = []
+    for i in iter_tar(sample_tar_xz, fp=True):
+        # check that file pointer is usable
+        if i.fp:
+            assert compute_multihash_from_fp(
+                i.fp, ['md5', 'SHA1']) == target_hash
+            # we null the file pointers to ease the comparison
+            i.fp = None
+        ires.append(i)
     # root + subdir, 2 files, softlink, hardlink
     assert 6 == len(ires)
-    # we null the file pointers to ease the comparison
-    for i in ires:
-        i.fp = None
     for t in targets:
         assert t in ires

@@ -12,15 +12,11 @@ from pathlib import (
     PurePosixPath,
 )
 import tarfile
-from typing import (
-    Generator,
-    List
-)
+from typing import Generator
 
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
-    compute_multihash_from_fp,
 )
 
 
@@ -32,7 +28,7 @@ class TarfileItem(FileSystemItem):
 def iter_tar(
     path: Path,
     *,
-    hash: List[str] | None = None,
+    fp: bool = False,
 ) -> Generator[TarfileItem, None, None]:
     """Uses the standard library ``tarfile`` module to report on TAR archives
 
@@ -50,11 +46,9 @@ def iter_tar(
     ----------
     path: Path
       Path of the TAR archive to report content for (iterate over).
-    hash: list(str), optional
-      Any number of hash algorithm names (supported by the ``hashlib`` module
-      of the Python standard library. If given, an item corresponding to the
-      algorithm will be included in the ``hash`` property dict of each
-      reported file-type item.
+    fp: bool, optional
+      If ``True``, each file-type item includes a file-like object
+      to access the file's content.
 
     Yields
     ------
@@ -81,12 +75,10 @@ def iter_tar(
                 link_target=PurePath(PurePosixPath(member.linkname))
                 if member.linkname else None,
             )
-            if mtype in (
+            if fp and mtype in (
                     FileSystemItemType.file, FileSystemItemType.hardlink):
                 with tar.extractfile(member) as fp:
                     item.fp = fp
-                    if hash:
-                        item.hash = compute_multihash_from_fp(fp, hash)
                     yield item
             else:
                 yield item

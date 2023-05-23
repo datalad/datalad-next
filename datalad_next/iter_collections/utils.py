@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import PurePath
 from typing import (
-    Dict,
     IO,
     List,
 )
@@ -39,7 +38,6 @@ class FileSystemItem:
     uid: int | None = None
     gid: int | None = None
     link_target: PurePath | None = None
-    hash: Dict[str, str] | None = None
     fp: IO | None = None
 
 
