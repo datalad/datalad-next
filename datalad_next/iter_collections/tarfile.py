@@ -15,7 +15,6 @@ from pathlib import (
 from typing import (
     Generator,
     IO,
-    List,
 )
 
 from .utils import (

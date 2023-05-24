@@ -82,7 +82,6 @@ class HttpFileObject:
 
 def iter_http_tar(
     url: str | URLParseResult,
-    /,
     *,
     hash: list[str] | None = None,
     auth: Any | None = None,
