@@ -23,3 +23,4 @@ Python utilities
    utils.multihash
    utils.requests_auth
    tests.fixtures
+   types.annexkey
