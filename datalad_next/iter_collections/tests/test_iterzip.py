@@ -2,8 +2,6 @@ import pytest
 import zipfile
 from pathlib import PurePath
 
-from datalad.api import download
-
 from ..zipfile import (
     ZipfileItem,
     FileSystemItemType,
