@@ -8,6 +8,7 @@ Python utilities
    :toctree: generated
 
    commands.ValidatedInterface
+   config.ConfigManager
    constraints
    credman.manager
    exceptions
