@@ -8,6 +8,7 @@ Python utilities
    :toctree: generated
 
    commands.ValidatedInterface
+   config.ConfigManager
    constraints
    credman.manager
    exceptions
@@ -22,3 +23,4 @@ Python utilities
    utils.multihash
    utils.requests_auth
    tests.fixtures
+   types.annexkey

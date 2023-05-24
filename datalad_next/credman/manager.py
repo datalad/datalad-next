@@ -26,6 +26,7 @@ from typing import (
 )
 
 import datalad
+from datalad_next.config import ConfigManager
 from datalad_next.exceptions import (
     CapturedException,
     CommandError,
@@ -78,7 +79,7 @@ class CredentialManager(object):
         'user_password': 'password',
     }
 
-    def __init__(self, cfg=None):
+    def __init__(self, cfg: ConfigManager | None = None):
         """
 
         Parameters
