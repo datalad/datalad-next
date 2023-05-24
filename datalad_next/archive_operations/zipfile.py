@@ -1,6 +1,5 @@
 """Archive operation handler for zipfiles"""
 
-# allow for |-type UnionType declarations
 from __future__ import annotations
 
 import logging
@@ -16,7 +15,7 @@ from typing import (
 # TODO we might just want to do it in reverse:
 # move the code of `iter_zip` in here and have it call
 # `ZipArchiveOperations(path).__iter__()` instead.
-# However, the flexibility to have `iter_tar()` behave
+# However, the flexibility to have `iter_zip()` behave
 # differently depending on parameters (fp=True/False)
 # is nice, and `__iter__()` only has `self`, such that
 # any customization would need to be infused in the whole
@@ -40,7 +39,7 @@ class ZipArchiveOperations(ArchiveOperations):
         Parameters
         ----------
         location: Path
-          TAR archive location
+          ZIP archive location
         cfg: ConfigManager, optional
           A config manager instance that is consulted for any supported
           configuration items
@@ -49,7 +48,7 @@ class ZipArchiveOperations(ArchiveOperations):
 
         self.zipfile_kwargs = kwargs
         # Consider supporting file-like for `location`,
-        # see tarfile.open(fileobj=)
+        # see zipfile.ZipFile(file_like_object)
         self._zipfile_path = location
         self._zipfile = None
 
@@ -91,6 +90,6 @@ class ZipArchiveOperations(ArchiveOperations):
             return False
 
     def __iter__(self) -> Generator[ZipfileItem, None, None]:
-        # if fp=True is needed, either `iter_tar()` can be used
-        # directly, or `TarArchiveOperations.open`
+        # if fp=True is needed, either `iter_zip()` can be used
+        # directly, or `ZipArchiveOperations.open`
         yield from iter_zip(self._zipfile_path, fp=False)
