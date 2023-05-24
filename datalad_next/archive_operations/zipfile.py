@@ -26,6 +26,7 @@ from datalad_next.iter_collections.zipfile import (
 )
 
 from . import ArchiveOperations
+from ..config import ConfigManager
 
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations')
@@ -34,7 +35,11 @@ lgr = logging.getLogger('datalad.ext.next.archive_operations')
 class ZipArchiveOperations(ArchiveOperations):
     """
     """
-    def __init__(self, location: Path, *, cfg=None, **kwargs):
+    def __init__(self,
+                 location: Path,
+                 *,
+                 cfg: ConfigManager | None = None,
+                 **kwargs):
         """
         Parameters
         ----------
@@ -43,6 +48,8 @@ class ZipArchiveOperations(ArchiveOperations):
         cfg: ConfigManager, optional
           A config manager instance that is consulted for any supported
           configuration items
+        **kwargs: dict
+          Keyword arguments that are passed to zipfile.ZipFile-constructor
         """
         super().__init__(location, cfg=cfg)
 

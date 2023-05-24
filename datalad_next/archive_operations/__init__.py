@@ -3,28 +3,31 @@
 # allow for |-type UnionType declarations
 from __future__ import annotations
 
-from contextlib import contextmanager
 import logging
-from pathlib import Path
+from abc import (
+    ABC,
+    abstractmethod,
+)
+from contextlib import contextmanager
 from typing import (
     Any,
-    Dict,
+    Generator,
     IO,
 )
 
+import datalad
+
+from ..config import ConfigManager
+from ..iter_collections.utils import FileSystemItem
+
+
 lgr = logging.getLogger('datalad.ext.next.archive_operations')
 
-#
-# TODO
-# - add ConfigManager type annotation after
-#   https://github.com/datalad/datalad-next/pull/371 is available
-#
 
-
-class ArchiveOperations:
+class ArchiveOperations(ABC):
     """
     """
-    def __init__(self, location: Any, *, cfg=None):
+    def __init__(self, location: Any, *, cfg: ConfigManager | None = None):
         """
         Parameters
         ----------
@@ -38,19 +41,26 @@ class ArchiveOperations:
         self._cfg = cfg
 
     @property
-    def cfg(self):  # -> ConfigManager
+    def cfg(self) -> ConfigManager:
         if self._cfg is None:
             self._cfg = datalad.cfg
         return self._cfg
 
     @contextmanager
+    @abstractmethod
     def open(self, item: Any) -> IO:
         """
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def close(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def __contains__(self, item: Any) -> bool:
         raise NotImplementedError
 
-    def __iter__(self) -> Generator[TarfileItem, None, None]:
+    @abstractmethod
+    def __iter__(self) -> Generator[FileSystemItem, None, None]:
         raise NotImplementedError

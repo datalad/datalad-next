@@ -3,13 +3,12 @@
 # allow for |-type UnionType declarations
 from __future__ import annotations
 
-from contextlib import contextmanager
 import logging
-from pathlib import Path
 import tarfile
+from contextlib import contextmanager
+from pathlib import Path
 from typing import (
     Any,
-    Dict,
     Generator,
     IO,
 )
@@ -28,20 +27,15 @@ from datalad_next.iter_collections.tarfile import (
 )
 
 from . import ArchiveOperations
+from ..config import ConfigManager
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations')
-
-#
-# TODO
-# - add ConfigManager type annotation after
-#   https://github.com/datalad/datalad-next/pull/371 is available
-#
 
 
 class TarArchiveOperations(ArchiveOperations):
     """
     """
-    def __init__(self, location: Path, *, cfg=None):
+    def __init__(self, location: Path, *, cfg: ConfigManager | None =None):
         """
         Parameters
         ----------
@@ -60,7 +54,7 @@ class TarArchiveOperations(ArchiveOperations):
         self._tarfile = None
 
     @property
-    def tarfile(self) -> tarfile.Tarfile:
+    def tarfile(self) -> tarfile.TarFile:
         if self._tarfile is None:
             self._tarfile = tarfile.open(self._tarfile_path, 'r')
         return self._tarfile
