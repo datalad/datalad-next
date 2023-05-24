@@ -1,0 +1,99 @@
+"""Archive operation handlers"""
+
+# allow for |-type UnionType declarations
+from __future__ import annotations
+
+from contextlib import contextmanager
+import logging
+from pathlib import Path
+import tarfile
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    IO,
+)
+
+# TODO we might just want to do it in reverse:
+# move the code of `iter_tar` in here and have it call
+# `TarArchiveOperations(path).__iter__()` instead.
+# However, the flexibility to have `iter_tar()` behave
+# differently depending on parameters (fp=True/False)
+# is nice, and `__iter__()` only has `self`, such that
+# any customization would need to be infused in the whole
+# class. Potentially cumbersome.
+from datalad_next.iter_collections.tarfile import (
+    TarfileItem,
+    iter_tar,
+)
+
+from . import ArchiveOperations
+
+lgr = logging.getLogger('datalad.ext.next.archive_operations')
+
+#
+# TODO
+# - add ConfigManager type annotation after
+#   https://github.com/datalad/datalad-next/pull/371 is available
+#
+
+
+class TarArchiveOperations(ArchiveOperations):
+    """
+    """
+    def __init__(self, location: Path, *, cfg=None):
+        """
+        Parameters
+        ----------
+        location: Path
+          TAR archive location
+        cfg: ConfigManager, optional
+          A config manager instance that is consulted for any supported
+          configuration items
+        """
+        # TODO expose `mode` other kwargs of `tarfile.TarFile`
+        super().__init__(location, cfg=cfg)
+
+        # Consider supporting file-like for `location`,
+        # see tarfile.open(fileobj=)
+        self._tarfile_path = location
+        self._tarfile = None
+
+    @property
+    def tarfile(self) -> tarfile.Tarfile:
+        if self._tarfile is None:
+            self._tarfile = tarfile.open(self._tarfile_path, 'r')
+        return self._tarfile
+
+    def __enter__(self):
+        # trigger opening
+        self.tarfile
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        # we have no desired to suppress exception, indicate standard
+        # handling by not returning True
+        return
+
+    def close(self) -> None:
+        if self._tarfile:
+            self._tarfile.close()
+
+    @contextmanager
+    def open(self, item: Any) -> IO:
+        """
+        """
+        yield self.tarfile.extractfile(item)
+
+    def __contains__(self, item: Any) -> bool:
+        try:
+            self.tarfile.getmember(item)
+            return True
+        except KeyError:
+            return False
+
+    def __iter__(self) -> Generator[TarfileItem, None, None]:
+        # if fp=True is needed, either `iter_tar()` can be used
+        # directly, or `TarArchiveOperations.open`
+        yield from iter_tar(self._tarfile_path, fp=False)
