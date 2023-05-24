@@ -35,7 +35,7 @@ def test_ls_file_collection_tarfile(sample_tar_xz):
     # smoke test first
     res = ls_file_collection(
         'tarfile',
-        sample_tar_xz,
+        sample_tar_xz.path,
         hash='md5',
         **kwa
     )
@@ -47,7 +47,7 @@ def test_ls_file_collection_tarfile(sample_tar_xz):
         assert r['status'] == 'ok'
         # a collection identifier, here the tar location
         assert 'collection' in r
-        assert r['collection'] == sample_tar_xz
+        assert r['collection'] == sample_tar_xz.path
         # an item identifier, here a path of an archive member
         assert 'item' in r
         assert isinstance(r['item'], PurePath)
@@ -77,7 +77,7 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
     archive_path = ds.pathobj / '.datalad' / 'myarchive.tar.xz'
     # get archive copy in dataset (not strictly needed, but
     # add-archive-content worked like this
-    ds.download({sample_tar_xz.as_uri(): archive_path}, **kwa)
+    ds.download({sample_tar_xz.path.as_uri(): archive_path}, **kwa)
     # properly safe to dataset (download is ignorant of datasets)
     res = ds.save(message='add archive', **kwa)
     # the first result has the archive addition, snatch the archive key from it
@@ -95,7 +95,7 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
     # including `ls-file-collection` executed on a different host).
     file_recs = [
         r for r in ls_file_collection(
-            'tarfile', sample_tar_xz, hash=['md5'], **kwa
+            'tarfile', sample_tar_xz.path, hash=['md5'], **kwa
         )
         # ignore any non-file, would not have an annex key.
         # Also ignores hardlinks (they consume no space (size=0), but could be
