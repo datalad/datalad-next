@@ -55,7 +55,7 @@ class ArchiveOperations(ABC):
 
     @abstractmethod
     def close(self) -> None:
-        raise NotImplementedError
+        pass
 
     @abstractmethod
     def __contains__(self, item: Any) -> bool:
