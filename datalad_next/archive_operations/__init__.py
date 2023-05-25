@@ -17,8 +17,8 @@ from typing import (
 
 import datalad
 
-from ..config import ConfigManager
-from ..iter_collections.utils import FileSystemItem
+from datalad_next.config import ConfigManager
+from datalad_next.iter_collections.utils import FileSystemItem
 
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations')
@@ -53,7 +53,6 @@ class ArchiveOperations(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
     def close(self) -> None:
         pass
 

@@ -8,12 +8,12 @@ from datalad_next.tests.utils import (
 )
 from datalad_next.utils import check_symlink_capability
 
-from ..directory import (
+from datalad_next.iter_collections.directory import (
     DirectoryItem,
     FileSystemItemType,
     iter_dir,
 )
-from ..utils import compute_multihash_from_fp
+from datalad_next.iter_collections.utils import compute_multihash_from_fp
 
 
 @pytest.fixture(scope="function")

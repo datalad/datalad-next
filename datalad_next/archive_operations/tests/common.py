@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .. import ArchiveOperations
-from ...iter_collections.tests.utils import TestCollection
+from datalad_next.archive_operations import ArchiveOperations
+from datalad_next.iter_collections.tests.utils import TestCollection
 
 
 def check_basic_functionality(operations_class: type[ArchiveOperations],

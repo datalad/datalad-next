@@ -9,7 +9,7 @@ import pytest
 
 from datalad.api import download
 
-from ..utils import (
+from datalad_next.iter_collections.utils import (
     FileSystemItemType,
     compute_multihash_from_fp,
 )

@@ -1,7 +1,7 @@
 
 from .common import check_basic_functionality
-from ..zipfile import ZipArchiveOperations
-from ...iter_collections.tests.utils import (
+from datalad_next.archive_operations.zipfile import ZipArchiveOperations
+from datalad_next.iter_collections.tests.utils import (
     TestCollection,
     sample_zip,
 )

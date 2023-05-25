@@ -1,7 +1,7 @@
 
 from .common import check_basic_functionality
-from ..tarfile import TarArchiveOperations
-from ...iter_collections.tests.utils import (
+from datalad_next.archive_operations.tarfile import TarArchiveOperations
+from datalad_next.iter_collections.tests.utils import (
     TestCollection,
     sample_tar_xz,
 )

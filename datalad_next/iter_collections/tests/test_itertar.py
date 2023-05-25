@@ -4,7 +4,7 @@ from .utils import (
     check_file_pointer,
     sample_tar_xz,
 )
-from ..tarfile import (
+from datalad_next.iter_collections.tarfile import (
     TarfileItem,
     FileSystemItemType,
     iter_tar,

@@ -1,6 +1,6 @@
 from pathlib import PurePath
 
-from ..zipfile import (
+from datalad_next.iter_collections.zipfile import (
     ZipfileItem,
     FileSystemItemType,
     iter_zip,

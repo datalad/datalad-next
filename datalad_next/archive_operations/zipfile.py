@@ -26,7 +26,7 @@ from datalad_next.iter_collections.zipfile import (
 )
 
 from . import ArchiveOperations
-from ..config import ConfigManager
+from datalad_next.config import ConfigManager
 
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations')
