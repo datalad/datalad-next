@@ -1,3 +1,5 @@
+"""git-annex key representation"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,7 +16,7 @@ _annexkey_regex = re.compile(
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnnexKey:
     """Representation of a git-annex key
 
@@ -29,6 +31,7 @@ class AnnexKey:
 
     @classmethod
     def from_str(cls, key: str):
+        """Return an ``AnnexKey`` instance from a key string"""
         key_matched = _annexkey_regex.match(key)
         if not key_matched:
             # without a sensible key there is no hope
