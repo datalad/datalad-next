@@ -1,3 +1,5 @@
+"""Type ENUMs"""
+
 from enum import Enum
 
 
