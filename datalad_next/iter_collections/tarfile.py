@@ -38,10 +38,6 @@ def iter_tar(
     The iterator produces an :class:`TarfileItem` instance with standard
     information on file system elements, such as ``size``, or ``mtime``.
 
-    Moreover, any number of checksums for file content can be computed and
-    reported. When computing checksums, individual archive members are read
-    sequentially without extracting the full archive.
-
     Parameters
     ----------
     path: Path
