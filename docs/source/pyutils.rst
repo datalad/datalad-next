@@ -24,3 +24,5 @@ Python utilities
    utils.requests_auth
    tests.fixtures
    types.annexkey
+   types.archivist
+   types.enums
