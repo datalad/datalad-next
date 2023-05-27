@@ -43,8 +43,8 @@ class DataladAuth(requests.auth.AuthBase):
         """
         Parameters
         ----------
-        cfg: CredentialManager
-          Credentials are looked up in this instance.
+        cfg: ConfigManager
+          Is passed to CredentialManager() as `cfg`-parameter.
         credential: str, optional
           Name of a particular credential to be used for any operations.
         """
