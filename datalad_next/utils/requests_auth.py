@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import requests
 import www_authenticate
 
-from datalad.config import ConfigManager
+from datalad_next.config import ConfigManager
 from datalad_next.utils import CredentialManager
 from datalad_next.utils.http_helpers import get_auth_realm
 
