@@ -5,4 +5,5 @@ Git-annex special remotes
 .. autosummary::
    :toctree: generated
 
+   SpecialRemote
    uncurl
