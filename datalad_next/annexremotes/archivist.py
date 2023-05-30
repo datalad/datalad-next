@@ -72,7 +72,7 @@ class ArchivistRemote(SpecialRemote):
     locators identify another annex key that represents an archive (e.g., a
     tarball or a zip files) that contains the respective annex key as a member.
     This special remote trigger the extraction of such members from any
-    candidate archive when retrival of a key is requested.
+    candidate archive when retrieval of a key is requested.
 
     This special remote cannot store or remove content. The desired usage
     is to register a locator "URL" for any relevant key via
