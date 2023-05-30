@@ -20,6 +20,6 @@ from .protocols import (
     StdOutCaptureGeneratorProtocol,
 )
 # exceptions
-from datalad.runner import (
+from datalad.runner.exception import (
     CommandError,
 )
