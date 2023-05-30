@@ -20,6 +20,7 @@ class SpecialRemote(_SpecialRemote):
         super(SpecialRemote, self).__init__(annex=annex)
 
         self._repo = None
+        self._remotename = None
 
     @property
     def repo(self) -> LeanAnnexRepo:
@@ -32,3 +33,11 @@ class SpecialRemote(_SpecialRemote):
         if self._repo is None:
             self._repo = LeanAnnexRepo(self.annex.getgitdir())
         return self._repo
+
+    @property
+    def remotename(self) -> str:
+        """Name of the (git) remote the special remote is operating under"""
+
+        if self._remotename is None:
+            self._remotename = self.annex.getgitremotename()
+        return self._remotename

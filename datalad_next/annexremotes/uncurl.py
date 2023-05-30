@@ -267,10 +267,9 @@ class UncurlRemote(SpecialRemote):
     def prepare(self):
         # we need the git remote name to be able to look up config about
         # that remote
-        remotename = self.annex.getgitremotename()
         # check the config for a URL template setting
         self.url_tmpl = self.repo.cfg.get(
-            f'remote.{remotename}.uncurl-url', '')
+            f'remote.{self.remotename}.uncurl-url', '')
         # only if we have no local, overriding, configuration ask git-annex
         # for the committed special remote config on the URL template
         if not self.url_tmpl:
@@ -292,7 +291,7 @@ class UncurlRemote(SpecialRemote):
         self.match = (self.match or []) + [
             re.compile(m)
             for m in ensure_list(self.repo.cfg.get(
-                f'remote.{remotename}.uncurl-match', [], get_all=True))
+                f'remote.{self.remotename}.uncurl-match', [], get_all=True))
         ]
 
         self.message(
@@ -309,7 +308,7 @@ class UncurlRemote(SpecialRemote):
         # Python symbols to work in `format()`
         self.persistent_tmpl_props.update(
             datalad_dsid=self.repo.cfg.get('datalad.dataset.id', ''),
-            git_remotename=remotename,
+            git_remotename=self.remotename,
             annex_remoteuuid=self.annex.getuuid(),
         )
 
