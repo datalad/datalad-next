@@ -268,8 +268,7 @@ class UncurlRemote(SpecialRemote):
         # we need the git remote name to be able to look up config about
         # that remote
         # check the config for a URL template setting
-        self.url_tmpl = self.repo.cfg.get(
-            f'remote.{self.remotename}.uncurl-url', '')
+        self.url_tmpl = self.get_remote_gitcfg('uncurl', 'url', '')
         # only if we have no local, overriding, configuration ask git-annex
         # for the committed special remote config on the URL template
         if not self.url_tmpl:
@@ -290,8 +289,8 @@ class UncurlRemote(SpecialRemote):
         # extend with additional matchers from local config
         self.match = (self.match or []) + [
             re.compile(m)
-            for m in ensure_list(self.repo.cfg.get(
-                f'remote.{self.remotename}.uncurl-match', [], get_all=True))
+            for m in ensure_list(self.get_remote_gitcfg(
+                'uncurl', 'match', default=[], get_all=True))
         ]
 
         self.message(
