@@ -11,6 +11,24 @@ from datalad.customremotes import (
 )
 from datalad.customremotes.main import main as super_main
 
+from datalad_next.datasets import LeanAnnexRepo
+
 
 class SpecialRemote(_SpecialRemote):
-    pass
+    """Base class of all datalad-next git-annex special remotes"""
+    def __init__(self, annex):
+        super(SpecialRemote, self).__init__(annex=annex)
+
+        self._repo = None
+
+    @property
+    def repo(self) -> LeanAnnexRepo:
+        """Returns a representation of the underlying git-annex repository
+
+        An instance of :class:`~datalad_next.datasets.LeanAnnexRepo` is
+        returned, which intentionally provides a restricted API only. In order
+        to limit further proliferation of the ``AnnexRepo`` API.
+        """
+        if self._repo is None:
+            self._repo = LeanAnnexRepo(self.annex.getgitdir())
+        return self._repo
