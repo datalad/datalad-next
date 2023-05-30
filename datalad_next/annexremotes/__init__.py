@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # import all the pieces one would need for an implementation
 # in a single place
 from annexremote import UnsupportedRequest

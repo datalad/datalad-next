@@ -11,6 +11,7 @@ Python utilities
    config.ConfigManager
    constraints
    credman.manager
+   datasets
    exceptions
    iter_collections
    url_operations
