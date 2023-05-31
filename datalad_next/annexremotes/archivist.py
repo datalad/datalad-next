@@ -498,9 +498,11 @@ class _ArchiveHandlers:
             assert ainfo.handler is None
             try:
                 handler = self._get_remote_handler(akey, ainfo)
-                yield handler, [loc for loc in locs if loc.akey == akey]
             except Exception as e:
                 exc.append(e)
+            # store the handler for later
+            ainfo.handler = handler
+            yield handler, [loc for loc in locs if loc.akey == akey]
 
         # if we get here we can stop -- everything was tried. If there were
         # exceptions, make sure to report them
