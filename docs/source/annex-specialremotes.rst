@@ -6,4 +6,5 @@ Git-annex special remotes
    :toctree: generated
 
    SpecialRemote
+   archivist
    uncurl

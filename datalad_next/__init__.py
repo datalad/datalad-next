@@ -88,6 +88,21 @@ register_config(
     default='raise-early',
     dialog='question',
 )
+register_config(
+    'datalad.archivist.legacy-mode',
+    'Fall back on legacy ``datalad-archives`` special remote implementation?',
+    description='If enabled, all `archivist` special remote operations '
+    'fall back onto the legacy ``datalad-archives`` special remote '
+    'implementation. This mode is only provided for backward-compatibility. '
+    'This legacy implementation unconditionally downloads archive files '
+    'completely, and keeps an internal cache of the full extracted archive '
+    'around. The implied 200% storage cost overhead for obtaining a complete '
+    'dataset can be prohibitive for datasets tracking large amount of data '
+    '(in archive files).',
+    type=EnsureBool(),
+    default=False,
+    dialog='yesno',
+)
 
 
 from ._version import get_versions
