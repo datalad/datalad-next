@@ -498,9 +498,12 @@ class _ArchiveHandlers:
             assert ainfo.handler is None
             try:
                 handler = self._get_remote_handler(akey, ainfo)
-                yield handler, [loc for loc in locs if loc.akey == akey]
             except Exception as e:
                 exc.append(e)
+                continue
+            # if this worked, store the handler for later
+            ainfo.handler = handler
+            yield handler, [loc for loc in locs if loc.akey == akey]
 
         # if we get here we can stop -- everything was tried. If there were
         # exceptions, make sure to report them
@@ -564,6 +567,10 @@ class _ArchiveHandlers:
         # with that URL
         # instead we retrieve the archive
         res = self._repo.get(str(akey), key=True)
+        # if the akey was already around, `res` could be an empty list.
+        # however, under these circumstances we should not have ended
+        # up here. assert to alert on logic error in that case
+        assert isinstance(res, dict)
         if res.pop('success', None) is not True:
             # TODO better error
             raise RuntimeError(f'Failed to download archive key: {res!r}')

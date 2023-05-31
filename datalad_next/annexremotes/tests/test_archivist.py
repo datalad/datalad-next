@@ -208,6 +208,26 @@ def _check_archivist_retrieval(archivist_dataset):
         status='ok',
         type='file',
     )
+    # and now get again, this time with no archives around locally
+    # no ZIP just yet
+    #res = ads.get(['azip', 'atar'], **nonoise)
+    res = ads.get(['atar'], **nonoise)
+    assert_result_count(
+        res,
+        # no ZIP just yet
+        # len(dscontent),
+        2,
+        action='get',
+        status='ok',
+        type='file',
+    )
+    for fpath, fcontent in dscontent:
+        # no ZIP just yet
+        if 'zip' in fpath:
+            continue
+        assert (ads.pathobj / fpath).read_text() == fcontent
+    # and drop everything again to leave the dataset empty
+    res = ads.drop(['.'], **nonoise)
 
 
 def test_archivist_retrieval(populated_archivist_dataset):
