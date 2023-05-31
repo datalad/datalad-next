@@ -9,12 +9,7 @@ from datalad.interface.base import (
 )
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import generic_result_renderer
-try:
-    # datalad 0.17.10+
-    from datalad.interface.base import eval_results
-except ImportError:
-    # older datalad
-    from datalad.interface.utils import eval_results
+from datalad.interface.base import eval_results
 from datalad.support.param import Parameter
 
 from datalad_next.constraints.parameter import (
