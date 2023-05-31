@@ -292,10 +292,5 @@ def _execute_command_(
 # apply patch
 patch_msg = \
     'Apply datalad-next patch to interface.(utils|base).py:_execute_command_'
-try:
-    apply_patch('datalad.interface.utils', None, '_execute_command_',
-                _execute_command_, msg=patch_msg)
-except AttributeError:
-    # we have datalad 0.17.10+ and the target has moved
-    apply_patch('datalad.interface.base', None, '_execute_command_',
-                _execute_command_, msg=patch_msg)
+apply_patch('datalad.interface.base', None, '_execute_command_',
+            _execute_command_, msg=patch_msg)
