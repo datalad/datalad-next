@@ -96,3 +96,19 @@ def test_compressed_file_stay_compressed(tmp_path):
     # make sure it ends up on disk compressed!
     with gzip.open(dpath, 'rb') as f:
         f.read(1000)
+
+
+def test_header_adding():
+    default_headers = dict(key_1='value_1')
+    added_headers = dict(key_2='value_2')
+    url_ops = HttpUrlOperations(headers=default_headers)
+    assert 'key_1' in url_ops.get_headers()
+
+    # ensure that header entries from `headers` show up in result
+    combined_keys = {'key_1', 'key_2'}
+    result_1 = url_ops.get_headers(headers=dict(added_headers))
+    assert combined_keys.issubset(set(result_1))
+
+    # ensure that `headers` did not change the stored headers
+    result_2 = url_ops.get_headers()
+    assert 'key_2' not in set(result_2)
