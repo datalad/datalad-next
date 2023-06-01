@@ -13,7 +13,7 @@ from typing import (
     Type,
 )
 
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 from datalad_next.annexremotes import SpecialRemote
 
 
