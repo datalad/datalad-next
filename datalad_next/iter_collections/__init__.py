@@ -19,5 +19,6 @@ collections.
 
    directory
    tarfile
+   zipfile
    utils
 """
