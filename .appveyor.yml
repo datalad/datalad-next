@@ -94,7 +94,10 @@ environment:
         datalad.core
       # do not run tests that ensure behavior we intentionally changed
       # - test_gh1811: is included in next in an alternative implementation
-      KEYWORDS: not test_gh1811
+      # - test_librarymode: assumes that CLI config overrides end up in the
+      #   session `datalad.cfg.overrides`, but -next changes that behavior
+      #   to have `.overrides` be uniformly limited to instance overrides
+      KEYWORDS: not test_gh1811 and not test_librarymode
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
       INSTALL_SYSPKGS: python3-virtualenv

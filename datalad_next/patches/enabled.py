@@ -1,4 +1,5 @@
 from . import (
+    cli_configoverrides,
     commanderror,
     common_cfg,
     annexrepo,
