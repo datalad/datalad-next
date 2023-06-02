@@ -45,7 +45,8 @@ def iter_tar(
     fp: bool, optional
       If ``True``, each file-type item includes a file-like object
       to access the file's content. This file handle will be closed
-      automatically when the next item is yielded.
+      automatically when the next item is yielded or the function
+      returns.
 
     Yields
     ------
@@ -54,7 +55,7 @@ def iter_tar(
     with tarfile.open(path, 'r') as tar:
         for member in tar:
             # reduce the complexity of tar member types to the desired
-            # level (ie. disregard the diversity of special files and
+            # level (i.e. disregard the diversity of special files and
             # block devices)
             mtype = FileSystemItemType.file if member.isreg() \
                 else FileSystemItemType.directory if member.isdir() \
