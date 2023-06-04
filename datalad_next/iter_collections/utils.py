@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import PurePath
+import os
+from pathlib import (
+    Path,
+    PurePath,
+)
+import stat
 from typing import (
     Any,
     IO,
@@ -57,6 +62,46 @@ class FileSystemItem(PathBasedItem, TypedItem):
     gid: int | None = None
     link_target: PurePath | None = None
     fp: IO | None = None
+
+    @classmethod
+    def from_path(
+        cls,
+        path: Path,
+        *,
+        link_target: bool = True,
+        fp: bool = False,
+    ):
+        """Populate item properties from a single `stat` and `readlink` call
+
+        The given ``path`` must exist. The ``link_target`` flag indicates
+        whether to report the result of ``readlink`` for a symlink-type
+        path. If `fp` is set, the item includes a file-like object
+        to access the file's content.
+        """
+        cstat = path.lstat()
+        cmode = cstat.st_mode
+        if stat.S_ISLNK(cmode):
+            ctype = FileSystemItemType.symlink
+        elif stat.S_ISDIR(cmode):
+            ctype = FileSystemItemType.directory
+        else:
+            # the rest is a file
+            # there could be fifos and sockets, etc.
+            # but we do not recognize them here
+            ctype = FileSystemItemType.file
+        item = cls(
+            name=path,
+            type=ctype,
+            size=cstat.st_size,
+            mode=cmode,
+            mtime=cstat.st_mtime,
+            uid=cstat.st_uid,
+            gid=cstat.st_gid,
+        )
+        if ctype == FileSystemItemType.symlink:
+            # could be p.readlink() from PY3.9+
+            item.link_target = PurePath(os.readlink(path))
+        return item
 
 
 def compute_multihash_from_fp(fp, hash: List[str], bufsize=COPY_BUFSIZE):

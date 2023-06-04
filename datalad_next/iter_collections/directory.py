@@ -6,12 +6,7 @@ The main functionality is provided by the :func:`iter_dir()` function.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
-from pathlib import (
-    Path,
-    PurePath,
-)
-import stat
+from pathlib import Path
 from typing import Generator
 
 from datalad_next.exceptions import CapturedException
@@ -38,8 +33,7 @@ def iter_dir(
     information on file system elements, such as ``size``, or ``mtime``.
 
     In addition to a plain ``Path.iterdir()`` the report includes a path-type
-    label (distinguished are ``file``, ``directory``, ``symlink``). Moreover,
-    any number of checksums for file content can be computed and reported.
+    label (distinguished are ``file``, ``directory``, ``symlink``).
 
     Parameters
     ----------
@@ -58,33 +52,14 @@ def iter_dir(
         # c could disappear while this is running. Example: temp files managed
         # by other processes.
         try:
-            cstat = c.lstat()
+            item = DirectoryItem.from_path(
+                c,
+                link_target=True,
+            )
         except FileNotFoundError as e:
             CapturedException(e)
             continue
-        cmode = cstat.st_mode
-        if stat.S_ISLNK(cmode):
-            ctype = FileSystemItemType.symlink
-        elif stat.S_ISDIR(cmode):
-            ctype = FileSystemItemType.directory
-        else:
-            # the rest is a file
-            # there could be fifos and sockets, etc.
-            # but we do not recognize them here
-            ctype = FileSystemItemType.file
-        item = DirectoryItem(
-            name=PurePath(c.name),
-            type=ctype,
-            size=cstat.st_size,
-            mode=cmode,
-            mtime=cstat.st_mtime,
-            uid=cstat.st_uid,
-            gid=cstat.st_gid,
-        )
-        if ctype == FileSystemItemType.symlink:
-            # could be p.readlink() from PY3.9+
-            item.link_target = PurePath(os.readlink(c))
-        if fp and ctype == FileSystemItemType.file:
+        if fp and item.type == FileSystemItemType.file:
             with c.open('rb') as fp:
                 item.fp = fp
                 yield item
