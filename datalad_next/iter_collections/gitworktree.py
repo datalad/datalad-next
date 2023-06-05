@@ -82,7 +82,7 @@ _mode_type_map = {
 
 lsfiles_untracked_args = {
     'all':
-    ('--exclude-standard', '--others',),
+    ('--exclude-standard', '--others'),
     'whole-dir':
     ('--exclude-standard', '--others', '--directory'),
     'no-empty-dir':
@@ -174,7 +174,6 @@ def iter_gitworktree(
                     yield item
             else:
                 yield item
-            pending_item = None
 
         if ipath is None:
             # this is the trailing `None` record. we are done here
