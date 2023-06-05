@@ -38,6 +38,7 @@ from datalad_next.constraints import (
     EnsureInt,
     EnsureParsedURL,
     EnsureRange,
+    EnsureRemoteName,
     EnsureStr,
 )
 from datalad_next.constraints.dataset import EnsureDataset
@@ -259,8 +260,8 @@ class CreateSiblingWebDAV(ValidatedInterface):
         ),
         dataset=EnsureDataset(
             installed=True, purpose='create WebDAV sibling(s)'),
-        name=EnsureStr(),
-        storage_name=EnsureStr(),
+        name=EnsureRemoteName(existing=False),
+        storage_name=EnsureRemoteName(existing=False),
         mode=EnsureChoice(
             'annex', 'filetree', 'annex-only', 'filetree-only', 'git-only'
         ),
