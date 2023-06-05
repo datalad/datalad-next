@@ -57,7 +57,7 @@ def test_EnsureGitRefName():
 def test_EnsureRemoteName(existing_dataset):
     # empty sibling name must raise
     with pytest.raises(ValueError):
-        c = EnsureRemoteName()('')
+        EnsureRemoteName()('')
     assert EnsureRemoteName().short_description() == 'Sibling name'
     assert EnsureRemoteName(
         existing=True).short_description() == 'Sibling name that exists'

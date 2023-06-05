@@ -93,6 +93,7 @@ class EnsureRemoteName(EnsureGitRefName):
         existing: bool
            If true, validates that the remote exists, fails otherwise.
            If false, validates that the remote doesn't exist, fails otherwise.
+           If None, just checks that a sibling name was provided.
 
         """
         self._existing = existing
@@ -111,7 +112,6 @@ class EnsureRemoteName(EnsureGitRefName):
             return value
 
         from datalad.runner import GitRunner, StdOutCapture
-        from datalad_next.exceptions import CommandError
         runner = GitRunner()
         cmd = ['git', 'remote'] if not self._dsarg else \
               ['git', '-C', f'{self._dsarg.ds.path}', 'remote']
@@ -120,7 +120,7 @@ class EnsureRemoteName(EnsureGitRefName):
             raise ValueError(
                 f'Sibling {value} is not among available remotes {remotes}'
             )
-        elif not self._existing and value in remotes:
+        elif self._existing is False and value in remotes:
             raise ValueError(
                 f'Sibling {value} is already among available remotes {remotes}'
             )
