@@ -50,7 +50,7 @@ class GitTreeItemType(Enum):
 # TODO maybe establish GitTreeItem and derive from that
 @dataclass
 class GitWorktreeItem(PathBasedItem):
-    name: PurePosixPath
+    name: PurePath
     # gitsha is not the sha1 of the file content, but the output
     # of `git hash-object` which does something like
     # `printf "blob $(wc -c < "$file_name")\0$(cat "$file_name")" | sha1sum`
@@ -208,19 +208,19 @@ def _get_item(
             fullpath,
             link_target=link_target,
         )
-        # make sure the name/id is the path relative to the basepath
-        item.name = PurePath(ipath)
         if type is not None:
             item.gittype = type
         if gitsha is not None:
             item.gitsha = gitsha
-        return item
     else:
-        return GitWorktreeItem(
+        item = GitWorktreeItem(
             name=ipath,
             gittype=type,
             gitsha=gitsha,
         )
+    # make sure the name/id is the path relative to the basepath
+    item.name = PurePath(ipath)
+    return item
 
 
 def _lsfiles_line2props(
