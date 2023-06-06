@@ -51,3 +51,7 @@ from datalad_next.iter_collections.tests.test_itertar import (
     # file/dir/link types
     sample_tar_xz,
 )
+from datalad_next.iter_collections.tests.test_iterzip import (
+    # session-scope, create a sample zip file
+    sample_zip,
+)
