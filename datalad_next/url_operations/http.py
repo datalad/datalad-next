@@ -117,7 +117,7 @@ class HttpUrlOperations(UrlOperations):
             try:
                 props['content-length'] = int(props['content-length'])
             except (TypeError, ValueError):
-                # but be resonably robust against unexpected responses
+                # but be reasonably robust against unexpected responses
                 pass
         return props
 

@@ -153,16 +153,17 @@ class DataladAuth(requests.auth.AuthBase):
         ctype = DataladAuth._supported_auth_schemes[ascheme]
 
         try:
+            realm = get_auth_realm(url, auth_schemes)
             cred = self._credman.get(
                 name=None,
-                _prompt=f'Credential needed for access to {url}',
+                _prompt=f'Credential needed for accessing {url} (authentication realm {realm!r})',
                 _type_hint=ctype,
                 type=ctype,
                 # include the realm in the credential to avoid asking for it
                 # interactively (it is a server-specified property
                 # users would generally not know, if they do, they can use the
                 # `credentials` command upfront.
-                realm=get_auth_realm(url, auth_schemes)
+                realm=realm
             )
             self._entered_credential = cred
             return ascheme, None, cred
