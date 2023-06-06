@@ -244,16 +244,16 @@ class HttpUrlOperations(UrlOperations):
         from_url = r.url
         hasher = self._get_hasher(hash)
         progress_id = self._get_progress_id(from_url, to_path)
-        # get download size, but not every server provides it
+        # try to get download size, it might not be provided, e.g. if
+        # chunked transport encoding is used
         try:
             # for compressed downloads the content length refers to the
             # compressed content
             expected_size = int(r.headers.get('content-length'))
         except (ValueError, TypeError):
-            # some responses do not have a `content-length` header,
-            # even though they HTTP200 and deliver the content.
-            # example:
-            # https://github.com/datalad/datalad-next/pull/365#issuecomment-1557114109
+            # some HTTP-200 responses do not have a `content-length` header,
+            # e.g. if chunked transport encoding is used. in this case, set
+            # up everything to calculate size by ourselves
             expected_size = None
         self._progress_report_start(
             progress_id,
@@ -274,14 +274,16 @@ class HttpUrlOperations(UrlOperations):
             # TODO make chunksize a config item, 65536 is the default in
             # requests_toolbelt
             for chunk in r.raw.stream(amt=65536, decode_content=True):
-                # update how much data was transferred from the remote server,
-                # but we cannot use the size of the chunk for that,
-                # because content might be downloaded with transparent
-                # (de)compression. ask the download stream itself for its
-                # "position"
+                # update how much data was transferred from the remote server.
                 if expected_size:
+                    # if we have an expected size, we don't use the size of the
+                    # chunk for that because content might be downloaded with
+                    # transparent (de)compression. instead we ask the download
+                    # stream itself for its "position".
                     tell = r.raw.tell()
                 else:
+                    # if we do not have an expected size, all we can use is
+                    # the size of the downloaded chunk.
                     tell = downloaded_bytes + len(chunk)
                 self._progress_report_update(
                     progress_id,
