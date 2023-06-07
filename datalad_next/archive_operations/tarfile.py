@@ -77,13 +77,28 @@ class TarArchiveOperations(ArchiveOperations):
             self._tarfile = None
 
     @contextmanager
-    def open(self, item: str | PurePath) -> IO:
+    def open(self, item: str | PurePath) -> Generator[IO | None]:
         """Get a file-like for a TAR archive item
+
+        The file-like object allows to read from the archive-item specified
+        by `item`.
 
         Parameters
         ----------
         item: str | PurePath
           The identifier must be a POSIX path string, or a `PurePath` instance.
+
+        Returns
+        -------
+        IO | None
+          A file-like object to read bytes from the item, if the item is a
+          regular file, else `None`. (This is returned by the context manager
+          that is created via the decorator `@contextmanager`.)
+
+        Raises
+        ------
+        KeyError
+          If no item with the name `item` can be found in the tar-archive
         """
         with self.tarfile.extractfile(_anyid2membername(item)) as fp:
             yield fp
