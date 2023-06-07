@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zipfile
 from dataclasses import dataclass
+from os import sep
 from pathlib import Path
 from typing import Generator
 
@@ -77,7 +78,7 @@ def test_iterator(sample_zip: TestArchive):
     for item in items:
         item_name = (
             str(item.name) +
-            '/' if item.type == FileSystemItemType.directory
+            sep if item.type == FileSystemItemType.directory
             else str(item.name)
         )
         assert item_name in archive_ops
