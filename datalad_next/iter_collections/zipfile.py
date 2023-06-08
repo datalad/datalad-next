@@ -72,7 +72,7 @@ def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
         else FileSystemItemType.file
     )
     return ZipfileItem(
-        name=PurePath(PurePosixPath(zip_info.filename)),
+        name=PurePosixPath(zip_info.filename),
         type=mtype,
         size=zip_info.file_size,
         mtime=time.mktime(

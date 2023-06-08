@@ -1,6 +1,6 @@
 import pytest
 import zipfile
-from pathlib import PurePath
+from pathlib import PurePosixPath
 
 from ..zipfile import (
     ZipfileItem,
@@ -47,7 +47,7 @@ def test_iter_zip(sample_zip):
         'SHA1': 'b5dfcec4d1b6166067226fae102f7fbcf6bd1bd4',
         'md5': 'd700214df5487801e8ee23d31e60382a',
     }
-    root = PurePath('test-archive')
+    root = PurePosixPath('test-archive')
     targets = [
         ZipfileItem(
             name=root,
