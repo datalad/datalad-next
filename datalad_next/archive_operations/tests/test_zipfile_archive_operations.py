@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import zipfile
 from dataclasses import dataclass
-from os import sep
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 from typing import Generator
 
 import pytest
@@ -77,9 +79,9 @@ def test_iterator(sample_zip: TestArchive):
     assert len(items) == sample_zip.item_count
     for item in items:
         item_name = (
-            str(item.name) +
-            sep if item.type == FileSystemItemType.directory
-            else str(item.name)
+            str(PurePosixPath(item.name)) +
+            '/' if item.type == FileSystemItemType.directory
+            else str(PurePosixPath(item.name))
         )
         assert item_name in archive_ops
     archive_ops.close()
