@@ -611,6 +611,16 @@ class RepoAnnexGitRemote(object):
             create=not existing_repo,
             bare=True)
 
+        if not existing_repo:
+            # align HEAD symbolic ref between source and mirror repo
+            # IF WE CREATED IT LOCALLY JUST NOW, otherwise take whatever
+            # we got.
+            # otherwise we can end up in a conflict situation where the mirror
+            # points to 'master' (or something else) and the source actually
+            # has 'main' (or something different)
+            src_head_ref = self.repo.call_git(['symbolic-ref', 'HEAD']).strip()
+            mr.call_git(['symbolic-ref', 'HEAD', src_head_ref])
+
         self.log('Established mirror')
         self._mirrorrepo = mr
         return mr
