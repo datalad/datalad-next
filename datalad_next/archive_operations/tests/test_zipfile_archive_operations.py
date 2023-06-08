@@ -67,7 +67,7 @@ def test_open(structured_sample_zip: TestArchive):
     file_pointer = set()
     for item in list(archive_ops):
         if item.type == FileSystemItemType.file:
-            with archive_ops.open(str(item.name)) as fp:
+            with archive_ops.open(str(PurePosixPath(item.name))) as fp:
                 file_pointer.add(fp)
                 assert fp.read(len(structured_sample_zip.content)) == structured_sample_zip.content
     for fp in file_pointer:
