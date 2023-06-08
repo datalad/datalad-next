@@ -890,15 +890,27 @@ class RepoAnnexGitRemote(object):
             self._mirrorrepo = None
 
         self.log('Extracting repository archive')
+        legacy_deposit = False
         with zipfile.ZipFile(repoexportkeyloc) as zip:
+            try:
+                zip.getinfo('repo/')
+                legacy_deposit = True
+                safe_content = [f'repo/{i}' for i in self.safe_content]
+            except KeyError:
+                safe_content = self.safe_content
+
             zip.extractall(
                 self._mirrorrepodir,
                 # a bit of a safety-net, exclude all unexpected content
                 members=[
                     m for m in zip.namelist()
                     if any(m.startswith(prefix)
-                           for prefix in self.safe_content)],
+                           for prefix in safe_content)],
             )
+        if legacy_deposit:
+            legacy_basedir = self._mirrorrepodir / 'repo'
+            for p in legacy_basedir.iterdir():
+                p.rename(self._mirrorrepodir / p.relative_to(legacy_basedir))
 
     def get_remote_refs(self):
         """Report remote refs
