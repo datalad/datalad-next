@@ -1226,11 +1226,11 @@ def push_error(operations):
     return any(o in operations for o in error_operations)
 
 
-def main():
+def main(gitremote_cls=RepoAnnexGitRemote):
     """git-remote helper executable entrypoint"""
     try:
         if len(sys.argv) < 3:
-            raise ValueError("Usage: git-remote-datalad-annex REMOTE-NAME URL")
+            raise ValueError(f"Usage: {sys.argv[0]} REMOTE-NAME URL")
 
         remote, url = sys.argv[1:3]
         # provided by Git
@@ -1247,7 +1247,7 @@ def main():
         ui.set_backend('annex')
 
         # lock and load
-        remote = RepoAnnexGitRemote(gitdir, remote, url)
+        remote = gitremote_cls(gitdir, remote, url)
         remote.communicate()
         # there is no value in keeping around the downloads
         # we either have things in the mirror repo or have to
