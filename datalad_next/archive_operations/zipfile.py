@@ -98,6 +98,7 @@ class ZipArchiveOperations(ArchiveOperations):
 
     def __contains__(self, item: Any) -> bool:
         try:
+
             self.zipfile.getinfo(item)
             return True
         except KeyError:
