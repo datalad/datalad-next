@@ -54,6 +54,9 @@ command_doc = """
       in a "project" project inside this group, and all nested subdatasets are
       represented inside the group using a "flat" layout. The root datasets
       project name is configurable (see Configuration).
+      This command cannot create root-level groups! To use this layout for
+      a collection located in the root of an account, create the target
+      group via the GitLab web UI first.
 
     GitLab cannot host dataset content. However, in combination with
     other data sources (and siblings), publishing a dataset to GitLab can
