@@ -1,3 +1,126 @@
+
+# 1.0.0b3 (2023-06-??)
+
+## 🐛 Bug Fixes
+
+- Patch `CommandError`, the standard exception raised for any non-zero exit
+  command execution to now reports which command failed with `repr()` too.
+  Previously, only `str()` would produce an informative message about a failure,
+  while `repr()` would report `CommandError('')`, unless a dedicated message was
+  provided. (by @mih)
+
+- Some error messages (in particular from within git-annex special remotes)
+  exhibited uninformative error messages like `CommandError('')`. This
+  is now fixed by letting `CommandError` produce the same error rendering
+  in `__str__` and `__repr__`. Previously, `RuntimeError.__repr__` was used,
+  which was unaware of command execution details also available in the exception.
+  https://github.com/datalad/datalad-next/pull/386 (by @mih)
+
+- The `datalad-annex` Git remote helper can now handle the case where
+  a to-be-clone repository has a configured HEAD ref that does not
+  match the local configured default (e.g., `master` vs `main`
+  default branch).
+  Fixes https://github.com/datalad/datalad-next/issues/412 via
+  https://github.com/datalad/datalad-next/pull/411 (by @mih)
+
+## 💫 Enhancements and new features
+
+- Patch the process entrypoint of DataLad's git-annex special remote
+  implementations to funnel internal progress reporting to git-annex
+  via standard `PROGRESS` protocol messages. This makes it obsolete
+  (in many cases) to implement custom progress reporting, and the
+  use of the standard `log_progress()` helper (either directly or
+  indirectly) is sufficient to let both a parent DataLad process
+  or git-annex see progress reports from special remotes.
+  Fixes https://github.com/datalad/datalad-next/issues/328 via
+  https://github.com/datalad/datalad-next/pull/329 (by @mih)
+
+- The `HttpUrlOperations` handler now supports custom HTTP headers.
+  This makes it possible to define custom handlers in configuration
+  that include such header customization, for example to send
+  custom secret or session IDs.
+  Fixes https://github.com/datalad/datalad-next/issues/336 (by @mih)
+
+- `Constraint` implementations now raise `ConstraintError` consistently
+  on a violation. This now makes it possible to distinguish properly
+  handled violations from improper implementation of such checks.
+  Moreover, `raise_for()` is now used consistently, providing
+  uniform, structured information on such violations.
+  `ConstraintError` is derived from `ValueError` (the exception
+  that was previously (mostly) raised. Therefore, client-code should
+  continue to work without modification, unless a specific wording
+  of an exception message is relied upon. In few cases, an implicit
+  `TypeError` (e.g., `EnsureIterableof`) has been replaced by an
+  explicit `ConstraintError`, and client code needs to be adjusted.
+  The underlying exception continues to be available via
+  `ConstraintError.caused_by`. (by @mih)
+
+- New `MultiHash` helper to compute multiple hashes in one go.
+  Fixes https://github.com/datalad/datalad-next/issues/345 (by @mih)
+
+- As a companion of `LeanGitRepo` a `LeanAnnexRepo` has been added.  This class
+  is primarily used to signal that particular code does not require the full
+  `AnnexRepo` API, but works with a much reduced API, as defined by that class.
+  The API definition is not final and will grow in future releases to accommodate
+  all standard use cases.  https://github.com/datalad/datalad-next/pull/387
+  (by @mih)
+
+- Dedicated dataclasses for common types, such as git-annex keys (`AnnexKey`)
+  and `dl+archives:` URLs (`ArchivistLocator`) have been added. They support
+  parsing and rendering their respective plain-text representations. These new
+  types are now also available for more precise type annotation and argument
+  validation. (by @mih)
+
+- `datalad_next.archive_operations` has been added, and follows the pattern
+  established by the `UrlOperations` framework, to provide uniform handling
+  to different archive types. Two main (read) operations are supported:
+  iteration over archive members, and access to individual member content
+  via a file-like. (by @mih)
+
+- New `datalad_next.iter_collections` module providing iterators for
+  items in particular collections, such as TAR or ZIP archives members,
+  the content of a file system directory, or the worktree of a Git repository.
+  Iterators yield items of defined types that typically carry information on
+  the properties of collections items, and (in the case of files) access to
+  their content.
+
+- New command `ls_file_collection()` is providing access to a select set
+  of collection iterators via the DataLad command. In addition to the
+  plain iterators, it provide uniform content hashing across all
+  supported collection types.
+
+- The `datalad-annex` Git remote helper can now recognize and handle
+  legacy repository deposits made by its predecessor from `datalad-osf`.
+  https://github.com/datalad/datalad-next/pull/411 (by @mih)
+
+## 🏠 Internal
+
+- Remove DataLad runner performance patch, and all patches to clone
+  functionality. They are included in datalad-0.18.1, dependency adjusted.
+
+- New `deprecated` decorator for standardized deprecation handling
+  of commands, functions, and also individual keyword arguments of
+  callables, and even particular values for such arguments.
+  Inspired by https://github.com/datalad/datalad/issues/6998.
+  Contributed by @adswa
+
+- Use the correct type annotation for `cfg`-parameter of
+  `datalad_next.utils.requests_auth.DataladAuth.__init__()`
+  https://github.com/datalad/datalad-next/pull/385 (by @christian-monch)
+
+- The patch registry has been moved to `datalad_next.patches.enabled`,
+  and the `apply_patch()` helper is now located in `datalad_next.patches`
+  directly to avoid issues with circular dependencies when patching
+  core components like the `ConfigManager`. The documentation on patching
+  has been adjusted accordingly.
+  https://github.com/datalad/datalad-next/pull/391 (by @mih)
+
+- The `main()` entrypoint of the `datalad-annex` Git remote helper has
+  be generalized to be more re-usable by other (derived) remote helper
+  implementations.
+  https://github.com/datalad/datalad-next/pull/411 (by @mih)
+
+
 # 1.0.0b2 (2023-03-17)
 
 ## 💫 Enhancements and new features
