@@ -1,3 +1,5 @@
+import pytest
+
 import os
 
 # this must import ok with and without gitlab
@@ -7,18 +9,16 @@ from datalad.api import (
     create_sibling_gitlab,
 )
 from datalad.tests.utils_pytest import (
-    assert_raises,
     assert_repo_status,
     assert_result_count,
     assert_status,
-    eq_,
-    with_tempfile,
 )
 from datalad.utils import chpwd
 
 
-def _get_nested_collections(path):
-    ds = Dataset(path).create()
+@pytest.fixture(autouse=False, scope="function")
+def nested_collections(tmp_path):
+    ds = Dataset(tmp_path).create()
     c1 = ds.create(ds.pathobj / 'subdir' / 'collection1')
     c1s1 = c1.create('sub1')
     c1s2 = c1.create('sub2')
@@ -40,11 +40,11 @@ def _get_nested_collections(path):
 
 
 # doesn't actually need gitlab and exercises most of the decision logic
-@with_tempfile
-def test_dryrun(path=None):
-    ctlg = _get_nested_collections(path)
+def test_dryrun(nested_collections):
+    ctlg = nested_collections
     # no site config -> error
-    assert_raises(ValueError, ctlg['root'].create_sibling_gitlab)
+    with pytest.raises(ValueError):
+        ctlg['root'].create_sibling_gitlab()
     # wrong path specification -> impossible result
     res = ctlg['root'].create_sibling_gitlab(
         dry_run=True, on_failure='ignore',
@@ -55,14 +55,12 @@ def test_dryrun(path=None):
         res, 1, path=ctlg['root'].pathobj / 'imaghost', type='dataset',
                           status='impossible')
     # single project vs multi-dataset call
-    assert_raises(
-        ValueError,
-        ctlg['root'].create_sibling_gitlab,
-        site='site', project='one', recursive=True)
-    assert_raises(
-        ValueError,
-        ctlg['root'].create_sibling_gitlab,
-        site='site', project='one', path=['one', 'two'])
+    with pytest.raises(ValueError):
+        ctlg['root'].create_sibling_gitlab(
+            site='site', project='one', recursive=True)
+    with pytest.raises(ValueError):
+        ctlg['root'].create_sibling_gitlab(
+            site='site', project='one', path=['one', 'two'])
     # explicit cite, no path constraints, fails for lack of project path config
     res = ctlg['root'].create_sibling_gitlab(
         dry_run=True, on_failure='ignore',
@@ -159,7 +157,7 @@ def test_dryrun(path=None):
     # we get the same result with an explicit layout request
     expl_res = ctlg['root'].create_sibling_gitlab(
         path='subdir', layout='collection', dry_run=True)
-    eq_(res, expl_res)
+    assert res == expl_res
     # layout can be configured too, "collection" is "flat" in a group
     ctlg['root'].config.set('datalad.gitlab-theone-layout', 'collection')
     res = ctlg['root'].create_sibling_gitlab(
@@ -193,19 +191,18 @@ def test_dryrun(path=None):
     # the parent dataset we get the same results
     with chpwd(str(ctlg['root'].pathobj / 'subdir')):
         rel_res = create_sibling_gitlab(path=os.curdir, dry_run=True)
-        eq_(res, rel_res)
+        assert res == rel_res
     # and again the same results if we are in a subdataset and point to a parent
     # dataset as a reference and config provider
     with chpwd(ctlg['c1'].path):
         rel_res = create_sibling_gitlab(
             dataset=ctlg['root'].path, path=os.curdir, dry_run=True)
-        eq_(res, rel_res)
+        assert res == rel_res
 
     # blows on unknown layout
     ctlg['root'].config.unset('datalad.gitlab-theone-layout')
-    assert_raises(
-        ValueError,
-        ctlg['root'].create_sibling_gitlab, layout='funny', dry_run=True)
+    with pytest.raises(ValueError):
+        ctlg['root'].create_sibling_gitlab(layout='funny', dry_run=True)
 
     # and finally recursion
     res = ctlg['root'].create_sibling_gitlab(recursive=True, dry_run=True)
@@ -222,23 +219,17 @@ def test_dryrun(path=None):
             'secret/subdir-collection1-sub1',
             'secret/subdir-collection1-sub2',
         ]
-    eq_(
-        sorted(r['project'] for r in res),
-        expected_collection_res
-    )
+    assert sorted(r['project'] for r in res) == expected_collection_res
+
     # should be the same when explicitly requested
     res = ctlg['root'].create_sibling_gitlab(
         recursive=True, layout='collection', dry_run=True)
     assert_result_count(res, len(ctlg))
-    eq_(
-        sorted(r['project'] for r in res),
-        expected_collection_res
-    )
+    assert sorted(r['project'] for r in res) == expected_collection_res
     res = ctlg['root'].create_sibling_gitlab(
         recursive=True, layout='flat', dry_run=True)
     assert_result_count(res, len(ctlg))
-    eq_(
-        sorted(r['project'] for r in res),
+    assert sorted(r['project'] for r in res) == \
         [
             'secret',
             'secret-collection2',
@@ -247,16 +238,14 @@ def test_dryrun(path=None):
             'secret-subdir-collection1',
             'secret-subdir-collection1-sub1',
             'secret-subdir-collection1-sub2',
-        ],
-    )
+        ]
     # test that the configurations work
     ctlg['root'].config.set("datalad.gitlab-default-projectname", 'myownname')
     ctlg['c1s1'].config.set("datalad.gitlab-default-pathseparator", '+')
     res = ctlg['root'].create_sibling_gitlab(
         recursive=True, layout='flat', dry_run=True)
     assert_result_count(res, len(ctlg))
-    eq_(
-        sorted(r['project'] for r in res),
+    assert sorted(r['project'] for r in res) == \
         [
             'secret',
             'secret-collection2',
@@ -265,13 +254,11 @@ def test_dryrun(path=None):
             'secret-subdir+collection1+sub1',
             'secret-subdir-collection1',
             'secret-subdir-collection1-sub2',
-        ],
-    )
+        ]
     res = ctlg['root'].create_sibling_gitlab(
         recursive=True, layout='collection', dry_run=True)
     assert_result_count(res, len(ctlg))
-    eq_(
-        sorted(r['project'] for r in res),
+    assert sorted(r['project'] for r in res) == \
         [
             'secret/collection2',
             'secret/collection2-sub1',
@@ -280,8 +267,7 @@ def test_dryrun(path=None):
             'secret/subdir+collection1+sub1',
             'secret/subdir-collection1',
             'secret/subdir-collection1-sub2',
-        ],
-    )
+        ]
 
 
 class _FakeGitLab(object):
@@ -325,11 +311,12 @@ class _CreateFailureGitLab(_FakeGitLab):
         raise RuntimeError
 
 
-@with_tempfile
-def test_fake_gitlab(path=None):
-    from unittest.mock import patch
+def test_fake_gitlab(tmp_path, monkeypatch):
+    path = str(tmp_path)
     ds = Dataset(path).create()
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _NewProjectGitLab):
+    import datalad_next.patches.create_sibling_gitlab as glpatch
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _NewProjectGitLab)
         res = ds.create_sibling_gitlab(site='dummy', project='here', description='thisisit')
         assert_result_count(res, 2)
         # GitLab success
@@ -347,7 +334,8 @@ def test_fake_gitlab(path=None):
             url='http://example.com', status='ok')
 
     # test sibling name conflicts
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _ExistingProjectGitLab):
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _ExistingProjectGitLab)
         res = ds.create_sibling_gitlab(path=ds.path, site='dummy',
                                        project='here', existing='skip')
         assert_result_count(res, 1)
@@ -361,7 +349,8 @@ def test_fake_gitlab(path=None):
             type='dataset'
             )
     # sibling name conflict with existing='error' should yiel error
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _ExistingProjectGitLab):
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _ExistingProjectGitLab)
         res = ds.create_sibling_gitlab(path=ds.path, site='dummy',
                                        project='here', existing='skip')
         assert_result_count(res, 1)
@@ -375,8 +364,8 @@ def test_fake_gitlab(path=None):
             type='dataset'
             )
     # try recreation, the sibling is already configured, same setup, no error
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite",
-               _ExistingProjectGitLab):
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _ExistingProjectGitLab)
         res = ds.create_sibling_gitlab(path=ds.path, site='dummy',
                                        project='here', existing='reconfigure')
         assert_result_count(
@@ -395,14 +384,16 @@ def test_fake_gitlab(path=None):
             },
             status='error')
 
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _CreateFailureGitLab):
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _CreateFailureGitLab)
         assert_status(
             'error',
             ds.create_sibling_gitlab(site='dummy', project='here', on_failure='ignore')
         )
 
     # new sibling, ssh access
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _NewProjectGitLab):
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _NewProjectGitLab)
         res = ds.create_sibling_gitlab(site='sshsite', project='here', access='ssh')
         assert_result_count(res, 2)
         assert_result_count(
@@ -418,8 +409,8 @@ def test_fake_gitlab(path=None):
             res, 1, action='configure-sibling', path=path, name='sshsite',
             url='example.com', status='ok')
 
-    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite",
-               _ExistingProjectOtherURLGitLab):
+    with monkeypatch.context() as m:
+        m.setattr(glpatch, 'GitLabSite', _ExistingProjectOtherURLGitLab)
         res = ds.create_sibling_gitlab(site='sshsite', project='here',
                                        access='ssh', on_failure='ignore',
                                        name='sshsite2')
