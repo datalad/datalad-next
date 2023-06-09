@@ -77,6 +77,15 @@
   iteration over archive members, and access to individual member content
   via a file-like. (by @mih)
 
+- New `archivist` git-annex special remote, as a replacement for the
+  `datalad-archives` remote. It is implemented as a drop-in replacement
+  with the ability to also fall-back on the previous implementation.
+  In comparison to its predecessor, it reduces the storage overhead
+  from 200% to 100% by doing partial extraction from fully downloaded
+  archives. It is designed to be extended with support for partial
+  access to remote archives (thereby reducing storage overhead to zero),
+  but this is not yet implemented.
+
 - New `datalad_next.iter_collections` module providing iterators for
   items in particular collections, such as TAR or ZIP archives members,
   the content of a file system directory, or the worktree of a Git repository.
