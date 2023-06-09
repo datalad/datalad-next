@@ -113,7 +113,12 @@ environment:
         datalad.interface
       # do not run tests that ensure behavior we intentionally changed
       # - test_gh1811: is included in next in an alternative implementation
-      KEYWORDS: not test_gh1811
+      # - test_fake_gitlab: we have an updated variant in next
+      # - test_dryrun: we have an updated variant in next; what is disabled is
+      #   the one in test_create_sibling_gitlab.py. However, there is one with
+      #   identical name in test_create_sibling_ghlike.py, now also disabled
+      #   because MIH does not know better
+      KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
       INSTALL_SYSPKGS: python3-virtualenv
