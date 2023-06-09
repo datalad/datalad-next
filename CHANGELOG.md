@@ -1,5 +1,5 @@
 
-# 1.0.0b3 (2023-06-??)
+# 1.0.0b3 (2023-06-09)
 
 ## 🐛 Bug Fixes
 
@@ -22,6 +22,15 @@
   default branch).
   Fixes https://github.com/datalad/datalad-next/issues/412 via
   https://github.com/datalad/datalad-next/pull/411 (by @mih)
+
+- Patch `create_sibling_gitlab` to work with present day GitLab deployments.
+  This required adjusting the naming scheme for the `flat` and `collection`
+  layouts. Moreover, the `hierarchy` layout is removed. it has never been
+  fully implemented, and conceptually suffers from various corner-cases
+  that cannot be (easily) addressed. Consequently, the `collection` layout
+  is the new default. It's behavior matches that of `hierarchy` as far as this
+  was functional, hence there should be no breakage for active users.
+  https://github.com/datalad/datalad-next/pull/413
 
 ## 💫 Enhancements and new features
 
