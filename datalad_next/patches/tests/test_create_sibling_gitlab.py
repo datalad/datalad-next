@@ -329,7 +329,7 @@ class _CreateFailureGitLab(_FakeGitLab):
 def test_fake_gitlab(path=None):
     from unittest.mock import patch
     ds = Dataset(path).create()
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite", _NewProjectGitLab):
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _NewProjectGitLab):
         res = ds.create_sibling_gitlab(site='dummy', project='here', description='thisisit')
         assert_result_count(res, 2)
         # GitLab success
@@ -347,7 +347,7 @@ def test_fake_gitlab(path=None):
             url='http://example.com', status='ok')
 
     # test sibling name conflicts
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite", _ExistingProjectGitLab):
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _ExistingProjectGitLab):
         res = ds.create_sibling_gitlab(path=ds.path, site='dummy',
                                        project='here', existing='skip')
         assert_result_count(res, 1)
@@ -361,7 +361,7 @@ def test_fake_gitlab(path=None):
             type='dataset'
             )
     # sibling name conflict with existing='error' should yiel error
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite", _ExistingProjectGitLab):
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _ExistingProjectGitLab):
         res = ds.create_sibling_gitlab(path=ds.path, site='dummy',
                                        project='here', existing='skip')
         assert_result_count(res, 1)
@@ -375,7 +375,7 @@ def test_fake_gitlab(path=None):
             type='dataset'
             )
     # try recreation, the sibling is already configured, same setup, no error
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite",
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite",
                _ExistingProjectGitLab):
         res = ds.create_sibling_gitlab(path=ds.path, site='dummy',
                                        project='here', existing='reconfigure')
@@ -395,14 +395,14 @@ def test_fake_gitlab(path=None):
             },
             status='error')
 
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite", _CreateFailureGitLab):
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _CreateFailureGitLab):
         assert_status(
             'error',
             ds.create_sibling_gitlab(site='dummy', project='here', on_failure='ignore')
         )
 
     # new sibling, ssh access
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite", _NewProjectGitLab):
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite", _NewProjectGitLab):
         res = ds.create_sibling_gitlab(site='sshsite', project='here', access='ssh')
         assert_result_count(res, 2)
         assert_result_count(
@@ -418,7 +418,7 @@ def test_fake_gitlab(path=None):
             res, 1, action='configure-sibling', path=path, name='sshsite',
             url='example.com', status='ok')
 
-    with patch("datalad.distributed.create_sibling_gitlab.GitLabSite",
+    with patch("datalad_next.patches.create_sibling_gitlab.GitLabSite",
                _ExistingProjectOtherURLGitLab):
         res = ds.create_sibling_gitlab(site='sshsite', project='here',
                                        access='ssh', on_failure='ignore',
