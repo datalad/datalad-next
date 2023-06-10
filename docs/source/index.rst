@@ -49,13 +49,16 @@ Command line reference
    cmd.rst
 
 
-Python utilities
-----------------
+Python tooling
+--------------
+
+``datalad-next`` comprises a number of more-or-less self-contained
+mini-packages providing particular functionality.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   pyutils.rst
+   Infrastructure classes and utilities <pyutils.rst>
 
 
 Git remote helpers
