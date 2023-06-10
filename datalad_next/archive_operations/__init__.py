@@ -71,6 +71,10 @@ class ArchiveOperations(ABC):
     def __str__(self) -> str:
         return f'{self.__class__.__name__}({self._location})'
 
+    def __repr__(self) -> str:
+        return \
+            f'{self.__class__.__name__}({self._location}, cfg={self._cfg!r})'
+
     @property
     def cfg(self) -> ConfigManager:
         """ConfigManager given to the constructor, or the session default"""
