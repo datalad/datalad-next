@@ -1,6 +1,6 @@
 """Handler for operations on various archive types
 
-All handlers implements the API defined by :class:`ArchiveOperations`.
+All handlers implement the API defined by :class:`ArchiveOperations`.
 
 Available handlers:
 
