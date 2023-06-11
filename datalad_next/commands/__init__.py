@@ -1,4 +1,13 @@
-"""Components for basic functions of commands and their results"""
+"""Essential tooling for implementing DataLad commands
+
+This module provides the advanced command base class
+:class:`ValidatedInterface`, for implementing commands with uniform argument
+validation and structured error reporting.
+
+Beyond that, any further components necessary to implement command are imported
+in this module to offer a one-stop-shop experience. This includes
+``build_doc``, ``datasetmethod``, and ``eval_results``, among others.
+"""
 from __future__ import annotations
 
 from typing import Dict

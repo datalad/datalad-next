@@ -1,3 +1,8 @@
+"""Execution of subprocesses
+
+This module import all relevant components for subprocess execution.
+"""
+
 # runners
 from datalad.runner import (
     GitRunner,

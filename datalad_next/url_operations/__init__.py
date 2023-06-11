@@ -1,5 +1,16 @@
-"""Abstract base class for URL operation handlers"""
+"""Handlers for operations on various URL types and protocols
 
+Available handlers:
+
+.. currentmodule:: datalad_next.url_operations
+.. autosummary::
+   :toctree: generated
+
+   any
+   file
+   http
+   ssh
+"""
 # allow for |-type UnionType declarations
 from __future__ import annotations
 

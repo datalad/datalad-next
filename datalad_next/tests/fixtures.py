@@ -1,3 +1,5 @@
+"""Collection of fixtures for facilitation test implementations
+"""
 import logging
 import os
 from pathlib import Path
