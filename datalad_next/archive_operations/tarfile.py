@@ -6,13 +6,17 @@ from __future__ import annotations
 import logging
 import tarfile
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePath,
+)
 from typing import (
     Any,
     Generator,
     IO,
 )
 
+from datalad_next.config import ConfigManager
 # TODO we might just want to do it in reverse:
 # move the code of `iter_tar` in here and have it call
 # `TarArchiveOperations(path).__iter__()` instead.
@@ -27,13 +31,15 @@ from datalad_next.iter_collections.tarfile import (
 )
 
 from . import ArchiveOperations
-from datalad_next.config import ConfigManager
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations.tarfile')
 
 
 class TarArchiveOperations(ArchiveOperations):
-    """
+    """Handler for a TAR archive on a local file system
+
+    Any methods that take an archive item/member name as an argument
+    accept a POSIX path string, or any `PurePath` instance.
     """
     def __init__(self, location: Path, *, cfg: ConfigManager | None = None):
         """
@@ -55,24 +61,36 @@ class TarArchiveOperations(ArchiveOperations):
 
     @property
     def tarfile(self) -> tarfile.TarFile:
+        """Returns `TarFile` instance, after creating it on-demand
+
+        The instance is cached, and needs to be released by calling
+        ``.close()`` if called outside a context manager.
+        """
         if self._tarfile is None:
             self._tarfile = tarfile.open(self._tarfile_path, 'r')
         return self._tarfile
 
     def close(self) -> None:
+        """Closes any opened TAR file handler"""
         if self._tarfile:
             self._tarfile.close()
             self._tarfile = None
 
     @contextmanager
-    def open(self, item: Any) -> IO:
-        """
-        """
-        yield self.tarfile.extractfile(str(item))
+    def open(self, item: str | PurePath) -> IO:
+        """Get a file-like for a TAR archive item
 
-    def __contains__(self, item: Any) -> bool:
+        Parameters
+        ----------
+        item: str | PurePath
+          The identifier must be a POSIX path string, or a `PurePath` instance.
+        """
+        with self.tarfile.extractfile(_anyid2membername(item)) as fp:
+            yield fp
+
+    def __contains__(self, item: str | PurePath) -> bool:
         try:
-            self.tarfile.getmember(item)
+            self.tarfile.getmember(_anyid2membername(item))
             return True
         except KeyError:
             return False
@@ -81,3 +99,10 @@ class TarArchiveOperations(ArchiveOperations):
         # if fp=True is needed, either `iter_tar()` can be used
         # directly, or `TarArchiveOperations.open`
         yield from iter_tar(self._tarfile_path, fp=False)
+
+
+def _anyid2membername(item_id: str | PurePath) -> str:
+    if isinstance(item_id, PurePath):
+        return item_id.as_posix()
+    else:
+        return item_id

@@ -1,6 +1,6 @@
 """Handler for operations on various archive types
 
-All handlers implements the API defined by :class:`ArchiveOperations`.
+All handlers implement the API defined by :class:`ArchiveOperations`.
 
 Available handlers:
 
@@ -70,6 +70,10 @@ class ArchiveOperations(ABC):
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}({self._location})'
+
+    def __repr__(self) -> str:
+        return \
+            f'{self.__class__.__name__}({self._location}, cfg={self._cfg!r})'
 
     @property
     def cfg(self) -> ConfigManager:
