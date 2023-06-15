@@ -1,4 +1,11 @@
-from pathlib import PurePath
+from pathlib import (
+    PurePath,
+    PurePosixPath,
+)
+
+import pytest
+
+from datalad_next.utils import on_windows
 from ..gitworktree import (
     GitWorktreeItem,
     GitWorktreeFileSystemItem,
@@ -72,3 +79,17 @@ def test_iter_gitworktree(existing_dataset):
             checked_untracked = True
     assert checked_tracked
     assert checked_untracked
+
+
+@pytest.mark.skipif(on_windows, reason="not applicable on windows")
+def test_name_starting_with_tab(existing_dataset):
+    ds = existing_dataset
+    if ds.repo.is_crippled_fs():
+        pytest.skip("not applicable on crippled filesystems")
+    tabbed_file_name = "\ttab.txt"
+    tabbed_name = ds.pathobj / tabbed_file_name
+    tabbed_name.write_text('name of this file starts with a tab')
+    ds.save()
+
+    iter_names = [item.name for item in iter_gitworktree(ds.pathobj)]
+    assert PurePosixPath(tabbed_file_name) in iter_names
