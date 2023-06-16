@@ -69,7 +69,7 @@ class GitWorktreeFileSystemItem(FileSystemItem):
 
 # stolen from GitRepo.get_content_info()
 _lsfiles_props_re = re.compile(
-    r'(?P<mode>[0-9]+) (?P<gitsha>.*) (.*)\t(?P<fname>.*)$'
+    r'(?P<mode>[0-9]+) (?P<gitsha>.*) ([^\t]*)\t(?P<fname>.*)$'
 )
 
 _mode_type_map = {
