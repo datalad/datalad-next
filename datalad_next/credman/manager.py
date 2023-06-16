@@ -715,7 +715,7 @@ class CredentialManager(object):
         ]
         if any(missing_props):
             raise ValueError(
-                'No suitable credential or specified '
+                'No suitable credential found or specified '
                 f'(missing properties: {missing_props})')
         return name, cred
 
