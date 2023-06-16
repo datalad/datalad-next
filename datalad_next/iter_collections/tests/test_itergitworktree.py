@@ -5,7 +5,6 @@ from pathlib import (
 
 import pytest
 
-from datalad_next.utils import on_windows
 from ..gitworktree import (
     GitWorktreeItem,
     GitWorktreeFileSystemItem,
@@ -81,7 +80,6 @@ def test_iter_gitworktree(existing_dataset):
     assert checked_untracked
 
 
-@pytest.mark.skipif(on_windows, reason="not applicable on windows")
 def test_name_starting_with_tab(existing_dataset):
     ds = existing_dataset
     if ds.repo.is_crippled_fs():
