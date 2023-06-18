@@ -15,6 +15,7 @@ __docformat__ = 'restructuredtext'
 
 __all__ = ['CredentialManager']
 
+from collections.abc import Callable
 from datetime import datetime
 import logging
 import re
@@ -32,6 +33,12 @@ from datalad_next.exceptions import (
     CommandError,
 )
 from datalad_next.uis import ui_switcher as ui
+
+from .exceptions import (
+    InvalidCredential,
+    NoSuitableCredentialAvailable,
+    StopCredentialEntry,
+)
 
 lgr = logging.getLogger('datalad.credman')
 
@@ -91,6 +98,7 @@ class CredentialManager(object):
         self.__cfg = cfg
         self.__cred_types = None
         self.__keyring = None
+        self.__disable_repeated_entry = False
 
     # main API
     #
@@ -426,6 +434,7 @@ class CredentialManager(object):
             updated['secret'] = cred['secret']
         # TODO make sure that there actually is a secret that is written
         # and not None
+        # TODO should we fail if secret is None?
         self._keyring.set(name, 'secret', cred['secret'])
         return updated
 
@@ -586,6 +595,204 @@ class CredentialManager(object):
             return (prop_indicator, x[1].get(_sortby))
 
         return sorted(matches, key=get_sort_key, reverse=_reverse)
+
+    def call_with_credential(
+        self,
+        fx: Callable,
+        *,
+        name: str | None = None,
+        prompt: str | None = None,
+        type_hint: str | None = None,
+        query_props: List[Dict] | None = None,
+        required_props: List | Tuple | None = None,
+        # TODO few ideas re further arguments/configuration
+        # TODO disable and prompting, independent of whether the caller
+        # provided the necessary info
+        # TODO rate limiting?
+        # TODO limit maximum number of attempts with automatically discovered
+        # credentials before asking for permission/credential to retry
+    ):
+        """
+        Parameters
+        ----------
+        type_hint: str
+          Should be given in most cases, or alternatively ``required_props``.
+        purpose:
+          The start of the string should not be capitalized.
+
+        Raises
+        ------
+        NoSuitableCredentialAvailable
+          Raised when ``fx`` was never called, because no credential could be
+          identified.
+        """
+        # collect any InvalidCredential exceptions that are raised while trying
+        # to satisfy `fx()`, to be able to provide a comprehensive report to
+        # the outside world
+        credential_failures = []
+        # go through all query property sets one after the other
+        # unless we were given an identifier for a particular credential
+        for qp in ((query_props or []) if not name else []):
+            if not qp:
+                continue
+            # no specific credential identified, by possibility
+            # to discover some
+            for cred in self.query(_sortby='last-used', **qp):
+                cname, cprops = cred
+                missing_props = [
+                    ep for ep in (required_props or []) if ep not in cprops
+                ]
+                if any(missing_props):
+                    # TODO log/message that we ignore this
+                    # incomplete credential
+                    continue
+                # do our thing
+                try:
+                    return self._cwc_run_and_save(fx, cred)
+                except InvalidCredential as e:
+                    # here we know all credentials by name, so identify the
+                    # failing credential by name to make it easier for a user
+                    # to possibly correct/update such a credential
+                    credential_failures.append(
+                        InvalidCredential(e.reason, e.target, cname)
+                    )
+                    # not 100% confident that failing credentials should be
+                    # "hidden" at debug level. I can think of cases where this
+                    # would be informative, but also cases where this is
+                    # annoying. We will have a summary of failed once below,
+                    # at least when nothing has worked.
+                    lgr.debug(
+                        '%s%sstored credential %r rejected with reason: %s',
+                        purpose or '',
+                        ': ' if purpose else '',
+                        cname,
+                        str(e),
+                    )
+                    continue
+                # let any other exception bubble up
+
+        additional_props_to_store = {}
+        # check if we know any realm, if so include in the credential.
+        # if we got multiple query sets that have different realms specified
+        # there is no better one, because if we get here, no query yielded
+        # a working credential
+        realms = set(
+            qp['realm'] for qp in (query_props or [])
+            if 'realm' in qp
+        )
+        if realms:
+            # TODO inform about multiple different realms
+            additional_props_to_store['realm'] = realms.pop()
+
+        # if we tried a bunch of thing already, and the caller told us the
+        # context, we can report on the outcome and put the coming credential
+        # prompt into context
+        if credential_failures and purpose:
+            # we cannot promise manual entry here, only known later if possible
+            # at all
+            ui.message(
+                f'{purpose.capitalize()} failed with {len(credential_failures)} '
+                'stored credential(s)'
+            )
+
+        # when we get here, no automatically discovered credential
+        # (if there was any) did the job.
+        while True:
+            self.__disable_repeated_entry = True
+            try:
+                cprops = self._cwc_obtain(
+                    name=name,
+                    prompt=prompt,
+                    type_hint=type_hint,
+                    # instead of rejecting credentials for missing props
+                    # we now prompt for them
+                    required_props=required_props,
+                )
+            except StopCredentialEntry:
+                # user/conditions indicate that no (further) credential
+                # entry is desirable/possible
+                break
+            finally:
+                self.__disable_repeated_entry = False
+            if cprops is None:
+                # we got no credential (from manual input)
+                # TODO any use case where we should proceed without a
+                # credential?
+                break
+            # do our thing
+            try:
+                return self._cwc_run_and_save(
+                    fx,
+                    (name, cprops),
+                    additional_props=additional_props_to_store,
+                )
+            except InvalidCredential as e:
+                credential_failures.append(e)
+                # although we have captured the failure for reporting later
+                # we still need to communicate the reason for the present
+                # failure immediately, when we are in a scenario where users
+                # are prompted for (another) credential, because the current
+                # one did not work
+                if prompt:
+                    ui.message(str(e))
+                if name:
+                    # if we get here, any specifically identified credential
+                    # did not work out.
+                    # TODO: We could fail in this case, or start prompting
+                    # maybe another config item
+                    name = None
+                continue
+        # if we get here, nothing has worked and a user either indicated that
+        # no further credentials should be tried, or no one could be prompted
+        raise NoSuitableCredentialAvailable(purpose, credential_failures)
+
+    def _cwc_run_and_save(
+        self,
+        fx,
+        cred,
+        additional_props: dict | None = None,
+    ):
+        cname, cprops = cred
+        res = fx(cprops)
+        # TODO save/update credential, because this has succeeded
+        # also include additional properties for saving, but let those
+        # properties that where actually tested take precedence
+        cprops = dict(
+            additional_props or {},
+            **cprops
+        )
+        self.set(cname, _lastused=True, **cprops)
+        # if there is no exception, we return whatever the callable
+        # returned
+        return res
+
+    def _cwc_obtain(
+        self,
+        name: str | None = None,
+        *,
+        prompt: str | None = None,
+        type_hint: str | None = None,
+        required_props: List | Tuple | None = None,
+    ):
+        kwargs = dict(
+            # make any expected props for manual entry, if not retrieved
+            {k: None for k in (required_props or [])},
+            # name could be none
+            name=name,
+            _prompt=prompt,
+            _type_hint=type_hint,
+        )
+        try:
+            cred = self.get(**kwargs)
+        except (KeyboardInterrupt, EOFError):
+            # the above exceptions cover Ctrl+C and Ctrl+D
+            raise StopCredentialEntry()
+
+        if cred and 'type' not in cred and name is None and type_hint:
+            # we are not expecting to retrieve a particular credential.
+            # make the type hint the actual type of the credential
+            cred['type'] = type_hint
+        return cred
 
     def obtain(self,
                name: str | None = None,
@@ -845,7 +1052,10 @@ class CredentialManager(object):
         return ui.question(
             type_hint or 'secret',
             title=prompt,
-            repeat=self._cfg.obtain(
+            # disable of internally forced, otherwise go by config
+            repeat=False
+            if self.__disable_repeated_entry
+            else self._cfg.obtain(
                 'datalad.credentials.repeat-secret-entry'),
             hidden=self._cfg.obtain(
                 'datalad.credentials.hidden-secret-entry'),
