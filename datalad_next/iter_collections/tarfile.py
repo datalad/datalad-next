@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import (
     Path,
-    PurePath,
     PurePosixPath,
 )
 import tarfile
@@ -22,7 +21,14 @@ from .utils import (
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
 class TarfileItem(FileSystemItem):
-    pass
+    name: PurePosixPath
+    """TAR uses POSIX paths as item identifiers. Not all POSIX paths can
+    be represented on all (non-POSIX) file systems, therefore the item
+    name is represented in POSIX form, instead of a platform-dependent
+    ``PurePath``."""
+    link_target: PurePosixPath | None = None
+    """Just as for ``name``, a link target is also reported in POSIX
+    format."""
 
 
 def iter_tar(
@@ -63,14 +69,14 @@ def iter_tar(
                 else FileSystemItemType.hardlink if member.islnk() \
                 else FileSystemItemType.specialfile
             item = TarfileItem(
-                name=PurePath(PurePosixPath(member.name)),
+                name=PurePosixPath(member.name),
                 type=mtype,
                 size=member.size,
                 mode=member.mode,
                 mtime=member.mtime,
                 uid=member.uid,
                 gid=member.gid,
-                link_target=PurePath(PurePosixPath(member.linkname))
+                link_target=PurePosixPath(member.linkname)
                 if member.linkname else None,
             )
             if fp and mtype in (
