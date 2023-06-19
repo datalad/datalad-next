@@ -13,12 +13,15 @@ import www_authenticate
 
 import datalad
 
+from datalad_next.credman import NoSuitableCredentialAvailable
 from datalad_next.utils.requests_auth import DataladAuth
 from . import (
     UrlOperations,
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
+    UrlOperationsAuthenticationError,
 )
+
 
 lgr = logging.getLogger('datalad.ext.next.url_operations.http')
 
@@ -77,41 +80,53 @@ class HttpUrlOperations(UrlOperations):
           For access targets found absent.
         """
         auth = DataladAuth(self.cfg, credential=credential)
-        with requests.head(
-                url,
-                headers=self.get_headers(),
-                auth=auth,
-                # we want to match the `get` behavior explicitly
-                # in order to arrive at the final URL after any
-                # redirects that get would also end up with
-                allow_redirects=True,
-        ) as r:
-            # fail visible for any non-OK outcome
-            try:
-                r.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                # wrap this into the datalad-standard, but keep the
-                # original exception linked
-                if e.response.status_code == 404:
-                    # special case reporting for a 404
-                    raise UrlOperationsResourceUnknown(
-                        url, status_code=e.response.status_code) from e
-                else:
-                    raise UrlOperationsRemoteError(
-                        url, message=str(e), status_code=e.response.status_code
+        try:
+            with requests.head(
+                    url,
+                    headers=self.get_headers(),
+                    auth=auth,
+                    # we want to match the `get` behavior explicitly
+                    # in order to arrive at the final URL after any
+                    # redirects that get would also end up with
+                    allow_redirects=True,
+            ) as r:
+                # fail visible for any non-OK outcome
+                try:
+                    r.raise_for_status()
+                except requests.exceptions.RequestException as e:
+                    # wrap this into the datalad-standard, but keep the
+                    # original exception linked
+                    if e.response.status_code == 404:
+                        # special case reporting for a 404
+                        raise UrlOperationsResourceUnknown(
+                            url, status_code=e.response.status_code) from e
+                    else:
+                        raise UrlOperationsRemoteError(
+                            url,
+                            message=str(e),
+                            status_code=e.response.status_code
                         ) from e
-            props = {
-                # standardize on lower-case header keys.
-                # also prefix anything other than 'content-length' to make
-                # room for future standardizations
-                k.lower() if k.lower() == 'content-length' else f'http-{k.lower()}':
-                v
-                for k, v in r.headers.items()
-            }
-            props['url'] = r.url
-        auth.save_entered_credential(
-            context=f"for accessing {url}"
-        )
+                props = {
+                    # standardize on lower-case header keys.
+                    # also prefix anything other than 'content-length' to make
+                    # room for future standardizations
+                    k.lower() if k.lower() == 'content-length'
+                    else f'http-{k.lower()}':
+                    v
+                    for k, v in r.headers.items()
+                }
+                props['url'] = r.url
+        except NoSuitableCredentialAvailable as e:
+            raise UrlOperationsAuthenticationError(
+                url=url,
+                credential=credential,
+                message=str(e),
+                # ATM this is only available encoded in the message
+                # MIH thinks this is tolerable, because we have the
+                # concept of a HTTP401 communicated by the exception
+                # type
+                #status_code=,
+            ) from e
         if 'content-length' in props:
             # make an effort to return size in bytes as int
             try:
@@ -142,32 +157,45 @@ class HttpUrlOperations(UrlOperations):
         # TODO optimize later to cache credentials per target
         # similar to requests_toolbelt.auth.handler.AuthHandler
         auth = DataladAuth(self.cfg, credential=credential)
-        with requests.get(
-                from_url,
-                stream=True,
-                headers=self.get_headers(),
-                auth=auth,
-        ) as r:
-            # fail visible for any non-OK outcome
-            try:
-                r.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                # wrap this into the datalad-standard, but keep the
-                # original exception linked
-                if e.response.status_code == 404:
-                    # special case reporting for a 404
-                    raise UrlOperationsResourceUnknown(
-                        from_url, status_code=e.response.status_code) from e
-                else:
-                    raise UrlOperationsRemoteError(
-                        from_url, message=str(e), status_code=e.response.status_code
+        try:
+            with requests.get(
+                    from_url,
+                    stream=True,
+                    headers=self.get_headers(),
+                    auth=auth,
+            ) as r:
+                # fail visible for any non-OK outcome
+                try:
+                    r.raise_for_status()
+                except requests.exceptions.RequestException as e:
+                    # wrap this into the datalad-standard, but keep the
+                    # original exception linked
+                    if e.response.status_code == 404:
+                        # special case reporting for a 404
+                        raise UrlOperationsResourceUnknown(
+                            from_url,
+                            status_code=e.response.status_code
+                        ) from e
+                    else:
+                        raise UrlOperationsRemoteError(
+                            from_url,
+                            message=str(e),
+                            status_code=e.response.status_code
                         ) from e
 
-            download_props = self._stream_download_from_request(
-                r, to_path, hash=hash)
-        auth.save_entered_credential(
-            context=f'download from {from_url}'
-        )
+                download_props = self._stream_download_from_request(
+                    r, to_path, hash=hash)
+        except NoSuitableCredentialAvailable as e:
+            raise UrlOperationsAuthenticationError(
+                url=from_url,
+                credential=credential,
+                message=str(e),
+                # ATM this is only available encoded in the message
+                # MIH thinks this is tolerable, because we have the
+                # concept of a HTTP401 communicated by the exception
+                # type
+                #status_code=,
+            ) from e
         return download_props
 
     def probe_url(self, url, timeout=10.0, headers=None):

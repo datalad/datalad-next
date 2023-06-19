@@ -605,6 +605,7 @@ class CredentialManager(object):
         type_hint: str | None = None,
         query_props: List[Dict] | None = None,
         required_props: List | Tuple | None = None,
+        purpose: str | None = None,
         # TODO few ideas re further arguments/configuration
         # TODO disable and prompting, independent of whether the caller
         # provided the necessary info
@@ -753,6 +754,14 @@ class CredentialManager(object):
         additional_props: dict | None = None,
     ):
         cname, cprops = cred
+        # Note for future improvements: One could consider also passing
+        # a caught `InvalidCredential` exception to the function, in order to
+        # facilitate incremental decision making for credential selection.
+        # however, such an exception would have originated from `fx` to begin
+        # with. So adding generic complexity here, for supporting a potential
+        # use case that requires this complexity is not optimal, because the
+        # reason for raising the exception can already be preserved where it is
+        # needed later.
         res = fx(cprops)
         # TODO save/update credential, because this has succeeded
         # also include additional properties for saving, but let those

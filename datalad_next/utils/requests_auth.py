@@ -3,6 +3,7 @@
 # allow for |-type UnionType declarations
 from __future__ import annotations
 
+from functools import partial
 import logging
 from typing import Dict
 from urllib.parse import urlparse
@@ -10,7 +11,10 @@ import requests
 import www_authenticate
 
 from datalad_next.config import ConfigManager
-from datalad_next.utils import CredentialManager
+from datalad_next.credman import (
+    CredentialManager,
+    InvalidCredential,
+)
 from datalad_next.utils.http_helpers import get_auth_realm
 
 lgr = logging.getLogger('datalad.ext.next.utils.requests_auth')
@@ -50,28 +54,6 @@ class DataladAuth(requests.auth.AuthBase):
         """
         self._credman = CredentialManager(cfg)
         self._credential = credential
-        self._entered_credential = None
-
-    def save_entered_credential(self, suggested_name: str | None = None,
-                                context: str | None = None) -> Dict | None:
-        """Utility method to save a pending credential in the store
-
-        Pending credentials have been entered manually, and were subsequently
-        used successfully for authentication.
-
-        Saving a credential will prompt for entering a name to identify the
-        credentials.
-        """
-        if self._entered_credential is None:
-            # nothing to do
-            return
-        return self._credman.set(
-            name=None,
-            _lastused=True,
-            _suggested_name=suggested_name,
-            _context=context,
-            **self._entered_credential
-        )
 
     def __call__(self, r):
         # TODO support being called from multiple threads
@@ -84,92 +66,6 @@ class DataladAuth(requests.auth.AuthBase):
         # 401 Unauthorized: look for a credential and try again
         r.register_hook("response", self.handle_401)
         return r
-
-    def _get_credential(self, url, auth_schemes
-                        ) -> tuple[str | None, str | None, Dict | None]:
-        """Get a credential for access to `url` given server-supported schemes
-
-        If a particular credential to use was given to the `DataladAuth`
-        constructor it reported here.
-
-        In all other situations a credential will be looked up, based on
-        the access URL and the authentication schemes supported by the
-        host. The authentication schemes will be tested in the order in
-        which they are reported by the remote host.
-
-        If no matching credential can be identified, a prompt to enter
-        a credential is presented. The credential type will match, and be
-        used with the first authentication scheme that is both reported
-        by the host, and by this implementation.
-
-        The methods returns a 3-tuple. The first element is an identifier
-        for the authentication scheme ('basic', digest', etc.) to use
-        with the credential. The second item is the name for the reported
-        credential, and the third element is a dictionary with the
-        credential properties and its secret. Any of the three items can be
-        `None` if the respective information is not available.
-        """
-        if self._credential:
-            cred = self._credman.get(name=self._credential)
-            # this credential is scheme independent
-            return None, self._credential, cred
-
-        # no credential identified, find one
-        for ascheme in auth_schemes:
-            if ascheme not in DataladAuth._supported_auth_schemes:
-                # nothing we can handle
-                continue
-            ctype = DataladAuth._supported_auth_schemes[ascheme]
-            # get a realm ID for this authentication scheme
-            realm = get_auth_realm(url, auth_schemes, scheme=ascheme)
-            # ask for matching credentials
-            creds = [
-                (name, cred) for name, cred in self._credman.query(
-                    _sortby='last-used',
-                    type=ctype,
-                    realm=realm,
-                )
-                # we can only work with complete credentials, although
-                # query() might return others. We exclude them here
-                # to be able to fall back on manual entry further down
-                if cred.get('secret')
-            ]
-            if creds:
-                # we have matches, go with the last used one
-                name, cred = creds[0]
-                return ascheme, name, cred
-
-        # no success finding an existing credential, now ask, if possible
-        # pick a scheme that is supported by the server and by us
-        ascheme = [s for s in auth_schemes
-                   if s in DataladAuth._supported_auth_schemes]
-        if not ascheme:
-            # f-string OK, only executed on failure
-            lgr.debug(
-                'Only unsupported HTTP auth schemes offered '
-                f'{list(auth_schemes.keys())!r}')
-        # go with the first supported scheme
-        ascheme = ascheme[0]
-        ctype = DataladAuth._supported_auth_schemes[ascheme]
-
-        try:
-            realm = get_auth_realm(url, auth_schemes)
-            cred = self._credman.get(
-                name=None,
-                _prompt=f'Credential needed for accessing {url} (authentication realm {realm!r})',
-                _type_hint=ctype,
-                type=ctype,
-                # include the realm in the credential to avoid asking for it
-                # interactively (it is a server-specified property
-                # users would generally not know, if they do, they can use the
-                # `credentials` command upfront.
-                realm=realm
-            )
-            self._entered_credential = cred
-            return ascheme, None, cred
-        except Exception as e:
-            lgr.debug('Credential retrieval failed: %s', e)
-            return ascheme, None, None
 
     def handle_401(self, r, **kwargs):
         """Callback that received any response to a request
@@ -188,6 +84,13 @@ class DataladAuth(requests.auth.AuthBase):
 
         Credential look-up or entry is performed by
         :meth:`datalad_next.requests_auth.DataladAuth._get_credential`.
+
+        Raises
+        ------
+        NoSuitableCredentialAvailable
+          If no credential for the target URL could be determined/entered,
+          or none of the determined/entered credentials led to successful
+          authentication
         """
         if not 400 <= r.status_code < 500:
             # fast return if this is no error, see
@@ -200,47 +103,45 @@ class DataladAuth(requests.auth.AuthBase):
             # specifically) enables to support services that send
             # www-authenticate with e.g. 403s
             return r
+
         # which auth schemes does the server support?
         auth_schemes = www_authenticate.parse(r.headers['www-authenticate'])
-        ascheme, credname, cred = self._get_credential(r.url, auth_schemes)
 
-        if cred is None or 'secret' not in cred:
-            # we got nothing, leave things as they are
-            return r
+        # assemble specification(s) to query for matching credentials,
+        # one for each authentication scheme supported
+        query_specs = [
+            dict(
+                # credential type
+                type=self._supported_auth_schemes[ascheme],
+                # a realm identifier for the specific scheme
+                realm=get_auth_realm(r.url, auth_schemes, scheme=ascheme),
+            )
+            for ascheme in auth_schemes
+            # ignore any scheme that we cannot handle anyways
+            if ascheme in DataladAuth._supported_auth_schemes
+        ]
 
-        # TODO add safety check. if a credential somehow contains
-        # information on its scope (i.e. only for github.com)
-        # prevent its use for other hosts -- maybe unless given explicitly.
+        # a general realm identifier for prompting
+        prompt_realm = get_auth_realm(r.url, auth_schemes)
 
-        if ascheme is None:
-            # if there is no authentication scheme identified, look at the
-            # credential, if it knows
-            ascheme = cred.get('http_auth_scheme')
-            # if it does not, go with the first supported scheme that matches
-            # the credential type, one is guaranteed to match
-            ascheme = [
-                c for c in auth_schemes
-                if c in DataladAuth._supported_auth_schemes
-                and cred.get('type') == DataladAuth._supported_auth_schemes[c]
-            ][0]
-
-        if ascheme == 'basic':
-            return self._authenticated_rerequest(
-                r,
-                requests.auth.HTTPBasicAuth(cred['user'], cred['secret']),
-                **kwargs)
-        elif ascheme == 'digest':
-            return self._authenticated_rerequest(
-                r,
-                requests.auth.HTTPDigestAuth(cred['user'], cred['secret']),
-                **kwargs)
-        elif ascheme == 'bearer':
-            return self._authenticated_rerequest(
-                r, HTTPBearerTokenAuth(cred['secret']), **kwargs)
-        else:
-            raise NotImplementedError(
-                'Only unsupported HTTP auth schemes offered '
-                f'{list(auth_schemes.keys())!r} need {ascheme!r}')
+        return self._credman.call_with_credential(
+            partial(
+                self._authenticated_rerequest,
+                response=r,
+                supported_auth_schemes=auth_schemes,
+                **kwargs,
+            ),
+            purpose=f'access to {r.url!r}',
+            # pass any credential name given to the `DataladAuth` constructor
+            name=self._credential,
+            # provide a prompt, in case no credential is on record
+            prompt=f'Credential needed for accessing {r.url} '
+            f'(authentication realm {prompt_realm!r})',
+            type_hint=self._get_preferred_credential_type(auth_schemes),
+            # specification which credentials to query for,
+            # only in effect when `name` is not None
+            query_props=query_specs,
+        )
 
     def handle_redirect(self, r, **kwargs):
         """Callback that received any response to a request
@@ -265,17 +166,93 @@ class DataladAuth(requests.auth.AuthBase):
 
     def _authenticated_rerequest(
             self,
+            cred: Dict,
+            *,
+            supported_auth_schemes,
             response: requests.models.Response,
-            auth: requests.auth.AuthBase,
             **kwargs
     ) -> requests.models.Response:
         """Helper to rerun a request, but with authentication added"""
-        prep = _get_renewed_request(response)
-        auth(prep)
-        _r = response.connection.send(prep, **kwargs)
+        # TODO add safety check. if a credential somehow contains
+        # information on its scope (i.e. only for github.com)
+        # prevent its use for other hosts -- maybe unless given explicitly.
+
+        # we need to decide on an authentication to use (first?)
+        # look at the credential, if it knows
+        ascheme = cred.get('http_auth_scheme')
+        if ascheme is not None and ascheme not in supported_auth_schemes:
+            # reject, if the recorded scheme is not actually supported
+            ascheme = None
+        if ascheme is None:
+            # if we have no scheme yet, go with the first supported scheme
+            # that matches the credential type
+            possible_aschemes = [
+                c for c in supported_auth_schemes
+                if c in DataladAuth._supported_auth_schemes and cred.get(
+                    'type') == DataladAuth._supported_auth_schemes[c]
+            ]
+            ascheme = possible_aschemes[0] if possible_aschemes else None
+
+        if ascheme == 'basic':
+            auth = requests.auth.HTTPBasicAuth(cred['user'], cred['secret'])
+            _r = self._handle_401_rerequest(response, auth, **kwargs)
+        elif ascheme == 'digest':
+            # we do something special here. DigestAuth needs a challenge
+            # response. The challenge we already got, so let's init
+            # auth with the original request (that already failed), and
+            # then pass it the outcome immediately. It's implementation
+            # we issue the challenge-response on its own, and we can
+            # continue inspecting that outcome down below
+            auth = requests.auth.HTTPDigestAuth(cred['user'], cred['secret'])
+            auth(response.request)
+            _r = auth.handle_401(response, **kwargs)
+        elif ascheme == 'bearer':
+            auth = HTTPBearerTokenAuth(cred['secret'])
+            _r = self._handle_401_rerequest(response, auth, **kwargs)
+        else:
+            raise NotImplementedError(
+                'Only unsupported HTTP auth schemes offered '
+                f'{list(supported_auth_schemes.keys())!r}')
+
+        # now inspect the outcome and fish out anything that looks like
+        # failure due to an inadequate/insufficient/invalid credential
+        if (
+            # the focused 'unauthorized'
+            _r.status_code == 401
+            # but pragmatically anything error-ish that has auth-info in the
+            # response
+            or 400 <= _r.status_code < 500 and 'www-authenticate' in _r.headers
+        ):
+            raise InvalidCredential(
+                f"HTTP{_r.status_code} {_r.reason}",
+                _r.url,
+                cred,
+            )
         _r.history.append(response)
-        _r.request = prep
         return _r
+
+    def _handle_401_rerequest(self, response, auth, **kwargs):
+        # clone the previous request to renew it for another run ...
+        prep = _get_renewed_request(response)
+        # ... and equip with the auth info we want to provision (this time)
+        auth(prep)
+        # make the request
+        _r = response.connection.send(prep, **kwargs)
+        return _r
+
+    def _get_preferred_credential_type(self, auth_schemes):
+        # translate authentication schemes to credential types
+        ctypes = set(
+            self._supported_auth_schemes[s]
+            for s in auth_schemes.keys()
+            if s in self._supported_auth_schemes
+        )
+        if not ctypes:
+            # protect against unsupported request
+            return None
+
+        # prefer a token, go with whatever we have otherwise
+        return 'token' if 'token' in ctypes else ctypes.pop()
 
 
 def _get_renewed_request(r: requests.models.Response

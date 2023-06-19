@@ -13,7 +13,8 @@ from datalad_next.tests.utils import (
 )
 from datalad_next.utils import chpwd
 
-from datalad_next.utils import CredentialManager
+from datalad_next.credman import CredentialManager
+
 
 
 @pytest.fixture
@@ -189,8 +190,17 @@ def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin):
         credential=hbscred[0],
         on_failure='ignore')
     assert_status('error', res)
-    assert '401' in res[0]['error_message']
-    assert f' {redirect_url}' in res[0]['error_message']
+    assert res[0]['exception'].name == 'UrlOperationsAuthenticationError'
+    # and make sure that the redirect (which required the auth) is never
+    # even accessed (because the provisioned credential is just a plain
+    # user/password combo with not realm info that would anyhow justify
+    # to even try the credential with that URL
+    # ATM CapturedException does not allow for access to the original
+    # exception properties, nor does it even preserve them
+    #assert res[0]['exception'].failures is None
+    # so let's do an indirect test for not seeing any InvalidCredential
+    # rendering in the message
+    assert 'failed with' not in res[0]['exception'].message
     # do the same again, but without the explicit credential,
     # also must not work
     # this is not the right test, though. What would be suitable
