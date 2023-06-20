@@ -26,7 +26,7 @@ def sample_zip(tmp_path_factory):
         test-archive
         ├── onetwothree.txt
         └── subdir/
-            └── onetwothree_again.txt
+            └── onetwothree<>again.txt
     """
     path = tmp_path_factory.mktemp('zipfile') / 'sample.zip'
     file_content = b'zip-123\n'
@@ -35,7 +35,7 @@ def sample_zip(tmp_path_factory):
         zip_file.writestr('test-archive/subdir/', '')
         with zip_file.open('test-archive/onetwothree.txt', mode='w') as fp:
             fp.write(file_content)
-        with zip_file.open('test-archive/subdir/onetwothree_again.txt', mode='w') as fp:
+        with zip_file.open('test-archive/subdir/onetwothree<>again.txt', mode='w') as fp:
             fp.write(file_content)
 
     yield path
@@ -65,7 +65,7 @@ def test_iter_zip(sample_zip):
             size=0,
         ),
         ZipfileItem(
-            name=root / 'subdir' / 'onetwothree_again.txt',
+            name=root / 'subdir' / 'onetwothree<>again.txt',
             type=FileSystemItemType.file,
             size=8,
         ),
