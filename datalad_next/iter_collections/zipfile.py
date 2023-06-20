@@ -11,7 +11,6 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import (
     Path,
-    PurePath,
     PurePosixPath,
 )
 from typing import Generator
@@ -24,7 +23,11 @@ from .utils import (
 
 @dataclass
 class ZipfileItem(FileSystemItem):
-    pass
+    name: PurePosixPath
+    """ZIP uses POSIX paths as item identifiers from version 6.3.3 onwards.
+    Not all POSIX paths are legal paths on non-POSIX file systems or platforms.
+    Therefore we cannot use a platform-dependent ``PurePath``-instance to
+    address ZIP-file items, anq we use ``PurePosixPath``-instances instead."""
 
 
 def iter_zip(
@@ -72,7 +75,7 @@ def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
         else FileSystemItemType.file
     )
     return ZipfileItem(
-        name=PurePath(PurePosixPath(zip_info.filename)),
+        name=PurePosixPath(zip_info.filename),
         type=mtype,
         size=zip_info.file_size,
         mtime=time.mktime(
