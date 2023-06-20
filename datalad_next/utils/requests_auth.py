@@ -123,6 +123,10 @@ class DataladAuth(requests.auth.AuthBase):
 
         # a general realm identifier for prompting
         prompt_realm = get_auth_realm(r.url, auth_schemes)
+        if prompt_realm.startswith(r.url):
+            # remove redundancies in prompt when the realm identifier
+            # starts with the access URL
+            prompt_realm = prompt_realm[len(r.url):]
 
         return self._credman.call_with_credential(
             partial(
