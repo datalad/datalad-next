@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import zipfile
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 from typing import (
-    Any,
     Generator,
     IO,
 )
@@ -74,7 +76,7 @@ class ZipArchiveOperations(ArchiveOperations):
             self._zipfile = None
 
     @contextmanager
-    def open(self, item: str | ZipInfo, **kwargs) -> IO:
+    def open(self, item: str | PurePosixPath | ZipInfo, **kwargs) -> IO:
         """Context manager, returning an open file for a member of the archive.
 
         The file-like object will be closed when the context-handler
@@ -82,8 +84,8 @@ class ZipArchiveOperations(ArchiveOperations):
 
         Parameters:
         ---------
-        item: str | zipfile.ZipInfo
-          Name or ZipInfo-instance that identifies an item in the zipfile
+        item: str | PurePosixPath | zipfile.ZipInfo
+          Name, path, or ZipInfo-instance that identifies an item in the zipfile
         kwargs: dict
           Keyword arguments that will be used for ZipFile.open()
 
@@ -93,13 +95,12 @@ class ZipArchiveOperations(ArchiveOperations):
           A file-like object to read bytes from the item or to write bytes
           to the item.
         """
-        with self.zipfile.open(item, **kwargs) as fp:
+        with self.zipfile.open(_anyzipid2membername(item), **kwargs) as fp:
             yield fp
 
-    def __contains__(self, item: Any) -> bool:
+    def __contains__(self, item: str | PurePosixPath | ZipInfo) -> bool:
         try:
-
-            self.zipfile.getinfo(item)
+            self.zipfile.getinfo(_anyzipid2membername(item))
             return True
         except KeyError:
             return False
@@ -108,3 +109,11 @@ class ZipArchiveOperations(ArchiveOperations):
         # if fp=True is needed, either `iter_zip()` can be used
         # directly, or `ZipArchiveOperations.open`
         yield from iter_zip(self._zipfile_path, fp=False)
+
+
+def _anyzipid2membername(item: str | PurePosixPath | ZipInfo) -> str | ZipInfo:
+    if isinstance(item, ZipInfo):
+        return item
+    elif isinstance(item, PurePosixPath):
+        return item.as_posix()
+    return item
