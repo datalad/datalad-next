@@ -1,6 +1,5 @@
 from io import StringIO
 import json
-from pathlib import Path
 import pytest
 
 import datalad
@@ -11,18 +10,20 @@ from datalad.api import (
 from datalad_next.tests.utils import (
     assert_result_count,
     assert_status,
-    with_testsui,
 )
 from datalad_next.utils import chpwd
 
 from datalad_next.utils import CredentialManager
+
 
 @pytest.fixture
 def hbsurl(httpbin):
     # shortcut for the standard URL
     return httpbin["standard"]
 
+
 test_cred = ('dltest-my&=http', 'datalad', 'secure')
+
 
 @pytest.fixture
 def hbscred(hbsurl):
@@ -202,12 +203,14 @@ def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin):
     assert_status('error', res)
 
 
-@with_testsui(responses=[
-    'token123',
-    # after download, it asks for a name
-    'dataladtest_test_download_new_bearer_token',
-])
-def test_download_new_bearer_token(tmp_keyring, capsys, hbsurl):
+def test_download_new_bearer_token(
+        tmp_keyring, capsys, hbsurl, datalad_interactive_ui):
+    ui = datalad_interactive_ui
+    ui.staged_responses.extend([
+        'token123',
+        # after download, it asks for a name
+        'dataladtest_test_download_new_bearer_token',
+    ])
     try:
         download({f'{hbsurl}/bearer': '-'})
         # and it was saved under this name
@@ -224,12 +227,14 @@ def test_download_new_bearer_token(tmp_keyring, capsys, hbsurl):
         )
 
 
-@with_testsui(responses=[
-    'datalad_uniquetoken123',
-    # after download, it asks for a name, but skip to save
-    'skip',
-])
-def test_download_new_bearer_token_nosave(capsys, hbsurl):
+def test_download_new_bearer_token_nosave(
+        capsys, hbsurl, datalad_interactive_ui):
+    ui = datalad_interactive_ui
+    ui.staged_responses.extend([
+        'datalad_uniquetoken123',
+        # after download, it asks for a name, but skip to save
+        'skip',
+    ])
     download({f'{hbsurl}/bearer': '-'})
     # and it was saved under this name
     assert_result_count(

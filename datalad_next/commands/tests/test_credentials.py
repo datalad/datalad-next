@@ -25,7 +25,6 @@ from datalad_next.tests.utils import (
     eq_,
     run_main,
     swallow_logs,
-    with_testsui,
 )
 
 
@@ -73,13 +72,6 @@ def test_normalize_specs():
         assert_raises(ValueError, normalize_specs, error)
 
 
-def test_credentials(tmp_keyring):
-    # we want all tests to bypass the actual system keyring
-    check_credentials_cli()
-    check_interactive_entry_set()
-    check_interactive_entry_get()
-
-
 def test_errorhandling_smoketest():
     callcfg = dict(on_failure='ignore', result_renderer='disabled')
 
@@ -94,8 +86,7 @@ def test_errorhandling_smoketest():
             status='error', name='dummy')
 
 
-
-def check_credentials_cli():
+def test_credentials_cli(tmp_keyring):
     # usable command
     cred = Credentials()
     # unknown action
@@ -145,8 +136,10 @@ def check_credentials_cli():
     run_main(['credentials', 'query'], exit_code=0)
 
 
-@with_testsui(responses=['attr1', 'attr2', 'secret'])
-def check_interactive_entry_get():
+def test_interactive_entry_get(tmp_keyring, datalad_interactive_ui):
+    ui = datalad_interactive_ui
+    ui.staged_responses.extend([
+        'attr1', 'attr2', 'secret'])
     # should ask all properties in order and the secret last
     cred = Credentials()
     assert_in_results(
@@ -160,10 +153,12 @@ def check_interactive_entry_get():
         cred_attr2='attr2',
         cred_secret='secret',
     )
+    assert ui.operation_sequence == ['question', 'response'] * 3
 
 
-@with_testsui(responses=['secretish'])
-def check_interactive_entry_set():
+def test_interactive_entry_set(tmp_keyring, datalad_interactive_ui):
+    ui = datalad_interactive_ui
+    ui.staged_responses.append('secretish')
     # should ask all properties in order and the secret last
     cred = Credentials()
     assert_in_results(
@@ -173,6 +168,7 @@ def check_interactive_entry_set():
              result_renderer='disabled'),
         cred_secret='secretish',
     )
+    assert ui.operation_sequence == ['question', 'response']
 
 
 def test_result_renderer():
