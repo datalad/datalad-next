@@ -8,10 +8,9 @@ import tarfile
 from contextlib import contextmanager
 from pathlib import (
     Path,
-    PurePath,
+    PurePosixPath,
 )
 from typing import (
-    Any,
     Generator,
     IO,
 )
@@ -77,7 +76,7 @@ class TarArchiveOperations(ArchiveOperations):
             self._tarfile = None
 
     @contextmanager
-    def open(self, item: str | PurePath) -> Generator[IO | None]:
+    def open(self, item: str | PurePosixPath) -> Generator[IO | None]:
         """Get a file-like for a TAR archive item
 
         The file-like object allows to read from the archive-item specified
@@ -103,7 +102,7 @@ class TarArchiveOperations(ArchiveOperations):
         with self.tarfile.extractfile(_anyid2membername(item)) as fp:
             yield fp
 
-    def __contains__(self, item: str | PurePath) -> bool:
+    def __contains__(self, item: str | PurePosixPath) -> bool:
         try:
             self.tarfile.getmember(_anyid2membername(item))
             return True
@@ -116,8 +115,8 @@ class TarArchiveOperations(ArchiveOperations):
         yield from iter_tar(self._tarfile_path, fp=False)
 
 
-def _anyid2membername(item_id: str | PurePath) -> str:
-    if isinstance(item_id, PurePath):
+def _anyid2membername(item_id: str | PurePosixPath) -> str:
+    if isinstance(item_id, PurePosixPath):
         return item_id.as_posix()
     else:
         return item_id
