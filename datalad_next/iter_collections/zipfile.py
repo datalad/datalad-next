@@ -21,6 +21,17 @@ from .utils import (
 )
 
 
+class ZipFileDirPath(PurePosixPath):
+    """Used to create proper names for directories in zip-archives"""
+    def __str__(self) -> str:
+        return PurePosixPath.__str__(self) + '/'
+
+    def __eq__(self, other):
+        if not isinstance(other, ZipFileDirPath):
+            return False
+        return PurePosixPath.__eq__(self, other)
+
+
 @dataclass
 class ZipfileItem(FileSystemItem):
     name: PurePosixPath
@@ -75,7 +86,11 @@ def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
         else FileSystemItemType.file
     )
     return ZipfileItem(
-        name=PurePosixPath(zip_info.filename),
+        name=(
+            ZipFileDirPath(zip_info.filename)
+            if zip_info.is_dir()
+            else PurePosixPath(zip_info.filename)
+        ),
         type=mtype,
         size=zip_info.file_size,
         mtime=time.mktime(
