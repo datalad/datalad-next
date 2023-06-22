@@ -1,25 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import (
-    Path,
-    PurePosixPath,
-)
 from typing import Generator
 
 import pytest
 
-from datalad_next.iter_collections.utils import FileSystemItemType
-
+from .common import (
+    TestArchive,
+    run_archive_basics_test,
+    run_archive_contain_test,
+    run_archive_iterator_test,
+    run_archive_open_test,
+)
 from ..tarfile import TarArchiveOperations
-
-
-@dataclass
-class TestArchive:
-    path: Path
-    item_count: int
-    content: bytes
-    target_hash: dict[str, str]
 
 
 @pytest.fixture(scope='session')
@@ -37,46 +29,26 @@ def structured_sample_tar_xz(
     )
 
 
+member_name = 'test-archive/onetwothree.txt'
+
+
 def test_tararchive_basics(structured_sample_tar_xz: TestArchive):
-    spec = structured_sample_tar_xz
-    # this is intentionally a hard-coded POSIX relpath
-    member_name = 'test-archive/onetwothree.txt'
-    with TarArchiveOperations(spec.path) as archive_ops:
-        with archive_ops.open(member_name) as member:
-            assert member.read() == spec.content
-        with archive_ops.open(PurePosixPath(member_name)) as member:
-            assert member.read() == spec.content
+    run_archive_basics_test(
+        TarArchiveOperations,
+        structured_sample_tar_xz,
+        member_name)
 
 
 def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
-    # this is intentionally a hard-coded POSIX relpath
-    member_name = 'test-archive/onetwothree.txt'
-    archive_ops = TarArchiveOperations(structured_sample_tar_xz.path)
-    # POSIX path str
-    assert member_name in archive_ops
-    # POSIX path as obj
-    assert PurePosixPath(member_name) in archive_ops
-    assert 'bogus' not in archive_ops
+    run_archive_contain_test(
+        TarArchiveOperations,
+        structured_sample_tar_xz,
+        member_name)
 
 
 def test_tararchive_iterator(structured_sample_tar_xz: TestArchive):
-    spec = structured_sample_tar_xz
-    with TarArchiveOperations(spec.path) as archive_ops:
-        items = list(archive_ops)
-        assert len(items) == spec.item_count
-        for item in items:
-            assert item.name in archive_ops
+    run_archive_iterator_test(TarArchiveOperations, structured_sample_tar_xz)
 
 
 def test_open(structured_sample_tar_xz: TestArchive):
-    spec = structured_sample_tar_xz
-    file_pointer = set()
-    with TarArchiveOperations(spec.path) as tf:
-        for item in tf:
-            if item.type == FileSystemItemType.file:
-                with tf.open(str(PurePosixPath(item.name))) as fp:
-                    file_pointer.add(fp)
-                    assert fp.read(len(spec.content)) == spec.content
-        # check the fp before we close the archive handler
-        for fp in file_pointer:
-            assert fp.closed is True
+    run_archive_open_test(TarArchiveOperations, structured_sample_tar_xz)
