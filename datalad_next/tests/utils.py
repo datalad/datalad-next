@@ -4,7 +4,11 @@ import logging
 from functools import wraps
 from os import environ
 from pathlib import Path
-from typing import Any
+from typing import (
+    Any,
+    List,
+    Tuple,
+)
 
 from datalad.support.external_versions import external_versions
 # all datalad-core test utils needed for datalad-next
@@ -198,6 +202,21 @@ class TestUI:
         """Same as ``.log()``, but limited to just the operation labels"""
         return [i[0] for i in self.log]
 
+    @property
+    def operations(self) -> List[Tuple[str, Any]]:
+        """Like ``.log()``, but reduced to a mapping of UI operation to its
+        key value. Example::
+
+            > ui.operations
+            [('message', 'Credential not valid'),
+             ('question': 'token'),
+             ('response': 'mysecret')]
+        """
+        return [
+            (i[0], i[1][0][0] if isinstance(i[1][0], tuple) else i[1][0])
+            for i in self.log
+        ]
+
     def question(self, *args, **kwargs) -> Any:
         """Raise ``RuntimeError`` when a question needs to be asked"""
         self._log.append(('question', (args, kwargs)))
@@ -206,7 +225,7 @@ class TestUI:
 
     def message(self, msg, cr='\n'):
         """Post a message"""
-        self._log.append(('message', (msg, cr)))
+        self._log.append(('message', ((msg,), dict(cr=cr))))
 
     def get_progressbar(self, *args, **kwargs):
         """Return a progress handler"""
@@ -243,5 +262,5 @@ class InteractiveTestUI(TestUI):
             raise AssertionError(
                 "UI response requested, but no further are provisioned")
         response = self.staged_responses.popleft()
-        self._log.append(('response', response))
+        self._log.append(('response', (response,)))
         return response
