@@ -90,3 +90,14 @@ def test_iter_zip(sample_zip):
     for t in targets:
         print(t.name)
         assert t in ires
+
+
+def test_zip_dir_path():
+    zp1 = ZipFileDirPath("a/b")
+    zp2 = ZipFileDirPath("a/b")
+    zp3 = ZipFileDirPath("a/c")
+    pp = PurePosixPath("a/b")
+
+    assert zp1 == zp2
+    assert zp1 != zp3
+    assert zp1 != pp
