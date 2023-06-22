@@ -388,13 +388,20 @@ def datalad_interactive_ui(monkeypatch):
        > datalad_interactive_ui.staged_responses.append('skip')
        > ...
        > assert ... datalad_interactive_ui.log
+
+    Any staged response that is not consumed at the end of a test will
+    cause an ``AssertionError``.
     """
     from datalad_next.uis import ui_switcher
     from datalad_next.tests.utils import InteractiveTestUI
 
+    ui = InteractiveTestUI()
     with monkeypatch.context() as m:
-        m.setattr(ui_switcher, '_ui', InteractiveTestUI())
+        m.setattr(ui_switcher, '_ui', ui)
         yield ui_switcher.ui
+
+    assert len(ui.staged_responses) == 0, \
+        f"Unconsumed staged UI responses: {list(ui.staged_responses)}"
 
 
 @pytest.fixture(autouse=False, scope="function")
