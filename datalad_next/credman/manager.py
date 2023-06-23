@@ -616,6 +616,12 @@ class CredentialManager(object):
         """
         Parameters
         ----------
+        fx: callable
+          Must have exactly one mandatory argument, the credential to use
+          within the callable. The credential is passed as a dict of credential
+          properties (as provided by ``get()`` or ``query()``). If there is a
+          name associated with the credential, it is included in the dict
+          under the key ``__name__``.
         type_hint: str
           Should be given in most cases, or alternatively ``required_props``.
         purpose:
@@ -754,6 +760,9 @@ class CredentialManager(object):
         additional_props: dict | None = None,
     ):
         cname, cprops = cred
+        # fold the name into the properties, would be `None` if there is no
+        # name (yet)
+        cprops['__name__'] = cname
         # Note for future improvements: One could consider also passing
         # a caught `InvalidCredential` exception to the function, in order to
         # facilitate incremental decision making for credential selection.

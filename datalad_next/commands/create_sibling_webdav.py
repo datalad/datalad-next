@@ -8,6 +8,8 @@
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 """High-level interface for creating a combi-target on a WebDAV capable server
  """
+
+from functools import partial
 import logging
 from typing import (
     Dict,
@@ -45,7 +47,6 @@ from datalad_next.utils import CredentialManager
 from datalad_next.utils import (
     ParamDictator,
     get_specialremote_credential_properties,
-    update_specialremote_credential,
     _yield_ds_w_matching_siblings,
 )
 
@@ -332,18 +333,19 @@ class CreateSiblingWebDAV(ValidatedInterface):
         # server
         # if all goes well, we'll store a credential (update) at the very end
         credman = CredentialManager(ds.config)
-        credname, credprops = credman.obtain(
-            credential,
+
+        cred_kwargs = dict(
+            name=credential,
             prompt='User name and password are required for WebDAV access '
                    f'at {url.geturl()}',
-            query_props=get_specialremote_credential_properties(
-                dict(type='webdav', url=url.geturl())),
             type_hint='user_password',
+            query_props=[
+                get_specialremote_credential_properties(
+                    dict(type='webdav', url=url.geturl()))
+            ],
             # make it raise ValueError when the critical components are missing
-            expected_props=['user', 'secret'],
+            required_props=['user', 'secret'],
         )
-        cred_user = credprops['user']
-        cred_password = credprops['secret']
 
         def _dummy(ds, refds, **kwargs):
             """Small helper to prepare the actual call to _create_sibling_webdav()
@@ -351,25 +353,31 @@ class CreateSiblingWebDAV(ValidatedInterface):
 
             We only have kwargs to catch whatever it throws at us.
             """
-            relpath = ds.pathobj.relative_to(refds.pathobj) if not ds == refds else None
+            relpath = ds.pathobj.relative_to(refds.pathobj) \
+                if not ds == refds else None
             if relpath:
                 dsurl = f"{urlunparse(url)}/{relpath}"
             else:
                 dsurl = url.geturl()
 
-            return _create_sibling_webdav(
-                ds,
-                dsurl,
-                # we pass the given, not the discovered, credential name!
-                # given a name means "take this particular one", not giving a
-                # name means "take what is best". Only if we pass this
-                # information on, we achieve maintaining this behavior
-                credential_name=credential,
-                credential=(cred_user, cred_password),
-                mode=mode,
-                name=name,
-                storage_name=storage_name,
-                existing=existing,
+            return credman.call_with_credential(
+                partial(
+                    _create_sibling_webdav,
+                    ds=ds,
+                    url=dsurl,
+                    # we pass the given, not the discovered, credential name!
+                    # given a name means "take this particular one", not
+                    # giving a name means "take what is best". Only if we
+                    # pass this information on, we achieve maintaining this
+                    # behavior
+                    credential_name=credential,
+                    mode=mode,
+                    name=name,
+                    storage_name=storage_name,
+                    existing=existing,
+                ),
+                purpose=f'access to {dsurl}',
+                **cred_kwargs
             )
 
         # Generate a sibling for dataset "ds", and for sub-datasets if recursive
@@ -387,20 +395,20 @@ class CreateSiblingWebDAV(ValidatedInterface):
             for partial_result in res.get('result', []):
                 yield dict(res_kwargs, **partial_result)
 
-        # this went well, update the credential
-        update_specialremote_credential(
-            'webdav',
-            credman,
-            credname,
-            credprops,
-            credtype_hint='user_password',
-            duplicate_hint=
-            'Specify a credential name via the `credential` parameter '
-            ' and/or configure a credential with the datalad-credentials '
-            'command{}'.format(
-                f' with a `realm={credprops["realm"]}` property'
-                if 'realm' in credprops else ''),
-        )
+        ## this went well, update the credential
+        #update_specialremote_credential(
+        #    'webdav',
+        #    credman,
+        #    credname,
+        #    credprops,
+        #    credtype_hint='user_password',
+        #    duplicate_hint=
+        #    'Specify a credential name via the `credential` parameter '
+        #    ' and/or configure a credential with the datalad-credentials '
+        #    'command{}'.format(
+        #        f' with a `realm={credprops["realm"]}` property'
+        #        if 'realm' in credprops else ''),
+        #)
 
     @staticmethod
     def custom_result_renderer(res, **kwargs):
@@ -429,21 +437,25 @@ class CreateSiblingWebDAV(ValidatedInterface):
 
 
 def _create_sibling_webdav(
-        ds, url, *,
-        credential_name, credential,
+        credential,
+        *,
+        ds, url,
+        credential_name,
         mode='git-only', name=None, storage_name=None, existing='error'):
     """
     Parameters
     ----------
+    credential: dict
     ds: Dataset
     url: str
     credential_name: str
-    credential: tuple
     mode: str, optional
     name: str, optional
     storage_name: str, optional
     existing: str, optional
     """
+    cred = (credential['user'], credential['secret'])
+
     # simplify downstream logic, export yes or no
     export_storage = 'filetree' in mode
 
@@ -459,7 +471,7 @@ def _create_sibling_webdav(
             ds,
             url,
             storage_name,
-            credential,
+            cred,
             export=export_storage,
             existing=existing,
             known=storage_name in existing_siblings,
@@ -470,8 +482,10 @@ def _create_sibling_webdav(
             ds,
             url,
             name,
+            # the _given_ credential name (not the discovered one
+            # will become part of the access URL)
             credential_name,
-            credential,
+            cred,
             export=export_storage,
             existing=existing,
             known=name in existing_siblings,
