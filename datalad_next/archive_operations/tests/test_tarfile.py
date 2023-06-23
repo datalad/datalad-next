@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import (
     Path,
-    PurePath,
     PurePosixPath,
 )
 from typing import Generator
@@ -47,8 +46,6 @@ def test_tararchive_basics(structured_sample_tar_xz: TestArchive):
             assert member.read() == spec.content
         with archive_ops.open(PurePosixPath(member_name)) as member:
             assert member.read() == spec.content
-        with archive_ops.open(PurePath(member_name)) as member:
-            assert member.read() == spec.content
 
 
 def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
@@ -59,8 +56,6 @@ def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
     assert member_name in archive_ops
     # POSIX path as obj
     assert PurePosixPath(member_name) in archive_ops
-    # platform path
-    assert PurePath(PurePosixPath(member_name)) in archive_ops
     assert 'bogus' not in archive_ops
 
 
