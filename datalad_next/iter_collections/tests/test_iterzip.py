@@ -97,6 +97,7 @@ def test_zip_dir_path():
     zp3 = ZipFileDirPath("a/c")
     pp = PurePosixPath("a/b")
 
+    assert zp1.as_posix()[-1] == '/'
     assert zp1 == zp2
     assert zp1 != zp3
     assert zp1 != pp
