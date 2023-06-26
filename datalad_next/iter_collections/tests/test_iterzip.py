@@ -88,7 +88,6 @@ def test_iter_zip(sample_zip):
         # do not compare mtime
         r.mtime = None
     for t in targets:
-        print(t.name)
         assert t in ires
 
 
