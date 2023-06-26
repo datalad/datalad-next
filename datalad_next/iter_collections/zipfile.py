@@ -80,18 +80,16 @@ def iter_zip(
 
 
 def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
-    mtype = (
-        FileSystemItemType.directory
-        if zip_info.is_dir()
-        else FileSystemItemType.file
-    )
     return ZipfileItem(
-        name=(
-            ZipFileDirPath(zip_info.filename)
+        **(
+            dict(
+                name=ZipFileDirPath(zip_info.filename),
+                type=FileSystemItemType.directory)
             if zip_info.is_dir()
-            else PurePosixPath(zip_info.filename)
+            else dict(
+                name=PurePosixPath(zip_info.filename),
+                type=FileSystemItemType.file)
         ),
-        type=mtype,
         size=zip_info.file_size,
         mtime=time.mktime(
             datetime.datetime(*zip_info.date_time).timetuple()
