@@ -260,8 +260,8 @@ class CreateSiblingWebDAV(ValidatedInterface):
         ),
         dataset=EnsureDataset(
             installed=True, purpose='create WebDAV sibling(s)'),
-        name=EnsureRemoteName(existing=False),
-        storage_name=EnsureRemoteName(existing=False),
+        name=EnsureRemoteName(preexists=False),
+        storage_name=EnsureRemoteName(preexists=False),
         mode=EnsureChoice(
             'annex', 'filetree', 'annex-only', 'filetree-only', 'git-only'
         ),

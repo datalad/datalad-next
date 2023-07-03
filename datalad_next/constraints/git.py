@@ -85,18 +85,18 @@ class EnsureRemoteName(EnsureGitRefName):
     requirements"""
 
     def __init__(self,
-                 existing: bool | None = None,
+                 preexists: bool | None = None,
                  dsarg: DatasetParameter | None = None):
         """
         Parameters
         ----------
-        existing: bool
+        preexists: bool
            If true, validates that the remote exists, fails otherwise.
            If false, validates that the remote doesn't exist, fails otherwise.
            If None, just checks that a sibling name was provided.
 
         """
-        self._existing = existing
+        self._preexists = preexists
         self._dsarg = dsarg
         super().__init__(allow_onelevel=True,
                          refspec_pattern=False)
@@ -107,7 +107,7 @@ class EnsureRemoteName(EnsureGitRefName):
             raise ValueError('must state a sibling name')
         super().__call__(value)
 
-        if self._existing is None:
+        if self._preexists is None:
             # we only need to know that something was provided, no further check
             return value
 
@@ -116,11 +116,11 @@ class EnsureRemoteName(EnsureGitRefName):
         cmd = ['git', 'remote'] if not self._dsarg else \
               ['git', '-C', f'{self._dsarg.ds.path}', 'remote']
         remotes = runner.run(cmd, protocol=StdOutCapture)['stdout'].split()
-        if self._existing and value not in remotes:
+        if self._preexists and value not in remotes:
             raise ValueError(
                 f'Sibling {value} is not among available remotes {remotes}'
             )
-        elif self._existing is False and value in remotes:
+        elif self._preexists is False and value in remotes:
             raise ValueError(
                 f'Sibling {value} is already among available remotes {remotes}'
             )
@@ -128,8 +128,8 @@ class EnsureRemoteName(EnsureGitRefName):
             return value
 
     def short_description(self):
-        if self._existing is not None:
-            desc = ' that exists' if self._existing else ' that does not yet exist'
+        if self._preexists is not None:
+            desc = ' that exists' if self._preexists else ' that does not yet exist'
         else:
             desc = ''
         return "Sibling name{}".format(desc)
@@ -141,6 +141,6 @@ class EnsureRemoteName(EnsureGitRefName):
 
         """
         return self.__class__(
-            existing=self._existing,
+            preexists=self._preexists,
             dsarg=dataset,
         )

@@ -60,11 +60,11 @@ def test_EnsureRemoteName(existing_dataset):
         EnsureRemoteName()('')
     assert EnsureRemoteName().short_description() == 'Sibling name'
     assert EnsureRemoteName(
-        existing=True).short_description() == 'Sibling name that exists'
+        preexists=True).short_description() == 'Sibling name that exists'
     assert EnsureRemoteName(
-        existing=False).short_description() == 'Sibling name that does not yet exist'
+        preexists=False).short_description() == 'Sibling name that does not yet exist'
     ds = existing_dataset
-    c = EnsureRemoteName(existing=False)
+    c = EnsureRemoteName(preexists=False)
     tc = c.for_dataset(DatasetParameter(None, ds))
     assert tc('newremotename') == 'newremotename'
     # add a remote
@@ -73,7 +73,7 @@ def test_EnsureRemoteName(existing_dataset):
     with pytest.raises(ValueError):
         tc('my-remote')
     # should work when it should exist
-    c = EnsureRemoteName(existing=True)
+    c = EnsureRemoteName(preexists=True)
     tc = c.for_dataset(DatasetParameter(None, ds))
     assert tc('my-remote') == 'my-remote'
     # but fail with non-existing remote
