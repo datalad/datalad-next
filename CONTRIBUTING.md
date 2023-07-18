@@ -63,7 +63,7 @@ There is one special sub-package in `datalad-next`: `patches`. All runtime patch
 
 ### Runtime patches
 
-The `patches` sub-package contains all runtime patches that are applied by `datalad-next`.  Patches are applied on-import of `datalad-next`, and may modify arbitrary aspects of the runtime environment. A patch is enabled by adding a corresponding `import` statement to `datalad_next/patches/__init__.py`. The order of imports in this file is significant. New patches should consider behavior changes caused by other patches, and should be considerate of changes imposed on other patches.
+The `patches` sub-package contains all runtime patches that are applied by `datalad-next`.  Patches are applied on-import of `datalad-next`, and may modify arbitrary aspects of the runtime environment. A patch is enabled by adding a corresponding `import` statement to `datalad_next/patches/enabled.py`. The order of imports in this file is significant. New patches should consider behavior changes caused by other patches, and should be considerate of changes imposed on other patches.
 
 `datalad-next` is imported (and thereby its patches applied) whenever used
 directly (e.g., when running commands provided by `datalad-next`, or by an
@@ -73,7 +73,7 @@ DataLad core package itself when the configuration item
 
 Patches modify an external implementation that is itself subject to change. To improve the validity and longevity of patches, it is helpful to consider a few guidelines:
 
-- Patches should use `datalad_next.utils.apply_patch()` to perform the patching, in order to yield uniform (logging) behavior
+- Patches should use `datalad_next.patches.apply_patch()` to perform the patching, in order to yield uniform (logging) behavior
 
 - Patches should be as self-contained as possible. The aim is for patches to be merged upstream (at the patched entity) as quickly as possible. Self-contained patches facilitate this process.
 

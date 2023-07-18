@@ -18,7 +18,6 @@ from typing import (
 from unittest.mock import patch
 
 import datalad.core.distributed.push as mod_push
-from datalad.runner.exception import CommandError
 from datalad_next.constraints import EnsureChoice
 from datalad_next.exceptions import CapturedException
 from datalad_next.commands import Parameter
@@ -32,7 +31,7 @@ from datalad_next.utils import (
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
 )
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')
@@ -111,7 +110,7 @@ def get_export_records(repo: AnnexRepo) -> Generator:
             ))
             result_dict["timestamp"] = float(result_dict["timestamp"][:-1])
             yield result_dict
-    except CommandError as command_error:
+    except mod_push.CommandError as command_error:
         # Some errors indicate that there was no export yet.
         # May depend on Git version
         expected_errors = (
@@ -242,7 +241,7 @@ def _transfer_data(repo: AnnexRepo,
                 result_adjusted['action'] = "copy"
                 yield result_adjusted
 
-        except CommandError as cmd_error:
+        except mod_push.CommandError as cmd_error:
             ce = CapturedException(cmd_error)
             yield {
                 **res_kwargs,

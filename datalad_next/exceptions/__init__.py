@@ -1,6 +1,8 @@
 """All custom exceptions used in datalad-next"""
 
-from datalad.runner import CommandError
+# TODO rethink the purpose of this module and possibly
+# make it about *external* custom exceptions
+from datalad_next.runners import CommandError
 from datalad.support.exceptions import (
     CapturedException,
     IncompleteResultsError,

@@ -6,7 +6,6 @@ from unittest.mock import (
     patch,
 )
 
-from datalad.runner.exception import CommandError
 from datalad_next.tests.utils import (
     SkipTest,
     assert_in,
@@ -20,6 +19,7 @@ from datalad_next.patches.push_to_export_remote import (
     _is_valid_treeish,
     _transfer_data,
     get_export_records,
+    mod_push,
 )
 
 
@@ -176,7 +176,7 @@ def test_no_special_remotes():
 def test_get_export_records_no_exports():
     class NoExportRepo:
         def call_git_items_(self, *args, **kwargs):
-            raise CommandError(
+            raise mod_push.CommandError(
                 stderr="fatal: Not a valid object name git-annex:export.log")
 
     results = tuple(get_export_records(NoExportRepo()))

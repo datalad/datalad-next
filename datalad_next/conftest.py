@@ -10,6 +10,10 @@ from datalad_next.tests.fixtures import (
     credman,
     # function-scope config manager
     datalad_cfg,
+    # function-scope UI wrapper that can provide staged responses
+    datalad_interactive_ui,
+    # function-scope UI wrapper that can will raise when asked for responses
+    datalad_noninteractive_ui,
     # function-scope temporary keyring
     tmp_keyring,
     # function-scope, Dataset instance
@@ -32,4 +36,9 @@ from datalad_next.tests.fixtures import (
     webdav_credential,
     # function-scope, serve a local temp-path via WebDAV
     webdav_server,
+)
+from datalad_next.iter_collections.tests.test_itertar import (
+    # session-scope, downloads a tarball with a set of standard
+    # file/dir/link types
+    sample_tar_xz,
 )

@@ -100,8 +100,16 @@ class ConstraintError(ValueError):
         return self.args[1]
 
     @property
-    def caused_by(self):
-        return self.context.get('__caused_by__', None)
+    def caused_by(self) -> Tuple[Exception] | None:
+        """Returns a tuple of any underlying exceptions that caused a violation
+        """
+        cb = self.context.get('__caused_by__', None)
+        if cb is None:
+            return
+        elif isinstance(cb, Exception):
+            return (cb,)
+        else:
+            return tuple(cb)
 
     @property
     def value(self):
@@ -265,8 +273,14 @@ class ParameterConstraintContext:
         """Like ``.label`` but each parameter will also state a value"""
         # TODO truncate the values after repr() to ensure a somewhat compact
         # output
+        from .parameter import NoValue
         return '{param}{descr}'.format(
-            param=", ".join(f'{p}={values[p]!r}' for p in self.parameters),
+            param=", ".join(
+                f'{p}=<no value>'
+                if isinstance(values[p], NoValue)
+                else f'{p}={values[p]!r}'
+                for p in self.parameters
+            ),
             descr=f" ({self.description})" if self.description else '',
         )
 

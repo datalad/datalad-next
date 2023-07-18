@@ -1,4 +1,13 @@
-"""Components for basic functions of commands and their results"""
+"""Essential tooling for implementing DataLad commands
+
+This module provides the advanced command base class
+:class:`ValidatedInterface`, for implementing commands with uniform argument
+validation and structured error reporting.
+
+Beyond that, any further components necessary to implement command are imported
+in this module to offer a one-stop-shop experience. This includes
+``build_doc``, ``datasetmethod``, and ``eval_results``, among others.
+"""
 from __future__ import annotations
 
 from typing import Dict
@@ -9,12 +18,7 @@ from datalad.interface.base import (
 )
 from datalad.interface.results import get_status_dict
 from datalad.interface.utils import generic_result_renderer
-try:
-    # datalad 0.17.10+
-    from datalad.interface.base import eval_results
-except ImportError:
-    # older datalad
-    from datalad.interface.utils import eval_results
+from datalad.interface.base import eval_results
 from datalad.support.param import Parameter
 
 from datalad_next.constraints.parameter import (
@@ -52,7 +56,7 @@ class ValidatedInterface(Interface):
     should either be removed, or moved to the corresponding entry in
     ``_validator_``.
     """
-    _validator_ = None
+    _validator_: EnsureCommandParameterization | None = None
 
     @classmethod
     def get_parameter_validator(cls) -> EnsureCommandParameterization | None:

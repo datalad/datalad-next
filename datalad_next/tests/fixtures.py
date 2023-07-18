@@ -1,3 +1,5 @@
+"""Collection of fixtures for facilitation test implementations
+"""
 import logging
 import os
 from pathlib import Path
@@ -371,3 +373,45 @@ def httpbin(httpbin_service):
             "docker-deployed instance -- too unreliable"
         )
     yield httpbin_service
+
+
+@pytest.fixture(autouse=False, scope="function")
+def datalad_interactive_ui(monkeypatch):
+    """Yields a UI replacement to query for operations and stage responses
+
+    No output will be written to STDOUT/ERR by this UI.
+
+    A standard usage pattern is to stage one or more responses, run the
+    to-be-tested code, and verify that the desired user interaction
+    took place::
+
+       > datalad_interactive_ui.staged_responses.append('skip')
+       > ...
+       > assert ... datalad_interactive_ui.log
+    """
+    from datalad_next.uis import ui_switcher
+    from datalad_next.tests.utils import InteractiveTestUI
+
+    with monkeypatch.context() as m:
+        m.setattr(ui_switcher, '_ui', InteractiveTestUI())
+        yield ui_switcher.ui
+
+
+@pytest.fixture(autouse=False, scope="function")
+def datalad_noninteractive_ui(monkeypatch):
+    """Yields a UI replacement to query for operations
+
+    No output will be written to STDOUT/ERR by this UI.
+
+    A standard usage pattern is to run the to-be-tested code, and verify that
+    the desired user messaging took place::
+
+       > ...
+       > assert ... datalad_interactive_ui.log
+    """
+    from datalad_next.uis import ui_switcher
+    from datalad_next.tests.utils import TestUI
+
+    with monkeypatch.context() as m:
+        m.setattr(ui_switcher, '_ui', TestUI())
+        yield ui_switcher.ui

@@ -1,5 +1,16 @@
-"""Abstract base class for URL operation handlers"""
+"""Handlers for operations on various URL types and protocols
 
+Available handlers:
+
+.. currentmodule:: datalad_next.url_operations
+.. autosummary::
+   :toctree: generated
+
+   any
+   file
+   http
+   ssh
+"""
 # allow for |-type UnionType declarations
 from __future__ import annotations
 
@@ -11,7 +22,12 @@ from typing import (
 )
 
 import datalad
+from datalad_next.config import ConfigManager
 from datalad_next.utils import log_progress
+from datalad_next.utils.multihash import (
+    MultiHash,
+    NoOpHash,
+)
 
 lgr = logging.getLogger('datalad.ext.next.url_operations')
 
@@ -31,7 +47,7 @@ class UrlOperations:
     This class provides a range of helper methods to aid computation of
     hashes and progress reporting.
     """
-    def __init__(self, *, cfg=None):
+    def __init__(self, *, cfg: ConfigManager | None = None):
         """
         Parameters
         ----------
@@ -42,7 +58,7 @@ class UrlOperations:
         self._cfg = cfg
 
     @property
-    def cfg(self):
+    def cfg(self) -> ConfigManager:
 
         if self._cfg is None:
             self._cfg = datalad.cfg
@@ -319,28 +335,9 @@ class UrlOperations:
             noninteractive_level=logging.DEBUG,
         )
 
-    def _get_hasher(self, hash: list[str] | None) -> list[callable]:
-        if not hash:
-            return []
+    def _get_hasher(self, hash: list[str] | None) -> NoOpHash | MultiHash:
+        return MultiHash(hash) if hash is not None else NoOpHash()
 
-        import hashlib
-        # yes, this will crash, if an invalid hash algorithm name
-        # is given
-        _hasher = []
-        for h in hash:
-            hr = getattr(hashlib, h.lower(), None)
-            if hr is None:
-                raise ValueError(f'unsupported hash algorithm {h}')
-            _hasher.append(hr())
-        return _hasher
-
-    def _get_hash_report(self,
-                         hash_names: list[str] | None,
-                         hashers: list) -> Dict:
-        if not hash_names:
-            return {}
-        else:
-            return dict(zip(hash_names, [h.hexdigest() for h in hashers]))
 
 #
 # Exceptions to be used by all handlers
