@@ -81,21 +81,26 @@ class EnsureGitRefName(Constraint):
 
 
 class EnsureRemoteName(EnsureGitRefName):
-    """Ensures a remote name is provided, and if it fulfills optional
-    requirements"""
+    """Ensures a remote name is given, and optionally if such a remote is known
+    """
 
     def __init__(self,
-                 exists: bool | None = None,
+                 known: bool | None = None,
                  dsarg: DatasetParameter | None = None):
         """
         Parameters
         ----------
-        exists: bool, optional
-           If true, validates that the remote exists, fails otherwise.
-           If false, validates that the remote doesn't exist, fails otherwise.
-           If None, just checks that a sibling name was provided.
+        known: bool, optional
+           By default, a given value is only checked if it is a syntactically
+           correct remote name.
+           If ``True``, also checks that the given name corresponds to a
+           known remote in the dataset given by ``dsarg``. If ``False``,
+           checks that the given remote does not match any known remote
+           in that dataset.
+        dsarg: DatasetParameter, optional
+           Identifies a dataset for testing remote existence, if requested.
         """
-        self._exists = exists
+        self._known = known
         self._dsarg = dsarg
         super().__init__(allow_onelevel=True,
                          refspec_pattern=False)
@@ -106,40 +111,40 @@ class EnsureRemoteName(EnsureGitRefName):
             raise ValueError('must state a sibling name')
         super().__call__(value)
 
-        if self._exists is None:
-            # we only need to know that something was provided, no further check
+        if self._known is None:
+            # we only need to know that something was provided,
+            # no further check
             return value
 
-        from datalad.runner import GitRunner, StdOutCapture
-        runner = GitRunner()
-        cmd = ['git', 'remote'] if not self._dsarg else \
-              ['git', '-C', f'{self._dsarg.ds.path}', 'remote']
-        remotes = runner.run(cmd, protocol=StdOutCapture)['stdout'].split()
-        if self._exists and value not in remotes:
-            raise ValueError(
-                f'Sibling {value} is not among available remotes {remotes}'
+        assert self._dsarg, \
+            "Existence check for remote requires dataset specification"
+
+        remotes = list(self._dsarg.ds.repo.call_git_items_(['remote']))
+        if self._known and value not in remotes:
+            self.raise_for(
+                value,
+                'is not one of the known remote(s) {remotes!r}',
+                remotes=remotes,
             )
-        elif self._exists is False and value in remotes:
-            raise ValueError(
-                f'Sibling {value} is already among available remotes {remotes}'
+        elif self._known is False and value in remotes:
+            self.raise_for(
+                value,
+                'name conflicts with a known remote',
+                remotes=remotes,
             )
         else:
             return value
 
     def short_description(self):
-        if self._exists is not None:
-            desc = ' that exists' if self._exists else ' that does not yet exist'
-        else:
-            desc = ''
-        return "Sibling name{}".format(desc)
+        return "Name of a{desc} remote".format(
+            desc=' known' if self._known
+            else ' not-yet-known' if self._known is False else ''
+        )
 
     def for_dataset(self, dataset: DatasetParameter) -> Constraint:
-        """Return an similarly parametrized variant that resolves
-        paths against a given dataset (argument)
-
-
-        """
+        """Return an similarly parametrized variant that checks remote names
+        against a given dataset (argument)"""
         return self.__class__(
-            exists=self._exists,
+            known=self._known,
             dsarg=dataset,
         )
