@@ -65,11 +65,11 @@ environment:
     - ID: Ubu20
       DTS: datalad_next
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      INSTALL_SYSPKGS: python3-virtualenv
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
       DEPLOY_HTTPBIN_IMAGE: yes
+      INSTALL_SYSPKGS:
     # Windows core tests
     - ID: WinP39core
       # ~35 min
@@ -100,7 +100,7 @@ environment:
       KEYWORDS: not test_gh1811 and not test_librarymode
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -121,7 +121,7 @@ environment:
       KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -131,7 +131,7 @@ environment:
       KEYWORDS: not test_invalid_args
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -140,7 +140,7 @@ environment:
         datalad.local
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -152,7 +152,7 @@ environment:
         datalad.ui
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
