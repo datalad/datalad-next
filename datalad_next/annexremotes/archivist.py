@@ -168,7 +168,8 @@ class ArchivistRemote(SpecialRemote):
         # let remote-specific setting take priority (there could be
         # multiple archivist-type remotes configured), and use unspecific switch
         # as a default, with a general default of NO
-        if self._getcfg('legacy-mode', default='no').lower() == 'yes':
+        if self.get_remote_gitcfg(
+                'archivist', 'legacy-mode', default='no').lower() == 'yes':
             # ATTENTION DEBUGGERS!
             # If we get here, we will bypass all of the archivist
             # implementation! Check __getattribute__() -- pretty much no
@@ -344,30 +345,6 @@ class ArchivistRemote(SpecialRemote):
     #
     # Helpers
     #
-    # TODO this could be promoted to SpecialRemote as a generic helper
-    # would need standardization of remote name query in `prepare()`
-    def _getcfg(self, name: str, default=None):
-        """Get a particular special remote configuration item value
-
-        Parameters
-        ----------
-        name: str
-          The name of the "naked" configuration item, without any
-          sub/sections. Must be a valid git-config variable name, i.e.,
-          case-insensitive, only alphanumeric characters and -, and
-          must start with an alphabetic character.
-        default:
-          A default value to be returned if there is no configuration.
-        """
-        cfgget = self._repo.config.get
-        rname = self._remotename
-        return cfgget(
-            f'remote.{rname}.archivist-{name}',
-            default=cfgget(
-                f'datalad.archivist.{name}',
-                default=default,
-            )
-        )
 
     def _get_key_dlarchive_urls(self, key):
         return self.annex.geturls(key, prefix='dl+archive:')
