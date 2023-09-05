@@ -99,7 +99,7 @@ environment:
       #   to have `.overrides` be uniformly limited to instance overrides
       KEYWORDS: not test_gh1811 and not test_librarymode
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
+      PY: 3.8
       INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
@@ -120,7 +120,7 @@ environment:
       #   because MIH does not know better
       KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
+      PY: 3.8
       INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
@@ -130,7 +130,7 @@ environment:
         datalad.distribution
       KEYWORDS: not test_invalid_args
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
+      PY: 3.8
       INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
@@ -139,7 +139,7 @@ environment:
       DTS: >
         datalad.local
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
+      PY: 3.8
       INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
@@ -151,7 +151,7 @@ environment:
         datalad.tests
         datalad.ui
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
+      PY: 3.8
       INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
