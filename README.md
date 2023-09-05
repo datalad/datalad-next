@@ -20,10 +20,10 @@ software packages that intend to build on this improved set of functionality.
 
 ```
 # create and enter a new virtual environment (optional)
-$ virtualenv --python=python3 ~/env/dl-next
+$ python3 -m venv ~/env/dl-next
 $ . ~/env/dl-next/bin/activate
 # install from PyPi
-$ python -m pip install datalad-next
+$ python3 -m pip install datalad-next
 ```
 
 ## How to use

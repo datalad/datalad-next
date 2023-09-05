@@ -3,7 +3,7 @@
 # to create a "native" platform experience, using as few cross-platform
 # helper tools as possible.
 #
-# On Linux/Mac a virtualenv is used for testing. The effective virtual env
+# On Linux/Mac a venv is used for testing. The effective venv environment
 # is available under ~/VENV.
 #
 # All workers support remote login. Login details are shown at the top of each
@@ -238,9 +238,9 @@ install:
   # appveyor provided environments/installation). Note, these are broken
   # on the ubuntu images
   # https://help.appveyor.com/discussions/problems/28217-appveyor-ubunu-image-with-python3-lzma-module
-  # Otherwise create a virtualenv using the default Python 3, to enable uniform
+  # Otherwise create a new venv using the default Python 3, to enable uniform
   # use of python/pip executables below
-  - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || virtualenv -p 3 ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
+  - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || python -m venv -p 3 ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
   - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
   # deploy the datalad installer, override version via DATALAD_INSTALLER_VERSION
   - cmd:
