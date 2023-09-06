@@ -65,11 +65,11 @@ environment:
     - ID: Ubu20
       DTS: datalad_next
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+      INSTALL_SYSPKGS: python3-venv
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
       DEPLOY_HTTPBIN_IMAGE: yes
-      INSTALL_SYSPKGS:
     # Windows core tests
     - ID: WinP39core
       # ~35 min
