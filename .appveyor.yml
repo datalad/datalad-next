@@ -240,7 +240,7 @@ install:
   # https://help.appveyor.com/discussions/problems/28217-appveyor-ubunu-image-with-python3-lzma-module
   # Otherwise create a new venv using the default Python 3, to enable uniform
   # use of python/pip executables below
-  - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || python -m venv -p 3 ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
+  - sh: "[ \"x$PY\" != x ] && . ${HOME}/venv${PY}/bin/activate || python3 -m venv ${HOME}/dlvenv && . ${HOME}/dlvenv/bin/activate; ln -s \"$VIRTUAL_ENV\" \"${HOME}/VENV\""
   - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
   # deploy the datalad installer, override version via DATALAD_INSTALLER_VERSION
   - cmd:
