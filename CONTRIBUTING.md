@@ -100,3 +100,19 @@ The following components of the `datalad` package must not be used (directly) in
 #### `require_dataset()`
 
 Commands must use `datalad_next.constraints.dataset.EnsureDataset` instead.
+
+#### nose-style decorators in test implementations
+
+The use of decorators like `with_tempfile` is not allowed.
+`pytest` fixtures have to be used instead.
+A *temporary* exception *may* be the helpers that are imported in `datalad_next.tests.utils`.
+However, these will be reduced and removed over time, and additional usage only adds to the necessary refactoring effort.
+Therefore new usage is highly discouraged.
+
+#### nose-style assertion helpers in test implementations
+
+The use of helpers like `assert_equal` is not allowed.
+`pytest` constructs have to be used instead -- this typically means plain `assert` statements.
+A *temporary* exception *may* be the helpers that are imported in `datalad_next.tests.utils`.
+However, these will be reduced and removed over time, and additional usage only adds to the necessary refactoring effort.
+Therefore new usage is highly discouraged.
