@@ -221,6 +221,8 @@ def existing_noannex_dataset(dataset):
 
 @pytest.fixture(autouse=False, scope="session")
 def webdav_credential():
+    """Provides HTTP Basic authentication credential necessary to access the
+    server provided by the ``webdav_server`` fixture."""
     yield dict(
         name='dltest-my&=webdav',
         user='datalad',
@@ -256,6 +258,8 @@ def webdav_server(tmp_path_factory, webdav_credential):
 
 @pytest.fixture(autouse=False, scope="session")
 def http_credential():
+    """Provides the HTTP Basic authentication credential necessary to access the
+    HTTP server provided by the ``http_server_with_basicauth`` fixture."""
     yield dict(
         name='dltest-my&=http',
         user='datalad',
@@ -273,9 +277,6 @@ def http_server(tmp_path_factory):
 
     - ``path``: ``Path`` instance of the served temporary directory
     - ``url``: HTTP URL to access the HTTP server
-
-    Server access requires HTTP Basic authentication with the credential
-    provided by the ``webdav_credential`` fixture.
     """
     # must use the factory to get a unique path even when a concrete
     # test also uses `tmp_path`
@@ -289,7 +290,7 @@ def http_server(tmp_path_factory):
 
 @pytest.fixture(autouse=False, scope="function")
 def http_server_with_basicauth(tmp_path_factory, http_credential):
-    """Like ``http_server`` but requiring authenticat with ``http_credential``
+    """Like ``http_server`` but requiring authentication via ``http_credential``
     """
     path = tmp_path_factory.mktemp("webdav")
     server = HTTPPath(
