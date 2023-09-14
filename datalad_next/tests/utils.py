@@ -74,7 +74,7 @@ class WebDAVPath(object):
             from cheroot import wsgi
             from wsgidav.wsgidav_app import WsgiDAVApp
         except ImportError as e:
-            raise SkipTest('No WSGI capabilities') from e
+            raise SkipTest('No WSGI capabilities. Install cheroot and/or wsgidav') from e
 
         if self.auth:
             auth = {self.auth[0]: {'password': self.auth[1]}}
