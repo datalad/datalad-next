@@ -1,15 +1,15 @@
 # 1.0.0 (2023-09-25)
 
 This release represents a milestone in the development of the extension.
-The package is reorganize to be a collection of more self-contained
-mini-packages. Each with its own set of tests.
+The package is reorganized to be a collection of more self-contained
+mini-packages, each with its own set of tests.
 
 Developer documentation and guidelines have been added to aid further
 development. One particular goal is to establish datalad-next as a proxy
 for importing datalad-core functionality for other extensions. Direct imports
-from datalad-core can be minimized in favor of imports from datalad-next
-to enable the identification of functionality needed outside the core package,
-and to aid its maintenance, and guide efforts for improvements.
+from datalad-core can be minimized in favor of imports from datalad-next.
+This helps identifying functionality needed outside the core package,
+and guides efforts for future improvements.
 
 The 1.0 release marks the switch to a more standard approach to semantic
 versioning. However, although a substantial improvements have been made,
