@@ -1,3 +1,115 @@
+# 1.0.0 (2023-09-25)
+
+This release represents a milestone in the development of the extension.
+The package is reorganize to be a collection of more self-contained
+mini-packages. Each with its own set of tests.
+
+Developer documentation and guidelines have been added to aid further
+development. One particular goal is to establish datalad-next as a proxy
+for importing datalad-core functionality for other extensions. Direct imports
+from datalad-core can be minimized in favor of imports from datalad-next
+to enable the identification of functionality needed outside the core package,
+and to aid its maintenance, and guide efforts for improvements.
+
+The 1.0 release marks the switch to a more standard approach to semantic
+versioning. However, although a substantial improvements have been made,
+the 1.0 version nohow indicates a slowdown of development or a change in the
+likelihood of (breaking) changes. They will merely become more easily
+discoverable from the version label alone.
+
+Notable high-level features introduced by this major release are:
+
+- The new `UrlOperations` framework to provide a set of basic operations like
+  `download`, `upload`, `stat` for different protocols. This framework can be
+  thought of as a replacement for the "downloaders" functionality in
+  datalad-core -- although the feature list is not 100% overlapping. This new
+  framework is more easily extensible by 3rd-party code.
+
+- The `Constraints` framework elevates parameter/input validation to the next
+  level. In contrast to datalad-core, declarative input validation is no longer
+  limited to the CLI. Instead, command parameters can now be validated regardless
+  of the entrypoint through which a command is used. They can be validated
+  individually, but also sets of parameters can be validated jointly to implement
+  particular interaction checks. All parameter validations can now be performed
+  exhaustive, to present a user with a complete list of validation errors, rather
+  then the fail-on-first-error method implemented exclusively in datalad-core.
+  Validation errors are now reported using dedicated structured data type to aid
+  their communication via non-console interfaces.
+
+- The `Credentials` system has been further refined with more homogenized
+  workflows and deeper integration into other subsystems. This release merely
+  represents a snapshot of continued development towards a standardization of
+  credential handling workflows.
+
+- The annex remotes `uncurl` and `archivist` are replacements for the
+  datalad-core implementations `datalad` and `datalad-archive`. The offer
+  substantially improved configurability and leaner operation -- built on the
+  `UrlOperations` framework.
+
+- A growing collection of iterator (see `iter_collections`) aims to provide
+  fast (and more Pythonic) operations on common data structures (Git worktrees,
+  directories, archives). The can be used as an alternative to the traditional
+  `Repo` classes (`GitRepo`, `AnnexRepo`) from datalad-core.
+
+- Analog to `UrlOperations` the `ArchiveOperations` framework aims to provide
+  an abstraction for operations on different archive types (e.g., TAR). The
+  represent an alternative to the traditional implementations of
+  `ExtractedArchive` and `ArchivesCache` from datalad-core, and aim at leaner
+  resource footprints.
+
+- The collection of runtime patches for datalad-core has been further expanded.
+  All patches are now individually documented, and applied using a set of standard
+  helpers (see http://docs.datalad.org/projects/next/en/latest/patches.html).
+
+For details, please see the changelogs of the 1.0.0 beta releases below.
+
+## 💫 Enhancements and new features
+
+- `TarArchiveOperations` is the first implementation of the `ArchiveOperations`
+  abstraction, providing archive handlers with a set of standard operations:
+  - `open` to get a file object for a particular archive member
+  - `__contains__` to check for the presence of a particular archive member
+  - `__iter__` to get an iterator for processing all archive members
+  https://github.com/datalad/datalad-next/pull/415 (by @mih)
+
+## 🐛 Bug Fixes
+
+- Make `TarfileItem.name` be of type `PurePosixPath` to reflect the fact
+  that a TAR archive can contain members with names that cannot be represent
+  unmodified on a non-POSIX file system.
+  https://github.com/datalad/datalad-next/pull/422 (by @mih)
+  An analog change is done for `ZipfileItem.name`.
+  https://github.com/datalad/datalad-next/pull/409 (by @christian-monch)
+
+- Fix `git ls-file` parsing in `iter_gitworktree()` to be compatible with
+  file names that start with a `tab` character.
+  https://github.com/datalad/datalad-next/pull/421 (by @christian-monch)
+
+## 📝 Documentation
+
+- Expanded guidelines on test implementations.
+
+- Add missing and fix wrong docstrings for HTTP/WebDAV server related fixtures.
+  https://github.com/datalad/datalad-next/pull/445 (by @adswa)
+
+## 🏠 Internal
+
+- Deduplicate configuration handling code in annex remotes.
+  https://github.com/datalad/datalad-next/pull/440 (by @adswa)
+
+## 🛡 Tests
+
+- New test fixtures have been introduced to replace traditional test helpers
+  from datalad-core:
+
+  - `datalad_interactive_ui` and `datalad_noninteractive_ui` for testing
+    user interactions. They replace `with_testsui`.
+    https://github.com/datalad/datalad-next/pull/427 (by @mih)
+
+- Expand test coverage for `create_sibling_webdav` to include recursive
+  operation.
+  https://github.com/datalad/datalad-next/pull/434 (by @adswa)
+
 
 # 1.0.0b3 (2023-06-09)
 
