@@ -45,7 +45,7 @@ example how ``datalad addurls`` can be given any uncurl-supported URLs
 for a dataset (as shown above)::
 
     $ echo '[{"url":"ssh://my.server.org/home/me/file", "file":"dummy"}]' \\
-        | datalad addurls - '{url}' {'file'}
+        | datalad addurls - '{url}' '{file}'
 
 This makes legacy commands (e.g., ``datalad download-url``), unnecessary, and
 facilitates the use of more advanced ``datalad addurls`` features (e.g.,
