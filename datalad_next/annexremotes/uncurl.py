@@ -411,7 +411,7 @@ class UncurlRemote(SpecialRemote):
             )
         except UrlOperationsResourceUnknown:
             self.message(
-                'f{key} not found at the remote, skipping', type='debug')
+                f'{key!r} not found at the remote, skipping', type='debug')
 
     #
     # helpers
