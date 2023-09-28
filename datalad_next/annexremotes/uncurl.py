@@ -223,12 +223,6 @@ from functools import partial
 from pathlib import Path
 import re
 
-# we intentionally limit ourselves to the most basic interface
-# and even that we only need to get a `ConfigManager` instance.
-# If that class would support a plain path argument, we could
-# avoid it entirely
-from datalad_next.datasets import LeanAnnexRepo
-
 from datalad_next.exceptions import (
     CapturedException,
     UrlOperationsRemoteError,
