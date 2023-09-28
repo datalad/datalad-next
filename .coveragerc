@@ -1,7 +1,16 @@
+[run]
+parallel = True
+branch = True
+data_file = ${COVERAGE_ROOT-.}/.coverage
+omit =
+  # versioneer
+  */_version.py
+
 [paths]
 source =
     datalad_next/
     */datalad_next/
+
 [report]
 # show lines missing coverage in output
 show_missing = True
