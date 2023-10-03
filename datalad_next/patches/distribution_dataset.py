@@ -33,5 +33,5 @@ orig_resolve_path = apply_patch(
     resolve_path,
     msg='Apply datalad-next patch to distribution.dataset:resolve_path')
 
-# re-use docs
+# reuse docs
 resolve_path.__doc__ = orig_resolve_path.__doc__

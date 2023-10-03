@@ -1146,7 +1146,7 @@ def make_export_tree(repo):
         ID of the tree object, suitable for `git-annex export`.
     """
     here = repo.config.get('annex.uuid')
-    # re-use existing, or go with fixed random one
+    # reuse existing, or go with fixed random one
     origin = repo.config.get('remote.origin.annex-uuid',
                              '8249ffce-770a-11ec-9578-5f6af5e76eaa')
     assert here, "No 'here'"
