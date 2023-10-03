@@ -50,7 +50,7 @@ also the documentation of
    :toctree: generated
 
    run
-
+   batch
 
 A standard exception type is used to communicate any process termination
 with a non-zero exit code (unless the keyword argument ``exception_on_error`` is
@@ -83,7 +83,7 @@ protocols:
 
    NoCaptureGeneratorProtocol
    StdOutCaptureGeneratorProtocol
-
+   StdOutLineCaptureGeneratorProtocol
 
 Low-level tooling
 -----------------
@@ -105,6 +105,7 @@ from datalad.runner.protocol import GeneratorMixIn
 from .protocols import (
     NoCaptureGeneratorProtocol,
     StdOutCaptureGeneratorProtocol,
+    StdOutLineCaptureGeneratorProtocol,
 )
 # exceptions
 from datalad.runner.exception import (

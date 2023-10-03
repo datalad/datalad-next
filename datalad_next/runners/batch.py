@@ -8,10 +8,9 @@ low-level tooling:
 .. autosummary::
    :toctree: generated
 
-    StdOutCaptureGeneratorProtocol
-    StdOutLineCaptureGeneratorProtocol
     GeneratorAnnexJsonProtocol
     _ResultGenerator
+
 """
 from __future__ import annotations
 
@@ -120,13 +119,13 @@ def batchcommand(
         A list containing the command and its arguments (argv-like).
     cwd : Path | None
         If not ``None``, determines a new working directory for the command.
-    terminate_time: int | None
+    terminate_time : int | None
         The number of timeouts after which a terminate-signal will be sent to
         the process, if it is still running. If no timeouts were provided in the
         ``timeout``-argument, the timeout is set to ``1.0``.
-    kill_time: int | None
+    kill_time : int | None
         See documentation of :func:`datalad_next.runners.run.run`.
-    protocol_kwargs: dict
+    protocol_kwargs : dict
         If ``terminate_time`` is given, a kill-signal will be sent to the
         subprocess after kill-signal after ``terminate_time + kill_time``
         timeouts. If ``terminate_time`` is not set, a kill-signal will be sent
@@ -211,25 +210,23 @@ def stdoutline_batchcommand(
     response to an input.
 
     Internally this calls :func:`batchcommand` with the
-    :class:`StdOutLineCaptureGeneratorProtocol` protocol implementation. See the
+    :class:`StdOutLineCaptureGeneratorProtocol` protocol implementation. See
+    the documentation of :func:`batchcommand` for a description of the
+    remaining parameters.
 
     Parameters
     ----------
     separator : str | None (default ``None``)
         If ``None``, lines are separated by the built-in separators of python.
         If not ``None``, lines are separated by the given character.
-        The``separator`` keyword argument will override a ``separator`` keyword
+        The ``separator`` keyword argument will override a ``separator`` keyword
         argument provided in the ``protocol_kwargs``.
-
-    keep_ends: bool (default: ``False``)
+    keep_ends : bool (default ``False``)
         If ``False``, the returned lines will not contain the terminating
         character. If ``True``, the returned lines will contain the terminating
-        character.
-        The``keep_ends`` keyword argument will override a ``keep_ends`` keyword
-        argument provided in the ``protocol_kwargs``.
+        character. The ``keep_ends`` keyword argument will override a
+        ``keep_ends`` keyword argument provided in the ``protocol_kwargs``.
 
-    See the documentation of :func:`batchcommand` for a description of the
-    remaining parameters.
     """
     return batchcommand(
         cmd,
