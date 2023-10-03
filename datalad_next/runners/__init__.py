@@ -17,6 +17,13 @@ of a Git repository.
    GitRunner
    Runner
 
+..
+
+   This should also list, but it is broken
+   https://github.com/datalad/datalad/issues/7499
+
+   ThreadedRunner
+
 Additional information on the design of the subprocess execution tooling
 is available from https://docs.datalad.org/design/threaded_runner.html
 
@@ -39,6 +46,15 @@ inspired by ``asyncio.SubprocessProtocol``.
    StdOutCapture
    StdErrCapture
    StdOutErrCapture
+   protocols
+
+Higher-level tooling
+--------------------
+
+.. autosummary::
+   :toctree: generated
+
+   batch
 """
 
 # runners

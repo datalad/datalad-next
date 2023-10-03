@@ -1,3 +1,7 @@
+"""Additional runner protocol implementations
+
+.. currentmodule:: datalad_next.runners.protocols
+"""
 from . import (
     GeneratorMixIn,
     NoCapture,
@@ -10,6 +14,7 @@ from . import (
 # upstream
 #
 class NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
+    """Generator-variant of the :class:`~datalad_next.runners.NoCapture`"""
     def __init__(self, done_future=None, encoding=None):
         NoCapture.__init__(self, done_future, encoding)
         GeneratorMixIn.__init__(self)
@@ -19,6 +24,7 @@ class NoCaptureGeneratorProtocol(NoCapture, GeneratorMixIn):
 
 
 class StdOutCaptureGeneratorProtocol(StdOutCapture, GeneratorMixIn):
+    """Generator-variant of the :class:`~datalad_next.runners.StdOutCapture`"""
     def __init__(self, done_future=None, encoding=None):
         StdOutCapture.__init__(self, done_future, encoding)
         GeneratorMixIn.__init__(self)
