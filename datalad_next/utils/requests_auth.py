@@ -178,7 +178,7 @@ class DataladAuth(requests.auth.AuthBase):
         header is ignored.
 
         Server-provided 'www-authenticated' challenges are inspected, and
-        corresponding credentials are looked-up (if needed) and subequently
+        corresponding credentials are looked-up (if needed) and subsequently
         tried in a re-request to the original URL after performing any
         necessary actions to meet a given challenge. Such a re-request
         is then using the same connection as the original request.

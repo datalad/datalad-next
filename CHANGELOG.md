@@ -246,7 +246,7 @@ For details, please see the changelogs of the 1.0.0 beta releases below.
   https://github.com/datalad/datalad-next/pull/391 (by @mih)
 
 - The `main()` entrypoint of the `datalad-annex` Git remote helper has
-  be generalized to be more re-usable by other (derived) remote helper
+  be generalized to be more reusable by other (derived) remote helper
   implementations.
   https://github.com/datalad/datalad-next/pull/411 (by @mih)
 
@@ -358,7 +358,7 @@ For details, please see the changelogs of the 1.0.0 beta releases below.
   - The CredentialManager was elevated to a top-level module
     ([#229](https://github.com/datalad/datalad-next/pull/220) by @mih)
   - Dataset-lookup behavior of the ``credentials`` command became identical to
-    ``downlad`` ([#256](https://github.com/datalad/datalad-next/pull/256) by
+    ``download`` ([#256](https://github.com/datalad/datalad-next/pull/256) by
     @mih)
 
 - The DataLad runner performance patch and all patches to clone functionality

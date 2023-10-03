@@ -68,7 +68,7 @@ use after having used them successfully::
     password (repeat): 
     Enter a name to save the credential
     (for accessing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
-    re-use, or 'skip' to not save the credential
+    reuse, or 'skip' to not save the credential
     name: httpbin-dummy
 
     addurl http://httpbin.org/basic-auth/myuser/mypassword (from uncurl) (to ...) 
