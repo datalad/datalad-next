@@ -234,6 +234,20 @@ class LsFileCollection(ValidatedInterface):
       by this command (``return_type='generator``) and only until the next
       result is yielded. PY]
 
+    ``gitworktree``
+      Reports on all tracked and untracked content of a Git repository's
+      work tree. The collection identifier is a path of a directory in a Git
+      repository (which can, but needs not be, its root). Item identifiers
+      are the relative paths of items within that directory. Reported
+      properties include ``gitsha`` and ``gittype``; note that the
+      ``gitsha`` is not equivalent to a SHA1 hash of a file's content, but
+      is the SHA-type blob identifier as reported and used by Git.
+      [PY: When hashes are computed, an ``fp`` property with a file-like is
+      provided. Reading file data from it requires a ``seek(0)`` in most
+      cases. This file handle is only open when items are yielded directly
+      by this command (``return_type='generator``) and only until the next
+      result is yielded. PY]
+
     ``tarfile``
       Reports on members of a TAR archive. The collection identifier is the
       path of the TAR file. Item identifiers are the relative paths
