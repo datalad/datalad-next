@@ -226,7 +226,7 @@ class LsFileCollection(ValidatedInterface):
     ``directory``
       Reports on the content of a given directory (non-recursively). The
       collection identifier is the path of the directory. Item identifiers
-      are the name of a file within that directory. Standard properties like
+      are the names of items within that directory. Standard properties like
       ``size``, ``mtime``, or ``link_target`` are included in the report.
       [PY: When hashes are computed, an ``fp`` property with a file-like
       is provided. Reading file data from it requires a ``seek(0)`` in most
