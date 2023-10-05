@@ -35,8 +35,8 @@ class BufferingGenerator(Generator):
         return Generator.throw(self, exception_type, value, trace_back)
 
 
-class DecodingGenerator(Generator):
-    """ A generator that decodes incoming bytes before yielding them
+class DecodingBufferingGenerator(Generator):
+    """ A generator that decodes incoming bytes into text before yielding them
     """
     def __init__(self,
                  base_generator: Generator,
@@ -54,6 +54,9 @@ class DecodingGenerator(Generator):
                 continue
             result, self.store = self.store + text, ''
             return result
+        if self.store:
+            return self.store
+        raise StopIteration()
 
     def push(self, pushed_data: str):
         print('B PUSHED: ', repr(pushed_data))
@@ -74,6 +77,23 @@ g = Runner().run(
     ['find', '/home/cristian/datalad/longnow-podcasts'],
     protocol=TestProtocol
 )
+
+d = DecodingBufferingGenerator(g)
+for text in d:
+
+    # Use python's built in line split wisdom to split on any known line ending.
+    parts_with_ends = text.splitlines(keepends=True)
+    parts_without_ends = text.splitlines(keepends=False)
+    if parts_with_ends[-1] == parts_without_ends[-1]:
+        # Push back any non-terminated lines
+        d.push(parts_without_ends[-1])
+        del parts_without_ends[-1]
+
+    for part in parts_without_ends:
+        print('FIND: ', part)
+
+exit(1)
+
 
 b = BufferingGenerator(g)
 for data in b:
