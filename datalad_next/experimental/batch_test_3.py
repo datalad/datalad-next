@@ -127,9 +127,12 @@ class BatchProcess:
             processors,
         )
 
-    def __call__(self, data: bytes) -> Any:
+    def __call__(self, data: bytes) -> Any | None:
         self.runner_generator.runner.stdin_queue.put(data)
-        return next(self.result_generator)
+        try:
+            return next(self.result_generator)
+        except StopIteration:
+            return None
 
     @property
     def return_code(self) -> None | int:
@@ -172,7 +175,7 @@ def stdout_batchcommand(
     """
     return batchcommand(
         cmd,
-        processors=[decode_processor, splitlines_processor],
+        processors=[splitlines_processor],
         protocol_class=TestProtocol,
         cwd=cwd,
     )
@@ -193,13 +196,15 @@ def annexjson_batchcommand(
     """
     return batchcommand(
         cmd,
-        processors=[decode_processor, splitlines_processor, jsonline_processor],
+        processors=[splitlines_processor, jsonline_processor],
         protocol_class=TestProtocol,
         cwd=cwd,
     )
 
 
-cmd_1 = [sys.executable, '-c', '''
+if __name__ == '__main__':
+
+    cmd_1 = [sys.executable, '-c', '''
 import sys
 while True:
     x = sys.stdin.readline()
@@ -212,13 +217,13 @@ while True:
 
 
 
-with annexjson_batchcommand(cmd=cmd_1) as bp:
-    for command in ('sdsdasd\n', 'end\n'):
-        res = bp(command.encode())
-        print('received:', res)
+    with annexjson_batchcommand(cmd=cmd_1) as bp:
+        for command in ('sdsdasd\n', 'end\n'):
+            res = bp(command.encode())
+            print('received:', res)
 
-print('result code:', bp.return_code)
+    print('result code:', bp.return_code)
 
-with annexjson_batchcommand(cmd=cmd_1) as bp:
-    pass
-print('result code:', bp.return_code)
+    with annexjson_batchcommand(cmd=cmd_1) as bp:
+        pass
+    print('result code:', bp.return_code)
