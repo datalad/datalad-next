@@ -6,9 +6,10 @@ It reads data and identifies responses. To do this:
  - transforms it to a response structure, e.g. JSON-object
 """
 
+from typing import Callable, Generator
+
 from datalad_next.runners import Runner
 from datalad_next.runners.protocols import GeneratorMixIn, StdOutCapture
-from typing import Callable, Generator
 
 
 class BaseGenerator(Generator):
@@ -70,22 +71,36 @@ class TestProtocol(StdOutCapture, GeneratorMixIn):
         self.send_result(data)
 
 
-g = Runner().run(
-#    ['sleep', '1'],
-#    ['python', '-c', '''
-#import time
-#for i in range(10):
-#    print(i, flush=True)
-#    time.sleep(1)
-#'''],
-    ['find', '/home/cristian/datalad/longnow-podcasts'],
-    protocol=TestProtocol
-)
+def build_processing_generator(base_generator: Generator,
+                               processors: list[Callable],
+                               ) -> Generator:
+    """ Build a generator the executes the processors in the given order"""
+    for index, processor in enumerate(processors):
+        base_generator = ProcessingGenerator(base_generator, processor)
+    return base_generator
 
 
-t = ProcessingGenerator(g, decode_processor)
-l = ProcessingGenerator(t, splitlines_processor)
+cmd1 = ['find', '/home/cristian/datalad/longnow-podcasts'],
+cmd2 = ['python', '-c', '''
+import time
+for i in range(10):
+    print(i, flush=True)
+    time.sleep(1)
+''']
+cmd3 = ['python', '-c', '''exit(0)''']
+cmd4 = ['python', '-c', '''
+import sys
+while True:
+    x = sys.stdin.readline()
+    print('--->: ', x, flush=True)
+''']
+
+
+g = Runner().run(cmd=cmd2, protocol=TestProtocol)
+l = build_processing_generator(
+    g,
+    [decode_processor, splitlines_processor])
+
 for line in l:
-    print('Line:', line)
-
+    print('Line:', repr(line))
 print('return code:', g.return_code)
