@@ -153,14 +153,17 @@ def batchcommand(cmd: list,
         protocol_class=protocol_class,
         stdin=input_queue,
         cwd=cwd,
+        # Do not raise exceptions on error, otherwise the call to
+        # `tuple(base_generator)` in the finally-branch might raise an
+        # exception.
         exception_on_error=False,
     ).run()
     try:
         yield BatchProcess(base_generator, processors)
     finally:
         input_queue.put(None)
-        # Exhaust the iterator to allow it to pick up process exit
-        # and the return code.
+        # Exhaust the iterator to allow it to pick up process exit and the
+        # return code.
         tuple(base_generator)
 
 
