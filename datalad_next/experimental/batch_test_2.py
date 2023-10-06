@@ -92,7 +92,7 @@ cmd4 = ['python', '-c', '''
 import sys
 while True:
     x = sys.stdin.readline()
-    print('--->: ', x, flush=True)
+    print('--->: ', x.strip(), flush=True)
 ''']
 
 
