@@ -27,6 +27,8 @@ def run(
     *,
     cwd: Path | None = None,
     input: int | IO | bytes | Queue[bytes | None] | None = None,
+    # only generator protocols make sense for timeout, and timeouts are
+    # only checked when the generators polls
     timeout: float | None = None,
 ) -> dict | _ResultGenerator:
     runner = ThreadedRunner(
