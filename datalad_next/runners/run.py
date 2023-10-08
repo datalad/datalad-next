@@ -46,4 +46,7 @@ def run(
         # already be the case -- we make sure that now zombies
         # accumulate
         if runner.process is not None:
+            # send it the KILL signal
             runner.process.kill()
+            # wait till the OS has reported the process dead
+            runner.process.wait()
