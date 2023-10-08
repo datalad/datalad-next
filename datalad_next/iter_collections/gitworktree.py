@@ -21,9 +21,8 @@ from typing import (
 )
 
 from datalad_next.runners import (
-    DEVNULL,
+    run,
     LineSplitter,
-    ThreadedRunner,
     StdOutCaptureGeneratorProtocol,
 )
 
@@ -251,22 +250,19 @@ def _lsfiles_line2props(
 
 def _git_ls_files(path, *args):
     # we use a plain runner to avoid the overhead of a GitRepo instance
-    runner = ThreadedRunner(
-        cmd=[
-            'git', 'ls-files',
-            # we rely on zero-byte splitting below
-            '-z',
-            # otherwise take whatever is coming in
-            *args,
-        ],
+    with run([
+        'git', 'ls-files',
+        # we rely on zero-byte splitting below
+        '-z',
+        # otherwise take whatever is coming in
+        *args],
         protocol_class=StdOutCaptureGeneratorProtocol,
-        stdin=DEVNULL,
         # run in the directory we want info on
         cwd=path,
-    )
-    line_splitter = LineSplitter('\0', keep_ends=False)
-    # for each command output chunk received by the runner
-    for content in runner.run():
-        # for each zerobyte-delimited "line" in the output
-        for line in line_splitter.process(content.decode('utf-8')):
-            yield line
+    ) as sp:
+        line_splitter = LineSplitter('\0', keep_ends=False)
+        # for each command output chunk received by the runner
+        for content in sp:
+            # for each zerobyte-delimited "line" in the output
+            for line in line_splitter.process(content.decode('utf-8')):
+                yield line

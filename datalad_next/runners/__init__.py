@@ -62,6 +62,9 @@ from .protocols import (
     NoCaptureGeneratorProtocol,
     StdOutCaptureGeneratorProtocol,
 )
+# convenience
+from .run import run
+
 # exceptions
 from datalad.runner.exception import (
     CommandError,
