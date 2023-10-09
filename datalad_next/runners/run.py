@@ -6,7 +6,10 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Queue
-from subprocess import DEVNULL
+from subprocess import (
+    DEVNULL,
+    TimeoutExpired,
+)
 from typing import (
     IO,
 )
@@ -42,16 +45,20 @@ def run(
     finally:
         # if we get here the subprocess has no business running
         # anymore. When run() exited normally, this should
-        # already be the case -- we make sure that now zombies
+        # already be the case -- we make sure that no zombies
         # accumulate
         if runner.process is not None:
-            # TODO figure out what is the most graceful way to
-            # tell a process to stop. Possibly
-            # - process.terminate()
-            # - process.wait(with timeout)
-            # - catch TimeoutExpired exception and process.kill()
-            #
-            # send it the KILL signal
-            runner.process.kill()
-            # wait till the OS has reported the process dead
-            runner.process.wait()
+            proc = runner.process
+            # ssk friendly to terminate (SIGTERM)
+            proc.terminate()
+            # let the process die and exhaust its output pipe
+            # so it can be garbage collected properly.
+            try:
+                # give it 10s
+                proc.communicate(timeout=10)
+            except TimeoutExpired:
+                # the process did not manage to end before the
+                # timeout -> SIGKILL
+                proc.kill()
+                # we still need to exhaust its output pipes
+                proc.communicate()
