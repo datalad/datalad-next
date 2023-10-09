@@ -59,7 +59,7 @@ class ProcessingGeneratorProtocol(GeneratorMixIn):
             self.send_result((fd, result))
 
 
-class TestProtocol(SubprocessProtocol, ProcessingGeneratorProtocol):
+class ProcessingProtocol(SubprocessProtocol, ProcessingGeneratorProtocol):
     def __init__(self,
                  stdout_processors: list[Callable],
                  ) -> None:
@@ -114,7 +114,7 @@ def batchcommand(cmd: list,
 
     base_generator = ThreadedRunner(
         cmd=cmd,
-        protocol_class=TestProtocol,
+        protocol_class=ProcessingProtocol,
         stdin=input_queue,
         cwd=cwd,
         # Do not raise exceptions on error, otherwise the call to
@@ -166,28 +166,3 @@ def annexjson_batchcommand(
         processors=[splitlines_processor, jsonline_processor],
         cwd=cwd,
     )
-
-
-if __name__ == '__main__':
-
-    cmd_1 = [sys.executable, '-c', '''
-import sys
-while True:
-    x = sys.stdin.readline()
-    if x == '':
-        exit(2)
-    print('{"entered": "%s"}' % str(x.strip()), flush=True)
-    if x.strip() == 'end':
-        exit(3)
-''']
-
-    with annexjson_batchcommand(cmd=cmd_1) as bp:
-        for command in ('sdsdasd\n', 'end\n'):
-            res = bp(command.encode())
-            print('received:', res)
-
-    print('result code:', bp.return_code)
-
-    with annexjson_batchcommand(cmd=cmd_1) as bp:
-        pass
-    print('result code:', bp.return_code)

@@ -41,6 +41,7 @@ def jsonline_processor(data: list[str | bytes]) -> tuple[list, list[str | bytes]
 
 def decode_processor(data_chunks: list[bytes]):
     try:
+        print('DDDD:', repr(data_chunks))
         text = (b''.join(data_chunks)).decode()
     except UnicodeDecodeError:
         return None, data_chunks

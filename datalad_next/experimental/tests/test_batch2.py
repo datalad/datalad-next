@@ -78,3 +78,30 @@ while True:
     with annexjson_batchcommand(cmd=cmd_1) as bp:
         pass
     print('result code:', bp.return_code)
+
+
+def test_batch2_exits():
+    cmd = [sys.executable, '-c', '''
+import sys
+while True:
+    x = sys.stdin.readline()
+    if x == '':
+        exit(2)
+    print('{"entered": "%s"}' % str(x.strip()), flush=True)
+    if x.strip() == 'end':
+        exit(3)
+''']
+
+    with annexjson_batchcommand(cmd=cmd) as bp:
+        for command in ('sdsdasd\n', 'end\n'):
+            res = bp(command.encode())
+            print('received:', res)
+    # We should get the return code from the `end`-path
+    assert bp.return_code == 3
+
+    with annexjson_batchcommand(cmd=cmd) as bp:
+        # Do nothing here to check that context manager exit works
+        # properly
+        pass
+    # We should get the return code from the "stdin-closed" path
+    assert bp.return_code == 2

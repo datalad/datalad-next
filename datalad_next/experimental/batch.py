@@ -89,7 +89,7 @@ def jsonline_processor(data: str | bytes):
     return [json.loads(data)], data[0:0], False
 
 
-class TestProtocol(StdOutCapture, GeneratorMixIn):
+class ProcessingProtocol(StdOutCapture, GeneratorMixIn):
     """ A minimal generator protocol that passes stdout """
     def pipe_data_received(self, fd: int, data: bytes):
         self.send_result(data)
@@ -142,7 +142,7 @@ class BatchProcess:
 @contextmanager
 def batchcommand(cmd: list,
                  processors: list[Callable],
-                 protocol_class: type[Protocol] = TestProtocol,
+                 protocol_class: type[Protocol] = ProcessingProtocol,
                  cwd: Path | None = None,
                  ) -> Generator:
 
@@ -179,7 +179,7 @@ def stdout_batchcommand(
     return batchcommand(
         cmd,
         processors=[splitlines_processor],
-        protocol_class=TestProtocol,
+        protocol_class=ProcessingProtocol,
         cwd=cwd,
     )
 
@@ -200,33 +200,6 @@ def annexjson_batchcommand(
     return batchcommand(
         cmd,
         processors=[splitlines_processor, jsonline_processor],
-        protocol_class=TestProtocol,
+        protocol_class=ProcessingProtocol,
         cwd=cwd,
     )
-
-
-if __name__ == '__main__':
-
-    cmd_1 = [sys.executable, '-c', '''
-import sys
-while True:
-    x = sys.stdin.readline()
-    if x == '':
-        exit(2)
-    print('{"entered": "%s"}' % str(x.strip()), flush=True)
-    if x.strip() == 'end':
-        exit(3)
-''']
-
-
-
-    with annexjson_batchcommand(cmd=cmd_1) as bp:
-        for command in ('sdsdasd\n', 'end\n'):
-            res = bp(command.encode())
-            print('received:', res)
-
-    print('result code:', bp.return_code)
-
-    with annexjson_batchcommand(cmd=cmd_1) as bp:
-        pass
-    print('result code:', bp.return_code)
