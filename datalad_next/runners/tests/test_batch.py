@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 
+import pytest
+
 from ..batch import (
     annexjson_batchcommand,
     stdout_batchcommand,
@@ -18,12 +20,12 @@ def test_batch_simple(existing_dataset):
              '--batch'],
             cwd=existing_dataset.pathobj,
     ) as bp:
-        res = bp(b'MD5E-s21032--2f4e22eb05d58c21663794876dc701aa\n')
+        _, res = bp(b'MD5E-s21032--2f4e22eb05d58c21663794876dc701aa\n')
         assert res.rstrip(b'\r\n') == b'21032'
         # to subprocess is still running
         assert bp.return_code is None
         # another batch
-        res = bp(b'MD5E-s999--2f4e22eb05d58c21663794876dc701aa\n')
+        _, res = bp(b'MD5E-s999--2f4e22eb05d58c21663794876dc701aa\n')
         assert res.rstrip(b'\r\n') == b'999'
         assert bp.return_code is None
         # we can bring the process down with stupid input
@@ -41,11 +43,13 @@ def test_batch_simple(existing_dataset):
             cwd=existing_dataset.pathobj,
     ) as bp:
         # output is a decoded JSON object
-        res = bp(b'MD5E-s21032--2f4e22eb05d58c21663794876dc701aa\n')
+        success, (_, res) = bp(b'MD5E-s21032--2f4e22eb05d58c21663794876dc701aa\n')
+        assert success
         assert res['backend'] == "MD5E"
         assert res['bytesize'] == "21032"
         assert res['key'] == "MD5E-s21032--2f4e22eb05d58c21663794876dc701aa"
-        res = bp(b'MD5E-s999--2f4e22eb05d58c21663794876dc701aa\n')
+        success, (_, res) = bp(b'MD5E-s999--2f4e22eb05d58c21663794876dc701aa\n')
+        assert success
         assert res['bytesize'] == "999"
         bp(b'stupid\n')
         assert bp.return_code not in (0, None)
@@ -76,7 +80,7 @@ while True:
     print('result code:', bp.return_code)
 
 
-def test_batch_exits():
+def test_batch2_exits():
     cmd = [sys.executable, '-c', '''
 import sys
 while True:

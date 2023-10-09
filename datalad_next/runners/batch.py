@@ -8,8 +8,7 @@ of data. The latter one might be useful in non-generator protocols as well.
 """
 from __future__ import annotations
 
-import json
-import sys
+from asyncio.protocols import SubprocessProtocol
 from contextlib import contextmanager
 from pathlib import Path
 from queue import Queue
@@ -19,89 +18,59 @@ from typing import (
     Generator,
 )
 
-from datalad.runner import Protocol
 from datalad.runner.nonasyncrunner import (
     _ResultGenerator,
     ThreadedRunner,
+    STDOUT_FILENO,
+    STDERR_FILENO,
 )
 from datalad_next.runners.protocols import (
     GeneratorMixIn,
     StdOutCapture,
 )
 
+from .protocolmachine import (
+    ProcessingPipeline,
+    decode_processor,
+    jsonline_processor,
+    splitlines_processor,
+)
 
-class ProcessingGenerator(Generator):
-    """ A generator that uses response-record detectors
 
-    This generator allows a user to push back data that was yielded. The
-    next call to send() (or next()) will yield the pushed data plus the
-    next data from the underlying generator.
-    """
+class ProcessingGeneratorProtocol(GeneratorMixIn):
+    """ A generator protocol that has "plugable" protocol handlers """
+
+    proc_out = True
+    proc_err = False
+
     def __init__(self,
-                 base_generator: Generator,
-                 processor: Callable):
-        self.base_generator = base_generator
-        self.processor = processor
-        self.remaining = None
-        self.responses = []
-        self.terminate = False
+                 stdout_processors: list[Callable],
+                 stderr_processors: list[Callable],
+                 ) -> None:
+        GeneratorMixIn.__init__(self)
+        self.processing_pipelines = {
+            STDOUT_FILENO: ProcessingPipeline(stdout_processors),
+            STDERR_FILENO: ProcessingPipeline(stderr_processors),
+        }
 
-    def send(self, value):
-        if self.responses:
-            return self.responses.pop(0)
-
-        if self.terminate:
-            raise StopIteration()
-
-        for data in self.base_generator:
-            if self.remaining is not None:
-                data, self.remaining = self.remaining + data, None
-            self.responses, self.remaining, self.terminate = self.processor(data)
-            if self.responses:
-                return self.responses.pop(0)
-        raise StopIteration
-
-    def throw(self, exception_type, value=None, trace_back=None):
-        return Generator.throw(self, exception_type, value, trace_back)
-
-
-def decode_processor(data: bytes):
-    try:
-        text = data.decode()
-    except UnicodeDecodeError:
-        return [], data, False
-    return [text], b'', False
-
-
-def splitlines_processor(text: str | bytes):
-    # Use the builtin linesplit-wisdom of Python
-    parts_with_ends = text.splitlines(keepends=True)
-    parts_without_ends = text.splitlines(keepends=False)
-    if parts_with_ends[-1] == parts_without_ends[-1]:
-        return parts_with_ends[:-1], parts_with_ends[-1], False
-    # We use `text[0:0]` to get an empty value the proper type, i.e. either
-    # the string `''` or the byte-string `b''`.
-    return parts_with_ends, text[0:0], False
-
-
-def jsonline_processor(data: str | bytes):
-    assert len(data.splitlines()) == 1
-    return [json.loads(data)], data[0:0], False
-
-
-class ProcessingProtocol(StdOutCapture, GeneratorMixIn):
-    """ A minimal generator protocol that passes stdout """
     def pipe_data_received(self, fd: int, data: bytes):
-        self.send_result(data)
+        for result in self.processing_pipelines[fd].process(data):
+            self.send_result((fd, result))
 
 
-def build_processing_generator(base_generator: Generator,
-                               processors: list[Callable],
-                               ) -> Generator:
-    """ Build a generator the executes the processors in the given order"""
-    for index, processor in enumerate(processors):
-        base_generator = ProcessingGenerator(base_generator, processor)
-    return base_generator
+class ProcessingProtocol(SubprocessProtocol, ProcessingGeneratorProtocol):
+    def __init__(self,
+                 stdout_processors: list[Callable],
+                 ) -> None:
+            SubprocessProtocol.__init__(self)
+            ProcessingGeneratorProtocol.__init__(
+                self,
+                stdout_processors=stdout_processors,
+                stderr_processors=[]
+            )
+
+    def pipe_data_received(self, fd: int, data: bytes):
+        ProcessingGeneratorProtocol.pipe_data_received(self, fd, data)
 
 
 class BatchProcess:
@@ -119,18 +88,13 @@ class BatchProcess:
     """
     def __init__(self,
                  runner_generator: _ResultGenerator,
-                 processors: list[Callable],
                  ):
         self.runner_generator = runner_generator
-        self.result_generator = build_processing_generator(
-            runner_generator,
-            processors,
-        )
 
     def __call__(self, data: bytes) -> Any | None:
         self.runner_generator.runner.stdin_queue.put(data)
         try:
-            return next(self.result_generator)
+            return next(self.runner_generator)
         except StopIteration:
             return None
 
@@ -142,7 +106,6 @@ class BatchProcess:
 @contextmanager
 def batchcommand(cmd: list,
                  processors: list[Callable],
-                 protocol_class: type[Protocol] = ProcessingProtocol,
                  cwd: Path | None = None,
                  ) -> Generator:
 
@@ -150,16 +113,17 @@ def batchcommand(cmd: list,
 
     base_generator = ThreadedRunner(
         cmd=cmd,
-        protocol_class=protocol_class,
+        protocol_class=ProcessingProtocol,
         stdin=input_queue,
         cwd=cwd,
         # Do not raise exceptions on error, otherwise the call to
         # `tuple(base_generator)` in the finally-branch might raise an
         # exception.
         exception_on_error=False,
+        protocol_kwargs={'stdout_processors': processors}
     ).run()
     try:
-        yield BatchProcess(base_generator, processors)
+        yield BatchProcess(base_generator)
     finally:
         input_queue.put(None)
         # Exhaust the iterator to allow it to pick up process exit and the
@@ -168,8 +132,8 @@ def batchcommand(cmd: list,
 
 
 def stdout_batchcommand(
-    cmd: list,
-    cwd: Path | None = None,
+        cmd: list,
+        cwd: Path | None = None,
 ) -> Generator[BatchProcess, None, None]:
     """Context manager for commands that produce arbitrary output on ``stdout``
 
@@ -179,7 +143,22 @@ def stdout_batchcommand(
     return batchcommand(
         cmd,
         processors=[splitlines_processor],
-        protocol_class=ProcessingProtocol,
+        cwd=cwd,
+    )
+
+def stdout_deoded_batchcommand(
+        cmd: list,
+        cwd: Path | None = None,
+        encoding: str = 'utf-8'
+) -> Generator[BatchProcess, None, None]:
+    """Context manager for commands that produce arbitrary output on ``stdout``
+
+    Internally this calls :func:`batchcommand` with the three processors:
+    ``decode_processor``, and ``splitlines_processor``.
+    """
+    return batchcommand(
+        cmd,
+        processors=[decode_processor, splitlines_processor],
         cwd=cwd,
     )
 
@@ -200,6 +179,5 @@ def annexjson_batchcommand(
     return batchcommand(
         cmd,
         processors=[splitlines_processor, jsonline_processor],
-        protocol_class=ProcessingProtocol,
         cwd=cwd,
     )
