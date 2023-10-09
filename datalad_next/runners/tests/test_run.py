@@ -41,6 +41,68 @@ def test_run_kill_on_exit():
     assert res.runner.process.returncode is not None
 
 
+def test_run_instant_kill():
+    with run([
+        sys.executable, '-c',
+        'import time; time.sleep(3)'],
+        StdOutCaptureGeneratorProtocol,
+    ) as sp:
+        # we let it terminate instantly
+        pass
+    if os.name == 'posix':
+        assert sp.runner.process.returncode < 0
+    assert sp.runner.process.returncode is not None
+
+
+def test_run_cwd(tmp_path):
+    with run([
+        sys.executable, '-c',
+        'from pathlib import Path; print(Path.cwd(), end="")'],
+        StdOutCapture,
+        cwd=tmp_path,
+    ) as res:
+        assert res['stdout'] == str(tmp_path)
+
+
+def test_run_input_bytes():
+    with run([
+        sys.executable, '-c',
+        'import sys;'
+        'print(sys.stdin.read(), end="")'],
+        StdOutCapture,
+        # it only takes bytes
+        input=b'mybytes\nline',
+    ) as res:
+        # not that bytes went in, but str comes out -- it is up to
+        # the protocol.
+        # use splitlines to compensate for platform line ending
+        # differences
+        assert res['stdout'].splitlines() == ['mybytes', 'line']
+
+
+def test_run_input_queue():
+    input = Queue()
+    with run([
+        sys.executable, '-c',
+        'from fileinput import input; import sys;'
+        '[print(line, flush=True) if line.strip() else sys.exit(0)'
+        ' for line in input()]'],
+        StdOutCaptureGeneratorProtocol,
+        input=input,
+    ) as sp:
+        input.put(b'one\n')
+        assert next(sp).rstrip(b'\r\n') == b'one'
+        input.put(b'two\n')
+        assert next(sp).rstrip(b'\r\n') == b'two'
+        # an empty line should cause process exit
+        input.put(b'\n')
+        # we can wait for that even before the context manager
+        # does its thing and tears it down
+        sp.runner.process.wait()
+
+
+
+
 def test_run_cwd(tmp_path):
     with run([
         sys.executable, '-c',
