@@ -55,7 +55,8 @@ In the asynchronous mode, the runner is started with a protocol class that inher
 
 How does the asynchronous operation work? The following picture gives an overview of the elements in the runner and will help to explain the ins and outs of the operation of the runner:
 
-.. image:: docs/source/developer_guide/runner_arch.png
+.. image:: ./runner_arch.png
+  :alt: architecture of the runner in asynchronous mode
 
 
 The right side of the figure shows three threads that are interacting with the subprocess.
