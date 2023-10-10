@@ -11,3 +11,4 @@ The target audience are developers that intend to build up on or use functionali
 
    constraints.rst
    contributing.rst
+   generator-runner.rst
