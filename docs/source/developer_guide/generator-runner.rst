@@ -107,9 +107,23 @@ The elements that a caller would read from the generator would then be tuples wh
 
 
 .. note::
-    Remark: you might not want to inherit from any of the ``datalad_next.runners.Protocol`` subclasses, because they contain code that is never used during asynchronous runner execution.
+    Remark: you might not want to inherit from any of the ``datalad_next.runners.Protocol`` subclasses, because they contain code that is never used during asynchronous runner execution
+    Nevertheless, if you use your own class with the callbacks defined in ``datalad.next.runners.Protocol``, you will have to add the two class variables: ``proc_out``, and ``proc_err`` and set them to ``True``, if you want stdout-output and stderr-output to be sent to the "From Process Queue" and eventually to the user code.
 
 
 Programming examples
 ====================
-TODO
+
+Simplest line reading from a subprocess
+---------------------------------------
+
+.. code-block:: python
+
+    from datalad_next.runners import Runner, StdOutCaptureGeneratorProtocol as prot
+
+    for line in Runner().run(cmd=['ls', '-l', '/etc'], protocol=prot):
+        print(line.decode())
+
+
+Create a context-manager
+---------------------------------
