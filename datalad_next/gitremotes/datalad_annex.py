@@ -982,24 +982,6 @@ class RepoAnnexGitRemote(object):
         return _format_refs(self.mirrorrepo)
 
 
-# TODO propose as addition to AnnexRepo
-# https://github.com/datalad/datalad/issues/6316
-def call_annex_success(self, args, files=None):
-    """Call git-annex and return true if the call exit code of 0.
-
-    All parameters match those described for `call_annex`.
-
-    Returns
-    -------
-    bool
-    """
-    try:
-        self.call_annex(args, files)
-    except CommandError:
-        return False
-    return True
-
-
 class LZMAZipFile(zipfile.ZipFile):
     """Tiny wrapper to monkey-patch zipfile in order to have
     shutil.make_archive produce an LZMA-compressed ZIP"""
