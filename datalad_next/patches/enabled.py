@@ -12,4 +12,5 @@ from . import (
     test_keyring,
     customremotes_main,
     create_sibling_gitlab,
+    run,
 )
