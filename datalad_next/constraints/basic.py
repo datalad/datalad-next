@@ -275,6 +275,9 @@ class EnsureChoice(Constraint):
     def short_description(self):
         return '{%s}' % ', '.join([repr(c) for c in self._allowed])
 
+    def __str__(self):
+        return f"one of {self.short_description()}"
+
 
 class EnsureKeyChoice(EnsureChoice):
     """Ensure value under a key in an input is in a set of possible values"""
