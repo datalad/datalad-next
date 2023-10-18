@@ -18,6 +18,7 @@ an example use case.
 https://github.com/datalad/datalad/pull/7509
 """
 
+from itertools import filterfalse
 import sys
 
 from datalad.core.local.run import (
@@ -53,14 +54,19 @@ def format_command(dset, command, **kwds):
     """
     command = normalize_command(command)
     sfmt = SequenceFormatter()
+    cprefix = 'datalad.run.substitutions.'
 
-    for k in set(cfg_defs.keys()).union(dset.config.keys()):
+    def not_subst(x):
+        return not x.startswith(cprefix)
+
+    for k in set(filterfalse(not_subst, cfg_defs.keys())).union(
+            filterfalse(not_subst, dset.config.keys())):
         v = dset.config.get(
             k,
             # pull a default from the config definitions
             # if we have no value, but a key
             cfg_defs.get(k, {}).get('default', None))
-        sub_key = k.replace("datalad.run.substitutions.", "")
+        sub_key = k.replace(cprefix, "")
         if sub_key not in kwds:
             kwds[sub_key] = v
 
