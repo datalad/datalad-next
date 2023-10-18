@@ -114,16 +114,65 @@ The elements that a caller would read from the generator would then be tuples wh
 Programming examples
 ====================
 
-Simplest line reading from a subprocess
----------------------------------------
+Simple data reading from a subprocess
+-------------------------------------
+
+The following code snippet creates a runner with the protocol-class `StdOutCaptureGeneratorProtocol` to read the output of the command ``ls -l /etc``.
+The protocol is derived from the two classes ``StdOutCapture``, and ``GeneratorMixIn``.
+The class ``StdOutCapture`` indicates that only ``stdout`` of the subprocess should be captured.
+The class ``GeneratorMixIn`` indicates to the runner that it should run in generator-mode.
 
 .. code-block:: python
 
-    from datalad_next.runners import Runner, StdOutCaptureGeneratorProtocol as prot
+    from datalad_next.runners import Runner, \
+        StdOutCaptureGeneratorProtocol as prot
 
-    for line in Runner().run(cmd=['ls', '-l', '/etc'], protocol=prot):
-        print(line.decode())
+    for data in Runner().run(cmd=['ls', '-l', '/etc'], protocol=prot):
+        print(data)
 
 
-Create a context-manager
----------------------------------
+
+Getting the exit code from a subprocess
+---------------------------------------
+
+The previous example did not capture the exit code of the subprocess.
+After the subprocess has exited, its exit code is stored in the generator (if the runner was started in generator-mode). To read it, just keep a reference to the generator:
+
+.. code-block:: python
+
+    from datalad_next.runners import Runner, \
+        StdOutCaptureGeneratorProtocol as prot
+
+    result_generator = Runner().run(cmd=['ls', '-l', '/etc'], protocol=prot)
+    for line in result_generator:
+        print(line)
+    print(f'Subprocess exited with exit code: {result_generator.return_code}')
+
+
+Getting decoded lines from a subprocess
+---------------------------------------
+You may notice that the data is neither decoded, i.e. you receive bytes and not strings, and that multiple lines or incomplete lines might be returned in a single data packet the is yielded from the generator.
+Although this is not strictly runner-related, it should be noted that the runner will yield the output from the subprocess in arbitrarily sized chunks of data.
+If you want to work with decoded, line-based data, this has to be ensured by additional code.
+There is the possibility to create a ``DecodedLineStdOutCaptureProtocol`` and implement the required functionality in the ``pipe_data_received``-callback before sending the processed data to the result-queue.
+Then the code that iterates over the result generator would receive decoded lines.
+One problem with this approach is that it blows up the number of class-definitions because each combination of desired properties requires a new class.
+``datalad-next`` offers an alternative, the ability to wrap the result generator into another generator that receives data from a generator, executes a number of transformation processes on the data, and the yields the result of the final transformation step.
+The wrapper is called ``process_from``:
+
+.. code-block:: python
+
+    from datalad_next.runners import Runner, \
+        StdOutCaptureGeneratorProtocol as prot
+    from datalad_next.runners
+
+    result_generator = Runner().run(cmd=['ls', '-l', '/etc'], protocol=prot)
+    for line in result_generator:
+        print(line)
+    print(f'Subprocess exited with exit code: {result_generator.return_code}')
+
+
+
+
+Use a run context-manager
+-------------------------
