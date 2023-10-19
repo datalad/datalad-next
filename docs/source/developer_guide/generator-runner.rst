@@ -147,31 +147,6 @@ After the subprocess has exited, its exit code is stored in the generator (if th
     print(f'Subprocess exited with exit code: {result_generator.return_code}')
 
 
-Getting decoded lines from a subprocess
----------------------------------------
-You may notice that the data is neither decoded, i.e. you receive bytes and not strings, and that multiple lines or incomplete lines might be returned in a single data packet the is yielded from the generator.
-Although this is not strictly runner-related, it should be noted that the runner will yield the output from the subprocess in arbitrarily sized chunks of data.
-If you want to work with decoded, line-based data, this has to be ensured by additional code.
-There is the possibility to create a ``DecodedLineStdOutCaptureProtocol`` and implement the required functionality in the ``pipe_data_received``-callback before sending the processed data to the result-queue.
-Then the code that iterates over the result generator would receive decoded lines.
-One problem with this approach is that it blows up the number of class-definitions because each combination of desired properties requires a new class.
-``datalad-next`` offers an alternative, the ability to wrap the result generator into another generator that receives data from a generator, executes a number of transformation processes on the data, and the yields the result of the final transformation step.
-The wrapper is called ``process_from``. In the example below it is used with two data processors, ``decode_utf8_processor`, and ``splitlines_processor``.
-``docode_utf8_processor`` will decode UTF-8 encoded strings, even if the encoded characters are split by a data chunk border. ``splitlines_processor`` will split incoming bytes or strings at line ending-characters, e.g. ``\n``, and leave the line ending-character in the result.
-Using the wrapping generator and the two data processors, the following programm will print out individual decoded lines:
-
-.. code-block:: python
-
-    from datalad_next.runners import Runner, StdOutCaptureGeneratorProtocol as Prot
-    from datalad_next.runners.data_processors import process_from, splitlines_processor, decode_utf8_processor
-
-    result_generator = Runner().run(cmd=['ls', '-l', '/etc'], protocol=Prot)
-    for line in process_from(result_generator, [decode_utf8_processor, splitlines_processor]):
-        print(line, end='')
-    print(f'Subprocess exited with exit code: {result_generator.return_code}')
-
-
-
 Use timeouts to ensure process termination
 ------------------------------------------
 Every subprocess that is executed requires resources. In order to not leak resources, all subprocesses should be ended, once their task is performed. Some processes perform their task based on given finite input, e.g. certain options, and exit. Other processes read input from a file-descriptor and perform actions based on that input. The latter usually can be instructed to terminate via closing the file-descriptor or via a specific input.
@@ -182,7 +157,7 @@ To ensure that subprocesses are actually terminated and that their exit-status i
 
 In the example below (for a Posix-system) we start a subprocess in generator-mode with a "buggy" shell command that would run forever. The shell command will not terminate on a termination request, but print the message ``'terminate'``. In order to implement our timeout strategy, we derive a protocol class from ``StdOutCaptureGeneratorProtocol`` and overwrite the ``timeout``-callback.
 
-If the process is terminated or killed, the result generator will fetch its return code, perform clean up operations, and stop the iteration. In oder to allow the result generator to perform these tasks, it has to be "called". This is done here in a for-loop:
+If the process is terminated or killed, the result generator will fetch its return code, perform clean up operations, and stop the iteration. In order to allow the result generator to perform these tasks, it has to be "called". This is done here in a for-loop:
 
 .. code-block:: python
 
