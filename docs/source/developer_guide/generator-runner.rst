@@ -300,29 +300,32 @@ With this protocol we can handle all events, for example, inside a run-context (
 
     event_source = Runner().run(['find', '/etc'], GenericGeneratorProtocol, timeout=.2, exception_on_error=False)
     for event in event_source:
-        for event in event_source:
-            if event[0] == 'data':
-                if event[1] == 1:
-                    # handle stdout data here
-                    print(event)
-                else:
-                    # handle stderr data here
-                    print(event)
-
-            elif event[0] == 'timeout':
-                # handle timeouts here
+        if event[0] == 'data':
+            if event[1] == 1:
+                # handle stdout data here
                 print(event)
-
-            elif event[0] == 'connection_made':
-                process = event[1]
-
-            elif event[0] == 'process_exited':
-                return_code = event[1]
-                process = None
-
             else:
-                # ignore all other events
+                # handle stderr data here
                 print(event)
+
+        elif event[0] == 'timeout':
+            # handle timeouts here
+            print(event)
+
+        elif event[0] == 'connection_made':
+            # Store the process object
+            process = event[1]
+            print(event)
+
+        elif event[0] == 'process_exited':
+            # Get the return code of the process and delete the process object reference
+            return_code = event[1]
+            process = None
+            print(event)
+
+        else:
+            # ignore all other events
+            print(event)
 
     print(return_code)
 
@@ -330,6 +333,7 @@ Running the code above would generate an output similar to the following (output
 
 .. code-block:: console
 
+    ('connection_made', <Popen: returncode: None args: ['find', '/etc']>)
     ('data', 1, b'/etc\n/etc/snapper\n/etc/snapper/configs\n ... ')
         ...
     ('data', 2, b'find: /etc/ppp: Keine Berechtigung\n')
