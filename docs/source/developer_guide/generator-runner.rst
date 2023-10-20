@@ -141,10 +141,14 @@ After the subprocess has exited, its exit code is stored in the generator (if th
 
     from datalad_next.runners import Runner, StdOutCaptureGeneratorProtocol as Prot
 
-    result_generator = Runner().run(cmd=['ls', '-l', '/etc'], protocol=Prot)
+    result_generator = Runner().run(cmd=['ls', '-l', '/etc'], protocol=Prot, exception_on_error=False)
     for line in result_generator:
         print(line)
     print(f'Subprocess exited with exit code: {result_generator.return_code}')
+
+The actual return code can be read from ``result_generator.return_code`` after the subprocess terminated.
+Note that we set the ``exception_on_error``-argument to ``False``.
+This prevents raising a ``CommandError``, if the program exits with a non-zero return code, and ensures that we reach the last line independent from the actual return code.
 
 
 Use timeouts to ensure process termination
@@ -190,7 +194,10 @@ If the process is terminated or killed, the result generator will fetch its retu
         print(output)
     print('return code:', result_generator.return_code)
 
-This program will generate output similar to the following:
+Note that we set the ``timeout`` argument to ``1.0`` to activate timeouts.
+This will trigger timeouts after one-second of inactivity of ``stderr`` and ``stdout``
+It will also trigger a _process_-timeout every second, while the process is executing.
+The program will generate output similar to the following:
 
 .. code-block:: console
 
@@ -204,6 +211,7 @@ This program will generate output similar to the following:
     return code: -9
 
 On a Posix-system, the return code ``-9`` indicates that the process was terminated by signal number nine, which is ``SIGKILL``.
+
 
 Which timeout should you use?
 .............................
