@@ -68,7 +68,7 @@ use after having used them successfully::
     password (repeat): 
     Enter a name to save the credential
     (for accessing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
-    re-use, or 'skip' to not save the credential
+    reuse, or 'skip' to not save the credential
     name: httpbin-dummy
 
     addurl http://httpbin.org/basic-auth/myuser/mypassword (from uncurl) (to ...) 
@@ -222,12 +222,6 @@ from __future__ import annotations
 from functools import partial
 from pathlib import Path
 import re
-
-# we intentionally limit ourselves to the most basic interface
-# and even that we only need to get a `ConfigManager` instance.
-# If that class would support a plain path argument, we could
-# avoid it entirely
-from datalad_next.datasets import LeanAnnexRepo
 
 from datalad_next.exceptions import (
     CapturedException,

@@ -1,3 +1,61 @@
+
+# 1.0.1 (2023-10-18)
+
+## 🐛 Bug Fixes
+
+- Fix f-string syntax in error message of the `uncurl` remote.
+  https://github.com/datalad/datalad-next/pull/455 (by @christian-monch)
+
+- `FileSystemItem.from_path()` now honors its `link_target` parameter, and
+  resolves a target for any symlink item conditional on this setting.
+  Previously, a symlink target was always resolved.
+  Fixes https://github.com/datalad/datalad-next/issues/462 via
+  https://github.com/datalad/datalad-next/pull/464 (by @mih)
+
+- Update the vendor installation of versioneer to v0.29. This
+  resolves an installation failure with Python 3.12 due to
+  the removal of an ancient class.
+  Fixes https://github.com/datalad/datalad-next/issues/475 via
+  https://github.com/datalad/datalad-next/pull/483 (by @mih)
+
+- Bump dependency on Python to 3.8. This is presently the oldest version
+  still supported upstream. However, some functionality already used
+  3.8 features, so this is also a bug fix.
+  Fixes https://github.com/datalad/datalad-next/issues/481 via
+  https://github.com/datalad/datalad-next/pull/486 (by @mih)
+
+## 💫 Enhancements and new features
+
+- Patch datalad-core's `run` command to honor configuration defaults
+  for substitutions. This enables placeholders like `{python}` that
+  point to `sys.executable` by default, and need not be explicitly
+  defined in system/user/dataset configuration.
+  Fixes https://github.com/datalad/datalad-next/issues/478 via
+  https://github.com/datalad/datalad-next/pull/485 (by @mih)
+
+## 📝 Documentation
+
+- Include `gitworktree` among the available file collection types
+  listed in `ls-file-collection`'s docstring.  Fixes
+  https://github.com/datalad/datalad-next/issues/470 via
+  https://github.com/datalad/datalad-next/pull/471 (by @mslw)
+
+- The renderer API documentation now includes an entrypoint for the
+  runner-related functionality and documentation at
+  https://docs.datalad.org/projects/next/en/latest/generated/datalad_next.runners.html
+  Fixes https://github.com/datalad/datalad-next/issues/466 via
+  https://github.com/datalad/datalad-next/pull/467 (by @mih)
+
+## 🛡 Tests
+
+- Simplified setup for subprocess test-coverage reporting. Standard
+  pytest-cov features are not employed, rather than the previous
+  approach that was adopted from datalad-core, which originated
+  in a time when testing was performed via nose.
+  Fixes https://github.com/datalad/datalad-next/issues/453 via
+  https://github.com/datalad/datalad-next/pull/457 (by @mih)
+
+
 # 1.0.0 (2023-09-25)
 
 This release represents a milestone in the development of the extension.
@@ -246,7 +304,7 @@ For details, please see the changelogs of the 1.0.0 beta releases below.
   https://github.com/datalad/datalad-next/pull/391 (by @mih)
 
 - The `main()` entrypoint of the `datalad-annex` Git remote helper has
-  be generalized to be more re-usable by other (derived) remote helper
+  be generalized to be more reusable by other (derived) remote helper
   implementations.
   https://github.com/datalad/datalad-next/pull/411 (by @mih)
 
@@ -358,7 +416,7 @@ For details, please see the changelogs of the 1.0.0 beta releases below.
   - The CredentialManager was elevated to a top-level module
     ([#229](https://github.com/datalad/datalad-next/pull/220) by @mih)
   - Dataset-lookup behavior of the ``credentials`` command became identical to
-    ``downlad`` ([#256](https://github.com/datalad/datalad-next/pull/256) by
+    ``download`` ([#256](https://github.com/datalad/datalad-next/pull/256) by
     @mih)
 
 - The DataLad runner performance patch and all patches to clone functionality

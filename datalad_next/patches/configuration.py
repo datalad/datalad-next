@@ -56,7 +56,7 @@ class Configuration(conf_mod.Configuration):
                 raise ValueError(
                     'Scope selection is not supported for dumping')
 
-        # normalize variable specificatons
+        # normalize variable specifications
         specs = []
         for s in ensure_list(spec):
             if isinstance(s, tuple):

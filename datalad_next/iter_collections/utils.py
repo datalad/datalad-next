@@ -96,7 +96,7 @@ class FileSystemItem(PathBasedItem, TypedItem):
             uid=cstat.st_uid,
             gid=cstat.st_gid,
         )
-        if ctype == FileSystemItemType.symlink:
+        if link_target and ctype == FileSystemItemType.symlink:
             # could be p.readlink() from PY3.9+
             item.link_target = PurePath(os.readlink(path))
         return item

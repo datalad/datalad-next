@@ -2,8 +2,6 @@
 
 set -e -u
 
-# grab coverage reports from subprocesses, see tools/coverage-bin
-python -m coverage combine -a /tmp/.coverage-entrypoints-*;
 python -m coverage xml
 curl -Os $CODECOV_BINARY
 chmod +x codecov
