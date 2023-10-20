@@ -27,7 +27,7 @@ The output of the subprocess is passed to an instance of a `protocol`-class in t
 
 When the subprocess is executed the runner will invoke the appropriate callbacks.
 
-``datalad_next`` provides some pre-defined protocol-classes for common use cases, e.g. ``datalad_next.runners.StdOutErrCapture``, which executes a subprocess and returns a dictionary with the ``stdout``- and ``stderr``-output, and the `return code` (also referred to as `exit status` ) of the subprocess.
+``datalad_next`` provides some pre-defined protocol-classes for common use cases, e.g. ``datalad_next.runners.StdOutErrCapture``, which executes a subprocess and returns a dictionary with the ``stdout``- and ``stderr``-output, and the `return code` (also referred to as `exit status`) of the subprocess.
 You are not limited to the existing protocol-classes.
 Instead you may implement your own protocol-classes that could implement arbitrary operation, e.g. calculate a letter-histogram, trace response times, send all output to a file, or send all output to another process.
 
