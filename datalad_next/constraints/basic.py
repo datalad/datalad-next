@@ -12,7 +12,7 @@ from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
 
-from hashlib import algorithms_guaranteed
+from hashlib import algorithms_guaranteed as hash_algorithms_guaranteed
 from pathlib import Path
 import re
 
@@ -504,5 +504,9 @@ class EnsurePath(Constraint):
 
 
 class EnsureHashAlgorithm(EnsureChoice):
+    """Ensure an input matches a name of a ``hashlib`` algorithm
+
+    Specifically the item must be in the ``algorithms_guaranteed`` collection.
+    """
     def __init__(self):
-        super(EnsureHashAlgorithm, self).__init__(*algorithms_guaranteed)
+        super().__init__(*hash_algorithms_guaranteed)
