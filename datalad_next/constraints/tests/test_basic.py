@@ -11,6 +11,7 @@ from ..basic import (
     EnsureNone,
     EnsureCallable,
     EnsureChoice,
+    EnsureHashAlgorithm,
     EnsureKeyChoice,
     EnsureRange,
     EnsurePath,
@@ -188,6 +189,7 @@ def test_choice():
         assert i in descr
     # short is a "set" or repr()s
     assert c.short_description() == "{'choice1', 'choice2', None}"
+    assert str(c) == "one of {'choice1', 'choice2', None}"
     # this should always work
     assert c('choice1') == 'choice1'
     assert c(None) is None
@@ -317,3 +319,27 @@ def test_EnsurePath_fordataset(existing_dataset):
     # 2. dataset is given as a dataset object
     tc = c.for_dataset(DatasetParameter(ds, ds))
     assert tc('relpath') == (ds.pathobj / 'relpath')
+
+
+def test_EnsureHashAlgorithm():
+    c = EnsureHashAlgorithm()
+    # simple cases that should pass
+    hashes = [
+        'sha3_256', 'shake_256', 'sha3_384', 'md5', 'shake_128', 'sha384',
+        'sha3_224', 'blake2s', 'sha1', 'blake2b', 'sha224', 'sha512', 'sha256',
+        'sha3_512'
+    ]
+    for hash in hashes:
+        c(hash)
+    # a few bogus ones:
+    bad_hashes = [
+        'md17', 'McGyver', 'sha2', 'bogus'
+    ]
+    for baddie in bad_hashes:
+        with pytest.raises(ConstraintError):
+            c(baddie)
+
+    # check messaging
+    for i in ('md5', 'shake_256', 'sha3_512'):
+        assert i in c.short_description()
+        assert i in c.long_description()
