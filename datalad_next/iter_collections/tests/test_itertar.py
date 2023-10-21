@@ -1,4 +1,4 @@
-from pathlib import PurePath
+from pathlib import PurePosixPath
 import pytest
 
 from datalad.api import download
@@ -8,6 +8,7 @@ from ..tarfile import (
     FileSystemItemType,
     iter_tar,
 )
+from ..utils import compute_multihash_from_fp
 
 
 @pytest.fixture(scope="session")
@@ -46,36 +47,33 @@ def test_iter_tar(sample_tar_xz):
                    'md5': 'ba1f2511fc30423bdbb183fe33f3dd0f'}
     targets = [
         TarfileItem(
-            name=PurePath('test-archive'),
+            name=PurePosixPath('test-archive'),
             type=FileSystemItemType.directory,
             size=0,
             mtime=1683657433,
             mode=509,
             uid=1000,
-            gid=1000,
-            hash=None),
+            gid=1000),
         TarfileItem(
-            name=PurePath('test-archive') / '123.txt',
+            name=PurePosixPath('test-archive') / '123.txt',
             type=FileSystemItemType.symlink,
             size=0,
             mtime=1683657414,
             mode=511,
             uid=1000,
             gid=1000,
-            link_target=PurePath('subdir') / 'onetwothree_again.txt',
-            hash=None),
+            link_target=PurePosixPath('subdir') / 'onetwothree_again.txt'),
         TarfileItem(
-            name=PurePath('test-archive') / '123_hard.txt',
+            name=PurePosixPath('test-archive') / '123_hard.txt',
             type=FileSystemItemType.file,
             size=4,
             mtime=1683657364,
             mode=436,
             uid=1000,
             gid=1000,
-            link_target=None,
-            hash=target_hash),
+            link_target=None),
         TarfileItem(
-            name=PurePath('test-archive') / 'subdir',
+            name=PurePosixPath('test-archive') / 'subdir',
             type=FileSystemItemType.directory,
             size=0,
             mtime=1683657400,
@@ -83,28 +81,33 @@ def test_iter_tar(sample_tar_xz):
             uid=1000,
             gid=1000),
         TarfileItem(
-            name=PurePath('test-archive') / 'subdir' / 'onetwothree_again.txt',
+            name=PurePosixPath('test-archive') / 'subdir' / 'onetwothree_again.txt',
             type=FileSystemItemType.file,
             size=4,
             mtime=1683657400,
             mode=436,
             uid=1000,
             gid=1000,
-            link_target=None,
-            hash=target_hash),
+            link_target=None),
         TarfileItem(
-            name=PurePath('test-archive') / 'onetwothree.txt',
+            name=PurePosixPath('test-archive') / 'onetwothree.txt',
             type=FileSystemItemType.hardlink,
             size=0,
             mtime=1683657364,
             mode=436,
             uid=1000,
             gid=1000,
-            link_target=PurePath('test-archive') / '123_hard.txt',
-            hash=target_hash),
+            link_target=PurePosixPath('test-archive') / '123_hard.txt'),
     ]
-    # smoke test
-    ires = list(iter_tar(sample_tar_xz, hash=['md5', 'SHA1']))
+    ires = []
+    for i in iter_tar(sample_tar_xz, fp=True):
+        # check that file pointer is usable
+        if i.fp:
+            assert compute_multihash_from_fp(
+                i.fp, ['md5', 'SHA1']) == target_hash
+            # we null the file pointers to ease the comparison
+            i.fp = None
+        ires.append(i)
     # root + subdir, 2 files, softlink, hardlink
     assert 6 == len(ires)
     for t in targets:

@@ -9,7 +9,7 @@ a string-type parameter in this context.
 
 import logging
 
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 
 # use same logger as -core, looks weird but is correct
 lgr = logging.getLogger('datalad.dataset')
@@ -33,5 +33,5 @@ orig_resolve_path = apply_patch(
     resolve_path,
     msg='Apply datalad-next patch to distribution.dataset:resolve_path')
 
-# re-use docs
+# reuse docs
 resolve_path.__doc__ = orig_resolve_path.__doc__

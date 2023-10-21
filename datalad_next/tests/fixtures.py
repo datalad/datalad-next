@@ -1,3 +1,5 @@
+"""Collection of fixtures for facilitation test implementations
+"""
 import logging
 import os
 from pathlib import Path
@@ -219,6 +221,8 @@ def existing_noannex_dataset(dataset):
 
 @pytest.fixture(autouse=False, scope="session")
 def webdav_credential():
+    """Provides HTTP Basic authentication credential necessary to access the
+    server provided by the ``webdav_server`` fixture."""
     yield dict(
         name='dltest-my&=webdav',
         user='datalad',
@@ -254,6 +258,8 @@ def webdav_server(tmp_path_factory, webdav_credential):
 
 @pytest.fixture(autouse=False, scope="session")
 def http_credential():
+    """Provides the HTTP Basic authentication credential necessary to access the
+    HTTP server provided by the ``http_server_with_basicauth`` fixture."""
     yield dict(
         name='dltest-my&=http',
         user='datalad',
@@ -271,9 +277,6 @@ def http_server(tmp_path_factory):
 
     - ``path``: ``Path`` instance of the served temporary directory
     - ``url``: HTTP URL to access the HTTP server
-
-    Server access requires HTTP Basic authentication with the credential
-    provided by the ``webdav_credential`` fixture.
     """
     # must use the factory to get a unique path even when a concrete
     # test also uses `tmp_path`
@@ -287,7 +290,7 @@ def http_server(tmp_path_factory):
 
 @pytest.fixture(autouse=False, scope="function")
 def http_server_with_basicauth(tmp_path_factory, http_credential):
-    """Like ``http_server`` but requiring authenticat with ``http_credential``
+    """Like ``http_server`` but requiring authentication via ``http_credential``
     """
     path = tmp_path_factory.mktemp("webdav")
     server = HTTPPath(
@@ -371,3 +374,45 @@ def httpbin(httpbin_service):
             "docker-deployed instance -- too unreliable"
         )
     yield httpbin_service
+
+
+@pytest.fixture(autouse=False, scope="function")
+def datalad_interactive_ui(monkeypatch):
+    """Yields a UI replacement to query for operations and stage responses
+
+    No output will be written to STDOUT/ERR by this UI.
+
+    A standard usage pattern is to stage one or more responses, run the
+    to-be-tested code, and verify that the desired user interaction
+    took place::
+
+       > datalad_interactive_ui.staged_responses.append('skip')
+       > ...
+       > assert ... datalad_interactive_ui.log
+    """
+    from datalad_next.uis import ui_switcher
+    from datalad_next.tests.utils import InteractiveTestUI
+
+    with monkeypatch.context() as m:
+        m.setattr(ui_switcher, '_ui', InteractiveTestUI())
+        yield ui_switcher.ui
+
+
+@pytest.fixture(autouse=False, scope="function")
+def datalad_noninteractive_ui(monkeypatch):
+    """Yields a UI replacement to query for operations
+
+    No output will be written to STDOUT/ERR by this UI.
+
+    A standard usage pattern is to run the to-be-tested code, and verify that
+    the desired user messaging took place::
+
+       > ...
+       > assert ... datalad_interactive_ui.log
+    """
+    from datalad_next.uis import ui_switcher
+    from datalad_next.tests.utils import TestUI
+
+    with monkeypatch.context() as m:
+        m.setattr(ui_switcher, '_ui', TestUI())
+        yield ui_switcher.ui

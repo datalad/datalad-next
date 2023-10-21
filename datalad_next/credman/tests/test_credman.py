@@ -11,7 +11,7 @@
 """
 import pytest
 
-from datalad.config import ConfigManager
+from datalad_next.config import ConfigManager
 from ..manager import (
     CredentialManager,
     _get_cred_cfg_var,
@@ -20,12 +20,12 @@ from datalad_next.tests.utils import (
     assert_in,
     assert_raises,
     eq_,
-    with_testsui,
 )
 from datalad_next.utils import chpwd
 
 
-def test_credmanager(tmp_keyring, datalad_cfg):
+def test_credmanager(tmp_keyring, datalad_cfg, datalad_interactive_ui):
+    ui = datalad_interactive_ui
     credman = CredentialManager(datalad_cfg)
     # doesn't work with thing air
     assert_raises(ValueError, credman.get)
@@ -107,42 +107,47 @@ def test_credmanager(tmp_keyring, datalad_cfg):
     eq_(credman.get('mycred'), None)
 
     # test prompting for a secret when none is given
-    res = with_testsui(responses=['mysecret'])(credman.set)(
-        'mycred', other='prop')
+    ui.staged_responses.append('mysecret')
+    res = credman.set('mycred', other='prop')
     assert res == {'other': 'prop', 'secret': 'mysecret'}
 
     # test prompting for a name when None is given
-    res = with_testsui(responses=['mycustomname'])(credman.set)(
-        None, secret='dummy', other='prop')
+    ui.staged_responses.append('mycustomname')
+    res = credman.set(None, secret='dummy', other='prop')
     assert res == {'name': 'mycustomname', 'other': 'prop', 'secret': 'dummy'}
 
     # test name prompt loop in case of a name collision
-    res = with_testsui(
-        responses=['mycustomname', 'mycustomname2'])(
-            credman.set)(
-        None, secret='dummy2', other='prop2')
+    ui.staged_responses.extend(['mycustomname', 'mycustomname2'])
+    res = credman.set(None, secret='dummy2', other='prop2')
     assert res == {'name': 'mycustomname2', 'other': 'prop2',
                    'secret': 'dummy2'}
 
     # test skipping at prompt, smoke test _context arg
-    res = with_testsui(responses=['skip'])(credman.set)(
+    ui.staged_responses.append('skip')
+    res = credman.set(
         None, _context='for me', secret='dummy', other='prop')
     assert res is None
 
-    # if no name is provided and none _can_ be entered -> raise
-    with pytest.raises(ValueError):
-        credman.set(None, secret='dummy', other='prop')
-
     # accept suggested name
-    res = with_testsui(responses=[''])(credman.set)(
+    ui.staged_responses.append('')
+    res = credman.set(
         None, _suggested_name='auto1', secret='dummy', other='prop')
     assert res == {'name': 'auto1', 'other': 'prop', 'secret': 'dummy'}
 
     # a suggestion conflicting with an existing credential is like
     # not making a suggestion at all
-    res = with_testsui(responses=['', 'auto2'])(credman.set)(
+    ui.staged_responses.extend(('', 'auto2'))
+    res = credman.set(
         None, _suggested_name='auto1', secret='dummy', other='prop')
     assert res == {'name': 'auto2', 'other': 'prop', 'secret': 'dummy'}
+
+
+def test_credmanager_set_noninteractive(
+        tmp_keyring, datalad_cfg, datalad_noninteractive_ui):
+    credman = CredentialManager(datalad_cfg)
+    # if no name is provided and none _can_ be entered -> raise
+    with pytest.raises(ValueError):
+        credman.set(None, secret='dummy', other='prop')
 
 
 def test_credman_local(existing_dataset):
@@ -193,16 +198,19 @@ def test_query(tmp_keyring, datalad_cfg):
         [i[0] for i in slist])
 
 
-def test_credman_get(datalad_cfg):
+def test_credman_get(datalad_cfg, datalad_interactive_ui):
+    ui = datalad_interactive_ui
     # we are not making any writes, any config must work
     credman = CredentialManager(datalad_cfg)
     # must be prompting for missing properties
-    res = with_testsui(responses=['myuser'])(credman.get)(
+    ui.staged_responses.append('myuser')
+    res = credman.get(
         None, _type_hint='user_password', _prompt='myprompt',
         secret='dummy')
     assert 'myuser' == res['user']
     # same for the secret
-    res = with_testsui(responses=['mysecret'])(credman.get)(
+    ui.staged_responses.append('mysecret')
+    res = credman.get(
         None, _type_hint='user_password', _prompt='myprompt',
         user='dummy')
     assert 'mysecret' == res['secret']
@@ -223,7 +231,8 @@ def test_credman_get_guess_type():
     }
 
 
-def test_credman_obtain(tmp_keyring, datalad_cfg):
+def test_credman_obtain(tmp_keyring, datalad_cfg, datalad_interactive_ui):
+    ui = datalad_interactive_ui
     credman = CredentialManager(datalad_cfg)
     # senseless, but valid call
     # could not possibly report a credential without any info
@@ -236,8 +245,8 @@ def test_credman_obtain(tmp_keyring, datalad_cfg):
     with pytest.raises(ValueError):
         credman.obtain(prompt='myprompt')
     # minimal condition prompt and type-hint for manual entry
-    res = with_testsui(responses=['mytoken'])(credman.obtain)(
-        type_hint='token', prompt='myprompt')
+    ui.staged_responses.append('mytoken')
+    res = credman.obtain(type_hint='token', prompt='myprompt')
     assert res == (None,
                    {'type': 'token', 'secret': 'mytoken', '_edited': True})
 
@@ -265,7 +274,8 @@ def test_credman_obtain(tmp_keyring, datalad_cfg):
     res = credman.obtain(query_props={'realm': 'myrealm'})
     # if we are looking for a realm, we get it back even if a credential
     # had to be entered
-    res = with_testsui(responses=['mynewtoken'])(credman.obtain)(
+    ui.staged_responses.append('mynewtoken')
+    res = credman.obtain(
         type_hint='token', prompt='myprompt',
         query_props={'realm': 'mytotallynewrealm'})
     assert res == (None,

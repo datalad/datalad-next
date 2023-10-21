@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import PurePath
+import os
+from pathlib import (
+    Path,
+    PurePath,
+)
+import stat
 from typing import (
-    Dict,
+    Any,
+    IO,
     List,
 )
 
@@ -28,9 +34,26 @@ class FileSystemItemType(Enum):
     specialfile = 'specialfile'
 
 
-@dataclass  # sadly PY3.10+ only (kw_only=True)
-class FileSystemItem:
+@dataclass
+class NamedItem:
+    name: Any
+
+
+@dataclass
+class TypedItem:
+    type: Any
+
+
+@dataclass
+class PathBasedItem(NamedItem):
+    # a path-identifier in an appropriate context.
+    # could be a filename, a relpath, or an absolute path.
+    # should match platform conventions
     name: PurePath
+
+
+@dataclass  # sadly PY3.10+ only (kw_only=True)
+class FileSystemItem(PathBasedItem, TypedItem):
     type: FileSystemItemType
     size: int
     mtime: float | None = None
@@ -38,7 +61,45 @@ class FileSystemItem:
     uid: int | None = None
     gid: int | None = None
     link_target: PurePath | None = None
-    hash: Dict[str, str] | None = None
+    fp: IO | None = None
+
+    @classmethod
+    def from_path(
+        cls,
+        path: Path,
+        *,
+        link_target: bool = True,
+    ):
+        """Populate item properties from a single `stat` and `readlink` call
+
+        The given ``path`` must exist. The ``link_target`` flag indicates
+        whether to report the result of ``readlink`` for a symlink-type
+        path.
+        """
+        cstat = path.lstat()
+        cmode = cstat.st_mode
+        if stat.S_ISLNK(cmode):
+            ctype = FileSystemItemType.symlink
+        elif stat.S_ISDIR(cmode):
+            ctype = FileSystemItemType.directory
+        else:
+            # the rest is a file
+            # there could be fifos and sockets, etc.
+            # but we do not recognize them here
+            ctype = FileSystemItemType.file
+        item = cls(
+            name=path,
+            type=ctype,
+            size=cstat.st_size,
+            mode=cmode,
+            mtime=cstat.st_mtime,
+            uid=cstat.st_uid,
+            gid=cstat.st_gid,
+        )
+        if link_target and ctype == FileSystemItemType.symlink:
+            # could be p.readlink() from PY3.9+
+            item.link_target = PurePath(os.readlink(path))
+        return item
 
 
 def compute_multihash_from_fp(fp, hash: List[str], bufsize=COPY_BUFSIZE):

@@ -10,3 +10,5 @@
 # Merge requests are accepted (automatically) when all (relevant)
 # status checks have passed, and RT approval was given.
 *   michael.hanke@gmail.com
+/iter_collections/ christian.moench@web.de
+/runners/ christian.moench@web.de

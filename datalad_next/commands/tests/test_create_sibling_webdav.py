@@ -138,6 +138,32 @@ def check_common_workflow(
     assert_status('ok', dsclone.get('.', **ca))
     # verify testfile content
     eq_('dummy', (dsclone.pathobj / 'testfile.dat').read_text())
+    # ensure that recursive operations succeed
+    # create a subdataset
+    subds = ds.create('mysubds')
+    targetdir_name = 'recursiontest'
+    subtargetdir = Path(webdav_server.path) / targetdir_name / 'mysubds'
+    url = f'{webdav_server.url}/{targetdir_name}'
+
+    with chpwd(ds.path):
+        res = create_sibling_webdav(
+            url,
+            credential=webdav_credential['name']
+            if declare_credential else None,
+            name='recursive-sibling',
+            mode=mode,
+            recursive=True,
+            **ca)
+        assert len(res) == 4  # 2 for create-sibling-webdav, 2 for storage
+    assert_in_results(
+        res,
+        action='create_sibling_webdav.storage',
+        status='ok',
+        type='sibling',
+        path=subds.path,
+        name='recursive-sibling-storage',
+    )
+    ok_(subtargetdir.exists())
 
 
 def test_bad_url_catching(existing_dataset):

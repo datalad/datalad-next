@@ -16,3 +16,4 @@ DataLad patches
    push_to_export_remote
    test_keyring
    siblings
+   run

@@ -10,6 +10,10 @@ from datalad_next.tests.fixtures import (
     credman,
     # function-scope config manager
     datalad_cfg,
+    # function-scope UI wrapper that can provide staged responses
+    datalad_interactive_ui,
+    # function-scope UI wrapper that can will raise when asked for responses
+    datalad_noninteractive_ui,
     # function-scope temporary keyring
     tmp_keyring,
     # function-scope, Dataset instance

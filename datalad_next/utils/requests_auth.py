@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import requests
 import www_authenticate
 
+from datalad_next.config import ConfigManager
 from datalad_next.utils import CredentialManager
 from datalad_next.utils.http_helpers import get_auth_realm
 
@@ -38,12 +39,12 @@ class DataladAuth(requests.auth.AuthBase):
         'bearer': 'token',
     }
 
-    def __init__(self, cfg: CredentialManager, credential: str | None = None):
+    def __init__(self, cfg: ConfigManager, credential: str | None = None):
         """
         Parameters
         ----------
-        cfg: CredentialManager
-          Credentials are looked up in this instance.
+        cfg: ConfigManager
+          Is passed to CredentialManager() as `cfg`-parameter.
         credential: str, optional
           Name of a particular credential to be used for any operations.
         """
@@ -152,16 +153,17 @@ class DataladAuth(requests.auth.AuthBase):
         ctype = DataladAuth._supported_auth_schemes[ascheme]
 
         try:
+            realm = get_auth_realm(url, auth_schemes)
             cred = self._credman.get(
                 name=None,
-                _prompt=f'Credential needed for access to {url}',
+                _prompt=f'Credential needed for accessing {url} (authentication realm {realm!r})',
                 _type_hint=ctype,
                 type=ctype,
                 # include the realm in the credential to avoid asking for it
                 # interactively (it is a server-specified property
                 # users would generally not know, if they do, they can use the
                 # `credentials` command upfront.
-                realm=get_auth_realm(url, auth_schemes)
+                realm=realm
             )
             self._entered_credential = cred
             return ascheme, None, cred
@@ -176,7 +178,7 @@ class DataladAuth(requests.auth.AuthBase):
         header is ignored.
 
         Server-provided 'www-authenticated' challenges are inspected, and
-        corresponding credentials are looked-up (if needed) and subequently
+        corresponding credentials are looked-up (if needed) and subsequently
         tried in a re-request to the original URL after performing any
         necessary actions to meet a given challenge. Such a re-request
         is then using the same connection as the original request.

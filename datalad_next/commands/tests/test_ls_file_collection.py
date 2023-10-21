@@ -63,6 +63,20 @@ def test_ls_file_collection_directory(tmp_path):
     assert len(res) == 0
 
 
+def test_ls_file_collection_gitworktree(existing_dataset):
+    kwa = dict(result_renderer='disabled')
+    # smoke test on a plain dataset
+    res = ls_file_collection('gitworktree', existing_dataset.pathobj, **kwa)
+    assert len(res) > 1
+    assert all('gitsha' in r for r in res)
+
+    # and with hashing
+    res_hash = ls_file_collection('gitworktree', existing_dataset.pathobj,
+                                  hash='md5', **kwa)
+    assert len(res) == len(res_hash)
+    assert all('hash-md5' in r for r in res_hash)
+
+
 def test_ls_file_collection_validator():
     val = LsFileCollectionParamValidator()
 

@@ -21,8 +21,8 @@ Requirements
 This special remote implementation requires git-annex version 8.20210127 (or
 later) to be available.
 
-Download helper with credential management support
---------------------------------------------------
+Download helper
+---------------
 
 The simplest way to use this remote is to initialize it without any particular
 configuration::
@@ -39,7 +39,24 @@ installation supports. This always includes ``file://``, ``http://``, and
 ``https://``, but is extensible, and a particular installation may also support
 ``ssh://`` (by default when openssh is installed), or other schemes.
 
-With this setup, download requests now use DataLad's credential system for
+This additional URL support is also available for other commands. Here is an
+example how ``datalad addurls`` can be given any uncurl-supported URLs
+(here an SSH-URL) directly, provided that the ``uncurl`` remote was initialized
+for a dataset (as shown above)::
+
+    $ echo '[{"url":"ssh://my.server.org/home/me/file", "file":"dummy"}]' \\
+        | datalad addurls - '{url}' '{file}'
+
+This makes legacy commands (e.g., ``datalad download-url``), unnecessary, and
+facilitates the use of more advanced ``datalad addurls`` features (e.g.,
+automatic creation of subdatasets) that are not provided by lower-level
+commands like ``git annex addurl``.
+
+
+Download helper with credential management support
+--------------------------------------------------
+
+With this setup, download requests now also use DataLad's credential system for
 authentication. DataLad will automatically lookup matching credentials, prompt
 for manual entry if none are found, and offer to store them securely for later
 use after having used them successfully::
@@ -51,7 +68,7 @@ use after having used them successfully::
     password (repeat): 
     Enter a name to save the credential
     (for accessing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
-    re-use, or 'skip' to not save the credential
+    reuse, or 'skip' to not save the credential
     name: httpbin-dummy
 
     addurl http://httpbin.org/basic-auth/myuser/mypassword (from uncurl) (to ...) 
@@ -206,12 +223,6 @@ from functools import partial
 from pathlib import Path
 import re
 
-# we intentionally limit ourselves to the most basic interface
-# and even that we only need to get a `ConfigManager` instance.
-# If that class would support a plain path argument, we could
-# avoid it entirely
-from datalad_next.datasets import LeanGitRepo
-
 from datalad_next.exceptions import (
     CapturedException,
     UrlOperationsRemoteError,
@@ -235,7 +246,6 @@ class UncurlRemote(SpecialRemote):
             url='Python format language template composing an access URL',
             match='(whitespace-separated list of) regular expression(s) to match particular components in supported URL via named groups',
         )
-        self.repo = None
         self.url_tmpl = None
         self.match = None
         self.url_handler = None
@@ -251,12 +261,8 @@ class UncurlRemote(SpecialRemote):
     def prepare(self):
         # we need the git remote name to be able to look up config about
         # that remote
-        remotename = self.annex.getgitremotename()
-        # get the repo to gain access to its config
-        self.repo = LeanGitRepo(self.annex.getgitdir())
         # check the config for a URL template setting
-        self.url_tmpl = self.repo.cfg.get(
-            f'remote.{remotename}.uncurl-url', '')
+        self.url_tmpl = self.get_remote_gitcfg('uncurl', 'url', '')
         # only if we have no local, overriding, configuration ask git-annex
         # for the committed special remote config on the URL template
         if not self.url_tmpl:
@@ -277,8 +283,8 @@ class UncurlRemote(SpecialRemote):
         # extend with additional matchers from local config
         self.match = (self.match or []) + [
             re.compile(m)
-            for m in ensure_list(self.repo.cfg.get(
-                f'remote.{remotename}.uncurl-match', [], get_all=True))
+            for m in ensure_list(self.get_remote_gitcfg(
+                'uncurl', 'match', default=[], get_all=True))
         ]
 
         self.message(
@@ -295,7 +301,7 @@ class UncurlRemote(SpecialRemote):
         # Python symbols to work in `format()`
         self.persistent_tmpl_props.update(
             datalad_dsid=self.repo.cfg.get('datalad.dataset.id', ''),
-            git_remotename=remotename,
+            git_remotename=self.remotename,
             annex_remoteuuid=self.annex.getuuid(),
         )
 
@@ -399,7 +405,7 @@ class UncurlRemote(SpecialRemote):
             )
         except UrlOperationsResourceUnknown:
             self.message(
-                'f{key} not found at the remote, skipping', type='debug')
+                f'{key!r} not found at the remote, skipping', type='debug')
 
     #
     # helpers
@@ -412,7 +418,7 @@ class UncurlRemote(SpecialRemote):
         # this will also work within checkurl() for a temporary key
         # generated by git-annex after claimurl()
         urls = self.annex.geturls(key, prefix='')
-        self.message(f"Known urls for {key!r}: {urls}", type='debug')
+        self.message(f'Known urls for {key!r}: {urls}', type='debug')
         if self.url_tmpl:
             # we have a rewriting template. extract all properties
             # from all known URLs and instantiate the template

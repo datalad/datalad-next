@@ -26,6 +26,7 @@ from typing import (
 )
 
 import datalad
+from datalad_next.config import ConfigManager
 from datalad_next.exceptions import (
     CapturedException,
     CommandError,
@@ -78,7 +79,7 @@ class CredentialManager(object):
         'user_password': 'password',
     }
 
-    def __init__(self, cfg=None):
+    def __init__(self, cfg: ConfigManager | None = None):
         """
 
         Parameters
@@ -293,7 +294,7 @@ class CredentialManager(object):
             prompt = 'Enter a name to save the credential'
             if _context:
                 prompt = f'{prompt} ({_context})'
-            prompt = f"{prompt} securely for future re-use, " \
+            prompt = f"{prompt} securely for future reuse, " \
                      "or 'skip' to not save the credential"
             if _suggested_name:
                 prompt = f'{prompt}, or leave empty to accept the name ' \

@@ -65,11 +65,11 @@ environment:
     - ID: Ubu20
       DTS: datalad_next
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      INSTALL_SYSPKGS: python3-virtualenv
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
       DEPLOY_HTTPBIN_IMAGE: yes
+      INSTALL_SYSPKGS:
     # Windows core tests
     - ID: WinP39core
       # ~35 min
@@ -94,10 +94,13 @@ environment:
         datalad.core
       # do not run tests that ensure behavior we intentionally changed
       # - test_gh1811: is included in next in an alternative implementation
-      KEYWORDS: not test_gh1811
+      # - test_librarymode: assumes that CLI config overrides end up in the
+      #   session `datalad.cfg.overrides`, but -next changes that behavior
+      #   to have `.overrides` be uniformly limited to instance overrides
+      KEYWORDS: not test_gh1811 and not test_librarymode
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      PY: 3.8
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -110,10 +113,15 @@ environment:
         datalad.interface
       # do not run tests that ensure behavior we intentionally changed
       # - test_gh1811: is included in next in an alternative implementation
-      KEYWORDS: not test_gh1811
+      # - test_fake_gitlab: we have an updated variant in next
+      # - test_dryrun: we have an updated variant in next; what is disabled is
+      #   the one in test_create_sibling_gitlab.py. However, there is one with
+      #   identical name in test_create_sibling_ghlike.py, now also disabled
+      #   because MIH does not know better
+      KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      PY: 3.8
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -122,8 +130,8 @@ environment:
         datalad.distribution
       KEYWORDS: not test_invalid_args
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      PY: 3.8
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -131,8 +139,8 @@ environment:
       DTS: >
         datalad.local
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      PY: 3.8
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -143,8 +151,8 @@ environment:
         datalad.tests
         datalad.ui
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.7
-      INSTALL_SYSPKGS: python3-virtualenv
+      PY: 3.8
+      INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
@@ -194,6 +202,9 @@ build: off
 # init cannot use any components from the repo, because it runs prior to
 # cloning it
 init:
+  # enable external SSH access to CI worker
+  # needs APPVEYOR_SSH_KEY defined in project settings (or environment)
+  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
   # remove windows 260-char limit on path names
   - cmd: powershell Set-Itemproperty -path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -value 1
   # enable developer mode on windows
@@ -219,9 +230,6 @@ init:
   - sh: export TMPDIR=~/DLTMP
 
 install:
-  # enable external SSH access to CI worker on all other systems
-  # needs APPVEYOR_SSH_KEY defined in project settings (or environment)
-  - sh: tools/appveyor/enable-ssh-login
   # place a debug setup helper at a convenient location
   - cmd: copy tools\appveyor\env_setup.bat C:\\datalad_debug.bat
   # Missing system software
@@ -277,7 +285,7 @@ test_script:
     # run test selecion (--traverse-namespace needed from Python 3.8 onwards)
   - cmd: python -m pytest -s -v -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --pyargs %DTS%
     # also add --cov datalad, because some core test runs may not touch -next code
-  - sh:  PATH=$PWD/../tools/coverage-bin:$PATH python -m pytest -s -v -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --pyargs ${DTS}
+  - sh:  python -m pytest -s -v -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --pyargs ${DTS}
 
 
 after_test:

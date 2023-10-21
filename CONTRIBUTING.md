@@ -63,7 +63,7 @@ There is one special sub-package in `datalad-next`: `patches`. All runtime patch
 
 ### Runtime patches
 
-The `patches` sub-package contains all runtime patches that are applied by `datalad-next`.  Patches are applied on-import of `datalad-next`, and may modify arbitrary aspects of the runtime environment. A patch is enabled by adding a corresponding `import` statement to `datalad_next/patches/__init__.py`. The order of imports in this file is significant. New patches should consider behavior changes caused by other patches, and should be considerate of changes imposed on other patches.
+The `patches` sub-package contains all runtime patches that are applied by `datalad-next`.  Patches are applied on-import of `datalad-next`, and may modify arbitrary aspects of the runtime environment. A patch is enabled by adding a corresponding `import` statement to `datalad_next/patches/enabled.py`. The order of imports in this file is significant. New patches should consider behavior changes caused by other patches, and should be considerate of changes imposed on other patches.
 
 `datalad-next` is imported (and thereby its patches applied) whenever used
 directly (e.g., when running commands provided by `datalad-next`, or by an
@@ -73,7 +73,7 @@ DataLad core package itself when the configuration item
 
 Patches modify an external implementation that is itself subject to change. To improve the validity and longevity of patches, it is helpful to consider a few guidelines:
 
-- Patches should use `datalad_next.utils.apply_patch()` to perform the patching, in order to yield uniform (logging) behavior
+- Patches should use `datalad_next.patches.apply_patch()` to perform the patching, in order to yield uniform (logging) behavior
 
 - Patches should be as self-contained as possible. The aim is for patches to be merged upstream (at the patched entity) as quickly as possible. Self-contained patches facilitate this process.
 
@@ -100,3 +100,19 @@ The following components of the `datalad` package must not be used (directly) in
 #### `require_dataset()`
 
 Commands must use `datalad_next.constraints.dataset.EnsureDataset` instead.
+
+#### nose-style decorators in test implementations
+
+The use of decorators like `with_tempfile` is not allowed.
+`pytest` fixtures have to be used instead.
+A *temporary* exception *may* be the helpers that are imported in `datalad_next.tests.utils`.
+However, these will be reduced and removed over time, and additional usage only adds to the necessary refactoring effort.
+Therefore new usage is highly discouraged.
+
+#### nose-style assertion helpers in test implementations
+
+The use of helpers like `assert_equal` is not allowed.
+`pytest` constructs have to be used instead -- this typically means plain `assert` statements.
+A *temporary* exception *may* be the helpers that are imported in `datalad_next.tests.utils`.
+However, these will be reduced and removed over time, and additional usage only adds to the necessary refactoring effort.
+Therefore new usage is highly discouraged.

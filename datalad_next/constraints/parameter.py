@@ -222,10 +222,12 @@ class EnsureCommandParameterization(Constraint):
                 if not isinstance(e.value, dict) \
                         or set(ctx.parameters) != e.value.keys():  # pragma: no cover
                     raise RuntimeError(
-                        f'on error the joint validator {validator} did not '
+                        'on raising a ConstraintError the joint validator '
+                        f'{validator} did not report '
                         'a mapping of parameter name to (violating) value '
                         'comprising all constraint context parameters. '
-                        'This is a software defect. Please report!')
+                        'This is a software defect of the joint validator. '
+                        'Please report!')
                 exceptions[ctx] = e
                 if on_error == 'raise-early':
                     raise CommandParametrizationError(exceptions)
@@ -241,6 +243,7 @@ class EnsureCommandParameterization(Constraint):
         self,
         kwargs,
         at_default=None,
+        required=None,
         on_error='raise-early',
     ) -> Dict:
         """
@@ -254,6 +257,8 @@ class EnsureCommandParameterization(Constraint):
           match their respective defaults. This is used for deciding whether
           or not to process them with an associated value constraint (see the
           ``validate_defaults`` constructor argument).
+        required: set or None
+          Set of parameter names that are known to be required.
         on_error: {'raise-early', 'raise-at-end'}
           Flag how to handle constraint violation. By default, validation is
           stopped at the first error and an exception is raised. When an
@@ -270,6 +275,18 @@ class EnsureCommandParameterization(Constraint):
           pass through.
         """
         assert on_error in ('raise-early', 'raise-at-end')
+
+        exceptions = {}
+        missing_args = tuple(a for a in (required or []) if a not in kwargs)
+        if missing_args:
+            exceptions[ParameterConstraintContext(missing_args)] = \
+                ConstraintError(
+                    self,
+                    dict(zip(missing_args, [NoValue()] * len(missing_args))),
+                    'missing required arguments',
+                )
+            if on_error == 'raise-early':
+                raise CommandParametrizationError(exceptions)
 
         # validators to work with. make a copy of the dict to be able to tailor
         # them for this run only
@@ -288,7 +305,6 @@ class EnsureCommandParameterization(Constraint):
         # strip all args provider args that have not been provided
         ds_provider_params.intersection_update(kwargs)
 
-        exceptions = {}
         validated = {}
         # process all parameters. starts with those that are needed as
         # dependencies for others.

@@ -611,6 +611,16 @@ class RepoAnnexGitRemote(object):
             create=not existing_repo,
             bare=True)
 
+        if not existing_repo:
+            # align HEAD symbolic ref between source and mirror repo
+            # IF WE CREATED IT LOCALLY JUST NOW, otherwise take whatever
+            # we got.
+            # otherwise we can end up in a conflict situation where the mirror
+            # points to 'master' (or something else) and the source actually
+            # has 'main' (or something different)
+            src_head_ref = self.repo.call_git(['symbolic-ref', 'HEAD']).strip()
+            mr.call_git(['symbolic-ref', 'HEAD', src_head_ref])
+
         self.log('Established mirror')
         self._mirrorrepo = mr
         return mr
@@ -890,15 +900,27 @@ class RepoAnnexGitRemote(object):
             self._mirrorrepo = None
 
         self.log('Extracting repository archive')
+        legacy_deposit = False
         with zipfile.ZipFile(repoexportkeyloc) as zip:
+            try:
+                zip.getinfo('repo/')
+                legacy_deposit = True
+                safe_content = [f'repo/{i}' for i in self.safe_content]
+            except KeyError:
+                safe_content = self.safe_content
+
             zip.extractall(
                 self._mirrorrepodir,
                 # a bit of a safety-net, exclude all unexpected content
                 members=[
                     m for m in zip.namelist()
                     if any(m.startswith(prefix)
-                           for prefix in self.safe_content)],
+                           for prefix in safe_content)],
             )
+        if legacy_deposit:
+            legacy_basedir = self._mirrorrepodir / 'repo'
+            for p in legacy_basedir.iterdir():
+                p.rename(self._mirrorrepodir / p.relative_to(legacy_basedir))
 
     def get_remote_refs(self):
         """Report remote refs
@@ -1124,7 +1146,7 @@ def make_export_tree(repo):
         ID of the tree object, suitable for `git-annex export`.
     """
     here = repo.config.get('annex.uuid')
-    # re-use existing, or go with fixed random one
+    # reuse existing, or go with fixed random one
     origin = repo.config.get('remote.origin.annex-uuid',
                              '8249ffce-770a-11ec-9578-5f6af5e76eaa')
     assert here, "No 'here'"
@@ -1214,11 +1236,11 @@ def push_error(operations):
     return any(o in operations for o in error_operations)
 
 
-def main():
+def main(gitremote_cls=RepoAnnexGitRemote):
     """git-remote helper executable entrypoint"""
     try:
         if len(sys.argv) < 3:
-            raise ValueError("Usage: git-remote-datalad-annex REMOTE-NAME URL")
+            raise ValueError(f"Usage: {sys.argv[0]} REMOTE-NAME URL")
 
         remote, url = sys.argv[1:3]
         # provided by Git
@@ -1235,7 +1257,7 @@ def main():
         ui.set_backend('annex')
 
         # lock and load
-        remote = RepoAnnexGitRemote(gitdir, remote, url)
+        remote = gitremote_cls(gitdir, remote, url)
         remote.communicate()
         # there is no value in keeping around the downloads
         # we either have things in the mirror repo or have to

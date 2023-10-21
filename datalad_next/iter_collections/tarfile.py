@@ -8,31 +8,33 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import (
     Path,
-    PurePath,
     PurePosixPath,
 )
 import tarfile
-from typing import (
-    Generator,
-    List
-)
+from typing import Generator
 
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
-    compute_multihash_from_fp,
 )
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
 class TarfileItem(FileSystemItem):
-    pass
+    name: PurePosixPath
+    """TAR uses POSIX paths as item identifiers. Not all POSIX paths can
+    be represented on all (non-POSIX) file systems, therefore the item
+    name is represented in POSIX form, instead of a platform-dependent
+    ``PurePath``."""
+    link_target: PurePosixPath | None = None
+    """Just as for ``name``, a link target is also reported in POSIX
+    format."""
 
 
 def iter_tar(
     path: Path,
     *,
-    hash: List[str] | None = None,
+    fp: bool = False,
 ) -> Generator[TarfileItem, None, None]:
     """Uses the standard library ``tarfile`` module to report on TAR archives
 
@@ -42,19 +44,15 @@ def iter_tar(
     The iterator produces an :class:`TarfileItem` instance with standard
     information on file system elements, such as ``size``, or ``mtime``.
 
-    Moreover, any number of checksums for file content can be computed and
-    reported. When computing checksums, individual archive members are read
-    sequentially without extracting the full archive.
-
     Parameters
     ----------
     path: Path
       Path of the TAR archive to report content for (iterate over).
-    hash: list(str), optional
-      Any number of hash algorithm names (supported by the ``hashlib`` module
-      of the Python standard library. If given, an item corresponding to the
-      algorithm will be included in the ``hash`` property dict of each
-      reported file-type item.
+    fp: bool, optional
+      If ``True``, each file-type item includes a file-like object
+      to access the file's content. This file handle will be closed
+      automatically when the next item is yielded or the function
+      returns.
 
     Yields
     ------
@@ -63,7 +61,7 @@ def iter_tar(
     with tarfile.open(path, 'r') as tar:
         for member in tar:
             # reduce the complexity of tar member types to the desired
-            # level (ie. disregard the diversity of special files and
+            # level (i.e. disregard the diversity of special files and
             # block devices)
             mtype = FileSystemItemType.file if member.isreg() \
                 else FileSystemItemType.directory if member.isdir() \
@@ -71,24 +69,20 @@ def iter_tar(
                 else FileSystemItemType.hardlink if member.islnk() \
                 else FileSystemItemType.specialfile
             item = TarfileItem(
-                name=PurePath(PurePosixPath(member.name)),
+                name=PurePosixPath(member.name),
                 type=mtype,
                 size=member.size,
                 mode=member.mode,
                 mtime=member.mtime,
                 uid=member.uid,
                 gid=member.gid,
-                link_target=PurePath(PurePosixPath(member.linkname))
+                link_target=PurePosixPath(member.linkname)
                 if member.linkname else None,
-                hash=_compute_hash(tar, member, hash)
-                if hash and mtype in (
-                    FileSystemItemType.file, FileSystemItemType.hardlink)
-                else None,
             )
-            yield item
-
-
-def _compute_hash(
-        tar: tarfile.TarFile, member: tarfile.TarInfo, hash: List[str]):
-    with tar.extractfile(member) as f:
-        return compute_multihash_from_fp(f, hash)
+            if fp and mtype in (
+                    FileSystemItemType.file, FileSystemItemType.hardlink):
+                with tar.extractfile(member) as fp:
+                    item.fp = fp
+                    yield item
+            else:
+                yield item

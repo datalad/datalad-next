@@ -51,7 +51,7 @@ from datalad_next.datasets import (
     LegacyAnnexRepo as AnnexRepo,
     Dataset,
 )
-from datalad_next.utils.patch import apply_patch
+from . import apply_patch
 
 
 lgr = logging.getLogger('datalad.core.distributed.push')
@@ -266,12 +266,12 @@ def _get_push_target(repo, target_arg):
     -------
     str or None, str, str or None, list or None
       Target label, if determined; status label; optional message;
-      git-push-dryrun result for re-use or None, if no dry-run was
+      git-push-dryrun result for reuse or None, if no dry-run was
       attempted.
     """
     # verified or auto-detected
     target = None
-    # for re-use
+    # for reuse
     wannabe_gitpush = None
     if not target_arg:
         # let Git figure out what needs doing

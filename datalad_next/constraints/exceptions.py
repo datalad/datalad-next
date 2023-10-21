@@ -273,8 +273,14 @@ class ParameterConstraintContext:
         """Like ``.label`` but each parameter will also state a value"""
         # TODO truncate the values after repr() to ensure a somewhat compact
         # output
+        from .parameter import NoValue
         return '{param}{descr}'.format(
-            param=", ".join(f'{p}={values[p]!r}' for p in self.parameters),
+            param=", ".join(
+                f'{p}=<no value>'
+                if isinstance(values[p], NoValue)
+                else f'{p}={values[p]!r}'
+                for p in self.parameters
+            ),
             descr=f" ({self.description})" if self.description else '',
         )
 

@@ -73,7 +73,7 @@ class Download(ValidatedInterface):
     In contrast to other downloader tools, this command integrates with the
     DataLad credential management and is able to auto-discover credentials.
     If no credential is available, it automatically prompts for them, and
-    offers to store them for re-use after a successful authentication.
+    offers to store them for reuse after a successful authentication.
 
     Simultaneous hashing (checksumming) of downloaded content is supported
     with user-specified algorithms.
@@ -246,6 +246,8 @@ class Download(ValidatedInterface):
         {'text': 'Download from SSH server',
          'code_cmd': 'datalad download "ssh://example.com/home/user/data.xml"',
          'code_py': 'download("ssh://example.com/home/user/data.xml")'},
+        {'text': 'Stream a download to STDOUT',
+         'code_cmd': 'datalad -f disabled download "http://example.com -"'},
     ]
 
     @staticmethod

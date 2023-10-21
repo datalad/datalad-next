@@ -66,14 +66,14 @@ def test_bool():
     # this should always work
     assert c(True) is True
     assert c(False) is False
-    # all that resuls in True
+    # all that results in True
     assert c('True') is True
     assert c('true') is True
     assert c('1') is True
     assert c('yes') is True
     assert c('on') is True
     assert c('enable') is True
-    # all that resuls in False
+    # all that results in False
     assert c('false') is False
     assert c('False') is False
     assert c('0') is False
