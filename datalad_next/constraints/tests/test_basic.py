@@ -189,6 +189,7 @@ def test_choice():
         assert i in descr
     # short is a "set" or repr()s
     assert c.short_description() == "{'choice1', 'choice2', None}"
+    assert str(c) == "one of {'choice1', 'choice2', None}"
     # this should always work
     assert c('choice1') == 'choice1'
     assert c(None) is None
