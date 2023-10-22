@@ -22,10 +22,14 @@ from typing import (
 
 from datalad_next.runners import (
     DEVNULL,
-    LineSplitter,
-    ThreadedRunner,
     StdOutCaptureGeneratorProtocol,
 )
+from datalad_next.runners.data_processor_pipeline import process_from
+from datalad_next.runners.data_processors import (
+    decode_processor,
+    splitlines_processor,
+)
+from datalad_next.runners.run import run
 
 from .utils import (
     FileSystemItem,
@@ -250,23 +254,27 @@ def _lsfiles_line2props(
 
 
 def _git_ls_files(path, *args):
-    # we use a plain runner to avoid the overhead of a GitRepo instance
-    runner = ThreadedRunner(
-        cmd=[
-            'git', 'ls-files',
-            # we rely on zero-byte splitting below
-            '-z',
-            # otherwise take whatever is coming in
-            *args,
-        ],
-        protocol_class=StdOutCaptureGeneratorProtocol,
-        stdin=DEVNULL,
-        # run in the directory we want info on
-        cwd=path,
-    )
-    line_splitter = LineSplitter('\0', keep_ends=False)
-    # for each command output chunk received by the runner
-    for content in runner.run():
-        # for each zerobyte-delimited "line" in the output
-        for line in line_splitter.process(content.decode('utf-8')):
-            yield line
+    with run(
+            cmd=[
+                'git', 'ls-files',
+                # we rely on zero-byte splitting below
+                '-z',
+                # otherwise take whatever is coming in
+                *args,
+            ],
+            protocol_class=StdOutCaptureGeneratorProtocol,
+            stdin=DEVNULL,
+            cwd=path
+    ) as r:
+        # This code uses the data processor chain to process data. This fixes
+        # a problem with the previous version of the code, where `decode` was
+        # used on every data chunk that was sent tp `pipe_data_received`. But
+        # data is chunked up randomly and might be split in the middle of a
+        # character encoding, leading to weird errors.
+        yield from process_from(
+            data_source=r,
+            processors = [
+                decode_processor('utf-8'),
+                splitlines_processor(separator='\0', keep_ends=False)
+            ]
+        )
