@@ -32,6 +32,9 @@ from datalad_next.runners import (
     CommandError,
 )
 
+from datalad_next.runners.data_processors import pattern_processor
+from datalad_next.runners.data_processor_pipeline import DataProcessorPipeline
+from datalad_next.runners.run import run
 from datalad_next.utils.consts import COPY_BUFSIZE
 
 from . import (
@@ -71,6 +74,18 @@ class SshUrlOperations(UrlOperations):
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
+    def _check_return_code(self, url, stream):
+        # At this point the subprocess has either exited, was terminated, or
+        # was killed.
+        if stream.return_code == 244:
+            # this is the special code for a file-not-found
+            raise UrlOperationsResourceUnknown(url)
+        elif stream.return_code != 0:
+            raise UrlOperationsRemoteError(
+                url,
+                message=f'ssh process returned {stream.return_code}'
+            )
+
     def stat(self,
              url: str,
              *,
@@ -81,63 +96,67 @@ class SshUrlOperations(UrlOperations):
         See :meth:`datalad_next.url_operations.UrlOperations.stat`
         for parameter documentation and exception behavior.
         """
-        try:
-            props = self._stat(
-                url,
-                cmd=SshUrlOperations._stat_cmd,
-            )
-        except CommandError as e:
-            if e.code == 244:
-                # this is the special code for a file-not-found
-                raise UrlOperationsResourceUnknown(url) from e
-            else:
-                raise UrlOperationsRemoteError(url, message=str(e)) from e
+        ssh_cat = _SshCat(url)
+        cmd = ssh_cat.get_cmd(SshUrlOperations._stat_cmd)
+        with run(cmd, protocol_class=StdOutCaptureGeneratorProtocol) as stream:
+            props = self._get_props(url, stream)
 
+        # At this point the subprocess has either exited, was terminated, or
+        # was killed.
+        self._check_return_code(url, stream)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
-    def _stat(self, url: str, cmd: str) -> Dict:
-        # any stream must start with this magic marker, or we do not
-        # recognize what is happening
-        # after this marker, the server will send the size of the
-        # to-be-downloaded file in bytes, followed by another magic
-        # b'\1', and the file content after that
-        need_magic = b'\1\2\3'
-        expected_size_str = b''
-        expected_size = None
+    def _get_props(self, url, stream: Generator) -> Dict:
+        # The try clause enables us to execute the code after the context
+        # handler if the iterator stops unexpectedly. That would, for
+        # example be the case, if the ssh-subprocess terminates prematurely,
+        # for example, due to a missing file.
+        # (An alternative way to detect and handle the exit would be to
+        # implement some handling in the protocol.connection_lost callback
+        # and send the result to the generator, e.g. via:
+        # protocol.send(('process-exit', self.process.poll()))
+        try:
+            # any stream must start with this magic marker, or we do not
+            # recognize what is happening
+            # after this marker, the server will send the size of the
+            # to-be-downloaded file in bytes, followed by another magic
+            # b'\1', and the file content after that
+            magic_marker = b'\1\2\3'
 
-        ssh_cat = _SshCat(url)
-        stream = ssh_cat.run(cmd, protocol=StdOutCaptureGeneratorProtocol)
-        for chunk in stream:
-            if need_magic:
-                expected_magic = need_magic[:min(len(need_magic),
-                                                 len(chunk))]
-                incoming_magic = chunk[:len(need_magic)]
-                # does the incoming data have the remaining magic bytes?
-                if incoming_magic != expected_magic:
-                    raise RuntimeError(
-                        "Protocol error: report header not received")
-                # reduce (still missing) magic, if any
-                need_magic = need_magic[len(expected_magic):]
-                # strip magic from input
-                chunk = chunk[len(expected_magic):]
-            if chunk and expected_size is None:
-                # we have incoming data left and
-                # we have not yet consumed the size info
-                size_data = chunk.split(b'\1', maxsplit=1)
-                expected_size_str += size_data[0]
-                if len(size_data) > 1:
-                    # this is not only size info, but we found the start of
-                    # the data
-                    expected_size = int(expected_size_str)
-                    chunk = size_data[1]
-            if expected_size:
-                props = {
-                    'content-length': expected_size,
-                    '_stream': chain([chunk], stream) if chunk else stream,
-                }
-                return props
-            # there should be no data left to process, or something went wrong
-            assert not chunk
+            # Create a pipeline object that contains a single data
+            # processors, i.e. the "pattern_border_processor". It guarantees, that
+            # each chunk has at least the size of the pattern and that no chunk
+            # ends with a pattern prefix (except from the last chunk).
+            # (We could have used the convenience wrapper "process_from", but we
+            # want to remove the filter again below. This requires us to have a
+            # ProcessorPipeline-object).
+            pipeline = DataProcessorPipeline([pattern_processor(magic_marker)])
+            filtered_stream = pipeline.process_from(stream)
+
+            # The first chunk should start with the magic marker, i.e. b'\1\2\3'
+            chunk = next(filtered_stream)
+            if chunk[:len(magic_marker)] != magic_marker:
+                raise RuntimeError("Protocol error: report header not received")
+
+            # Remove the filter again. The chunk is extended to contain all
+            # data that was buffered in the pipeline.
+            chunk = b''.join([chunk[len(magic_marker):]] + pipeline.finalize())
+
+            # The length is transferred now and terminated by b'\x01'.
+            while b'\x01' not in chunk:
+                chunk += next(stream)
+
+            marker_index = chunk.index(b'\x01')
+            expected_size = int(chunk[:marker_index])
+            chunk = chunk[marker_index + 1:]
+            props = {
+                'content-length': expected_size,
+                '_stream': chain([chunk], stream) if chunk else stream
+            }
+            return props
+
+        except StopIteration:
+            self._check_return_code(url, stream)
 
     def download(self,
                  from_url: str,
@@ -164,13 +183,17 @@ class SshUrlOperations(UrlOperations):
 
         dst_fp = None
 
-        try:
-            props = self._stat(
-                from_url,
-                cmd=f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}',
-            )
-            stream = props.pop('_stream')
+        ssh_cat = _SshCat(from_url)
+        cmd = ssh_cat.get_cmd(f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}')
+        with run(cmd, protocol_class=StdOutCaptureGeneratorProtocol) as stream:
+
+            props = self._get_props(from_url, stream)
             expected_size = props['content-length']
+            # The stream might have changed due to not yet processed, but
+            # fetched data, that is now chained in front of it. Therefore we get
+            # the updated stream from the props
+            stream = props.pop('_stream')
+
             dst_fp = sys.stdout.buffer if to_path is None \
                 else open(to_path, 'wb')
             # Localize variable access to minimize overhead
@@ -190,19 +213,18 @@ class SshUrlOperations(UrlOperations):
                 self._progress_report_update(
                     progress_id, ('Downloaded chunk',), len(chunk))
             props.update(hasher.get_hexdigest())
-            return props
-        except CommandError as e:
-            if e.code == 244:
-                # this is the special code for a file-not-found
-                raise UrlOperationsResourceUnknown(from_url) from e
-            else:
-                # wrap this into the datalad-standard, but keep the
-                # original exception linked
-                raise UrlOperationsRemoteError(from_url, message=str(e)) from e
-        finally:
-            if dst_fp and to_path is not None:
-                dst_fp.close()
-            self._progress_report_stop(progress_id, ('Finished download',))
+
+        # At this point the subprocess has either exited, was terminated, or
+        # was killed.
+        if stream.return_code == 244:
+            # this is the special code for a file-not-found
+            raise UrlOperationsResourceUnknown(from_url)
+        elif stream.return_code != 0:
+            raise UrlOperationsRemoteError(
+                from_url,
+                message=f'ssh process returned {stream.return_code}'
+            )
+        return props
 
     def upload(self,
                from_path: Path | None,
@@ -253,64 +275,71 @@ class SshUrlOperations(UrlOperations):
 
         # we limit the queue to few items in order to `make queue.put()`
         # block relatively quickly, and thereby have the progress report
-        # actually track the upload, and not just the feeding of the
-        # queue
+        # actually track the upload, i.e. the feeding of the stdin pipe
+        # of the ssh-process, and not just the feeding of the
+        # queue.
         upload_queue = Queue(maxsize=2)
 
-        ssh_cat = _SshCat(to_url)
-        ssh_runner_generator = ssh_cat.run(
+        cmd = _SshCat(to_url).get_cmd(
             # leave special exit code when writing fails, but not the
             # general SSH access
-            "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244",
-            protocol=NoCaptureGeneratorProtocol,
-            stdin=upload_queue,
-            timeout=timeout,
+            "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244"
         )
-
-        # file is open, we can start progress tracking
-        progress_id = self._get_progress_id(source_name, to_url)
-        self._progress_report_start(
-            progress_id,
-            ('Upload %s to %s', source_name, to_url),
-            'uploading',
-            expected_size,
-        )
-        try:
+        with run(cmd, NoCaptureGeneratorProtocol, stdin=upload_queue, timeout=timeout) as ssh:
+            # file is open, we can start progress tracking
+            progress_id = self._get_progress_id(source_name, to_url)
+            self._progress_report_start(
+                progress_id,
+                ('Upload %s to %s', source_name, to_url),
+                'uploading',
+                expected_size,
+            )
             upload_size = 0
-            while ssh_runner_generator.runner.process.poll() is None:
+            while True:
                 chunk = src_fp.read(COPY_BUFSIZE)
+                # Leave the write-loop at eof
                 if chunk == b'':
                     break
+
+                # If the ssh-subprocess exited, leave the write loop, the
+                # result will be interpreted below
+                if ssh.runner.process.poll() is not None:
+                    break
+
                 chunk_size = len(chunk)
                 # compute hash simultaneously
                 hasher.update(chunk)
+
                 # we are just putting stuff in the queue, and rely on
                 # its maxsize to cause it to block the next call to
                 # have the progress reports be anyhow valid
-                upload_queue.put(chunk, timeout=timeout)
+                try:
+                    upload_queue.put(chunk, timeout=timeout)
+                except Full:
+                    raise TimeoutError
+
                 self._progress_report_update(
                     progress_id, ('Uploaded chunk',), chunk_size)
                 upload_size += chunk_size
+
             # we're done, close queue
-            upload_queue.put(None, timeout=timeout)
+            try:
+                upload_queue.put(None, timeout=timeout)
+            except Full:
+                # Everything is done. If we leave the context the subprocess
+                # will be treated as specified in the context initialization,
+                # either wait for it, terminate, or kill it.
+                pass
 
-            # Exhaust the generator, that might raise CommandError
-            # or TimeoutError, if timeout was not `None`.
-            tuple(ssh_runner_generator)
-        except CommandError as e:
-            if e.code == 244:
-                raise UrlOperationsResourceUnknown(to_url) from e
-            else:
-                raise UrlOperationsRemoteError(to_url, message=str(e)) from e
-        except (TimeoutError, Full):
-            ssh_runner_generator.runner.process.kill()
-            raise TimeoutError
-        finally:
-            self._progress_report_stop(progress_id, ('Finished upload',))
+        # At this point the subprocess has terminated by itself or was killed.
+        if ssh.return_code == 244:
+            raise UrlOperationsResourceUnknown(to_url)
+        elif ssh.return_code != 0:
+            raise UrlOperationsRemoteError(
+                to_url,
+                message=f'ssh exited with return value: {ssh.return_code}')
 
-        assert ssh_runner_generator.return_code == 0, "Unexpected ssh " \
-            f"return value: {ssh_runner_generator.return_code}"
-
+        assert ssh.return_code == 0, f"Unexpected ssh return value: {ssh.return_code}"
         return {
             **hasher.get_hexdigest(),
             # return how much was copied. we could compare with
@@ -328,11 +357,7 @@ class _SshCat:
         assert self._parsed.path
         self.ssh_args: list[str] = list(additional_ssh_args)
 
-    def run(self,
-            payload_cmd: str,
-            protocol: type[RunnerProtocol],
-            stdin: Queue | None = None,
-            timeout: float | None = None) -> Any | Generator:
+    def get_cmd(self, payload_cmd: str) -> list[str]:
         fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
@@ -344,9 +369,4 @@ class _SshCat:
                 fpath=fpath,
             ),
         ])
-        return ThreadedRunner(
-            cmd=cmd,
-            protocol_class=protocol,
-            stdin=subprocess.DEVNULL if stdin is None else stdin,
-            timeout=timeout,
-        ).run()
+        return cmd
