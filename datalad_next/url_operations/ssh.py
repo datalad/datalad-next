@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import logging
-import subprocess
 import sys
 from itertools import chain
 from pathlib import (
@@ -16,7 +15,6 @@ from queue import (
     Queue,
 )
 from typing import (
-    Any,
     Dict,
     Generator,
     IO,
@@ -24,12 +22,8 @@ from typing import (
 from urllib.parse import urlparse
 
 from datalad_next.runners import (
-    GeneratorMixIn,
     NoCaptureGeneratorProtocol,
-    Protocol as RunnerProtocol,
     StdOutCaptureGeneratorProtocol,
-    ThreadedRunner,
-    CommandError,
 )
 
 from datalad_next.runners.data_processors import pattern_processor
