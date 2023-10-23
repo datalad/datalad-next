@@ -1,7 +1,7 @@
 name: Type annotation
 
 on:
-  pr:
+  pull_request:
     paths:
       - 'datalad_next/**.py'
       - '!**/tests/**.py'
