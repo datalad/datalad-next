@@ -181,8 +181,8 @@ def x(count):
 
         # multiline output should be handled by the protocol,
         for count in (5, 20):
-            result_generator = python_interactive(f'x({count})\n'.encode())
-            assert len(result_generator.splitlines()) == count
+            response = python_interactive(f'x({count})\n'.encode())
+            assert len(response.splitlines()) == count
         python_interactive.close_stdin()
     assert python_interactive.return_code == 0
 
@@ -193,8 +193,8 @@ def x(count):
                       kill_time=2,
                       ) as python_interactive:
         for count in (5, 20):
-            result_generator = python_interactive(f'x({count})\n'.encode())
-            assert len(result_generator.splitlines()) == count
+            response = python_interactive(f'x({count})\n'.encode())
+            assert len(response.splitlines()) == count
         # Do not close stdin here, we let BatchCommand do that.
     assert python_interactive.return_code == 0
 
@@ -206,8 +206,8 @@ def x(count):
                       closing_action=close_stdin
                       ) as python_interactive:
         for count in (5, 20):
-            result_generator = python_interactive(f'x({count})\n'.encode())
-            assert len(result_generator.splitlines()) == count
+            response = python_interactive(f'x({count})\n'.encode())
+            assert len(response.splitlines()) == count
         # Do not close stdin here, we let the closing_action handle that.
     assert python_interactive.return_code == 0
 
@@ -220,8 +220,8 @@ def x(count):
                       closing_action=lambda a, b: None,
                       ) as python_interactive:
         for count in (5, 20):
-            result_generator = python_interactive(f'x({count})\n'.encode())
-            assert len(result_generator.splitlines()) == count
+            response = python_interactive(f'x({count})\n'.encode())
+            assert len(response.splitlines()) == count
         # Do not close stdin here, we let the closing_action handle that.
     assert python_interactive.return_code not in (0, None)
     if os.name == 'posix':
