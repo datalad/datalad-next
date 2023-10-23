@@ -1,4 +1,21 @@
 
+# 1.0.2 (2023-10-23) -- Debianize!
+
+## 🏠 Internal
+
+- The `www-authenticate` dependencies is dropped. The functionality is
+  replaced by a `requests`-based implementation of an alternative parser.
+  This trims the dependency footprint and facilitates Debian-packaging.
+  The previous test cases are kept and further extended.
+  Fixes https://github.com/datalad/datalad-next/issues/493 via
+  https://github.com/datalad/datalad-next/pull/495 (by @mih)
+
+## 🛡 Tests
+
+- The test battery now honors the `DATALAD_TESTS_NONETWORK` environment
+  variable and downgrades by skipping any tests that require external
+  network access. (by @mih)
+
 # 1.0.1 (2023-10-18)
 
 ## 🐛 Bug Fixes
