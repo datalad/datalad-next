@@ -8,10 +8,7 @@ import time
 from pathlib import Path
 from queue import Queue
 from random import randint
-from typing import (
-    Generator,
-    Iterable,
-)
+from typing import Generator
 
 import pytest
 
@@ -22,7 +19,6 @@ from datalad.utils import (
 from datalad.tests.utils_pytest import skip_if
 
 from .. import (
-    LineSplitter,
     NoCapture,
     StdErrCapture,
     StdOutCapture,
@@ -31,7 +27,11 @@ from .. import (
     ThreadedRunner,
 )
 from ..run import run
-
+from ..data_processors import (
+    decode_processor,
+    splitlines_processor,
+)
+from ..data_processor_pipeline import process_from
 
 resources_dir = Path(__file__).parent / 'resources'
 
@@ -72,19 +72,6 @@ while True:
     print(f'stdin is closed {time.time()}', flush=True)
     time.sleep(.1)
 '''
-
-
-def process_lines_from(data_source: Iterable) -> Generator:
-    """ pass decoded output from a generator through a line splitter and yield lines
-    """
-    line_splitter = LineSplitter(keep_ends=True)
-    for data_chunk in data_source:
-        result = line_splitter.process(data_chunk.decode())
-        if result:
-            yield from result
-    result = line_splitter.finish_processing()
-    if result:
-        yield from result
 
 
 def test_sig_kill():
@@ -205,12 +192,16 @@ def test_batch_1():
              terminate_time=20,
              kill_time=5) as r:
 
-        # Put everything read from r through a pipeline
-        lr = process_lines_from(data_source=r)
+        # Create a line-splitting result generator
+        line_results = process_from(
+            data_source=r,
+            processors=[decode_processor(), splitlines_processor()]
+        )
+
         for i in range(10):
             message = f'{time.time()}{os.linesep}'
             stdin_queue.put(message.encode())
-            response = next(lr)
+            response = next(line_results)
             assert response == 'entered: ' + message
             time.sleep(0.1)
         stdin_queue.put(None)
@@ -224,7 +215,10 @@ def test_shell_like():
              stdin=stdin_queue) as r:
 
         # Create a line-splitting result generator
-        line_results = process_lines_from(data_source=r)
+        line_results = process_from(
+            data_source=r,
+            processors=[decode_processor(), splitlines_processor()]
+        )
 
         # Create a random marker and send it to the subprocess
         marker = f'mark-{randint(1000000, 2000000)}{os.linesep}'
