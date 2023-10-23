@@ -3,7 +3,8 @@ name: Type annotation
 on:
   push:
     paths:
-      - '*.py'
+      - 'datalad_next/**.py'
+      - '!**/tests/**.py'
 
 jobs:
   mypy:
