@@ -28,8 +28,10 @@ The output of the subprocess is passed to an instance of a `protocol`-class in t
 When the subprocess is executed the runner will invoke the appropriate callbacks.
 
 ``datalad_next`` provides some pre-defined protocol-classes for common use cases, e.g. ``datalad_next.runners.StdOutErrCapture``, which executes a subprocess and returns a dictionary with the ``stdout``- and ``stderr``-output, and the `return code` (also referred to as `exit status`) of the subprocess.
+See below for a more complete list.
+
 You are not limited to the existing protocol-classes.
-Instead you may implement your own protocol-classes that could implement arbitrary operation, e.g. calculate a letter-histogram, trace response times, send all output to a file, or send all output to another process.
+Instead you can inherit from the class _Protocol_ and write your own protocol-classes that could implement arbitrary operation, e.g. calculate a letter-histogram, trace response times, send all output to a file, or send all output to another process.
 
 
 Operation modes
@@ -118,6 +120,23 @@ Given the code above, the elements that a caller would read from the generator w
 .. note::
     Remark: you might not want to inherit from any of the ``datalad_next.runners.Protocol`` subclasses, because they contain code that is never used during asynchronous runner execution.
     Nevertheless, if you use your own class with the callbacks defined in ``datalad.next.runners.Protocol``, you will have to add the two class variables: ``proc_out``, and ``proc_err`` and set them to ``True``, if you want ``stdout``- or ``stderr``-output to be sent to the "From Process Queue", from which it can eventually be sent to the calling code.
+
+Predefined Protocols
+---------------------
+This section gives an overview of the most useful of the predefined protocols in ``datalad_next``.
+
+The predefined non-generator protocols in ``datalad_next`` are:
+
+- ``datalad_next.runners.KillOutput``: capture output on stdout and stderr and delete it.
+- ``datalad_next.runners.NoCapture``: stdout and stderr of the parent procees are used as stdout and stderr of the subprocess.
+- ``datalad_next.runners.StdOutCapture``: capture output on stdout and send it to ``pipe_data_received``, , stderr of the parent is used as stderr of the subprocess.
+- ``datalad_next.runners.StdErrCapture``: capture output on stderr and send it to ``pipe_data_received``,, stdout of the parent is used as stdout of the subprocess.
+- ``datalad_next.runners.StdOutErrCapture``: capture output on stdout and stderr and send it to ``pipe_data_received``.
+
+Predefined generator protocols in ``datalad_next`` are:
+
+- ``datalad_next.runners.NoCaptureProtocol``: a generator protocol where stdout and stderr of the parent process are used as stdout and stderr of the subprocess.
+- ``datalad_next.runners.StdOutCaptureGeneratorProtocol``: a generator protocol where stdout of the subprocess is available via the result generator, stderr of the parent is used as stderr of the subprocess.
 
 
 Programming examples
