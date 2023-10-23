@@ -59,6 +59,7 @@ from .basic import (
     EnsureCallable,
     EnsureChoice,
     EnsureFloat,
+    EnsureHashAlgorithm,
     EnsureInt,
     EnsureKeyChoice,
     EnsureNone,

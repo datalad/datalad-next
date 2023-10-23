@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __docformat__ = 'restructuredtext'
 
+from hashlib import algorithms_guaranteed as hash_algorithms_guaranteed
 from pathlib import Path
 import re
 
@@ -274,6 +275,9 @@ class EnsureChoice(Constraint):
     def short_description(self):
         return '{%s}' % ', '.join([repr(c) for c in self._allowed])
 
+    def __str__(self):
+        return f"one of {self.short_description()}"
+
 
 class EnsureKeyChoice(EnsureChoice):
     """Ensure value under a key in an input is in a set of possible values"""
@@ -497,3 +501,12 @@ class EnsurePath(Constraint):
             if self._ref
             else '',
         )
+
+
+class EnsureHashAlgorithm(EnsureChoice):
+    """Ensure an input matches a name of a ``hashlib`` algorithm
+
+    Specifically the item must be in the ``algorithms_guaranteed`` collection.
+    """
+    def __init__(self):
+        super().__init__(*hash_algorithms_guaranteed)

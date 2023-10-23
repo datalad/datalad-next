@@ -7,7 +7,6 @@ import logging
 from typing import Dict
 from urllib.parse import urlparse
 import requests
-import www_authenticate
 
 from datalad_next.config import ConfigManager
 from datalad_next.utils import CredentialManager
@@ -16,7 +15,77 @@ from datalad_next.utils.http_helpers import get_auth_realm
 lgr = logging.getLogger('datalad.ext.next.utils.requests_auth')
 
 
-__all__ = ['DataladAuth', 'HTTPBearerTokenAuth']
+__all__ = ['DataladAuth', 'HTTPBearerTokenAuth', 'parse_www_authenticate']
+
+
+def parse_www_authenticate(hdr: str) -> dict:
+    """Parse HTTP www-authenticate header
+
+    This helper uses ``requests`` utilities to parse the ``www-authenticate``
+    header as represented in a ``requests.Response`` instance. The header may
+    contain any number of challenge specifications.
+
+    The implementation follows RFC7235, where a challenge parameters set is
+    specified as: either a comma-separated list of parameters, or a single
+    sequence of characters capable of holding base64-encoded information,
+    and parameters are name=value pairs, where the name token is matched
+    case-insensitively, and each parameter name MUST only occur once
+    per challenge.
+
+    Returns
+    -------
+    dict
+      Keys are casefolded challenge labels (e.g., 'basic', 'digest').
+      Values are: ``None`` (no parameter), ``str`` (a token68), or
+      ``dict`` (name/value mapping of challenge parameters)
+    """
+    plh = requests.utils.parse_list_header
+    pdh = requests.utils.parse_dict_header
+    challenges = {}
+    challenge = None
+    # challenges as well as their properties are in a single
+    # comma-separated list
+    for item in plh(hdr):
+        # parse the item into a key/value set
+        # the value will be `None` if this item was no mapping
+        k, v = pdh(item).popitem()
+        # split the key to check for a challenge spec start
+        key_split = k.split(' ', maxsplit=1)
+        if len(key_split) > 1 or v is None:
+            item_suffix = item[len(key_split[0]) + 1:]
+            challenge = [item[len(key_split[0]) + 1:]] if item_suffix else None
+            challenges[key_split[0].casefold()] = challenge
+        else:
+            # implementation logic assumes that the above conditional
+            # was triggered before we ever get here
+            assert challenge
+            challenge.append(item)
+
+    return {
+        challenge: _convert_www_authenticate_items(items)
+        for challenge, items in challenges.items()
+    }
+
+
+def _convert_www_authenticate_items(items: list) -> None | str | dict:
+    pdh = requests.utils.parse_dict_header
+    # according to RFC7235, items can be:
+    # either a comma-separated list of parameters
+    # or a single sequence of characters capable of holding base64-encoded
+    # information.
+    # parameters are name=value pairs, where the name token is matched
+    # case-insensitively, and each parameter name MUST only occur once
+    # per challenge.
+    if items is None:
+        return None
+    elif len(items) == 1 and pdh(items[0].rstrip('=')).popitem()[1] is None:
+        # this items matches the token68 appearance (no name value
+        # pair after potential base64 padding its removed
+        return items[0]
+    else:
+        return {
+            k.casefold(): v for i in items for k, v in pdh(i).items()
+        }
 
 
 class DataladAuth(requests.auth.AuthBase):
@@ -201,7 +270,7 @@ class DataladAuth(requests.auth.AuthBase):
             # www-authenticate with e.g. 403s
             return r
         # which auth schemes does the server support?
-        auth_schemes = www_authenticate.parse(r.headers['www-authenticate'])
+        auth_schemes = parse_www_authenticate(r.headers['www-authenticate'])
         ascheme, credname, cred = self._get_credential(r.url, auth_schemes)
 
         if cred is None or 'secret' not in cred:
