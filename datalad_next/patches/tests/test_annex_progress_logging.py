@@ -1,4 +1,7 @@
+from datalad_next.tests.marker import skipif_no_network
 
+
+@skipif_no_network
 def test_uncurl_progress_reporting_to_annex(existing_dataset, monkeypatch):
     """Set up a repo that is used to download a key,
     check that we see progress reports

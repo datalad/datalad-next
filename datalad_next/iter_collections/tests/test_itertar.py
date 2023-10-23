@@ -3,6 +3,8 @@ import pytest
 
 from datalad.api import download
 
+from datalad_next.tests.marker import skipif_no_network
+
 from ..tarfile import (
     TarfileItem,
     FileSystemItemType,
@@ -42,6 +44,7 @@ def sample_tar_xz(tmp_path_factory):
     tfpath.unlink()
 
 
+@skipif_no_network
 def test_iter_tar(sample_tar_xz):
     target_hash = {'SHA1': 'a8fdc205a9f19cc1c7507a60c4f01b13d11d7fd0',
                    'md5': 'ba1f2511fc30423bdbb183fe33f3dd0f'}
