@@ -5,7 +5,7 @@ How to use ``datalad``'s runner with Generator Protocols
 ********************************************************
 
 ``datalad_next`` executes a lot of subprocesses to get its work done.
-Subprocess execution is done by the runner class, i.e. ``datalad_next.runner.ThreadedRunner`` and a small shell around it: ``datalad_next.runner.Runner`` (we refer to the latter as "runner" throughout the rest of the document).
+Subprocess execution is performed by the runner class, i.e. ``datalad_next.runner.ThreadedRunner`` and a small shell around it: ``datalad_next.runner.Runner`` (we refer to the latter as "runner" throughout the rest of the document).
 
 This document is intended for ``datalad``-developers who want to understand how the runner code works and how they can use it to efficiently execute subprocesses or to build higher level tools, e.g. batch-command classes.
 
@@ -27,19 +27,18 @@ The output of the subprocess is passed to an instance of a `protocol`-class in t
 
 When the subprocess is executed the runner will invoke the appropriate callbacks.
 
-``datalad_next`` provides some pre-defined protocol-classes for common use cases, e.g. ``datalad_next.runners.StdOutErrCapture``, which executes a subprocess and returns a dictionary with the ``stdout``- and ``stderr``-output, and the `return code` (also referred to as `exit status`) of the subprocess.
-See below for a more complete list.
+``datalad_next`` provides some pre-defined protocol-classes for common use cases, e.g. ``datalad_next.runners.StdOutErrCapture``, which executes a subprocess and returns a dictionary with the ``stdout``- and ``stderr``-output, and the `return code` (also referred to as `exit status`) of the subprocess (see below for a more complete list of predefined protocols).
 
-You are not limited to the existing protocol-classes.
-Instead you can inherit from the class _Protocol_ and write your own protocol-classes that could implement arbitrary operation, e.g. calculate a letter-histogram, trace response times, send all output to a file, or send all output to another process.
+You are not limited to existing protocol-classes.
+Instead you can inherit from the class ``Protocol`` and write your own protocol-classes that could implement arbitrary operation, e.g. calculate a letter-histogram over stdout, trace response times, send all output to a file, or send all output to another process.
 
 
 Operation modes
 ---------------
 
-The previous section described the general interaction between a runner and a protocol instance. In ``datalad_next`` the protocol classes come in two flavors that determine when the runner returns control to its caller and how the results are processed. The two flavors are `synchronous` and `asynchronous`. We also refer to the synchronous behavior are `return-based` and to the asynchronous behavior as `generator-based`.
+The previous section described the general interaction between a runner and a protocol instance. In ``datalad_next`` the protocol classes come in two modes that determine when the runner returns control to its caller and how the results are processed. The two modes are `synchronous` and `asynchronous`. We also refer to the synchronous behavior are `return-based` or `non-generator-bassed`, and to the asynchronous behavior as `generator-based`.
 
-The following section will shortly describe the synchronous flavor, before the remainder of the document focuses on the asynchronous flavor.
+The following section will shortly describe the synchronous mode, before the remainder of the document focuses on the asynchronous mode.
 
 
 Synchronous runner execution
@@ -51,7 +50,7 @@ It performs whatever operations is required to assemble the result of the subpro
 
 For example, the protocol ``datalad_next.runners.StdOutErrCapture`` will store all ``stdout``- and ``stderr``-output from the subprocess until the subprocess exits. When ``datalad_next.runners.StdOutErrCapture._prepare_result`` is called, it decodes the bytes that it received and returns a dictionary containing the decoded bytes from ``stdout``, from ``stderr``, and the return code of the process.
 
-This flavor is called `synchronous` because the ``run``-method of the runner will only return control to its caller after the subprocess has exited. It will return the result of the invocation of ``_prepare_result`` as its result.
+This mode is called `synchronous` because the ``run``-method of the runner will only return control to its caller after the subprocess has exited. It will return the result of the invocation of ``_prepare_result`` as its result.
 
 While this protocol and its siblings ``datalad_next.runners.StdOutCapture``, ``datalad_next.runners.StdErrCapture``, and ``datalad_next.runners.NoCapture``, are useful out-of-the-box, an obvious extension would be a protocol that returns un-decoded subprocess output, i.e. bytes, to the caller. This could be implemented by sub-classing ``datalad_next.runners.Protocol`` and overwriting the method ``_prepare_result`` to not decode the received data.
 
@@ -59,9 +58,9 @@ While this protocol and its siblings ``datalad_next.runners.StdOutCapture``, ``d
 Asynchronous runner execution
 -----------------------------
 
-In the asynchronous mode, the runner is started with a protocol class that inherits from the mixin-class ``datalad_next.runners.GeneratorMixIn``. The protocol class must provide all callbacks defined in ``datalad_next.runners.Protocol``. So it could inherit from ``datalad_next.runners.GeneratorMixIn`` and a subclass of ``datalad_next.runners.Protocol``, e.g. ``datalad_next.runners.StdOutErrCapture``.
+In asynchronous mode, the runner is started with a protocol class that inherits from the mixin-class ``datalad_next.runners.GeneratorMixIn``. The protocol class must provide all callbacks defined in ``datalad_next.runners.Protocol``. So it could inherit from ``datalad_next.runners.GeneratorMixIn`` and a subclass of ``datalad_next.runners.Protocol``, e.g. ``datalad_next.runners.StdOutErrCapture``.
 
-How does the asynchronous operation work? The following picture gives an overview of the elements in the runner and will help to explain the ins and outs of the operation of the runner:
+How does the asynchronous mode work? The following picture gives an overview of the elements in the runner and will help to explain the ins and outs of the operation of the runner:
 
 .. image:: /_static/runner_arch.png
   :alt: architecture of the runner in asynchronous mode
@@ -74,7 +73,7 @@ The execution of these threads is independent from the execution of the calling 
 In the figure the calling thread is identified as "Main Thread".
 
 
-If the protocol that is provided to the ``run``-method inherits from ``GeneratorMixIn``, the ``run``-method behaves differently from the synchronous case described in a previous section.
+If the protocol that is provided to the ``run``-method inherits from ``GeneratorMixIn``, the ``run``-method behaves differently from the synchronous mode described earlier.
 Instead of blocking, it immediately returns a generator object to the caller, referred to as "Result Generator" in the figure.
 Whenever the caller invokes ``send()`` on the generator, e.g. by iterating over it or by calling ``next(generator)``, the generator will do the following:
 
@@ -92,7 +91,7 @@ Whenever the caller invokes ``send()`` on the generator, e.g. by iterating over 
 
 4. If the internal result queue of the generator is not empty, the generator will yield the first element of the result queue and go back to step 2.
 
-5. The subprocess has exited, the next call to the its ``send()``-method will retrieve the exit status of the subprocess and end the iteration by raising ``StopIteration``.
+5. The subprocess has exited, the next call to the ``send()``-method of the Generator will retrieve the exit status of the subprocess and end the iteration by raising ``StopIteration``.
 
 From the description above and from the figure it should be clear, that, if a user wants to receive output from a subprocess and not just wait for its exit, the user has to send
 data that is received via the ``pipe_data_received``-callback of the protocol to the result queue of the result generator.
@@ -163,7 +162,7 @@ Getting the exit code from a subprocess
 ---------------------------------------
 
 The previous example did not capture the exit code of the subprocess.
-After the subprocess has exited, its exit code is stored in the generator (if the runner was started in asynchronous mode. To read it, just keep a reference to the generator:
+After the subprocess has exited, its exit code is stored in the generator (if the runner was started in asynchronous mode). To read it, just keep a reference to the generator:
 
 .. code-block:: python
 
@@ -188,7 +187,7 @@ The latter usually can be instructed to terminate via closing the file-descripto
 
 Although each subprocess usually has a defined path to termination, this might not work under error conditions.
 For example, if network connections are down or if file systems are not available a process might stall.
-Furthermore, the executed programs might contain bugs that keep it from exiting.
+Furthermore, the executed program might contain bugs that keep it from exiting.
 As a result some subprocesses might continue to execute after their termination condition was met.
 
 To ensure that subprocesses are actually terminated and that their exit status is read (which is required to prevent zombie-processes) we can use timeouts.
@@ -236,7 +235,7 @@ In this examples, this is achieved by the ``for``-loop:
 
 Note that we set the ``timeout`` argument to ``1.0`` to activate timeouts.
 This will trigger timeouts after one-second of inactivity of ``stderr`` and ``stdout``
-It will also trigger a _process_-timeout every second, while the process is executing.
+It will also trigger a `process`-timeout every second, while the process is executing.
 The program will generate output similar to the following:
 
 .. code-block:: console
@@ -261,7 +260,7 @@ Which timeout strategy and which timeout values one should use depends on the su
 These considerations are somewhat independent from the runner-implementation, but here are a few general recommendations.
 
 If the subprocess is not expected to generate output on ``stdout`` or ``stderr`` and you know that the process should be finished in ``x`` seconds, you could use something like ``1.5 * x`` as timeout for a termination-signal.
-Alternatively, one could use ``timeouts``-callbacks to track progress of the process by observing side effects like disk-file changes etc.
+Alternatively, one could use ``timeout``-callbacks to track progress of the process by observing side effects like disk-file changes etc.
 However a termination is triggered, the process should be given enough time to get into a consistent state, e.g. flush buffers, clean up temporary resources etc., before sending a kill-signal.
 How much time that should be is again very much depending on the process in question.
 In the end a kill-signal will be the only guarantee that the subprocess is not running anymore.
@@ -274,12 +273,12 @@ Manage all events in a unified way
 
 If individual protocol callbacks operate differently, the overall protocol behavior can be quite unexpected.
 For example, if a ``pipe_data_received``-callback sends data to the result queue, the data will be available via the result-generator.
-So, in this example, iterating over the result generator is the way to access subprocess output.
+So, iterating over the result generator is the way to access subprocess output.
 Let's assume that a ``timeout``-callback raises an exception.
-Then the exception will be raised in statement that iterates over the result generator, e.g. in ``for x in result_generator:``.-statement.
+Then the exception will be raised in the statement that iterates over the result generator, e.g. in  a ``for x in result_generator:``-statement.
 Getting "access" to the exception will therefore require a ``try``-``except``-clause.
 This is different from accessing the output of the subprocess.
-Overall, this "mixed behavior situation", where some callbacks enqueue data into the result queue, while others raise esceptions, can lead to complicated try-except-clauses and a hard-to-grasp control-flow, for example, in case of timeouts.
+Overall, this "mixed behavior situation", where some callbacks enqueue data into the result queue, while others raise exceptions, can lead to complicated try-except-clauses and a hard-to-grasp control-flow, for example, in case of timeouts.
 
 An alternative way would be to send all events, including timeouts, to the result queue of the result generator, and handle all events, in a the same way.
 If all events are enqueued in the result queue, then all events can be handled inside the body of the ``for x in result_generator:``-statement.
