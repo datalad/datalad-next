@@ -80,7 +80,6 @@ def _splitlines_processor(separator: StrOrBytes | None,
         return result
 
 
-# A simple line-splitter on known line-endings that keeps line ends in the output
 def splitlines_processor(separator: StrOrBytes | None = None,
                          keep_ends: bool = True
                          ) -> Callable:
