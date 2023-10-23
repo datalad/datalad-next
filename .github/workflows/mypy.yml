@@ -1,7 +1,7 @@
 name: Type annotation
 
 on:
-  push:
+  pr:
     paths:
       - 'datalad_next/**.py'
       - '!**/tests/**.py'
