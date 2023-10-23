@@ -1,6 +1,8 @@
 import gzip
 import pytest
 
+from datalad_next.tests.marker import skipif_no_network
+
 from ..any import AnyUrlOperations
 from ..http import (
     HttpUrlOperations,
@@ -59,6 +61,7 @@ def test_custom_http_headers_via_config(datalad_cfg):
     assert huo._headers['X-Funky'] == 'Stuff'
 
 
+@skipif_no_network
 def test_transparent_decompression(tmp_path):
     # this file is offered with transparent compression/decompression
     # by the github webserver
@@ -73,6 +76,7 @@ def test_transparent_decompression(tmp_path):
         '[build-system]\nrequires = ["setuptools >= 43.0.0", "wheel"]\n'
 
 
+@skipif_no_network
 def test_compressed_file_stay_compressed(tmp_path):
     # this file is offered with transparent compression/decompression
     # by the github webserver, but is also actually gzip'ed

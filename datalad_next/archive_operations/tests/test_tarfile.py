@@ -10,6 +10,7 @@ from typing import Generator
 import pytest
 
 from datalad_next.iter_collections.utils import FileSystemItemType
+from datalad_next.tests.marker import skipif_no_network
 
 from ..tarfile import TarArchiveOperations
 
@@ -37,6 +38,7 @@ def structured_sample_tar_xz(
     )
 
 
+@skipif_no_network
 def test_tararchive_basics(structured_sample_tar_xz: TestArchive):
     spec = structured_sample_tar_xz
     # this is intentionally a hard-coded POSIX relpath
@@ -48,6 +50,7 @@ def test_tararchive_basics(structured_sample_tar_xz: TestArchive):
             assert member.read() == spec.content
 
 
+@skipif_no_network
 def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
     # this is intentionally a hard-coded POSIX relpath
     member_name = 'test-archive/onetwothree.txt'
@@ -59,6 +62,7 @@ def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
     assert 'bogus' not in archive_ops
 
 
+@skipif_no_network
 def test_tararchive_iterator(structured_sample_tar_xz: TestArchive):
     spec = structured_sample_tar_xz
     with TarArchiveOperations(spec.path) as archive_ops:
@@ -68,6 +72,7 @@ def test_tararchive_iterator(structured_sample_tar_xz: TestArchive):
             assert item.name in archive_ops
 
 
+@skipif_no_network
 def test_open(structured_sample_tar_xz: TestArchive):
     spec = structured_sample_tar_xz
     file_pointer = set()

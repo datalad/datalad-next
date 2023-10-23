@@ -368,6 +368,10 @@ def httpbin(httpbin_service):
     raises ``SkipTest`` whenever any of these undesired conditions is
     detected. Otherwise it just relays ``httpbin_service``.
     """
+    if os.environ.get('DATALAD_TESTS_NONETWORK'):
+        raise SkipTest(
+            'Not running httpbin-based test: NONETWORK flag set'
+        )
     if 'APPVEYOR' in os.environ and 'DEPLOY_HTTPBIN_IMAGE' not in os.environ:
         raise SkipTest(
             "Not running httpbin-based test on appveyor without "

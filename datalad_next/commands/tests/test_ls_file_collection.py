@@ -7,6 +7,7 @@ import pytest
 from datalad.api import ls_file_collection
 
 from datalad_next.constraints.exceptions import CommandParametrizationError
+from datalad_next.tests.marker import skipif_no_network
 
 from ..ls_file_collection import LsFileCollectionParamValidator
 
@@ -30,6 +31,7 @@ def test_ls_file_collection_insufficient_args():
         ls_file_collection('bogus', 'http://example.com')
 
 
+@skipif_no_network
 def test_ls_file_collection_tarfile(sample_tar_xz):
     kwa = dict(result_renderer='disabled')
     # smoke test first
@@ -84,6 +86,7 @@ def test_ls_file_collection_validator():
         val.get_collection_iter(type='bogus', collection='any', hash=None)
 
 
+@skipif_no_network
 def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
     kwa = dict(result_renderer='disabled')
 
