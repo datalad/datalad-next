@@ -9,11 +9,13 @@ import sys
 from typing import Dict
 import requests
 from requests_toolbelt import user_agent
-import www_authenticate
 
 import datalad
 
-from datalad_next.utils.requests_auth import DataladAuth
+from datalad_next.utils.requests_auth import (
+    DataladAuth,
+    parse_www_authenticate,
+)
 from . import (
     UrlOperations,
     UrlOperationsRemoteError,
@@ -233,7 +235,7 @@ class HttpUrlOperations(UrlOperations):
             headers=headers,
         )
         if 'www-authenticate' in req.headers:
-            props['auth'] = www_authenticate.parse(
+            props['auth'] = parse_www_authenticate(
                 req.headers['www-authenticate'])
         props['is_redirect'] = True if req.history else False
         props['status_code'] = req.status_code
