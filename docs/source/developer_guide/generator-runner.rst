@@ -93,10 +93,11 @@ Whenever the caller invokes ``send()`` on the generator, e.g. by iterating over 
 5. The subprocess has exited, the next call to the its ``send()``-method will retrieve the exit status of the subprocess and end the iteration by raising ``StopIteration``.
 
 From the description above and from the figure it should be clear, that, if a user wants to receive output from a subprocess and not just wait for its exit, the user has to send
-data that is received via ``pipe_data_received`` to the result queue of the result generator.
-That means basically he has to call ``send_result()``.
-This is not automatically mixed into the protocol class by ``GeneratorMixIn``.
-A minimal generator protocol would therefore look like this.
+data that is received via the ``pipe_data_received``-callback of the protocol to the result queue of the result generator.
+Because the ``GeneratorMixIn``-class does not overwrite ``pipe_data_received``, the respective generator protocol has to implement a ``pipe_data_received``-callback that eventually calls ``send_result()``.
+All provided generator protocols behave this way.
+If a user implements a new generator protocol, he has to implement this behavior himeself.
+A minimal generator protocol that makes all data that is given as argument to ``pipe_data_received`` available at the result generator could therefore look like this:
 
 .. code-block:: python
 
