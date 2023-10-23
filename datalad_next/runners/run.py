@@ -39,21 +39,19 @@ def _create_kill_wrapper(cls: type[Protocol]) -> type[Protocol]:
 
     Returns
     -------
-    Any
-        If the `cls` is not a subclass of `GeneratorMixIn`, the result of
-        `cls._prepare_result` will be returned.
-
-    Generator
-        If the protocol is a subclass of `GeneratorMixIn`, the `Generator` that
-        is a result of `ThreadedRunner.run()` will be returned.
+    KillWrapper
+        A protocol class that inherits `cls` and implements the kill logic
+        that is used by the run-context-manager to forcefully terminate
+        subprocesses.
     """
 
     class KillWrapper(cls):
         def __init__(self, *args, **kwargs):
-            self.armed = kwargs.pop("armed")
-            self.introduced_timeout = kwargs.pop("introduced_timeout")
-            self.terminate_time = kwargs.pop("terminate_time")
-            kill_time = kwargs.pop("kill_time")
+            kill_wrapper_kwargs = kwargs.pop('dl_kill_wrapper_kwargs')
+            self.armed = kill_wrapper_kwargs.pop('armed')
+            self.introduced_timeout = kill_wrapper_kwargs.pop('introduced_timeout')
+            self.terminate_time = kill_wrapper_kwargs.pop('terminate_time')
+            kill_time = kill_wrapper_kwargs.pop('kill_time')
             self.kill_time = (
                 ((self.terminate_time or 0) + kill_time)
                 if kill_time is not None
@@ -111,7 +109,7 @@ def run(
     closing_action: Callable | None = None,
     terminate_time: int | None = None,
     kill_time: int | None = None,
-    **protocol_kwargs,
+    protocol_kwargs: dict | None = None,
 ) -> Any | Generator:
     """ A context manager for subprocesses
 
@@ -192,9 +190,9 @@ def run(
         after ``kill_time`` timeouts.
         It is a good idea to set ``kill_time`` and ``terminate_time`` in order
         to let the process exit gracefully, if it is capable to do so.
-    protocol_kwargs :
-        Keyword arguments that will be used when instantiating the protocol
-        class.
+    protocol_kwargs : dict
+        A dictionary with Keyword arguments that will be used when
+        instantiating the protocol class.
 
     Yields
     -------
@@ -222,11 +220,13 @@ def run(
         protocol_class=kill_protocol_class,
         stdin=DEVNULL if stdin is None else stdin,
         protocol_kwargs=dict(
-            {**protocol_kwargs},
-            introduced_timeout=introduced_timeout,
-            terminate_time=terminate_time,
-            kill_time=kill_time,
-            armed=armed,
+            **(protocol_kwargs or {}),
+            dl_kill_wrapper_kwargs=dict(
+                introduced_timeout=introduced_timeout,
+                terminate_time=terminate_time,
+                kill_time=kill_time,
+                armed=armed,
+            )
         ),
         timeout=timeout,
         exception_on_error=False,
