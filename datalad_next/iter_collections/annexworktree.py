@@ -22,6 +22,7 @@ from datalad_next.runners import (
     ThreadedRunner,
 )
 from datalad_next.runners.batch import annexjson_batchcommand
+from datalad_next.runners.run import run
 
 from .gitworktree import (
     GitWorktreeItem,
@@ -112,6 +113,8 @@ def iter_annexworktree(
     ------
     :class:`AnnexWorktreeItem` or `AnnexWorktreeFileSystemItem`
     """
+    # get a lookup mapping platform-paths to annex key and bytesize
+    # for any path connected to an annex key
     annex = _get_annexinfo(path)
 
     # we use git-annex-examinekey for annex object location reporting.
@@ -155,11 +158,16 @@ def iter_annexworktree(
             )
 
 
-def _get_annexinfo(path):
+def _get_annexinfo(path: Path) -> dict:
     from datalad.support.annexrepo import GeneratorAnnexJsonNoStderrProtocol
-    # we use a plain runner to avoid the overhead of a GitRepo instance
-    runner = ThreadedRunner(
-        cmd=[
+
+    map = {
+        'bytesize': lambda x: x,
+        'key': lambda x: x,
+    }
+
+    with run(
+        [
             'git', 'annex', 'find',
             # we want everything regardless of local availability.
             # the faster `--anything` came only in 10.20230126
@@ -169,25 +177,18 @@ def _get_annexinfo(path):
             '.',
         ],
         protocol_class=GeneratorAnnexJsonNoStderrProtocol,
-        stdin=DEVNULL,
         # run in the directory we want info on
         cwd=path,
-    )
-
-    map = {
-        'bytesize': lambda x: x,
-        'key': lambda x: x,
-    }
-
-    return {
-        # git-annex reports the file path in POSIX conventions,
-        # even on windows, but the hashdir report comes in
-        # platform conventions.
-        # we need to go to platform conventions to match the behavior of
-        # iter_gitworktree()
-        PurePath(PurePosixPath(r['file'])):
-        {
-            k: map[k](r[k]) for k in map.keys() if k in r
+    ) as annexfind:
+        return {
+            # git-annex reports the file path in POSIX conventions,
+            # even on windows, but the hashdir report comes in
+            # platform conventions.
+            # we need to go to platform conventions to match the behavior of
+            # iter_gitworktree()
+            PurePath(PurePosixPath(r['file'])):
+            {
+                k: map[k](r[k]) for k in map.keys() if k in r
+            }
+            for r in annexfind
         }
-        for r in runner.run()
-    }
