@@ -22,9 +22,8 @@ from typing import (
 
 from datalad_next.runners import (
     DEVNULL,
-    StdOutCaptureGeneratorProtocol,
+    StdOutCaptureProcessingGeneratorProtocol,
 )
-from datalad_next.runners.data_processor_pipeline import process_from
 from datalad_next.runners.data_processors import (
     decode_processor,
     splitlines_processor,
@@ -262,19 +261,19 @@ def _git_ls_files(path, *args):
                 # otherwise take whatever is coming in
                 *args,
             ],
-            protocol_class=StdOutCaptureGeneratorProtocol,
+            protocol_class=StdOutCaptureProcessingGeneratorProtocol,
             stdin=DEVNULL,
-            cwd=path
+            cwd=path,
+            protocol_kwargs=dict(
+                processors=[
+                    decode_processor('utf-8'),
+                    splitlines_processor(separator='\0', keep_ends=False)
+                ]
+            )
     ) as r:
         # This code uses the data processor chain to process data. This fixes
         # a problem with the previous version of the code, where `decode` was
         # used on every data chunk that was sent tp `pipe_data_received`. But
         # data is chunked up randomly and might be split in the middle of a
         # character encoding, leading to weird errors.
-        yield from process_from(
-            data_source=r,
-            processors = [
-                decode_processor('utf-8'),
-                splitlines_processor(separator='\0', keep_ends=False)
-            ]
-        )
+        yield from r
