@@ -74,7 +74,7 @@ def _splitlines_processor(separator: StrOrBytes | None,
         if keep_ends:
             result = [line + separator for line in detected_lines], [remaining]
         else:
-            result = detected_lines, [remaining]
+            result = detected_lines, [remaining] if remaining else []
         if final:
             result = result[0].extend(result[1]), []
         return result
