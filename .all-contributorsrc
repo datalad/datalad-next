@@ -1,0 +1,162 @@
+{
+    "projectName": "datalad-next",
+    "projectOwner": "datalad",
+    "repoType": "github",
+    "commitConvention": "angular",
+    "contributors": [
+        {
+            "login": "mih",
+            "name": "Michael Hanke",
+            "avatar_url": "https://avatars.githubusercontent.com/u/136479?v=4",
+            "profile": "http://psychoinformatics.de/",
+            "contributions": [
+                "bug",
+                "code",
+                "content",
+                "design",
+                "doc",
+                "financial",
+                "fundingFinding",
+                "ideas",
+                "infra",
+                "maintenance",
+                "mentoring",
+                "platform",
+                "projectManagement",
+                "review",
+                "talk",
+                "test",
+                "tool",
+                "userTesting"
+            ]
+        },
+        {
+            "login": "catetrai",
+            "name": "catetrai",
+            "avatar_url": "https://avatars.githubusercontent.com/u/18424941?v=4",
+            "profile": "https://github.com/catetrai",
+            "contributions": [
+                "code",
+                "design",
+                "doc",
+                "ideas",
+                "test"
+            ]
+        },
+        {
+            "login": "effigies",
+            "name": "Chris Markiewicz",
+            "avatar_url": "https://avatars.githubusercontent.com/u/83442?v=4",
+            "profile": "https://github.com/effigies",
+            "contributions": [
+                "maintenance",
+                "code"
+            ]
+        },
+        {
+            "login": "mslw",
+            "name": "Michał Szczepanik",
+            "avatar_url": "https://avatars.githubusercontent.com/u/11985212?v=4",
+            "profile": "https://github.com/mslw",
+            "contributions": [
+                "bug",
+                "code",
+                "content",
+                "doc",
+                "example",
+                "ideas",
+                "infra",
+                "maintenance",
+                "review",
+                "talk",
+                "test",
+                "tutorial",
+                "userTesting"
+            ]
+        },
+        {
+            "login": "jsheunis",
+            "name": "Stephan Heunis",
+            "avatar_url": "https://avatars.githubusercontent.com/u/10141237?v=4",
+            "profile": "https://jsheunis.github.io/",
+            "contributions": [
+                "bug",
+                "code",
+                "doc",
+                "ideas",
+                "maintenance",
+                "talk",
+                "userTesting"
+            ]
+        },
+        {
+            "login": "bpoldrack",
+            "name": "Benjamin Poldrack",
+            "avatar_url": "https://avatars.githubusercontent.com/u/10498301?v=4",
+            "profile": "https://github.com/bpoldrack",
+            "contributions": [
+                "bug",
+                "code"
+            ]
+        },
+        {
+            "login": "yarikoptic",
+            "name": "Yaroslav Halchenko",
+            "avatar_url": "https://avatars.githubusercontent.com/u/39889?v=4",
+            "profile": "https://github.com/yarikoptic",
+            "contributions": [
+                "bug",
+                "code",
+                "infra",
+                "maintenance",
+                "tool"
+            ]
+        },
+        {
+            "login": "christian-monch",
+            "name": "Christian Mönch",
+            "avatar_url": "https://avatars.githubusercontent.com/u/17925232?v=4",
+            "profile": "https://github.com/christian-monch",
+            "contributions": [
+                "code",
+                "design",
+                "doc",
+                "ideas",
+                "review",
+                "test",
+                "userTesting"
+            ]
+        },
+        {
+            "login": "adswa",
+            "name": "Adina Wagner",
+            "avatar_url": "https://avatars.githubusercontent.com/u/29738718?v=4",
+            "profile": "https://github.com/adswa",
+            "contributions": [
+                "a11y",
+                "bug",
+                "code",
+                "doc",
+                "example",
+                "maintenance",
+                "projectManagement",
+                "review",
+                "talk",
+                "test",
+                "tutorial",
+                "userTesting"
+            ]
+        },
+        {
+            "login": "jwodder",
+            "name": "John T. Wodder II",
+            "avatar_url": "https://avatars.githubusercontent.com/u/98207?v=4",
+            "profile": "https://github.com/jwodder",
+            "contributions": [
+                "code",
+                "infra",
+                "test"
+            ]
+        }
+    ]
+}
