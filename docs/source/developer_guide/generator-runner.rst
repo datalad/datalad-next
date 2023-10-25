@@ -127,7 +127,7 @@ This section gives an overview of the most useful of the predefined protocols in
 The predefined non-generator protocols in ``datalad_next`` are:
 
 - ``datalad_next.runners.KillOutput``: capture output on stdout and stderr and delete it.
-- ``datalad_next.runners.NoCapture``: stdout and stderr of the parent procees are used as stdout and stderr of the subprocess.
+- ``datalad_next.runners.NoCapture``: stdout and stderr of the parent process are used as stdout and stderr of the subprocess.
 - ``datalad_next.runners.StdOutCapture``: capture output on stdout and send it to ``pipe_data_received``, , stderr of the parent is used as stderr of the subprocess.
 - ``datalad_next.runners.StdErrCapture``: capture output on stderr and send it to ``pipe_data_received``,, stdout of the parent is used as stdout of the subprocess.
 - ``datalad_next.runners.StdOutErrCapture``: capture output on stdout and stderr and send it to ``pipe_data_received``.
