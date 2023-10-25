@@ -13,4 +13,5 @@ from . import (
     customremotes_main,
     create_sibling_gitlab,
     run,
+    update,
 )
