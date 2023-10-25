@@ -1,10 +1,5 @@
-""" This module contains data processors for the data pipeline processor
+""" Data processor that ensure that a pattern odes not cross data chunk borders """
 
-The data processors contained here are:
-
-  - pattern_processor
-
-"""
 from __future__ import annotations
 
 from functools import partial
@@ -16,18 +11,40 @@ from ..data_processor_pipeline import (
 )
 
 
+__all__ = ['pattern_processor']
+
+
+def pattern_processor(pattern: StrOrBytes) -> Callable:
+    """ Create a pattern processor for the given ``pattern``.
+
+    A pattern processor re-assembles data chunks in such a way, that a single
+    data chunk could contain the complete pattern and will contain the complete
+    pattern, if the complete pattern start in the data chunk. It guarantees:
+
+    1. All chunks have at minimum the size of the pattern
+    2. If a complete pattern exists, it will be contained completely within a
+       single chunk, i.e. it will NOT be the case that a prefix of the pattern
+       is at the end of a chunk, and the rest of the pattern in the beginning
+       of the next chunk
+
+    The pattern might be present multiple times in a data chunk.
+    """
+    assert len(pattern) > 0
+    return partial(_pattern_processor, pattern)
+
+
 def _pattern_processor(pattern: StrOrBytes,
                        data_chunks: StrOrBytesList,
                        final: bool = False,
                        ) -> tuple[StrOrBytesList, StrOrBytesList]:
-    """ Ensure that pattern is completely within a chunk,
+    """ Ensure that ``pattern`` appears only completely contained within a chunk
 
     This processor ensures that a given data pattern (if it exists in the data
     chunks) is either completely contained in a chunk or not in the chunk. That
     means the processor ensures that all data chunks have at least the length of
     the data pattern and that they do not end with a prefix of the data pattern.
 
-    As a result, a simple `pattern in data_chunk` test is sufficient to
+    As a result, a simple ``pattern in data_chunk`` test is sufficient to
     determine whether a pattern appears in the data stream.
 
     To use this function as a data processor, use partial to "fix" the first
@@ -81,22 +98,3 @@ def _pattern_processor(pattern: StrOrBytes,
         if ends_with_pattern_prefix(data_chunks[-1], pattern):
             return data_chunks[:-1], data_chunks[-1:]
     return data_chunks, []
-
-
-def pattern_processor(pattern: StrOrBytes) -> Callable:
-    """ Give out data chunks that contain a complete pattern, if it is present
-
-    This processor re-assembles data chunks in such a way, that a single
-    data chunk could contain the complete pattern and will contain the complete
-    pattern, if the complete pattern start in the data chunk. It guarantees:
-
-    1. All chunks have at minimum the size of the pattern
-    2. If a complete pattern exists, it will be contained completely within a
-       single chunk, i.e. it will NOT be the case that a prefix of the pattern
-       is at the end of a chunk, and the rest of the pattern in the beginning
-       of the next chunk
-
-    The pattern might be present multiple times in a data chunk.
-    """
-    assert len(pattern) > 0
-    return partial(_pattern_processor, pattern)

@@ -24,6 +24,7 @@ packages.
    exceptions
    iter_collections
    runners
+   runners.data_processors
    tests.fixtures
    types
    uis

@@ -1,10 +1,5 @@
-""" This module contains data processors for the data pipeline processor
+""" Data processor that splits the input into individual lines """
 
-The data processors contained here are:
-
-  - splitlines_processor
-
-"""
 from __future__ import annotations
 
 from functools import partial
@@ -14,6 +9,37 @@ from ..data_processor_pipeline import (
     StrOrBytes,
     StrOrBytesList,
 )
+
+
+__all__ = ['splitlines_processor']
+
+
+def splitlines_processor(
+    separator: StrOrBytes | None = None,
+    keep_ends: bool = True
+) -> Callable[[StrOrBytesList, bool], tuple[StrOrBytesList, StrOrBytesList]]:
+    """ Generate a data processor that splits character- or byte-strings into lines
+
+    This function returns a data processor, that splits lines either on a given
+    separator, if 'separator' is not ``None``, or on one of the known line endings,
+    if 'separator' is ``None``. If ``separator`` is ``None``, the line endings are
+    determined by python.
+
+    Parameters
+    ----------
+    separator: Optional[str]
+        If not None, the provided separator will be used to split lines.
+    keep_ends: bool
+        If True, the separator will be contained in the returned lines.
+
+    Returns
+    -------
+    Callable
+        A data processor that takes a list of strings or bytes, and returns
+        a list of strings or bytes, where every element is a single line (as
+        defined by the ``separator`` and ``keep_ends`` argument).
+    """
+    return partial(_splitlines_processor, separator, keep_ends)
 
 
 # We don't use LineSplitter here because it has two "problems". Firstly, it does
@@ -72,37 +98,10 @@ def _splitlines_processor(separator: StrOrBytes | None,
         remaining = detected_lines[-1] if text.endswith(separator) else None
         del detected_lines[-1]
         if keep_ends:
-            result = [line + separator for line in detected_lines], [remaining]
+            result = [line + separator for line in detected_lines], [remaining] if remaining else []
         else:
             result = detected_lines, [remaining] if remaining else []
         if final:
-            result = result[0].extend(result[1]), []
+            result[0].extend(result[1])
+            result = result[0], []
         return result
-
-
-def splitlines_processor(separator: StrOrBytes | None = None,
-                         keep_ends: bool = True
-                         ) -> Callable:
-    """ A data processor the splits character-strings or byte-strings into lines
-
-    Split lines either on a given separator, if 'separator' is not `None`,
-    or on one of the known line endings, if 'separator' is `None`. The line
-    endings are determined by python
-
-    Parameters
-    ----------
-    separator: Optional[str]
-        If not None, the provided separator will be used to split lines.
-    keep_ends: bool
-        If True, the separator will be contained in the returned lines.
-
-    Returns
-    -------
-    list[str | bytes]
-        if the input data chunks contained bytes the result will be a list of
-        byte-strings that end with byte-size line-delimiters. If the input data
-        chunks contained strings, the result will be a list strings that end with
-        string delimiters (see Python-documentation for a definition of string
-        line delimiters).
-    """
-    return partial(_splitlines_processor, separator, keep_ends)
