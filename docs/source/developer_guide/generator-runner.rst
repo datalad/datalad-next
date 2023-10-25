@@ -369,6 +369,7 @@ Running the code above would generate an output similar to the following (output
     ('data', 1, b'/etc/ipsec.d/reqs\n ...')
     ('pipe_connection_lost', 2, None)
     ('pipe_connection_lost', 1, None)
+    ('process_exited', 1)
     ('connection_lost', None)
     1
 
