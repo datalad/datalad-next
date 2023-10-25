@@ -1,5 +1,6 @@
 # DataLad NEXT extension
 
+[![All Contributors](https://img.shields.io/github/all-contributors/datalad/datalad-next?color=ee8449&style=flat-square)](#contributors)
 [![Build status](https://ci.appveyor.com/api/projects/status/dxomp8wysjb7x2os/branch/main?svg=true)](https://ci.appveyor.com/project/mih/datalad-next/branch/main)
 [![codecov](https://codecov.io/gh/datalad/datalad-next/branch/main/graph/badge.svg?token=2P8rak7lSX)](https://codecov.io/gh/datalad/datalad-next)
 [![crippled-filesystems](https://github.com/datalad/datalad-next/workflows/crippled-filesystems/badge.svg)](https://github.com/datalad/datalad-next/actions?query=workflow%3Acrippled-filesystems)
@@ -146,3 +147,15 @@ available at http://docs.datalad.org/projects/next/en/latest/#datalad-patches
 This DataLad extension was developed with funding from the Deutsche
 Forschungsgemeinschaft (DFG, German Research Foundation) under grant SFB 1451
 ([431549029](https://gepris.dfg.de/gepris/projekt/431549029), INF project).
+
+
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
