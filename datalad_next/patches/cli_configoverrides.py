@@ -1,3 +1,10 @@
+"""Post DataLad config overrides CLI/ENV as GIT_CONFIG items in process ENV
+
+This enables their propagation to any subprocess. This include the
+specification of overrides via the ``datalad -c ...`` option of the
+main CLI entrypoint.
+"""
+
 from datalad.config import _update_from_env as _update_from_datalad_env
 from datalad.cli.helpers import _parse_overrides_from_cmdline
 

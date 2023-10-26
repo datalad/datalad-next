@@ -1,5 +1,7 @@
-"""
+"""Streamline user experience
 
+Discontinue advertizing the ``hierarchy`` layout, and better explain
+limitations of the command.
 """
 
 import datalad.distributed.create_sibling_gitlab as mod_gitlab
