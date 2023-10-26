@@ -70,7 +70,7 @@ def batchcommand(
         cwd: Path | None = None,
         terminate_time: int | None = None,
         kill_time: int | None = None,
-        **protocol_kwargs
+        protocol_kwargs: dict | None = None,
 ) -> Generator[BatchProcess, None, None]:
     """Generic context manager for batch processes
 
@@ -145,14 +145,10 @@ def batchcommand(
             cwd=cwd,
             terminate_time=terminate_time,
             kill_time=kill_time,
-            **protocol_kwargs
+            protocol_kwargs=protocol_kwargs
         ) as result_generator:
             batch_process = BatchProcess(result_generator)
             yield batch_process
-            # Arm the protocol because we do not leave the run context
-            # yet, but `batch_process.close_stdin()` will try to fetch
-            # another value from the iterator and might hang there.
-            result_generator.runner.protocol.arm()
             batch_process.close_stdin()
     finally:
         del input_queue
@@ -184,6 +180,7 @@ def annexjson_batchcommand(
         cwd: Path | None = None,
         terminate_time: int | None = None,
         kill_time: int | None = None,
+        protocol_kwargs: dict | None = None,
 ) -> Generator[BatchProcess, None, None]:
     """
     Context manager for git-annex commands that support ``--batch --json``
@@ -202,4 +199,5 @@ def annexjson_batchcommand(
         cwd=cwd,
         terminate_time=terminate_time,
         kill_time=kill_time,
+        protocol_kwargs=protocol_kwargs,
     )

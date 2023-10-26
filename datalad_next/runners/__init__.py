@@ -60,6 +60,7 @@ from datalad.runner.protocol import GeneratorMixIn
 from .protocols import (
     NoCaptureGeneratorProtocol,
     StdOutCaptureGeneratorProtocol,
+    StdOutLineCaptureGeneratorProtocol,
 )
 # exceptions
 from datalad.runner.exception import (
