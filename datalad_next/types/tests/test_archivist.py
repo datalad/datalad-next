@@ -24,6 +24,12 @@ def test_archivistlocator():
         'dl+archive:MD5E-s1--e9f624eb778e6f945771c543b6e9c7b2.tar#path=f.txt'
     ).atype == ArchiveType.tar
     assert ArchivistLocator.from_str(
+        'dl+archive:MD5E-s1--e9f624eb778e6f945771c543b6e9c7b2.tgz#path=f.txt'
+    ).atype == ArchiveType.tar
+    assert ArchivistLocator.from_str(
+        'dl+archive:MD5E-s1--e9f624eb778e6f945771c543b6e9c7b2.tar.gz#path=f.txt'
+    ).atype == ArchiveType.tar
+    assert ArchivistLocator.from_str(
         'dl+archive:MD5E-s1--e9f624eb778e6f945771c543b6e9c7b2.zip#path=f.txt'
     ).atype == ArchiveType.zip
 
