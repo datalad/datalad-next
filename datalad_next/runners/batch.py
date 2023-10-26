@@ -55,13 +55,8 @@ class BatchProcess:
         except StopIteration:
             return None
 
-    def close_stdin(self):
-        # We do not call `self(None)` here because that
-        # triggers a `next(self._rgen)`-call,
-        # but we might not yet have armed the KillWrapper,
-        # because that is done when we leave the run-context.
-        # Therefore a `next(self._rgen)` might wait forever
-        self._stdin_queue.put(None)
+    def close_stdin(self) -> Any:
+        return self(None)
 
     @property
     def return_code(self) -> None | int:
@@ -154,6 +149,10 @@ def batchcommand(
         ) as result_generator:
             batch_process = BatchProcess(result_generator)
             yield batch_process
+            # Arm the protocol because we do not leave the run context
+            # yet, but `batch_process.close_stdin()` will try to fetch
+            # another value from the iterator and might hang there.
+            result_generator.runner.protocol.arm()
             batch_process.close_stdin()
     finally:
         del input_queue
