@@ -24,7 +24,6 @@ from .. import (
     StdOutCapture,
     StdOutCaptureGeneratorProtocol,
     StdOutErrCapture,
-    ThreadedRunner,
 )
 from ..run import run
 

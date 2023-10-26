@@ -26,7 +26,6 @@ from datalad_next.runners import (
     NoCaptureGeneratorProtocol,
     Protocol as RunnerProtocol,
     StdOutCaptureGeneratorProtocol,
-    ThreadedRunner,
     CommandError,
 )
 from datalad_next.runners.run import run

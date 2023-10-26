@@ -46,7 +46,6 @@ from datalad.runner import (
     GitRunner,
     Runner,
 )
-from datalad.runner.nonasyncrunner import ThreadedRunner
 
 # protocols
 from datalad.runner import (

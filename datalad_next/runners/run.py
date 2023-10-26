@@ -15,10 +15,11 @@ from typing import (
     IO,
 )
 
+from datalad.runner.nonasyncrunner import ThreadedRunner as _ThreadedRunner
+
 from . import (
     GeneratorMixIn,
     Protocol,
-    ThreadedRunner,
 )
 
 
@@ -197,7 +198,7 @@ def run(
     # terminate-capable protocols for every protocol they want to use.
     kill_protocol_class = _create_kill_wrapper(protocol_class)
 
-    runner = ThreadedRunner(
+    runner = _ThreadedRunner(
         cmd=cmd,
         protocol_class=kill_protocol_class,
         stdin=DEVNULL if stdin is None else stdin,
