@@ -1,6 +1,6 @@
 """Post DataLad config overrides CLI/ENV as GIT_CONFIG items in process ENV
 
-This enables their propagation to any subprocess. This include the
+This enables their propagation to any subprocess. This includes the
 specification of overrides via the ``datalad -c ...`` option of the
 main CLI entrypoint.
 """
