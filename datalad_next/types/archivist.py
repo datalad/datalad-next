@@ -74,7 +74,7 @@ class ArchivistLocator:
     """
     akey: AnnexKey
     member: PurePosixPath
-    size: int
+    size: int | None = None
     # datalad-archives did not have the type info, we want to be
     # able to handle those too, make optional
     atype: ArchiveType | None = None
@@ -91,21 +91,21 @@ class ArchivistLocator:
     @classmethod
     def from_str(cls, url: str):
         """Return ``ArchivistLocator`` from ``str`` form"""
-        url_matched = _recognized_urls.match(url)
-        if not url_matched:
+        url_match = _recognized_urls.match(url)
+        if not url_match:
             raise ValueError('Unrecognized dl+archives locator syntax')
-        url_matched = url_matched.groupdict()
+        url_matched = url_match.groupdict()
         # convert to desired type
         akey = AnnexKey.from_str(url_matched['key'])
 
         # archive member properties
-        props_matched = _archive_member_props.match(url_matched['props'])
-        if not props_matched:
+        props_match = _archive_member_props.match(url_matched['props'])
+        if not props_match:
             # without at least a 'path' there is nothing we can do here
             raise ValueError(
                 'dl+archives locator contains invalid archive member '
                 f'specification: {url_matched["props"]!r}')
-        props_matched = props_matched.groupdict()
+        props_matched = props_match.groupdict()
         amember_path = PurePosixPath(props_matched['path'])
         if amember_path.is_absolute():
             raise ValueError(
@@ -116,6 +116,8 @@ class ArchivistLocator:
 
         # size is optional, regex ensure that it is an int
         size = props_matched.get('size')
+        if size is not None:
+            size = int(size)
 
         # archive type, could be None
         atype = props_matched.get('atype')
