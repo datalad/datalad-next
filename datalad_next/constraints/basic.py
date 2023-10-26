@@ -15,6 +15,7 @@ __docformat__ = 'restructuredtext'
 from hashlib import algorithms_guaranteed as hash_algorithms_guaranteed
 from pathlib import Path
 import re
+from typing import Callable
 
 from datalad_next.datasets import resolve_path
 
@@ -368,7 +369,7 @@ class EnsurePath(Constraint):
                  path_type: type = Path,
                  is_format: str | None = None,
                  lexists: bool | None = None,
-                 is_mode: callable | None = None,
+                 is_mode: Callable | None = None,
                  ref: Path | None = None,
                  ref_is: str = 'parent-or-same-as',
                  dsarg: DatasetParameter | None = None):
