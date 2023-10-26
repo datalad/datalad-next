@@ -134,6 +134,8 @@ class ArchivistLocator:
                 atype = ArchiveType.zip
             elif '.tar' in suf:
                 atype = ArchiveType.tar
+            elif '.tgz' in suf:
+                atype = ArchiveType.tar
 
         return cls(
             akey=akey,
