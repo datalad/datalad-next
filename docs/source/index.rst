@@ -29,82 +29,24 @@ extension has to be enabled for auto-loading by executing::
 Doing so will enable the extension to also alter the behavior the core DataLad
 package and its commands.
 
-API
-===
 
-High-level API commands
------------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   api.rst
-
-Command line reference
-----------------------
-
-.. toctree::
-   :maxdepth: 2
-
-   cmd.rst
-
-
-Python tooling
---------------
-
-``datalad-next`` comprises a number of more-or-less self-contained
-mini-packages providing particular functionality.
+Provided functionality
+======================
 
 .. toctree::
    :maxdepth: 1
 
+   api.rst
+   cmd.rst
    Infrastructure classes and utilities <pyutils.rst>
-
-
-Git remote helpers
-------------------
-
-.. toctree::
-   :maxdepth: 2
-
    git-remote-helpers.rst
-
-
-Git-annex backends
-------------------
-
-.. toctree::
-   :maxdepth: 2
-
    annex-backends.rst
-
-
-
-Git-annex special remotes
--------------------------
-
-
-.. toctree::
-   :maxdepth: 2
-
    annex-specialremotes.rst
-
-
-
-DataLad patches
----------------
-
-Patches that are automatically applied to DataLad when loading the
-``datalad-next`` extension package.
-
-.. toctree::
-   :maxdepth: 2
-
    patches.rst
 
 
-Developer Guide
----------------
+Contributor information
+=======================
 
 .. toctree::
    :maxdepth: 2
