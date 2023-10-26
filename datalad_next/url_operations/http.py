@@ -266,7 +266,7 @@ class HttpUrlOperations(UrlOperations):
         )
 
         fp = None
-        props = {}
+        props: Dict[str, str] = {}
         try:
             # we can only write to file-likes opened in bytes mode
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')

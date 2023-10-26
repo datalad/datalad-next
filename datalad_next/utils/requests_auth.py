@@ -133,7 +133,7 @@ class DataladAuth(requests.auth.AuthBase):
         """
         if self._entered_credential is None:
             # nothing to do
-            return
+            return None
         return self._credman.set(
             name=None,
             _lastused=True,

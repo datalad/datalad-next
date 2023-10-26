@@ -105,7 +105,7 @@ class ConstraintError(ValueError):
         """
         cb = self.context.get('__caused_by__', None)
         if cb is None:
-            return
+            return None
         elif isinstance(cb, Exception):
             return (cb,)
         else:
