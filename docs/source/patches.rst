@@ -1,6 +1,9 @@
 DataLad patches
 ***************
 
+Patches that are automatically applied to DataLad when loading the
+``datalad-next`` extension package.
+
 .. currentmodule:: datalad_next.patches
 .. autosummary::
    :toctree: generated
