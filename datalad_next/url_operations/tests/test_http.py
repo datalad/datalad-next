@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import gzip
 import pytest
+import requests
 
 from datalad_next.tests.marker import skipif_no_network
 
@@ -100,6 +103,29 @@ def test_compressed_file_stay_compressed(tmp_path):
     # make sure it ends up on disk compressed!
     with gzip.open(dpath, 'rb') as f:
         f.read(1000)
+
+
+def test_size_less_progress_reporting(http_server, monkeypatch):
+    test_file = (http_server.path / 'test.bin').open('wb')
+    test_file.seek(100000)
+    test_file.write(b'a')
+    test_file.close()
+
+    r = requests.get(http_server.url + '/test.bin', stream=True)
+    del r.headers['content-length']
+
+    logs = []
+    # patch the log_progress() used in http.py
+    def catch_progress(*_, **kwargs):
+        logs.append(kwargs)
+
+    import datalad_next.url_operations
+    monkeypatch.setattr(datalad_next.url_operations, 'log_progress', catch_progress)
+
+    http_handler = HttpUrlOperations()
+    http_handler._stream_download_from_request(r, None)
+    assert any('update' in kwargs for kwargs in logs)
+    assert any(('total', None) in kwargs.items() for kwargs in logs)
 
 
 def test_header_adding():
