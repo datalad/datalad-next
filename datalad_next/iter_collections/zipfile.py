@@ -72,8 +72,8 @@ def iter_zip(
         for zip_info in zip_file.infolist():
             item = _get_zipfile_item(zip_info)
             if fp and item.type == FileSystemItemType.file:
-                with zip_file.open(zip_info) as fp:
-                    item.fp = fp
+                with zip_file.open(zip_info) as amfp:
+                    item.fp = amfp
                     yield item
             else:
                 yield item
