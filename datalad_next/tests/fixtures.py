@@ -63,6 +63,32 @@ def reduce_logging():
 
 
 @pytest.fixture(autouse=False, scope="function")
+def no_result_rendering(monkeypatch):
+    """Disable datalad command result rendering for all command calls
+
+    This is achieved by forcefully supplying `result_renderer='disabled'`
+    to any command call via a patch to internal argument normalizer
+    ``get_allargs_as_kwargs()``.
+    """
+    # we need to patch our patch function, because datalad-core's is no
+    # longer used
+    import datalad_next.patches.interface_utils as dnpiu
+
+    old_get_allargs_as_kwargs = dnpiu.get_allargs_as_kwargs
+
+    def no_render_get_allargs_as_kwargs(call, args, kwargs):
+        kwargs, one, two = old_get_allargs_as_kwargs(call, args, kwargs)
+        kwargs['result_renderer'] = 'disabled'
+        return kwargs, one, two
+
+    with monkeypatch.context() as m:
+        m.setattr(dnpiu,
+                  'get_allargs_as_kwargs',
+                  no_render_get_allargs_as_kwargs)
+        yield
+
+
+@pytest.fixture(autouse=False, scope="function")
 def tmp_keyring():
     """Patch plaintext keyring to temporarily use a different storage
 

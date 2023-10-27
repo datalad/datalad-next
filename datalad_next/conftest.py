@@ -32,6 +32,9 @@ from datalad_next.tests.fixtures import (
     httpbin,
     # session-scope HTTPBIN instance startup and URLs
     httpbin_service,
+    # function-scope, disabled datalad command result rendering for all
+    # command calls
+    no_result_rendering,
     # session-scope redirection of log messages
     reduce_logging,
     # session-scope, standard webdav credential (full dict)

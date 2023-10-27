@@ -7,7 +7,7 @@ from datalad_next.tests.utils import (
 )
 
 
-def test_substitution_config_default(existing_dataset):
+def test_substitution_config_default(existing_dataset, no_result_rendering):
     ds = existing_dataset
 
     if ds.config.get('datalad.run.substitutions.python') is not None:
@@ -17,9 +17,9 @@ def test_substitution_config_default(existing_dataset):
 
     # the {python} placeholder is not explicitly defined, but it has
     # a default, which run() should discover and use
-    res = ds.run('{python} -c "True"', result_renderer='disabled')
+    res = ds.run('{python} -c "True"')
     assert_result_count(res, 1, action='run', status='ok')
 
     # make sure we could actually detect breakage with the check above
     with pytest.raises(IncompleteResultsError):
-        ds.run('{python} -c "breakage"', result_renderer='disabled')
+        ds.run('{python} -c "breakage"')

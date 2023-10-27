@@ -72,8 +72,8 @@ def test_normalize_specs():
         assert_raises(ValueError, normalize_specs, error)
 
 
-def test_errorhandling_smoketest():
-    callcfg = dict(on_failure='ignore', result_renderer='disabled')
+def test_errorhandling_smoketest(no_result_rendering):
+    callcfg = dict(on_failure='ignore')
 
     with patch('datalad_next.commands.credentials.CredentialManager',
                BrokenCredentialManager):
@@ -136,7 +136,8 @@ def test_credentials_cli(tmp_keyring):
     run_main(['credentials', 'query'], exit_code=0)
 
 
-def test_interactive_entry_get(tmp_keyring, datalad_interactive_ui):
+def test_interactive_entry_get(tmp_keyring, datalad_interactive_ui,
+                               no_result_rendering):
     ui = datalad_interactive_ui
     ui.staged_responses.extend([
         'attr1', 'attr2', 'secret'])
@@ -147,8 +148,7 @@ def test_interactive_entry_get(tmp_keyring, datalad_interactive_ui):
              name='myinteractive_get',
              # use CLI notation
              spec=[':attr1', ':attr2'],
-             prompt='dummyquestion',
-             result_renderer='disabled'),
+             prompt='dummyquestion'),
         cred_attr1='attr1',
         cred_attr2='attr2',
         cred_secret='secret',
@@ -156,7 +156,8 @@ def test_interactive_entry_get(tmp_keyring, datalad_interactive_ui):
     assert ui.operation_sequence == ['question', 'response'] * 3
 
 
-def test_interactive_entry_set(tmp_keyring, datalad_interactive_ui):
+def test_interactive_entry_set(tmp_keyring, datalad_interactive_ui,
+                               no_result_rendering):
     ui = datalad_interactive_ui
     ui.staged_responses.append('secretish')
     # should ask all properties in order and the secret last
@@ -164,8 +165,7 @@ def test_interactive_entry_set(tmp_keyring, datalad_interactive_ui):
     assert_in_results(
         cred('set',
              name='myinteractive_set',
-             prompt='dummyquestion',
-             result_renderer='disabled'),
+             prompt='dummyquestion'),
         cred_secret='secretish',
     )
     assert ui.operation_sequence == ['question', 'response']

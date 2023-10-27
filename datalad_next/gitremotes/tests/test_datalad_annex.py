@@ -304,8 +304,8 @@ def _check_typeweb(pushtmpl, clonetmpl, ds, server, clonepath):
         dsclone.repo.get_hexsha(DEFAULT_BRANCH))
 
 
-def test_submodule_url(tmp_path, existing_noannex_dataset, http_server):
-    ckwa = dict(result_renderer='disabled')
+def test_submodule_url(tmp_path, existing_noannex_dataset, http_server,
+                       no_result_rendering):
     servepath = http_server.path
     url = http_server.url
     # a future subdataset that we want to register under a complex URL
@@ -320,7 +320,7 @@ def test_submodule_url(tmp_path, existing_noannex_dataset, http_server):
     ])
     tobesubds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # create a superdataset to register the subds to
-    super = Dataset(tmp_path / 'super').create(**ckwa)
+    super = Dataset(tmp_path / 'super').create()
     with patch.dict(
             "os.environ", {
                 "GIT_CONFIG_COUNT": "1",
@@ -332,11 +332,11 @@ def test_submodule_url(tmp_path, existing_noannex_dataset, http_server):
         super.clone(
             f'datalad-annex::{url}?type=web&url={{noquery}}&exporttree=yes',
             'subds',
-            **ckwa)
+        )
     # no clone the entire super
-    superclone = clone(super.path, tmp_path / 'superclone', **ckwa)
+    superclone = clone(super.path, tmp_path / 'superclone')
     # and auto-fetch the sub via the datalad-annex remote helper
-    superclone.get('subds', get_data=False, recursive=True, **ckwa)
+    superclone.get('subds', get_data=False, recursive=True)
     # we got the original subds
     subdsclone = Dataset(superclone.pathobj / 'subds')
     eq_(tobesubds.id, subdsclone.id)
