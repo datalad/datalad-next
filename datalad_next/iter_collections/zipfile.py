@@ -21,6 +21,23 @@ from .utils import (
 )
 
 
+class _ZipFileDirPath(PurePosixPath):
+    """PurePosixPath variant that appends a '/' to the str-representation
+
+    This is used by class:`ZipfileItem` to represent directory members in
+    ZIP archives, in order to streamline archive member tests via a
+    ``item.name in zipfile.ZipFile(...)`` pattern. ``ZipFile`` requires
+    directory members to be identified with a trailing slash.
+    """
+    def __str__(self) -> str:
+        return f'{super().__str__()}/'
+
+    def __eq__(self, other):
+        if not isinstance(other, _ZipFileDirPath):
+            return False
+        return super().__eq__(other)
+
+
 @dataclass
 class ZipfileItem(FileSystemItem):
     name: PurePosixPath
@@ -61,22 +78,24 @@ def iter_zip(
         for zip_info in zip_file.infolist():
             item = _get_zipfile_item(zip_info)
             if fp and item.type == FileSystemItemType.file:
-                with zip_file.open(zip_info) as fp:
-                    item.fp = fp
+                with zip_file.open(zip_info) as amfp:
+                    item.fp = amfp
                     yield item
             else:
                 yield item
 
 
 def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
-    mtype = (
-        FileSystemItemType.directory
-        if zip_info.is_dir()
-        else FileSystemItemType.file
-    )
     return ZipfileItem(
-        name=PurePosixPath(zip_info.filename),
-        type=mtype,
+        **(
+            dict(
+                name=_ZipFileDirPath(zip_info.filename),
+                type=FileSystemItemType.directory)
+            if zip_info.is_dir()
+            else dict(
+                name=PurePosixPath(zip_info.filename),
+                type=FileSystemItemType.file)
+        ),
         size=zip_info.file_size,
         mtime=time.mktime(
             datetime.datetime(*zip_info.date_time).timetuple()

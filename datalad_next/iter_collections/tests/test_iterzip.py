@@ -3,8 +3,9 @@ import zipfile
 from pathlib import PurePosixPath
 
 from ..zipfile import (
-    ZipfileItem,
     FileSystemItemType,
+    _ZipFileDirPath,
+    ZipfileItem,
     iter_zip,
 )
 
@@ -50,7 +51,7 @@ def test_iter_zip(sample_zip):
     root = PurePosixPath('test-archive')
     targets = [
         ZipfileItem(
-            name=root,
+            name=_ZipFileDirPath(root),
             type=FileSystemItemType.directory,
             size=0,
         ),
@@ -60,7 +61,7 @@ def test_iter_zip(sample_zip):
             size=8,
         ),
         ZipfileItem(
-            name=root / 'subdir',
+            name=_ZipFileDirPath(root, 'subdir'),
             type=FileSystemItemType.directory,
             size=0,
         ),
@@ -88,3 +89,15 @@ def test_iter_zip(sample_zip):
         r.mtime = None
     for t in targets:
         assert t in ires
+
+
+def test_zip_dir_path():
+    zp1 = _ZipFileDirPath("a/b")
+    zp2 = _ZipFileDirPath("a/b")
+    zp3 = _ZipFileDirPath("a/c")
+    pp = PurePosixPath("a/b")
+
+    assert zp1.as_posix()[-1] == '/'
+    assert zp1 == zp2
+    assert zp1 != zp3
+    assert zp1 != pp
