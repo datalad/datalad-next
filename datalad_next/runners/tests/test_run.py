@@ -89,6 +89,19 @@ if random.randrange(2) == 1:
     print(f'random additional output {time.time()}')
 '''
 
+# A program that takes exponentielly longer to respond. This is used to check
+# for killing while waiting for a yield.
+degrading_output_prog = '''
+import time
+
+i = 0
+while True:
+    print(i, flush=True)
+    i += 1
+    time.sleep(i**2 / 10)
+'''
+
+
 def test_sig_kill():
     with run(cmd=[sys.executable, '-u', '-c', uninterruptible_prog],
              protocol_class=StdOutCaptureGeneratorProtocol,
@@ -166,6 +179,18 @@ def test_internal_close_file():
                 break
             total += written
     assert r.return_code not in (0, None)
+
+
+def test_kill_yield():
+    # Check that a long next() on a result generator terminates the iteration
+    with run(cmd=[sys.executable, '-u', '-c', degrading_output_prog],
+             protocol_class=StdOutCaptureGeneratorProtocol,
+             terminate_time=3,
+             kill_time=2) as r:
+        tuple(r)
+    return_code = r.return_code
+    if os.name == 'posix':
+        assert return_code == -signal.SIGTERM
 
 
 def _check_signal_blocking(program: str):

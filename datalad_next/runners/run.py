@@ -5,6 +5,7 @@ can guarantee that the subprocess is terminated when the context is left.
 from __future__ import annotations
 
 import subprocess
+import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -96,6 +97,24 @@ def _create_kill_wrapper(cls: type[Protocol]) -> type[Protocol]:
             self.return_code = self.process.poll()
 
     return KillWrapper
+
+
+class KillingResultGenerator(Generator):
+    """ A generator wrapper the arms a kill-protocol while waiting for yield"""
+    def __init__(self, result_generator: Generator):
+        self.result_generator = result_generator
+
+    def send(self, value):
+        self.result_generator.runner.protocol.arm()
+        result = self.result_generator.send(value)
+        self.result_generator.runner.protocol.disarm()
+        return result
+
+    def __getattr__(self, item):
+        return getattr(self.result_generator, item)
+
+    def throw(self, exception_type, value=None, trace_back=None):
+        return Generator.throw(self, exception_type, value, trace_back)
 
 
 @contextmanager
@@ -222,7 +241,7 @@ def run(
         yield result
     else:
         try:
-            yield result
+            yield KillingResultGenerator(result)
         finally:
             # Arm the protocol, that will enable terminate signaling or kill
             # signaling, if terminate_time or kill_time are not None.
