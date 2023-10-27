@@ -21,15 +21,21 @@ from .utils import (
 )
 
 
-class ZipFileDirPath(PurePosixPath):
-    """Used to create proper names for directories in zip-archives"""
+class _ZipFileDirPath(PurePosixPath):
+    """PurePosixPath variant that appends a '/' to the str-representation
+
+    This is used by class:`ZipfileItem` to represent directory members in
+    ZIP archives, in order to streamline archive member tests via a
+    ``item.name in zipfile.ZipFile(...)`` pattern. ``ZipFile`` requires
+    directory members to be identified with a trailing slash.
+    """
     def __str__(self) -> str:
-        return PurePosixPath.__str__(self) + '/'
+        return f'{super().__str__()}/'
 
     def __eq__(self, other):
-        if not isinstance(other, ZipFileDirPath):
+        if not isinstance(other, _ZipFileDirPath):
             return False
-        return PurePosixPath.__eq__(self, other)
+        return super().__eq__(other)
 
 
 @dataclass
@@ -83,7 +89,7 @@ def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
     return ZipfileItem(
         **(
             dict(
-                name=ZipFileDirPath(zip_info.filename),
+                name=_ZipFileDirPath(zip_info.filename),
                 type=FileSystemItemType.directory)
             if zip_info.is_dir()
             else dict(
