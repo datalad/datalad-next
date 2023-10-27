@@ -248,7 +248,7 @@ def test_WithDescription(dataset):
         error_message_for_ds='dserror',
     )
     # function is maintained
-    assert c('5') is 5
+    assert c('5') == 5
     assert str(c) == '<EnsureInt with custom description>'
     assert repr(c) == \
         "WithDescription(EnsureInt(), " \
