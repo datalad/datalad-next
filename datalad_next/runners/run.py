@@ -69,6 +69,10 @@ def _create_kill_wrapper(cls: type[Protocol]) -> type[Protocol]:
             self.kill_counter = 0
             self.armed = True
 
+        def disarm(self) -> None:
+            self.kill_counter = 0
+            self.armed = False
+
         def connection_made(self, process: subprocess.Popen) -> None:
             self.process = process
             super().connection_made(process)
