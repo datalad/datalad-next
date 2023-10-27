@@ -23,6 +23,45 @@ from datalad_next.tests.utils import (
 lgr = logging.getLogger('datalad.next.tests.fixtures')
 
 
+@pytest.fixture(autouse=True, scope="session")
+def reduce_logging():
+    """Reduce the logging output during test runs
+
+    DataLad emits a large amount of repetitive INFO log messages that only
+    clutter the test output, and hardly ever help to identify an issue.
+    This fixture modifies the standard logger to throw away all INFO level
+    log messages.
+
+    With this approach, such messages are still fed to and processes by the
+    logger (in contrast to an apriori level setting).
+    """
+    dllgr = logging.getLogger('datalad')
+    # leave a trace that this is happening
+    dllgr.info("Test fixture starts suppressing INFO level messages")
+
+    class NoInfo(logging.Filter):
+        def filter(self, record):
+            # it seems unnecessary to special case progress logs, moreover
+            # not filtering them out will make clone/fetch/push very visible
+            # in the logs with trivial messages
+            #if hasattr(record, 'dlm_progress'):
+            #    # this is a progress log message that may trigger something
+            #    # a test is looking for
+            #    return True
+            if record.levelno == 20:
+                # this is a plain INFO message, ignore
+                return False
+            else:
+                return True
+
+    noinfo = NoInfo()
+    # we need to attach the filter to any handler to make it effective.
+    # adding to the logger only will not effect any log messages produced
+    # via descendant loggers
+    for hdlr in dllgr.handlers:
+        hdlr.addFilter(noinfo)
+
+
 @pytest.fixture(autouse=False, scope="function")
 def tmp_keyring():
     """Patch plaintext keyring to temporarily use a different storage

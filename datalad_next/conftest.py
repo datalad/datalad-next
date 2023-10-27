@@ -32,6 +32,8 @@ from datalad_next.tests.fixtures import (
     httpbin,
     # session-scope HTTPBIN instance startup and URLs
     httpbin_service,
+    # session-scope redirection of log messages
+    reduce_logging,
     # session-scope, standard webdav credential (full dict)
     webdav_credential,
     # function-scope, serve a local temp-path via WebDAV
