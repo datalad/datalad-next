@@ -283,9 +283,9 @@ test_script:
   - sh: mkdir __testhome__
   - cd __testhome__
     # run test selecion (--traverse-namespace needed from Python 3.8 onwards)
-  - cmd: python -m pytest -s -v -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --pyargs %DTS%
+  - cmd: python -m pytest -s -v --durations 20 -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --pyargs %DTS%
     # also add --cov datalad, because some core test runs may not touch -next code
-  - sh:  python -m pytest -s -v -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --pyargs ${DTS}
+  - sh:  python -m pytest -s -v --durations 20 -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --pyargs ${DTS}
 
 
 after_test:
