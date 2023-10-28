@@ -17,7 +17,7 @@ from datalad.utils import chpwd
 
 
 @pytest.fixture(autouse=False, scope="function")
-def nested_collections(tmp_path):
+def nested_collections(tmp_path, no_result_rendering):
     ds = Dataset(tmp_path).create()
     c1 = ds.create(ds.pathobj / 'subdir' / 'collection1')
     c1s1 = c1.create('sub1')
@@ -311,7 +311,7 @@ class _CreateFailureGitLab(_FakeGitLab):
         raise RuntimeError
 
 
-def test_fake_gitlab(tmp_path, monkeypatch):
+def test_fake_gitlab(tmp_path, monkeypatch, no_result_rendering):
     path = str(tmp_path)
     ds = Dataset(path).create()
     import datalad_next.patches.create_sibling_gitlab as glpatch

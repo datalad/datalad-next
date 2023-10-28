@@ -52,7 +52,7 @@ def eq_dla_branch_state(state, path, branch=DEFAULT_BRANCH):
     assert None, f'Could not find state for branch {branch} at {path}'
 
 
-def test_annex_remote(existing_noannex_dataset, tmp_path):
+def test_annex_remote(existing_noannex_dataset, tmp_path, no_result_rendering):
     remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
@@ -63,7 +63,7 @@ def test_annex_remote(existing_noannex_dataset, tmp_path):
     _check_push_fetch_cycle(ds, dlaurl, remotepath, tmp_path)
 
 
-def test_export_remote(existing_noannex_dataset, tmp_path):
+def test_export_remote(existing_noannex_dataset, tmp_path, no_result_rendering):
     remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
     dlaurl = \
@@ -243,7 +243,8 @@ def test_params_from_url():
          'url=http://example.com/path/to/something'])
 
 
-def test_typeweb_annex(existing_noannex_dataset, http_server, tmp_path):
+def test_typeweb_annex(existing_noannex_dataset, http_server, tmp_path,
+                       no_result_rendering):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none' \
@@ -257,7 +258,8 @@ def test_typeweb_annex(existing_noannex_dataset, http_server, tmp_path):
 
 
 # just to exercise the code path leading to an uncompressed ZIP
-def test_typeweb_annex_uncompressed(existing_noannex_dataset, http_server, tmp_path):
+def test_typeweb_annex_uncompressed(
+        existing_noannex_dataset, http_server, tmp_path, no_result_rendering):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none&dladotgit=uncompressed' \
@@ -270,7 +272,8 @@ def test_typeweb_annex_uncompressed(existing_noannex_dataset, http_server, tmp_p
     )
 
 
-def test_typeweb_export(existing_noannex_dataset, http_server, tmp_path):
+def test_typeweb_export(existing_noannex_dataset, http_server, tmp_path,
+                        no_result_rendering):
     _check_typeweb(
         # bypass the complications of folding a windows path into a file URL
         'datalad-annex::?type=directory&directory={export}&encryption=none&exporttree=yes' \
@@ -346,11 +349,11 @@ def test_webdav_auth(existing_noannex_dataset,
                      tmp_path,
                      credman,
                      webdav_credential,
-                     webdav_server):
+                     webdav_server,
+                     no_result_rendering):
     credman.set(**webdav_credential)
     # this is the dataset we want to roundtrip through webdav
     ds = existing_noannex_dataset
-
     remoteurl = \
         f'datalad-annex::{webdav_server.url}' \
         '?type=webdav&url={noquery}&encryption=none&' \

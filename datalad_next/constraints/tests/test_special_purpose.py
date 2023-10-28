@@ -296,7 +296,7 @@ def test_EnsureURL_match():
         c(url)
 
 
-def test_EnsureDataset(tmp_path):
+def test_EnsureDataset(tmp_path, no_result_rendering):
     with pytest.raises(ValueError):
         # will not return a Dataset from sensless input
         EnsureDataset()(5)
