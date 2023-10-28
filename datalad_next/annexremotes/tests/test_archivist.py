@@ -12,15 +12,12 @@ from datalad_next.runners import CommandError
 from datalad_next.tests.utils import assert_result_count
 
 
-nonoise = dict(result_renderer='disabled')
-
-
 @pytest.fixture(autouse=False, scope="function")
-def archivist_dataset(tmp_path_factory):
+def archivist_dataset(tmp_path_factory, no_result_rendering):
     wpath = tmp_path_factory.mktemp("archivistds")
     # now create a second dataset that can pull all its content from
     # archives
-    ads = Dataset(wpath / 'archiveds').create(**nonoise)
+    ads = Dataset(wpath / 'archiveds').create()
     # configure the archivist special remote for all dl_archive URL
     # handling
     ads.repo.call_annex([
@@ -32,7 +29,8 @@ def archivist_dataset(tmp_path_factory):
 
 
 @pytest.fixture(autouse=False, scope="function")
-def populated_archivist_dataset(archivist_dataset, tmp_path_factory):
+def populated_archivist_dataset(
+        archivist_dataset, tmp_path_factory, no_result_rendering):
     """Returns a path to generated dataset
 
     This dataset references an annex archive with no other annexed files.
@@ -59,12 +57,12 @@ def populated_archivist_dataset(archivist_dataset, tmp_path_factory):
         ('atar/file1.txt', 'tarfile1'),
         ('atar/file2.csv', 'tarfile2_muchcontent'),
     )
-    srcds = Dataset(wpath / 'srcds').create(**nonoise)
+    srcds = Dataset(wpath / 'srcds').create()
     for fpath, fcontent in dscontent:
         fpath = srcds.pathobj / (PurePosixPath(fpath))
         fpath.parent.mkdir(parents=True, exist_ok=True)
         fpath.write_text(fcontent)
-    srcds.save(**nonoise)
+    srcds.save()
 
     archive_root = wpath / 'myarchive'
     #archivetype = 'zip'
@@ -79,8 +77,7 @@ def populated_archivist_dataset(archivist_dataset, tmp_path_factory):
         archive_path_inds = ads.pathobj / '.archives' / archive_path.name
         # create an archive, the easy way, by simply exporting the
         # entire dataset worktree
-        srcds.export_archive(archive_root, archivetype=archivetype,
-                             **nonoise)
+        srcds.export_archive(archive_root, archivetype=archivetype)
         assert archive_path.exists()
 
         # add the archive (in a hidden dir) to be able to reference
@@ -88,11 +85,11 @@ def populated_archivist_dataset(archivist_dataset, tmp_path_factory):
         aurl = archive_path.as_uri()
         ads.repo.call_annex([
             'addurl', '--file', str(archive_path_inds), aurl])
-        ads.save(**nonoise)
+        ads.save()
         # get the key of the archive
         akeys[archivetype] = ads.status(
             archive_path_inds, annex='basic', return_type='item-or-list',
-            **nonoise)['key']
+        )['key']
     return ads, akeys, archive_root, dscontent
 
 
@@ -126,8 +123,6 @@ def _check_archivist_addurl(atypes, ads, akeys, archive_root, dscontent):
 
 
 def _check_archivist_retrieval(archivist_dataset):
-    nonoise = dict(result_renderer='disabled')
-
     ads, akeys, archive_root, dscontent = archivist_dataset
 
     # step 1: addurl
@@ -140,7 +135,7 @@ def _check_archivist_retrieval(archivist_dataset):
     )
 
     # make a clean dataset
-    ads.save(**nonoise)
+    ads.save()
 
     # step 2: drop keys with dl+archive: URLs
     # now drop all archive member content. this should work,
@@ -148,8 +143,8 @@ def _check_archivist_retrieval(archivist_dataset):
     # -- hence always another copy
     # this requires archivist's CHECKPRESENT to function properly
     # no ZIP just yet
-    #res = ads.drop(['azip', 'atar'], **nonoise)
-    res = ads.drop(['atar'], **nonoise)
+    #res = ads.drop(['azip', 'atar'])
+    res = ads.drop(['atar'])
     assert_result_count(
         res,
         # all files, plus the two directories we gave as arguments
@@ -162,8 +157,8 @@ def _check_archivist_retrieval(archivist_dataset):
 
     # step 3: retrieve keys with dl+archive: URLs from locally present archives
     # no ZIP just yet
-    #res = ads.get(['azip', 'atar'], **nonoise)
-    res = ads.get(['atar'], **nonoise)
+    #res = ads.get(['azip', 'atar'])
+    res = ads.get(['atar'])
     assert_result_count(
         res,
         # no ZIP just yet
@@ -184,7 +179,7 @@ def _check_archivist_retrieval(archivist_dataset):
     # without the archives no longer being around, it would requires remote
     # access or download to actually verify continued presence.
     # force this condition by dropping the archive keys first
-    res = ads.drop('.archives', **nonoise)
+    res = ads.drop('.archives')
     assert_result_count(
         res,
         # a tar and a zip
@@ -197,8 +192,8 @@ def _check_archivist_retrieval(archivist_dataset):
     )
     # and 4a now drop the keys that have their content from archives
     # no ZIP just yet
-    #res = ads.drop(['azip', 'atar'], **nonoise)
-    res = ads.drop(['atar'], **nonoise)
+    #res = ads.drop(['azip', 'atar'])
+    res = ads.drop(['atar'])
     assert_result_count(
         res,
         # no ZIP just yet
@@ -210,8 +205,8 @@ def _check_archivist_retrieval(archivist_dataset):
     )
     # and now get again, this time with no archives around locally
     # no ZIP just yet
-    #res = ads.get(['azip', 'atar'], **nonoise)
-    res = ads.get(['atar'], **nonoise)
+    #res = ads.get(['azip', 'atar'])
+    res = ads.get(['atar'])
     assert_result_count(
         res,
         # no ZIP just yet
@@ -227,10 +222,10 @@ def _check_archivist_retrieval(archivist_dataset):
             continue
         assert (ads.pathobj / fpath).read_text() == fcontent
     # and drop everything again to leave the dataset empty
-    res = ads.drop(['.'], **nonoise)
+    res = ads.drop(['.'])
 
 
-def test_archivist_retrieval(populated_archivist_dataset):
+def test_archivist_retrieval(populated_archivist_dataset, no_result_rendering):
     _check_archivist_retrieval(populated_archivist_dataset)
 
     # the following is either not possible or not identical between archivist
@@ -253,7 +248,8 @@ def test_archivist_retrieval(populated_archivist_dataset):
         ads.repo.call_annex(['fsck', '-f', 'archivist', 'atar'])
 
 
-def test_archivist_retrieval_legacy(populated_archivist_dataset, monkeypatch):
+def test_archivist_retrieval_legacy(
+        populated_archivist_dataset, monkeypatch, no_result_rendering):
     """Same as test_archivist_retrieval(), but performs everything via the
     datalad-core provided datalad-archives special remote code
     """

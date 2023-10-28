@@ -32,14 +32,12 @@ def test_ls_file_collection_insufficient_args():
 
 
 @skipif_no_network
-def test_ls_file_collection_tarfile(sample_tar_xz):
-    kwa = dict(result_renderer='disabled')
+def test_ls_file_collection_tarfile(sample_tar_xz, no_result_rendering):
     # smoke test first
     res = ls_file_collection(
         'tarfile',
         sample_tar_xz,
         hash='md5',
-        **kwa
     )
     assert len(res) == 6
     # test a few basic properties that should be true for any result
@@ -58,23 +56,21 @@ def test_ls_file_collection_tarfile(sample_tar_xz):
         assert r['type'] in ('file', 'directory', 'symlink', 'hardlink')
 
 
-def test_ls_file_collection_directory(tmp_path):
-    kwa = dict(result_renderer='disabled')
+def test_ls_file_collection_directory(tmp_path, no_result_rendering):
     # smoke test on an empty dir
-    res = ls_file_collection('directory', tmp_path, **kwa)
+    res = ls_file_collection('directory', tmp_path)
     assert len(res) == 0
 
 
-def test_ls_file_collection_gitworktree(existing_dataset):
-    kwa = dict(result_renderer='disabled')
+def test_ls_file_collection_gitworktree(existing_dataset, no_result_rendering):
     # smoke test on a plain dataset
-    res = ls_file_collection('gitworktree', existing_dataset.pathobj, **kwa)
+    res = ls_file_collection('gitworktree', existing_dataset.pathobj)
     assert len(res) > 1
     assert all('gitsha' in r for r in res)
 
     # and with hashing
     res_hash = ls_file_collection('gitworktree', existing_dataset.pathobj,
-                                  hash='md5', **kwa)
+                                  hash='md5')
     assert len(res) == len(res_hash)
     assert all('hash-md5' in r for r in res_hash)
 
@@ -87,16 +83,15 @@ def test_ls_file_collection_validator():
 
 
 @skipif_no_network
-def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
-    kwa = dict(result_renderer='disabled')
-
+def test_replace_add_archive_content(sample_tar_xz, existing_dataset,
+                                     no_result_rendering):
     ds = existing_dataset
     archive_path = ds.pathobj / '.datalad' / 'myarchive.tar.xz'
     # get archive copy in dataset (not strictly needed, but
     # add-archive-content worked like this
-    ds.download({sample_tar_xz.as_uri(): archive_path}, **kwa)
+    ds.download({sample_tar_xz.as_uri(): archive_path})
     # properly safe to dataset (download is ignorant of datasets)
-    res = ds.save(message='add archive', **kwa)
+    res = ds.save(message='add archive')
     # the first result has the archive addition, snatch the archive key from it
     assert res[0]['path'] == str(archive_path)
     archive_key = res[0]['key']
@@ -112,7 +107,7 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
     # including `ls-file-collection` executed on a different host).
     file_recs = [
         r for r in ls_file_collection(
-            'tarfile', sample_tar_xz, hash=['md5'], **kwa
+            'tarfile', sample_tar_xz, hash=['md5'],
         )
         # ignore any non-file, would not have an annex key.
         # Also ignores hardlinks (they consume no space (size=0), but could be
@@ -141,7 +136,6 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
         # filenameformat
         '{item}',
         key='et:MD5-s{size}--{hash-md5}',
-        **kwa
     )
     # because we have  been adding the above URLs using a pure metadata-driven
     # approach, git-annex does not yet know that the archives remote actually
@@ -159,8 +153,8 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset):
     # check retrieval for a test file, which is not yet around
     testfile = ds.pathobj / 'test-archive' / '123_hard.txt'
     assert ds.status(
-        testfile, annex='availability', **kwa)[0]['has_content'] is False
-    ds.get(testfile, **kwa)
+        testfile, annex='availability')[0]['has_content'] is False
+    ds.get(testfile)
     assert testfile.read_text() == '123\n'
 
 

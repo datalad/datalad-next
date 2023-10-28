@@ -29,10 +29,6 @@ std_initargs = [
     'encryption=none',
 ]
 
-res_kwargs = dict(
-    result_renderer='disabled',
-)
-
 
 class NoOpAnnex:
     def error(*args, **kwargs):
@@ -151,7 +147,8 @@ def test_uncurl_checkurl(httpbin, tmp_path):
 
 
 # sibling of `test_uncurl_checkurl()`, but more high-level
-def test_uncurl_addurl_unredirected(existing_dataset, httpbin):
+def test_uncurl_addurl_unredirected(
+        existing_dataset, httpbin, no_result_rendering):
     # this is the URL against which the httpbin calls will be made
     hbsurl = httpbin['standard']
 
@@ -168,7 +165,7 @@ def test_uncurl_addurl_unredirected(existing_dataset, httpbin):
     dsca(['addurl', '--file=dummy', testurl])
     # we got what we expected
     assert ds.status(
-        'dummy', annex='basic', return_type='item-or-list', **res_kwargs
+        'dummy', annex='basic', return_type='item-or-list',
         )['bytesize'] == 24
     # make sure git-annex recorded an unmodified URL
     assert any(testurl in r.get('urls', [])
@@ -200,7 +197,7 @@ def test_uncurl(existing_dataset, tmp_path):
 # RIA tooling is not working for this test on windows
 # https://github.com/datalad/datalad/issues/7212
 @skip_if_on_windows
-def test_uncurl_ria_access(tmp_path):
+def test_uncurl_ria_access(tmp_path, no_result_rendering):
     """
     - create dataset with test file and push into RIA store
     - create INDEPENDENT dataset and 'addurl' test file directly from RIA
@@ -214,14 +211,14 @@ def test_uncurl_ria_access(tmp_path):
     """
     # we create a dataset to bootstrap the test setup, with on file
     # of known content
-    srcds = EnsureDataset()(tmp_path / 'srcds').ds.create(**res_kwargs)
+    srcds = EnsureDataset()(tmp_path / 'srcds').ds.create()
     testfile_content = 'mikewashere!'
     (srcds.pathobj / 'testfile.txt').write_text(testfile_content)
-    srcds.save(**res_kwargs)
+    srcds.save()
     # pull out some essential properties for the underlying key for later
     # use in this test
     testkey_props = srcds.status(
-        'testfile.txt', annex='basic', return_type='item-or-list', **res_kwargs)
+        'testfile.txt', annex='basic', return_type='item-or-list')
     testkey_props = {
         k: v for k, v in testkey_props.items()
         if k in ('key', 'hashdirmixed', 'hashdirlower')
@@ -234,14 +231,13 @@ def test_uncurl_ria_access(tmp_path):
         f'ria+{baseurl}',
         name='ria',
         new_store_ok=True,
-        **res_kwargs
     )
-    srcds.push(to='ria', **res_kwargs)
+    srcds.push(to='ria')
     # setup is done
 
     # start of the actual test
     # create a fresh dataset
-    ds = EnsureDataset()(tmp_path / 'testds').ds.create(**res_kwargs)
+    ds = EnsureDataset()(tmp_path / 'testds').ds.create()
     dsca = ds.repo.call_annex
     # we add uncurl WITH NO config whatsoever.
     # this must be enough to be able to use the built-in downloaders
@@ -258,20 +254,20 @@ def test_uncurl_ria_access(tmp_path):
     # the new dataset
     assert ds.status(
         target_fname, annex='basic', return_type='item-or-list',
-        **res_kwargs)['key'] == testkey_props['key']
+        )['key'] == testkey_props['key']
 
     # now we drop the key...
-    ds.drop(target_fname, **res_kwargs)
+    ds.drop(target_fname)
     assert not ds.status(
         target_fname, annex='availability', return_type='item-or-list',
-        **res_kwargs)['has_content']
+        )['has_content']
     # ...and we move the RIA store to break the recorded
     # URL (simulating an infrastructure change)
     (tmp_path / 'ria').rename(tmp_path / 'ria_moved')
 
     # verify that no residual magic makes data access possible
     with pytest.raises(IncompleteResultsError):
-        ds.get(target_fname, **res_kwargs)
+        ds.get(target_fname)
 
     # fix it via an access URL config,
     # point directly via a hard-coded dataset ID
@@ -280,17 +276,17 @@ def test_uncurl_ria_access(tmp_path):
         tmp_path / "ria_moved" / srcds.id[:3] / srcds.id[3:]
         ).as_uri() + '/annex/objects/{annex_dirhash}/{annex_key}/{annex_key}'
     ds.configuration(
-        'set', f'remote.myuncurl.uncurl-url={url_tmpl}', **res_kwargs)
+        'set', f'remote.myuncurl.uncurl-url={url_tmpl}')
     # confirm checkpresent acknowledges this
     dsca(['fsck', '-q', '-f', 'myuncurl'])
     # confirm transfer_retrieve acknowledges this
-    ds.get(target_fname, **res_kwargs)
+    ds.get(target_fname)
 
     # but we can also do without hard-coding anything, so let's drop again
-    ds.drop(target_fname, **res_kwargs)
+    ds.drop(target_fname)
     assert not ds.status(
         target_fname, annex='availability', return_type='item-or-list',
-        **res_kwargs)['has_content']
+        )['has_content']
 
     # for that we need to add a match expression that can "understand"
     # the original URL. All we need is to distinguish the old base path
@@ -300,26 +296,26 @@ def test_uncurl_ria_access(tmp_path):
         'set',
         'remote.myuncurl.uncurl-match='
         'file://(?P<basepath>.*)/(?P<dsdir>[^/]+/[^/]+)/annex/objects/.*$',
-        scope='local', **res_kwargs)
+        scope='local')
     # NOTE: last line is no f-string!
     url_tmpl = (tmp_path / "ria_moved").as_uri() \
         + '/{dsdir}/annex/objects/{annex_dirhash}/{annex_key}/{annex_key}'
     ds.configuration(
         'set', f'remote.myuncurl.uncurl-url={url_tmpl}',
-        scope='local', **res_kwargs)
+        scope='local')
     # confirm checkpresent acknowledges this
     dsca(['fsck', '-q', '-f', 'myuncurl'])
     # confirm transfer_retrieve acknowledges this
-    ds.get(target_fname, **res_kwargs)
+    ds.get(target_fname)
     assert (ds.pathobj / target_fname).read_text() == testfile_content
 
 
-def test_uncurl_store(tmp_path, existing_dataset):
+def test_uncurl_store(tmp_path, existing_dataset, no_result_rendering):
     ds = existing_dataset
     testfile = ds.pathobj / 'testfile1.txt'
     testfile_content = 'uppytyup!'
     testfile.write_text(testfile_content)
-    ds.save(**res_kwargs)
+    ds.save()
     dsca = ds.repo.call_annex
     # init the remote with a template that places keys in the same structure
     # as annex/objects within a bare remote repo
@@ -333,7 +329,7 @@ def test_uncurl_store(tmp_path, existing_dataset):
     dsca(['fsck', '-q', '-f', 'myuncurl'])
     # doublecheck
     testfile_props = ds.status(testfile, annex='basic',
-                               return_type='item-or-list', **res_kwargs)
+                               return_type='item-or-list')
     assert (tmp_path / testfile_props['hashdirlower'] /
             testfile_props['key'] / testfile_props['key']
         ).read_text() == testfile_content
@@ -342,10 +338,10 @@ def test_uncurl_store(tmp_path, existing_dataset):
                for v in ds.repo.whereis(str(testfile), output='full').values())
     # yet we can retrieve via uncurl, because local key properties are enough
     # to fill the template
-    ds.drop(testfile, **res_kwargs)
+    ds.drop(testfile)
     assert not ds.status(
         testfile, annex='availability', return_type='item-or-list',
-        **res_kwargs)['has_content']
+        )['has_content']
     dsca(['copy', '-f', 'myuncurl', str(testfile)])
     assert testfile.read_text() == testfile_content
 
@@ -361,17 +357,17 @@ def test_uncurl_store(tmp_path, existing_dataset):
     )
     with pytest.raises(CommandError):
         dsca(['fsck', '-q', '-f', 'myuncurl'])
-    with pytest.raises(CommandError) as exc:
+    with pytest.raises(CommandError):
         dsca(['copy', '-t', 'myuncurl', str(testfile)])
 
 
 @skip_ssh
-def test_uncurl_store_via_ssh(tmp_path, existing_dataset):
+def test_uncurl_store_via_ssh(tmp_path, existing_dataset, no_result_rendering):
     ds = existing_dataset
     testfile = ds.pathobj / 'testfile1.txt'
     testfile_content = 'uppytyup!'
     testfile.write_text(testfile_content)
-    ds.save(**res_kwargs)
+    ds.save()
     dsca = ds.repo.call_annex
     # init the remote with a template that places keys in the same structure
     # as annex/objects within a bare remote repo
@@ -385,7 +381,7 @@ def test_uncurl_store_via_ssh(tmp_path, existing_dataset):
     dsca(['fsck', '-q', '-f', 'myuncurl'])
 
 
-def test_uncurl_remove(existing_dataset, tmp_path):
+def test_uncurl_remove(existing_dataset, tmp_path, no_result_rendering):
     testfile = tmp_path / 'testdeposit' / 'testfile1.txt'
     testfile_content = 'uppytyup!'
     testfile.parent.mkdir()
@@ -408,11 +404,11 @@ def test_uncurl_remove(existing_dataset, tmp_path):
     ds.configuration(
         'set',
         'remote.myuncurl.uncurl-match=file://(?P<allofit>.*)$',
-        scope='local', **res_kwargs)
+        scope='local')
     # and the presence of a tmpl enables deletion
     ds.configuration(
         'set', 'remote.myuncurl.uncurl-url=file://{allofit}',
-        scope='local', **res_kwargs)
+        scope='local')
     dsca(['drop', '-f', 'myuncurl', str(target_fname)])
     assert not testfile.exists()
 

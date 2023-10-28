@@ -16,7 +16,7 @@ from datalad.distributed.tests.test_create_sibling_gogs import *
 
 # we overwrite this one from core, because it assumed the old credential
 # system to be used
-def test_invalid_call(dataset, existing_dataset):
+def test_invalid_call(dataset, existing_dataset, no_result_rendering):
     # no dataset
     assert_raises(ValueError, dataset.create_sibling_gin, 'bogus')
     ds = existing_dataset
@@ -26,8 +26,7 @@ def test_invalid_call(dataset, existing_dataset):
         ds.create_sibling_gin, 'bo  gus', credential='some')
 
     # conflicting sibling name
-    ds.siblings('add', name='gin', url='http://example.com',
-                result_renderer='disabled')
+    ds.siblings('add', name='gin', url='http://example.com')
     res = ds.create_sibling_gin(
         'bogus', name='gin', credential='some', on_failure='ignore',
         dry_run=True)

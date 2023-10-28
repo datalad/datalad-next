@@ -26,21 +26,24 @@ from datalad_next.utils import chpwd
 
 
 def test_common_workflow_implicit_cred(
-        credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server,
+        no_result_rendering):
     check_common_workflow(
         False, 'annex',
         credman, existing_dataset, tmp_path, webdav_credential, webdav_server)
 
 
 def test_common_workflow_explicit_cred(
-        credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server,
+        no_result_rendering):
     check_common_workflow(
         True, 'annex',
         credman, existing_dataset, tmp_path, webdav_credential, webdav_server)
 
 
 def test_common_workflow_export(
-        credman, existing_dataset, tmp_path, webdav_credential, webdav_server):
+        credman, existing_dataset, tmp_path, webdav_credential, webdav_server,
+        no_result_rendering):
     check_common_workflow(
         False, 'filetree',
         credman, existing_dataset, tmp_path, webdav_credential, webdav_server)
@@ -50,14 +53,13 @@ def check_common_workflow(
         declare_credential, mode,
         credman, ds, clonepath, webdav_credential, webdav_server):
     credman.set(**webdav_credential)
-    ca = dict(result_renderer='disabled')
     # need to amend the test credential, can only do after we know the URL
     ds.credentials(
         'set',
         name=webdav_credential['name'],
         # the test webdav webserver uses a realm label '/'
         spec=dict(realm=webdav_server.url + '/'),
-        **ca)
+    )
 
     # we use a nasty target directory that has the potential to ruin the
     # git-remote URL handling
@@ -71,7 +73,7 @@ def check_common_workflow(
             credential=webdav_credential['name']
             if declare_credential else None,
             mode=mode,
-            **ca)
+        )
     assert_in_results(
         res,
         action='create_sibling_webdav.storage',
@@ -107,8 +109,8 @@ def check_common_workflow(
     ok_(targetdir.exists())
     # add some annex payload
     (ds.pathobj / 'testfile.dat').write_text('dummy')
-    ds.save(**ca)
-    res = ds.push(to='127.0.0.1', **ca)
+    ds.save()
+    res = ds.push(to='127.0.0.1')
     assert_in_results(
         res,
         action='copy',
@@ -124,7 +126,7 @@ def check_common_workflow(
             # strip http://
             url=url[7:],
         )
-    dsclone = clone(cloneurl, clonepath, **ca)
+    dsclone = clone(cloneurl, clonepath)
     # we get the same thing
     eq_(ds.repo.get_hexsha(ds.repo.get_corresponding_branch()),
         dsclone.repo.get_hexsha(dsclone.repo.get_corresponding_branch()))
@@ -132,10 +134,10 @@ def check_common_workflow(
     # check that it auto-deploys webdav credentials
     # at some point, clone should be able to do this internally
     # https://github.com/datalad/datalad/issues/6634
-    dsclone.siblings('enable', name='127.0.0.1-storage', **ca)
+    dsclone.siblings('enable', name='127.0.0.1-storage')
     # verify that we can get testfile.dat
     # just get the whole damn thing
-    assert_status('ok', dsclone.get('.', **ca))
+    assert_status('ok', dsclone.get('.'))
     # verify testfile content
     eq_('dummy', (dsclone.pathobj / 'testfile.dat').read_text())
     # ensure that recursive operations succeed
@@ -153,7 +155,7 @@ def check_common_workflow(
             name='recursive-sibling',
             mode=mode,
             recursive=True,
-            **ca)
+        )
         assert len(res) == 4  # 2 for create-sibling-webdav, 2 for storage
     assert_in_results(
         res,
@@ -264,13 +266,12 @@ def test_unused_storage_name_warning(existing_dataset):
 
 
 def test_existing_switch(existing_dataset, credman, webdav_credential,
-                         webdav_server):
+                         webdav_server, no_result_rendering):
     credman.set(**webdav_credential)
     check_existing_switch(existing_dataset, webdav_credential, webdav_server)
 
 
 def check_existing_switch(ds, webdav_credential, webdav_server):
-    ca = dict(result_renderer='disabled')
     create_tree(
         ds.path,
         {'sub': {'f0': '0'},
@@ -280,10 +281,10 @@ def check_existing_switch(ds, webdav_credential, webdav_server):
     )
     # use a tricky name: '3f7' will be the hashdir of the XDLRA
     # key containing the superdataset's datalad-annex archive after a push
-    sub = ds.create('3f7', force=True, **ca)
-    sub2 = ds.create('sub2', force=True, **ca)
-    subsub = sub2.create('subsub', force=True, **ca)
-    ds.save(recursive=True, **ca)
+    sub = ds.create('3f7', force=True)
+    sub2 = ds.create('sub2', force=True)
+    subsub = sub2.create('subsub', force=True)
+    ds.save(recursive=True)
 
     url = webdav_server.url
     # need to amend the test credential, can only do after we know the URL
@@ -292,16 +293,15 @@ def check_existing_switch(ds, webdav_credential, webdav_server):
         name=webdav_credential['name'],
         # the test webdav webserver uses a realm label '/'
         spec=dict(realm=url + '/'),
-        **ca)
+    )
 
-    subsub.create_sibling_webdav(f'{url}/sub2/subsub', mode='annex',
-                                 **ca)
-    sub2.create_sibling_webdav(f'{url}/sub2', mode='annex-only', **ca)
-    sub.create_sibling_webdav(f'{url}/3f7', mode='git-only', **ca)
+    subsub.create_sibling_webdav(f'{url}/sub2/subsub', mode='annex')
+    sub2.create_sibling_webdav(f'{url}/sub2', mode='annex-only')
+    sub.create_sibling_webdav(f'{url}/3f7', mode='git-only')
 
     res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='skip',
-                                   recursive=True, **ca)
+                                   recursive=True)
     dlaurl='datalad-annex::?type=webdav&encryption=none&exporttree=no&' \
            'url=http%3A//127.0.0.1%3A43612/'
 
@@ -382,7 +382,7 @@ def check_existing_switch(ds, webdav_credential, webdav_server):
     # should fail upfront with first discovered remote that already exist
     res = ds.create_sibling_webdav(
         url, mode='annex', existing='error', recursive=True,
-        on_failure='ignore', **ca)
+        on_failure='ignore')
     assert_result_count(res, 8, status='error', type='sibling')
     # Note: 'message' is expected to be a tuple (and always present).
     assert all("is already configured" in r['message'][0] for r in res)
@@ -396,7 +396,7 @@ def check_existing_switch(ds, webdav_credential, webdav_server):
     # existing=skip actually doesn't do anything (other than yielding notneeded)
     res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='skip',
-                                   recursive=True, **ca)
+                                   recursive=True)
     assert_result_count(res, 8, status='notneeded')
     remote_content = list(srv_rt.glob('**'))
     assert len(remote_content) == 1  # nothing but root dir
@@ -407,7 +407,7 @@ def check_existing_switch(ds, webdav_credential, webdav_server):
     new_root = srv_rt / 'reconfigure'
     res = ds.create_sibling_webdav(url, mode='annex',
                                    existing='reconfigure',
-                                   recursive=True, **ca)
+                                   recursive=True)
     assert_result_count(res, 8, status='ok')
     assert all(r['action'].startswith('reconfigure_sibling_webdav')
                for r in res)

@@ -54,10 +54,10 @@ class DoBatch(ValidatedInterface):
             )
 
 
-def test_dobatch(monkeypatch):
+def test_dobatch(monkeypatch, no_result_rendering):
     data_in = '{"this":[1,2,3],"noise":"some"}\n{"this":true}'
     monkeypatch.setattr('sys.stdin', StringIO(data_in))
-    res = DoBatch.__call__('-', result_renderer='disabled')
+    res = DoBatch.__call__('-')
     assert len(res) == 2
     assert res[0]['selected'] == [1, 2, 3]
     assert res[1]['selected'] is True
@@ -65,7 +65,7 @@ def test_dobatch(monkeypatch):
     # now we have an intermediate error
     monkeypatch.setattr('sys.stdin', StringIO('bug\n' + data_in))
     res = DoBatch.__call__(
-        '-', on_failure='ignore', result_renderer='disabled')
+        '-', on_failure='ignore')
     assert len(res) == 3
     assert res[0]['status'] == 'error'
     assert 'Expecting value' in res[0]['error_message']

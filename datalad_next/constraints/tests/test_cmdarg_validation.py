@@ -197,7 +197,7 @@ def test_invalid_multi_validation():
         val(valid_input)
 
 
-def test_cmd_with_validation():
+def test_cmd_with_validation(no_result_rendering):
     target_urls = ['http://example.com', 'file:///dev/null']
     target_url_path_maps = [
         {'http://example.com': Path('some/dir/file')},
@@ -227,7 +227,7 @@ def test_cmd_with_validation():
     ):
         res = CmdWithValidation.__call__(
             input,
-            return_type='item-or-list', result_renderer='disabled',
+            return_type='item-or-list',
         )
         assert 'spec' in res
         assert res['spec'] == target
@@ -241,14 +241,14 @@ def test_cmd_with_validation():
             f.seek(0)
             res = CmdWithValidation.__call__(
                 f.name,
-                return_type='item-or-list', result_renderer='disabled',
+                return_type='item-or-list',
             )
             assert res['spec'] == target_url_path_maps
 
     with patch("sys.stdin", StringIO(json_lines)):
         res = CmdWithValidation.__call__(
             '-',
-            return_type='item-or-list', result_renderer='disabled',
+            return_type='item-or-list',
         )
         assert res['spec'] == target_url_path_maps
 
@@ -259,7 +259,7 @@ def test_cmd_with_validation():
     with pytest.raises(ValueError):
         CmdWithValidation.__call__(
             'unsupported',
-            return_type='item-or-list', result_renderer='disabled',
+            return_type='item-or-list',
         )
 
     # no call with a required argument missing
