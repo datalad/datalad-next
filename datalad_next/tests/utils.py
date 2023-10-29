@@ -89,6 +89,9 @@ class WebDAVPath(object):
             "port": 43612,
             "provider_mapping": {"/": str(self.path)},
             "simple_dc": {"user_mapping": {'*': auth}},
+            # disable DAV server logging to avoid clustering the test output
+            # unless logger runs at least on debug log level
+            "logging": {"enable": lgr.isEnabledFor(10)},
         }
         app = WsgiDAVApp(config)
         self.server = wsgi.Server(
