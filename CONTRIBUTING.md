@@ -35,7 +35,7 @@ A contribution must be complete with code, tests, and documentation.
 
 `datalad-next` is a staging area for features, hence any code is expected to move and morph. Therefore, tests are essential. A high test-coverage is desirable. Contributors should aim for 95% coverage or better. Tests must be dedicated for the code of a particular contribution. It is not sufficient, if other code happens to also exercise a new feature.
 
-New code should be type-annotated. At minimum, a type annotation of the main API (e.g., function signatures) is needed.
+New code should be type-annotated. At minimum, a type annotation of the main API (e.g., function signatures) is needed. A dedicated CI run is testing type annotations.
 
 Docstrings should be complete with information on parameters, return values, and exception behavior. Documentation should be added to and rendered with the sphinx-based documentation.
 
@@ -116,3 +116,9 @@ The use of helpers like `assert_equal` is not allowed.
 A *temporary* exception *may* be the helpers that are imported in `datalad_next.tests.utils`.
 However, these will be reduced and removed over time, and additional usage only adds to the necessary refactoring effort.
 Therefore new usage is highly discouraged.
+
+### Test output
+
+Tests should be silent on stdout/stderr as much as possible.
+In particular, result renderings of DataLad commands must no be produced, unless necessary for testing a particular feature.
+A `no_result_rendering` fixture can be used to turn it off, without adding complexity to test implementations.

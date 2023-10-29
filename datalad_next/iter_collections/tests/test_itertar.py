@@ -34,10 +34,11 @@ def sample_tar_xz(tmp_path_factory):
     """
     path = tmp_path_factory.mktemp("tarfile")
     tfpath = path / 'sample.tar.xz'
-    download({
-        'https://github.com/datalad/datalad-next/releases/download/0.1.0/test_archive.tar.xz':
-        tfpath
-    })
+    download(
+        {'https://github.com/datalad/datalad-next/releases/download/0.1.0/test_archive.tar.xz':
+         tfpath},
+        result_renderer='disabled',
+    )
 
     yield tfpath
 

@@ -34,7 +34,7 @@ def hbscred(hbsurl):
     )
 
 
-def test_download(tmp_path, http_server):
+def test_download(tmp_path, http_server, no_result_rendering):
     wdir = tmp_path
     srvurl = http_server.url
     (http_server.path / 'testfile.txt').write_text('test')
@@ -70,7 +70,7 @@ def test_download(tmp_path, http_server):
         1, status='error', message='download failure')
 
 
-def test_download_invalid_calls(monkeypatch):
+def test_download_invalid_calls(monkeypatch, no_result_rendering):
     # unsupported url scheme, only detected when actually calling
     # a handler inside, hence error result
     assert_result_count(
@@ -96,7 +96,8 @@ def test_download_invalid_calls(monkeypatch):
 
 
 def test_download_auth(
-        tmp_path, credman, http_credential, http_server_with_basicauth):
+        tmp_path, credman, http_credential, http_server_with_basicauth,
+        no_result_rendering):
     credman.set(**http_credential)
     wdir = tmp_path
     srvurl = http_server_with_basicauth.url
@@ -121,7 +122,8 @@ def test_download_auth(
 auth_ok_response = {"authenticated": True, "user": "mike"}
 
 
-def test_download_basic_auth(credman, capsys, hbscred, hbsurl):
+def test_download_basic_auth(credman, capsys, hbscred, hbsurl,
+                             no_result_rendering):
     credman.set(hbscred[0], **hbscred[1])
     # consume stdout to make test self-contained
     capsys.readouterr()
@@ -142,7 +144,8 @@ def test_download_bearer_token_auth(credman, capsys, hbsurl):
     }
 
 
-def test_download_digest_auth(credman, capsys, hbscred, hbsurl):
+def test_download_digest_auth(credman, capsys, hbscred, hbsurl,
+                              no_result_rendering):
     credman.set(hbscred[0],
                 **dict(hbscred[1],
                        realm=f'{hbsurl}/me@kennethreitz.com'))
@@ -179,7 +182,8 @@ def test_download_auth_after_redirect(credman, capsys, hbscred, hbsurl):
     assert json.loads(capsys.readouterr().out) == auth_ok_response
 
 
-def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin):
+def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin,
+                                             no_result_rendering):
     credman.set(hbscred[0], **hbscred[1])
     redirect_url = f'{httpbin["http"]}/basic-auth/mike/dummy'
     res = download(
@@ -204,7 +208,8 @@ def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin):
 
 
 def test_download_new_bearer_token(
-        tmp_keyring, capsys, hbsurl, datalad_interactive_ui):
+        tmp_keyring, capsys, hbsurl, datalad_interactive_ui,
+        no_result_rendering):
     ui = datalad_interactive_ui
     ui.staged_responses.extend([
         'token123',
@@ -228,7 +233,8 @@ def test_download_new_bearer_token(
 
 
 def test_download_new_bearer_token_nosave(
-        capsys, hbsurl, datalad_interactive_ui):
+        capsys, hbsurl, datalad_interactive_ui,
+        no_result_rendering):
     ui = datalad_interactive_ui
     ui.staged_responses.extend([
         'datalad_uniquetoken123',
@@ -245,13 +251,13 @@ def test_download_new_bearer_token_nosave(
 
 # make sure a 404 is easily discoverable
 # https://github.com/datalad/datalad/issues/6545
-def test_download_404(hbsurl):
+def test_download_404(hbsurl, no_result_rendering):
     assert_result_count(
         download(f'{hbsurl}/status/404', on_failure='ignore'),
         1, status_code=404, status='error')
 
 
-def test_downloadurl(tmp_path):
+def test_downloadurl(tmp_path, no_result_rendering):
     (tmp_path / 'src').mkdir()
     dst_path = tmp_path / 'dst'
     dst_path.mkdir()

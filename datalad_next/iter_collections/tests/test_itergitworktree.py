@@ -80,7 +80,7 @@ def test_iter_gitworktree(existing_dataset):
     assert checked_untracked
 
 
-def test_name_starting_with_tab(existing_dataset):
+def test_name_starting_with_tab(existing_dataset, no_result_rendering):
     ds = existing_dataset
     if ds.repo.is_crippled_fs():
         pytest.skip("not applicable on crippled filesystems")

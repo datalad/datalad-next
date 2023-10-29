@@ -12,7 +12,7 @@ from datalad_next.datasets import Dataset
 
 # we override this specific test, because the original behavior is no longer
 # value, because our implementation behaves "better"
-def test_gh1811(tmp_path):
+def test_gh1811(tmp_path, no_result_rendering):
     srcpath = tmp_path / 'src'
     clonepath = tmp_path / 'clone'
     # `annex=false` is the only change from the -core implementation
