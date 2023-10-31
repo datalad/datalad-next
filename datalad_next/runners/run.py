@@ -132,6 +132,7 @@ def run(
     terminate_time: int | None = None,
     kill_time: int | None = None,
     protocol_kwargs: dict | None = None,
+    **kwargs,
 ) -> Any | Generator:
     """ A context manager for subprocesses
 
@@ -199,6 +200,11 @@ def run(
     protocol_kwargs : dict
         A dictionary with Keyword arguments that will be used when
         instantiating the protocol class.
+    kwargs : **kwargs
+        All other keyword arguments are forwarded the ``subprocess.Popen`` call
+        that is used to start the subprocess. Note: some keywords are set
+        internally by the underlying class :class:``ThreadedRunner``. The values
+        given here will be ignored for those keywords.
 
     Yields
     -------
@@ -237,6 +243,7 @@ def run(
         timeout=timeout,
         exception_on_error=False,
         cwd=cwd,
+        **kwargs,
     )
     result = runner.run()
     # We distinguish between a non-generator run, i,e. a blocking run and
