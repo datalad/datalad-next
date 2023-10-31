@@ -1,10 +1,9 @@
 """Constraints for Git-related concepts and parameters"""
 
-from datalad_next.runners import (
-    CommandError,
-    GitRunner,
-    StdOutCapture,
-)
+# We use GitRunner only to provide the adjusted environment
+from datalad.runner import GitRunner as _EnvAdjuster
+from datalad_next.runners import StdOutCapture
+from datalad_next.runners.run import run
 
 from .base import Constraint
 
@@ -43,7 +42,6 @@ class EnsureGitRefName(Constraint):
             # simple, do here
             self.raise_for(value, 'refname must not be empty')
 
-        runner = GitRunner()
         cmd = ['git', 'check-ref-format']
         cmd.append('--allow-onelevel'
                    if self._allow_onelevel
@@ -55,18 +53,13 @@ class EnsureGitRefName(Constraint):
 
         cmd.append(value)
 
-        try:
-            out = runner.run(cmd, protocol=StdOutCapture)
-        except CommandError as e:
-            self.raise_for(
-                value,
-                'is not a valid refname',
-                __caused_by__=e,
-            )
+        applied_env = _EnvAdjuster()._get_adjusted_env()
 
-        if self._normalize:
-            return out['stdout'].strip()
-        else:
+        with run(cmd, protocol_class=StdOutCapture, env=applied_env) as out:
+            if out['code'] != 0:
+                self.raise_for(value,'is not a valid refname')
+            if self._normalize:
+                return out['stdout'].strip()
             return value
 
     def short_description(self):
