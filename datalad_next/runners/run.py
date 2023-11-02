@@ -5,7 +5,6 @@ can guarantee that the subprocess is terminated when the context is left.
 from __future__ import annotations
 
 import subprocess
-import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
