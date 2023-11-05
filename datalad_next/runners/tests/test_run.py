@@ -378,3 +378,22 @@ def test_run_nongenerator():
         assert res['code'] == 0
         assert res['stdout'] == 'outy'
         assert res['stderr'] == 'error'
+
+
+def test_run_exception_in_context(monkeypatch):
+    # Check that an exception in the context is logged and re-raises:
+    warnings = []
+    monkeypatch.setattr(
+        'datalad_next.runners.run.lgr.warning',
+        lambda s: warnings.append(s)
+    )
+    with pytest.raises(ValueError):
+        with run([
+                sys.executable, '-u', '-c',
+                'import time\n'
+                'time.sleep(5)\n'
+            ],
+            StdOutCaptureGeneratorProtocol,
+        ):
+            raise ValueError('Something')
+    assert warnings[0].startswith('Possible stall:')

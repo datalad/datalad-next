@@ -4,6 +4,7 @@ can guarantee that the subprocess is terminated when the context is left.
 """
 from __future__ import annotations
 
+import logging
 import subprocess
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -21,6 +22,9 @@ from . import (
     GeneratorMixIn,
     Protocol,
 )
+
+
+lgr = logging.getLogger('datalad.ext.next.runners.run')
 
 
 def _create_kill_wrapper(cls: type[Protocol]) -> type[Protocol]:
@@ -252,6 +256,16 @@ def run(
     else:
         try:
             yield KillingResultGenerator(result)
+        except:
+            import sys, time
+            e = sys.exc_info()[1]
+            lgr.warning(
+                f'Possible stall: exception ({e!r}) raised in '
+                f'run-context ({cmd!r}), waiting for subprocess exit. If the '
+                f'subprocess exit was not triggered yet, and if no termination-'
+                f' or kill-timeout is active, this might wait forever.'
+            )
+            raise
         finally:
             # Arm the protocol, that will enable terminate signaling or kill
             # signaling, if terminate_time or kill_time are not None.
