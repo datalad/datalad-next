@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -257,14 +258,14 @@ def run(
         try:
             yield KillingResultGenerator(result)
         except:
-            import sys, time
             e = sys.exc_info()[1]
-            lgr.warning(
-                f'Possible stall: exception ({e!r}) raised in '
-                f'run-context ({cmd!r}), waiting for subprocess exit. If the '
-                f'subprocess exit was not triggered yet, and if no termination-'
-                f' or kill-timeout is active, this might wait forever.'
-            )
+            if kill_time is None:
+                lgr.warning(
+                    f'Possible stall: exception ({e!r}) raised in '
+                    f'run-context ({cmd!r}) without kill-timeout. Waiting for '
+                    f'subprocess exit, If subprocess exit was not triggered yet, '
+                    f'this might wait forever.'
+                )
             raise
         finally:
             # Arm the protocol, that will enable terminate signaling or kill
@@ -276,5 +277,9 @@ def run(
             # the result code of the terminated process.
             # NOTE: if terminate_time and kill_time are both None, this might
             # loop forever.
+            lgr.debug(
+                f'Waiting for termination of {cmd!r}, terminate_time: '
+                f'{terminate_time!r}, kill_time: {kill_time!r}'
+            )
             for _ in result:
                 pass

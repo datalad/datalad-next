@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from queue import Queue
 from random import randint
-from typing import Generator
 
 import pytest
 
@@ -380,20 +379,32 @@ def test_run_nongenerator():
         assert res['stderr'] == 'error'
 
 
-def test_run_exception_in_context(monkeypatch):
-    # Check that an exception in the context is logged and re-raises:
+@pytest.mark.parametrize(
+    'termination_time,kill_time,expect_warning',
+    [
+        (1, None, True),
+        (None, 1, False),
+        (1, 1, False),
+        (None, None, True),
+    ]
+)
+def test_run_exception_in_context(monkeypatch, termination_time, kill_time, expect_warning):
+    # Check that an exception in the context is re-raised, and that a
+    # stall-warning is emitted, if no timeout was set.
     warnings = []
     monkeypatch.setattr(
         'datalad_next.runners.run.lgr.warning',
         lambda s: warnings.append(s)
     )
+
     with pytest.raises(ValueError):
-        with run([
-                sys.executable, '-u', '-c',
-                'import time\n'
-                'time.sleep(5)\n'
-            ],
-            StdOutCaptureGeneratorProtocol,
-        ):
+        with run([sys.executable, '-u', '-c', 'import time\ntime.sleep(2)\n'],
+                 StdOutCaptureGeneratorProtocol,
+                 terminate_time=termination_time,
+                 kill_time=kill_time):
             raise ValueError('Something')
-    assert warnings[0].startswith('Possible stall:')
+    if expect_warning:
+        assert len(warnings) == 1
+        assert warnings[0].startswith('Possible stall:')
+    else:
+        assert len(warnings) == 0
