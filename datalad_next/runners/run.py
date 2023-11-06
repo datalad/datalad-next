@@ -1,6 +1,53 @@
 """
 This module provides a run-context manager that executes a subprocess and
 can guarantee that the subprocess is terminated when the context is left.
+
+.. autoclass:: datalad.runner.nonasyncrunner.ThreadedRunner
+   :members: __init__
+
+   .. method:: run()
+
+      Run the command as specified in __init__.
+
+      This method is not re-entrant. Furthermore, if the protocol is a
+      subclass of `GeneratorMixIn`, and the generator has not been
+      exhausted, i.e. it has not raised `StopIteration`, this method should
+      not be called again. If it is called again before the generator is
+      exhausted, a `RuntimeError` is raised. In the non-generator case, a
+      second caller will be suspended until the first caller has returned.
+
+      Returns
+      -------
+      Any
+          If the protocol is not a subclass of `GeneratorMixIn`, the
+          result of protocol._prepare_result will be returned.
+
+      Generator
+          If the protocol is a subclass of `GeneratorMixIn`, a Generator
+          will be returned. This allows to use this method in constructs
+          like:
+
+          .. code-block:: python
+
+              for protocol_output in runner.run():
+                  ...
+
+          Where the iterator yields whatever protocol.pipe_data_received
+          sends into the generator.
+          If all output was yielded and the process has terminated, the
+          generator will raise StopIteration(return_code), where
+          return_code is the return code of the process. The return code
+          of the process will also be stored in the "return_code"-attribute
+          of the runner. So you could write:
+
+          .. code-block:: python
+
+             gen = runner.run()
+             for file_descriptor, data in gen:
+                 ...
+             # get the return code of the process
+             result = gen.return_code
+
 """
 from __future__ import annotations
 
@@ -108,7 +155,7 @@ def _create_kill_wrapper(cls: type[Protocol]) -> type[Protocol]:
 
 
 class KillingResultGenerator(Generator):
-    """ A generator wrapper the arms a kill-protocol while waiting for yield"""
+    """ A generator wrapper that arms a kill-protocol while waiting for yield"""
     def __init__(self, result_generator: Generator):
         self.result_generator = result_generator
 
@@ -140,10 +187,11 @@ def run(
 ) -> Any | Generator:
     """ A context manager for subprocesses
 
-    The run-context manager will start a subprocess via ``ThreadedRunner``,
-    provide the result of the subprocess invocation, i.e. the result of
-    ``ThreadedRunner.run()`` in the ``as``-variable, and
-    clean up the subprocess when the context is left.
+    The run-context manager will start a subprocess via
+    :py:class:`datalad.runner.nonasyncrunner.ThreadedRunner`, provide the result
+    of the subprocess invocation, i.e. the result of
+    :meth:`datalad.runner.nonasyncrunner.ThreadedRunner.run` in the
+    ``as``-variable, and clean up the subprocess when the context is left.
 
     The run-context manager supports the guaranteed exit of a subprocess through
     either:
@@ -178,8 +226,9 @@ def run(
     Parameters
     ----------
     cmd : list[str]
-        The command list that is passed to ``ThreadedRunner.run()``
-    protocol_class : type[Protocol]
+        The command list that is passed to
+        :meth:`datalad.runner.nonasyncrunner.ThreadedRunner.run`
+    protocol_class : type[datalad_next.runners.Protocol]
         The protocol class that should be used to process subprocess events.
     cwd: Path, optional
         If provided, defines the current work directory for the subprocess
@@ -213,7 +262,8 @@ def run(
     Yields
     -------
     Any | Generator
-        The result of the invocation of :meth:`ThreadedRunner.run` is returned.
+        The result of the invocation of
+        :meth:`datalad.runner.nonasyncrunner.ThreadedRunner.run` is returned.
     """
     introduced_timeout = False
     if timeout is None:
