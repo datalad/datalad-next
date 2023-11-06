@@ -204,10 +204,10 @@ def run(
     protocol_kwargs : dict
         A dictionary with Keyword arguments that will be used when
         instantiating the protocol class.
-    kwargs : **kwargs
+    kwargs : dict
         All other keyword arguments are forwarded the ``subprocess.Popen`` call
         that is used to start the subprocess. Note: some keywords are set
-        internally by the underlying class :class:``ThreadedRunner``. The values
+        internally by the underlying class :class:`ThreadedRunner`. The values
         given here will be ignored for those keywords.
 
     Yields

@@ -75,7 +75,7 @@ are provided in ``datalad_next.runners``
    StdErrCapture
    StdOutErrCapture
 
-In addition ``datalad_next.runners```provides the following asynchronous
+In addition, ``datalad_next.runners`` provides the following asynchronous
 protocols:
 
 .. autosummary::
@@ -89,8 +89,7 @@ Low-level tooling
 -----------------
 The ``run``-context uses the class :class:`ThreadedRunner` to execute
 subprocesses. Additional information on the design of :class:`ThreadedRunner`
- is available from https://docs.datalad.org/design/threaded_runner.html
-
+is available from https://docs.datalad.org/design/threaded_runner.html
 """
 
 # protocols
