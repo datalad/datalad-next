@@ -163,7 +163,7 @@ def iter_annexworktree(
 
         # Remaining git ls-files results are all unannexed, yield them.
         assert len(gaf_store) == 0
-        for path, glf_item in glf_store.items():
+        for glf_item in glf_store.values():
             yield AnnexWorktreeItem(
                 name=glf_item.name,
                 gitsha=glf_item.gitsha,
