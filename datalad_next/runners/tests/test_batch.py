@@ -17,6 +17,9 @@ from ..batch import (
 )
 
 
+bulk_test_rounds = 200000
+
+
 # A batch program that takes exponentially longer to respond. This is used to
 # check for killing while waiting for `BatchProcess.__call__` to return.
 degrading_batch_prog = '''
@@ -241,4 +244,30 @@ def test_line_batch(separator, end):
         assert r == 'read: def'
         r = batch_process.close_stdin()
         assert r == 'closed'
+    assert batch_process.return_code == 0
+
+
+def test_batch_performance_intertwined():
+    prog = line_echo_batch_prog.format(end="\\n")
+    with stdoutline_batchcommand(
+            cmd=[sys.executable, "-u", "-c", prog]
+    ) as batch_process:
+        for i in range(bulk_test_rounds):
+            r = batch_process(f"{i}\n".encode())
+            assert r == f"read: {i}"
+    assert batch_process.return_code == 0
+
+
+def test_batch_performance_bulk():
+    prog = line_echo_batch_prog.format(end="\\n")
+    with stdoutline_batchcommand(
+            cmd=[sys.executable, "-u", "-c", prog]
+    ) as batch_process:
+        for i in range(bulk_test_rounds):
+            batch_process._stdin_queue.put(f"{i}\n".encode())
+
+        for i in range(bulk_test_rounds):
+            r = next(batch_process._rgen)
+            assert r == f"read: {i}"
+
     assert batch_process.return_code == 0
