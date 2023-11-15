@@ -1,16 +1,14 @@
 import io
 import sys
-import subprocess
 import threading
 import time
-import unittest
 import zipfile
 
 import psutil
 import pytest
 from threading import Thread
 
-from iterable_subprocess import IterableSubprocessError, iterable_subprocess
+from .iterable_subprocess import IterableSubprocessError, iterable_subprocess
 
 
 def test_cat_not_necessarily_streamed():
@@ -50,10 +48,13 @@ def test_cat_streamed():
 
 
 def test_process_closed_after():
-    assert len(psutil.Process().children(recursive=True)) == 0
+    # in datalad-next we do not necessarily have no child-processes
+    # so determine the number of test incrementally
+    #assert len(psutil.Process().children(recursive=True)) == 0
+    n_children = len(psutil.Process().children(recursive=True))
     with iterable_subprocess(['cat'], ()) as output:
-        assert len(psutil.Process().children(recursive=True)) == 1
-    assert len(psutil.Process().children(recursive=True)) == 0
+        assert len(psutil.Process().children(recursive=True)) == (n_children + 1)
+    assert len(psutil.Process().children(recursive=True)) == n_children
 
 
 def test_exception_from_input_before_yield_propagated():
