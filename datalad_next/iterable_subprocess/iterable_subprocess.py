@@ -7,7 +7,7 @@ from threading import Thread
 @contextmanager
 def iterable_subprocess(program, input_chunks, chunk_size=65536):
     # This context starts a thread that populates the subprocess's standard input. It
-    # also starts a threads that reads the proceses standard error. Otherwise we risk
+    # also starts a threads that reads the process's standard error. Otherwise we risk
     # a deadlock - there is no output because the process is waiting for more input.
     #
     # This itself introduces its own complications and risks, but hopefully mitigated
@@ -31,7 +31,7 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
     # - Wait for the standard error thread to exit
     # - Wait for the process to exit
     #
-    # By using context managers internally, this also gives quite strong guarentees that
+    # By using context managers internally, this also gives quite strong guarantees that
     # the above order is enforced to make sure the thread doesn't send data to the process
     # whose standard input is closed and so we don't get BrokenPipe errors
 
