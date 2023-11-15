@@ -26,3 +26,11 @@ documentation is covered by the MIT license.
   THE SOFTWARE.
 
 See CONTRIBUTORS file for a full list of contributors.
+
+# 3rd-party code
+
+A copy of https://github.com/uktrade/iterable-subprocess is included at
+`datalad_next/iterable_subprocess`. It was written by
+Michal Charemza for UK Department of Business and Trade, and was made
+available under the terms of the MIT license.
+See `datalad_next/iterable_subprocess/LICENSE`.
