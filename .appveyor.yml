@@ -212,7 +212,7 @@ init:
   #- cmd: powershell tools\ci\appveyor_enable_windevmode.ps1
   # enable RDP access on windows (RDP password is in appveyor project config)
   # this is relatively expensive (1-2min), but very convenient to jump into any build at any time
-  - cmd: powershell.exe iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
   # Identity setup
   - git config --global user.email "test@appveyor.land"
   - git config --global user.name "Appveyor Almighty"
