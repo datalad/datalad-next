@@ -166,7 +166,8 @@ def test_if_process_exits_with_non_zero_error_code_and_inner_exception_it_propag
             all_output = b''.join(output)
             raise Exception('Another exception')
 
-    assert all_output == b'After output\n'
+    # rstrip to account for different platform line endings here
+    assert all_output.rstrip() == b'After output'
 
 
 
@@ -181,7 +182,8 @@ def test_if_process_closes_standard_input_but_exits_with_non_zero_error_code_the
         ], yield_input()) as output:
             all_output = b''.join(output)
 
-    assert all_output == b'After output\n'
+    # rstrip to account for different platform line endings here
+    assert all_output.rstrip() == b'After output'
 
 
 def test_if_process_closes_standard_input_but_exits_with_non_zero_error_code_then_iterable_subprocess_error():
@@ -195,9 +197,10 @@ def test_if_process_closes_standard_input_but_exits_with_non_zero_error_code_the
         ], yield_input()) as output:
             all_output = b''.join(output)
 
-    assert all_output == b'After output\n'
+    # rstrip to account for different platform line endings here
+    assert all_output.rstrip() == b'After output'
     assert excinfo.value.returncode == 3
-    assert excinfo.value.stderr == b'The error\n'
+    assert excinfo.value.stderr.rstrip()== b'The error'
 
 
 def test_program_that_outputs_for_a_long_time_is_interrupted_on_context_exit():
