@@ -75,11 +75,25 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
                     stdin.write(chunk)
                 except BrokenPipeError:
                     raise _BrokenPipeError()
+                except OSError as e:
+                    if e.errno != 22:
+                        # Errno22 indicates an IO failure with a
+                        # file descriptor (maybe process is dead already)
+                        raise _BrokenPipeError()
+                    else:
+                        # no idea what this could be, let it bubble up
+                        raise
         finally:
             try:
                 stdin.close()
             except BrokenPipeError:
                 raise _BrokenPipeError()
+            except OSError as e:
+                # silently ignore Errno22, which happens on
+                # windows when trying to interacted with file descriptors
+                # associated with a process that exited already
+                if e.errno != 22:
+                    raise
 
     def output_from(stdout):
         while True:

@@ -213,7 +213,8 @@ def test_program_that_outputs_for_a_long_time_is_interrupted_on_context_exit():
     end = time.monotonic()
 
     assert excinfo.value.returncode != 0
-    assert b'BrokenPipeError' in excinfo.value.stderr
+    # alternative condition reflects error communication on windows (errno22)
+    assert b'BrokenPipeError' in excinfo.value.stderr or b'Errno 22' in excinfo.value.stderr
     assert end - start < 10
 
 
