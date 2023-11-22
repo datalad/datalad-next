@@ -23,6 +23,7 @@ packages.
    credman
    datasets
    exceptions
+   itertools
    iter_collections
    runners
    tests.fixtures
