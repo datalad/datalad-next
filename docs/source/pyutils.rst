@@ -19,6 +19,7 @@ packages.
    commands
    config
    constraints
+   consts
    credman
    datasets
    exceptions
