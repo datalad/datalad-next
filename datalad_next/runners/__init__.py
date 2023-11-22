@@ -7,7 +7,7 @@ This module provides all relevant components for subprocess execution.
 Low-level tooling
 -----------------
 
-Two essential process execution/management utilities are provided, for
+Few process execution/management utilities are provided, for
 generic command execution, and for execution command in the context
 of a Git repository.
 
@@ -16,6 +16,7 @@ of a Git repository.
 
    GitRunner
    Runner
+   iter_subproc
 
 Additional information on the design of the subprocess execution tooling
 is available from https://docs.datalad.org/design/threaded_runner.html
@@ -40,6 +41,8 @@ inspired by ``asyncio.SubprocessProtocol``.
    StdErrCapture
    StdOutErrCapture
 """
+
+from .iter_subproc import iter_subproc
 
 # runners
 from datalad.runner import (
