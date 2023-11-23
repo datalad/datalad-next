@@ -1,4 +1,4 @@
-""" Generator the emits only complete lines """
+""" Function that yields only complete lines built from its input """
 
 from __future__ import annotations
 
@@ -13,20 +13,21 @@ __all__ = ['itemize']
 
 def itemize(
     iterable: Iterable[bytes | str],
-    separator: str | bytes | None = None,
+    sep: str | bytes | None = None,
     keep_ends: bool = False,
 ) -> Generator[bytes | str, None, None]:
-    """ Generator that emits only complete items from chunks of an iterable
+    """ Function that only yields complete items, assembled from an iterable
 
-    This generator consumes chunks from an iterable and yields items defined by
+    This function consumes chunks from an iterable and yields items defined by
     a separator. An item might span multiple input chunks.
 
-    Items are defined by a ``separator``. If ``separator`` is ``None``, the
-    line-separators built into `str.plitlines` are used.
+    Items are defined by a separator given in ``sep``. If ``separator`` is
+    ``None``, the line-separators built into `splitlines` are used, and each
+    yielded item will be a line.
 
     The generator works on string or byte chunks, depending on the type of the
     first element in ``iterable``. During its runtime, the type of the elements
-    in ``iterable`` must not change. If ``separator`` is not `None`, its type
+    in ``iterable`` must not change. If ``sep`` is not `None`, its type
     must match the type of the elements in ``iterable``.
 
     The complexity of itemization without a defined separator is higher than
@@ -44,7 +45,7 @@ def itemize(
     ----------
     iterable: Iterable[bytes | str]
         The iterable that yields the input data
-    separator: str | bytes | None
+    sep: str | bytes | None
         The separator that defines items. If ``None``, the items are
         determined by the line-separators that are built into `splitlines`.
     keep_ends: bool
@@ -56,20 +57,20 @@ def itemize(
     ------
     bytes | str
         The items determined from the input iterable. The type of the yielded
-        lines depends on the type of the first element in ``iterable``.
+        items depends on the type of the first element in ``iterable``.
     """
-    if separator is None:
+    if sep is None:
         yield from _split_lines(iterable, keep_ends=keep_ends)
     else:
-        yield from _split_lines_with_separator(
+        yield from _split_items_with_separator(
             iterable,
-            separator=separator,
+            sep=sep,
             keep_ends=keep_ends,
         )
 
 
-def _split_lines_with_separator(iterable: Iterable[bytes | str],
-                                separator: str | bytes,
+def _split_items_with_separator(iterable: Iterable[bytes | str],
+                                sep: str | bytes,
                                 keep_ends: bool = False,
                                 ) -> Generator[bytes | str, None, None]:
     assembled = None
@@ -78,20 +79,20 @@ def _split_lines_with_separator(iterable: Iterable[bytes | str],
             assembled = chunk
         else:
             assembled += chunk
-        lines = assembled.split(sep=separator)
-        if len(lines) == 1:
+        items = assembled.split(sep=sep)
+        if len(items) == 1:
             continue
 
-        if assembled.endswith(separator):
+        if assembled.endswith(sep):
             assembled = None
         else:
-            assembled = lines[-1]
-        lines.pop(-1)
+            assembled = items[-1]
+        items.pop(-1)
         if keep_ends:
-            for line in lines:
-                yield line + separator
+            for item in items:
+                yield item + sep
         else:
-            yield from lines
+            yield from items
 
     if assembled:
         yield assembled

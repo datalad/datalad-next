@@ -1,4 +1,4 @@
-"""Iterator that decodes bytes into strings"""
+""" Function that yields strings decoded from chunks of bytes """
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def decode_bytes(
     Parameters
     ----------
     iterable: Iterable[bytes]
-        Iterable that yields bytes that should be decoded.
+        Iterable that yields bytes that should be decoded
     encoding: str (default: ``'utf-8'``)
         Encoding to be used for decoding.
     backslash_replace: bool (default: ``True``)

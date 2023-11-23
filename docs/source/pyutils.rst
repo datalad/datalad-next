@@ -25,6 +25,7 @@ packages.
    exceptions
    itertools
    iter_collections
+   itertools
    runners
    tests.fixtures
    types
