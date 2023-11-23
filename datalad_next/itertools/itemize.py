@@ -13,7 +13,8 @@ __all__ = ['itemize']
 
 def itemize(
     iterable: Iterable[bytes | str],
-    separator: str | bytes | None = None,
+    separator: str | bytes | None,
+    *,
     keep_ends: bool = False,
 ) -> Generator[bytes | str, None, None]:
     """ Generator that emits only complete items from chunks of an iterable
