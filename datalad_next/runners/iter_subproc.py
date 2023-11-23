@@ -13,6 +13,7 @@ def iter_subproc(
     *,
     input: List[bytes] | None = None,
     chunk_size: int = COPY_BUFSIZE,
+    bufsize: int = -1,
 ):
     """Context manager to communicate with a subprocess using iterables
 
@@ -35,6 +36,9 @@ def iter_subproc(
       subprocess's ``stdin``.
     chunk_size: int, optional
       Size of chunks to read from the subprocess's stdout/stderr in bytes.
+    bufsize: int, optional
+      Buffer size to use for the subprocess's ``stdin``, ``stdout``, and
+      ``stderr``. See ``subprocess.Popen`` for details.
 
     Returns
     -------
@@ -54,4 +58,5 @@ def iter_subproc(
         args,
         tuple() if input is None else input,
         chunk_size=chunk_size,
+        buf_size=-1,
     )

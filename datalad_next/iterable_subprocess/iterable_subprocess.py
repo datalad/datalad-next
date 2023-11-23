@@ -5,7 +5,7 @@ from threading import Thread
 
 
 @contextmanager
-def iterable_subprocess(program, input_chunks, chunk_size=65536):
+def iterable_subprocess(program, input_chunks, chunk_size=65536, bufsize=-1):
     # This context starts a thread that populates the subprocess's standard input. It
     # also starts a threads that reads the process's standard error. Otherwise we risk
     # a deadlock - there is no output because the process is waiting for more input.
@@ -126,7 +126,7 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
     try:
 
         with \
-                Popen(program, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc, \
+                Popen(program, stdin=PIPE, stdout=PIPE, stderr=PIPE, bufsize=bufsize) as proc, \
                 thread(keep_only_most_recent, proc.stderr, stderr_deque) as (start_t_stderr, join_t_stderr), \
                 thread(input_to, proc.stdin) as (start_t_stdin, join_t_stdin):
 
