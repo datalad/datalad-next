@@ -32,14 +32,14 @@ def test_assembling_and_splitting(input_chunks, separator):
     assert len(r) == 3
     assert empty.join(r) == empty.join(input_chunks)
 
-    r = tuple(itemize(input_chunks, separator=separator, keep_ends=True))
+    r = tuple(itemize(input_chunks, sep=separator, keep_ends=True))
     assert len(r) == 3
     assert empty.join(r) == empty.join(input_chunks)
 
-    r = tuple(itemize(input_chunks, separator=separator))
+    r = tuple(itemize(input_chunks, sep=separator))
     assert len(r) == 3
     assert empty.join(r) == empty.join(input_chunks).replace(separator, empty)
 
-    r = tuple(itemize(input_chunks + input_chunks[:1], separator=separator, keep_ends=True))
+    r = tuple(itemize(input_chunks + input_chunks[:1], sep=separator, keep_ends=True))
     assert len(r) == 4
     assert r[3] == input_chunks[0]

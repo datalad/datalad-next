@@ -266,7 +266,7 @@ def _git_ls_files(path, *args):
         yield from decode_bytes(
             itemize(
                 r,
-                separator=b'\0',
+                sep=b'\0',
                 keep_ends=False,
             )
         )
