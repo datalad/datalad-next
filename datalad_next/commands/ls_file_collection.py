@@ -59,6 +59,9 @@ from datalad_next.iter_collections.gitworktree import (
     GitWorktreeFileSystemItem,
     iter_gitworktree,
 )
+from datalad_next.iter_collections.annexworktree import (
+    iter_annexworktree,
+)
 
 
 lgr = getLogger('datalad.local.ls_file_collection')
@@ -72,6 +75,7 @@ _supported_collection_types = (
     'directory',
     'tarfile',
     'gitworktree',
+    'annexworktree',
 )
 
 
@@ -110,7 +114,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         hash = kwargs['hash']
         iter_fx = None
         iter_kwargs = None
-        if type in ('directory', 'tarfile', 'gitworktree'):
+        if type in ('directory', 'tarfile', 'gitworktree', 'annexworktree'):
             if not isinstance(collection, Path):
                 self.raise_for(
                     kwargs,
@@ -131,6 +135,9 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         elif type == 'gitworktree':
             iter_fx = iter_gitworktree
             item2res = gitworktreeitem_to_dict
+        elif type == 'annexworktree':
+            iter_fx = iter_annexworktree
+            item2res = annexworktreeitem_to_dict
         else:
             raise RuntimeError(
                 'unhandled collection-type: this is a defect, please report.')
@@ -202,6 +209,17 @@ def gitworktreeitem_to_dict(item, hash) -> Dict:
 
     if gittype is not None:
         d['gittype'] = gittype
+    return d
+
+
+def annexworktreeitem_to_dict(item, hash) -> Dict:
+    d = gitworktreeitem_to_dict(item, hash)
+    if item.annexkey:
+        d['annexkey'] = item.annexkey
+
+    if item.annexsize:
+        d['annexsize'] = item.annexsize
+
     return d
 
 
