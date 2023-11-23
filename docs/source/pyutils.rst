@@ -19,9 +19,11 @@ packages.
    commands
    config
    constraints
+   consts
    credman
    datasets
    exceptions
+   itertools
    iter_collections
    runners
    tests.fixtures

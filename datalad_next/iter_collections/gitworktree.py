@@ -20,11 +20,10 @@ from typing import (
     Tuple,
 )
 
-from datalad_next.runners import (
-    DEVNULL,
-    LineSplitter,
-    ThreadedRunner,
-    StdOutCaptureGeneratorProtocol,
+from datalad_next.runners import iter_subproc
+from datalad_next.itertools import (
+    decode_bytes,
+    itemize,
 )
 
 from .utils import (
@@ -250,23 +249,20 @@ def _lsfiles_line2props(
 
 
 def _git_ls_files(path, *args):
-    # we use a plain runner to avoid the overhead of a GitRepo instance
-    runner = ThreadedRunner(
-        cmd=[
-            'git', 'ls-files',
-            # we rely on zero-byte splitting below
-            '-z',
-            # otherwise take whatever is coming in
-            *args,
-        ],
-        protocol_class=StdOutCaptureGeneratorProtocol,
-        stdin=DEVNULL,
-        # run in the directory we want info on
-        cwd=path,
-    )
-    line_splitter = LineSplitter('\0', keep_ends=False)
-    # for each command output chunk received by the runner
-    for content in runner.run():
-        # for each zerobyte-delimited "line" in the output
-        for line in line_splitter.process(content.decode('utf-8')):
-            yield line
+    with iter_subproc(
+            [
+                'git', '-C', str(path),
+                'ls-files',
+                # we rely on zero-byte splitting below
+                '-z',
+                # otherwise take whatever is coming in
+                *args,
+            ],
+    ) as r:
+        yield from decode_bytes(
+            itemize(
+                r,
+                separator=b'\0',
+                keep_ends=False,
+            )
+        )
