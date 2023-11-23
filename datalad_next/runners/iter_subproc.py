@@ -53,5 +53,5 @@ def iter_subproc(
     return iterable_subprocess(
         args,
         tuple() if input is None else input,
-        chunk_size=COPY_BUFSIZE,
+        chunk_size=chunk_size,
     )
