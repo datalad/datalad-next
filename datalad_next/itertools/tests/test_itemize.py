@@ -28,7 +28,7 @@ byte_chunks_other = [chunk.encode() for chunk in text_chunks_other]
 def test_assembling_and_splitting(input_chunks, separator):
     empty = input_chunks[0][:0]
 
-    r = tuple(itemize(input_chunks, keep_ends=True))
+    r = tuple(itemize(input_chunks, None, keep_ends=True))
     assert len(r) == 3
     assert empty.join(r) == empty.join(input_chunks)
 
