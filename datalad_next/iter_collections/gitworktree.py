@@ -13,7 +13,6 @@ from pathlib import (
     PurePath,
     PurePosixPath,
 )
-import re
 from typing import (
     Dict,
     Generator,
@@ -25,6 +24,10 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
+from datalad_next.utils import external_versions
+# Kludge: Filter out paths starting with .git/ to work around
+# an `ls-files -o` bug that was fixed in Git 2.25.
+git_needs_filter_kludge = external_versions['cmd:git'] < '2.25'
 
 from .utils import (
     FileSystemItem,
@@ -65,11 +68,6 @@ class GitWorktreeFileSystemItem(FileSystemItem):
     gitsha: str | None = None
     gittype: GitTreeItemType | None = None
 
-
-# stolen from GitRepo.get_content_info()
-_lsfiles_props_re = re.compile(
-    r'(?P<mode>[0-9]+) (?P<gitsha>.*) ([^\t]*)\t(?P<fname>.*)$'
-)
 
 _mode_type_map = {
     '100644': GitTreeItemType.file,
@@ -225,14 +223,20 @@ def _get_item(
 def _lsfiles_line2props(
     line: str
 ) -> Tuple[PurePosixPath, Dict[str, str] | None]:
-    props = _lsfiles_props_re.match(line)
-    if not props:
-        # Kludge: Filter out paths starting with .git/ to work around
-        # an `ls-files -o` bug that was fixed in Git 2.25.
-        #
-        # TODO: Drop this condition when GIT_MIN_VERSION is at least
-        # 2.25.
-        if line.startswith(".git/"):  # pragma nocover
+    items = line.split('\t', maxsplit=1)
+    # check if we cannot possibly have a 'staged' report with mode and gitsha
+    if len(items) < 2:
+        if git_needs_filter_kludge and line.startswith(".git/"):  # pragma nocover
+            lgr.debug("Filtering out .git/ file: %s", line)
+            return
+        # not known to Git, but Git always reports POSIX
+        path = PurePosixPath(line)
+        # early exist, we have nothing but the path (untracked)
+        return path, None
+
+    props = items[0].split(' ')
+    if len(props) != 3:
+        if git_needs_filter_kludge and line.startswith(".git/"):  # pragma nocover
             lgr.debug("Filtering out .git/ file: %s", line)
             return
         # not known to Git, but Git always reports POSIX
@@ -241,10 +245,10 @@ def _lsfiles_line2props(
         return path, None
 
     # again Git reports always in POSIX
-    path = PurePosixPath(props.group('fname'))
+    path = PurePosixPath(items[1])
     return path, dict(
-        gitsha=props.group('gitsha'),
-        mode=props.group('mode'),
+        gitsha=props[1],
+        mode=props[0],
     )
 
 
