@@ -5,18 +5,22 @@ from __future__ import annotations
 from typing import (
     Generator,
     Iterable,
+    TypeVar,
 )
 
 
 __all__ = ['itemize']
 
 
+T = TypeVar('T', str, bytes, bytearray)
+
+
 def itemize(
-    iterable: Iterable[bytes | str],
-    sep: str | bytes | None,
+    iterable: Iterable[T],
+    sep: T | None,
     *,
     keep_ends: bool = False,
-) -> Generator[bytes | str, None, None]:
+) -> Generator[T, None, None]:
     """Yields complete items (only), assembled from an iterable
 
     This function consumes chunks from an iterable and yields items defined by
@@ -97,10 +101,10 @@ def itemize(
         )
 
 
-def _split_items_with_separator(iterable: Iterable[bytes | str],
-                                sep: str | bytes,
+def _split_items_with_separator(iterable: Iterable[T],
+                                sep: T,
                                 keep_ends: bool = False,
-                                ) -> Generator[bytes | str, None, None]:
+                                ) -> Generator[T, None, None]:
     assembled = None
     for chunk in iterable:
         if not assembled:
@@ -126,9 +130,9 @@ def _split_items_with_separator(iterable: Iterable[bytes | str],
         yield assembled
 
 
-def _split_lines(iterable: Iterable[bytes | str],
+def _split_lines(iterable: Iterable[T],
                  keep_ends: bool = False,
-                 ) -> Generator[bytes | str, None, None]:
+                 ) -> Generator[T, None, None]:
     assembled = None
     for chunk in iterable:
         if not assembled:
