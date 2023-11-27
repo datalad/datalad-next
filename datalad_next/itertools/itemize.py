@@ -47,7 +47,7 @@ def itemize(
 
     - Using ``None`` as a separator  (splitlines-mode) is slower than providing
       a specific separator.
-    - Runtime with ``keep_end=False`` is faster than otherwise.
+    - If another separator than ``None`` is used, the runtime with ``keep_end=False`` is faster than with ``keep_end=True``.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def itemize(
     keep_ends: bool
         If `True`, the item-separator will remain at the end of a
         yielded item. If `False`, items will not contain the
-        separator. Preserving separators implies a runtime cost.
+        separator. Preserving separators implies a runtime cost, unless the separator is ``None``.
 
     Yields
     ------

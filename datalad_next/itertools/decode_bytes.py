@@ -45,8 +45,7 @@ def decode_bytes(
         >>> tuple(decode_bytes([b'\\xc3', b'\\xb6']))
         ('ö',)
 
-    Input chunks are only joined, if it is necessary to properly decode bytes
-    strings.
+    Input chunks are only joined, if it is necessary to properly decode bytes:
 
     .. code-block:: python
 
