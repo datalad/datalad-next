@@ -43,3 +43,9 @@ def test_performance():
 
     d1 = timeit.timeit(lambda: tuple(decode_bytes(iterable)), number=1000000)
     print(d1, file=sys.stderr)
+
+
+def test_no_empty_strings():
+    # check that empty strings are not yielded
+    r = tuple(decode_bytes([b'\xc3', b'\xb6']))
+    assert r == ('ö',)

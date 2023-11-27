@@ -140,4 +140,5 @@ def decode_bytes(
     if pending_error:
         # If the last chunk has a decoding error at the end, process it.
         position, string = handle_decoding_error(position, pending_error)
-        yield string
+        if string:
+            yield string
