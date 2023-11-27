@@ -1,5 +1,8 @@
 from __future__ import annotations
-from typing import List
+from typing import (
+    Iterable,
+    List,
+)
 
 from datalad_next.iterable_subprocess.iterable_subprocess \
     import iterable_subprocess
@@ -11,7 +14,7 @@ __all__ = ['iter_subproc']
 def iter_subproc(
     args: List[str],
     *,
-    input: List[bytes] | None = None,
+    input: Iterable[bytes] | None = None,
     chunk_size: int = COPY_BUFSIZE,
 ):
     """Context manager to communicate with a subprocess using iterables
@@ -53,5 +56,5 @@ def iter_subproc(
     return iterable_subprocess(
         args,
         tuple() if input is None else input,
-        chunk_size=COPY_BUFSIZE,
+        chunk_size=chunk_size,
     )
