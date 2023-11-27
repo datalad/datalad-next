@@ -1,4 +1,4 @@
-""" Generator the emits only complete lines """
+"""Get complete items from input chunks"""
 
 from __future__ import annotations
 
@@ -13,64 +13,92 @@ __all__ = ['itemize']
 
 def itemize(
     iterable: Iterable[bytes | str],
-    separator: str | bytes | None,
+    sep: str | bytes | None,
     *,
     keep_ends: bool = False,
 ) -> Generator[bytes | str, None, None]:
-    """ Generator that emits only complete items from chunks of an iterable
+    """Yields complete items (only), assembled from an iterable
 
-    This generator consumes chunks from an iterable and yields items defined by
-    a separator. An item might span multiple input chunks.
+    This function consumes chunks from an iterable and yields items defined by
+    a separator. An item might span multiple input chunks.  Input (chunks) can
+    be ``bytes``, ``bytearray``, or ``str`` objects.  The result type is
+    determined by the type of the first input chunk. During its runtime, the
+    type of the elements in ``iterable`` must not change.
 
-    Items are defined by a ``separator``. If ``separator`` is ``None``, the
-    line-separators built into `str.plitlines` are used.
+    Items are defined by a separator given via ``sep``. If ``sep`` is ``None``,
+    the line-separators built into ``str.splitlines()`` are used, and each
+    yielded item will be a line. If ``sep`` is not `None`, its type must match
+    the type of the elements in ``iterable``.
 
-    The generator works on string or byte chunks, depending on the type of the
-    first element in ``iterable``. During its runtime, the type of the elements
-    in ``iterable`` must not change. If ``separator`` is not `None`, its type
-    must match the type of the elements in ``iterable``.
+    A separator could, for example, be ``b'\\n'``, in which case the items
+    would be terminated by Unix line-endings, i.e. each yielded item is a
+    single line. The separator could also be, ``b'\\x00'`` (or ``'\\x00'``),
+    to split zero-byte delimited content, like the output of
+    ``git ls-files -z``.
 
-    The complexity of itemization without a defined separator is higher than
-    the complexity of itemization with a defined separator (this is due to
-    the externally unavailable set of line-separators that are built into
-    `splitlines`).
+    Separators can be longer than one byte or character, e.g. ``b'\\r\\n'``, or
+    ``b'\\n-------------------\\n'``.
 
-    Runtime with ``keep_end=False`` is faster than otherwise, when a separator
-    is defined.
+    Content after the last separator, possibly merged across input chunks, is
+    always yielded as the last item, even if it is not terminated by the
+    separator.
 
-    EOF ends all lines, but will never be present in the result, even if
-    ``keep_ends`` is ``True``.
+    Performance notes:
+
+    - Using ``None`` as a separator  (splitlines-mode) is slower than providing
+      a specific separator.
+    - If another separator than ``None`` is used, the runtime with ``keep_end=False`` is faster than with ``keep_end=True``.
 
     Parameters
     ----------
     iterable: Iterable[bytes | str]
         The iterable that yields the input data
-    separator: str | bytes | None
+    sep: str | bytes | None
         The separator that defines items. If ``None``, the items are
-        determined by the line-separators that are built into `splitlines`.
+        determined by the line-separators that are built into
+        ``str.splitlines()``.
     keep_ends: bool
-        If `True`, the item-separator will be present at the end of a
-        yielded item line. If `False`, items will not contain the
-        separator. Preserving separators an additional implies a runtime cost.
+        If `True`, the item-separator will remain at the end of a
+        yielded item. If `False`, items will not contain the
+        separator. Preserving separators implies a runtime cost, unless the separator is ``None``.
 
     Yields
     ------
     bytes | str
         The items determined from the input iterable. The type of the yielded
-        lines depends on the type of the first element in ``iterable``.
+        items depends on the type of the first element in ``iterable``.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        >>> from datalad_next.itertools import itemize
+        >>> with open('/etc/passwd', 'rt') as f:                            # doctest: +SKIP
+        ...     print(tuple(itemize(iter(f.read, ''), sep=None))[0:2])      # doctest: +SKIP
+        ('root:x:0:0:root:/root:/bin/bash',
+         'systemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin')
+        >>> with open('/etc/passwd', 'rt') as f:                            # doctest: +SKIP
+        ...     print(tuple(itemize(iter(f.read, ''), sep=':'))[0:10])      # doctest: +SKIP
+        ('root', 'x', '0', '0', 'root', '/root',
+         '/bin/bash\\nsystemd-timesync', 'x', '497', '497')
+        >>> with open('/etc/passwd', 'rt') as f:                                        # doctest: +SKIP
+        ...     print(tuple(itemize(iter(f.read, ''), sep=':', keep_ends=True))[0:10])  # doctest: +SKIP
+        ('root:', 'x:', '0:', '0:', 'root:', '/root:',
+         '/bin/bash\\nsystemd-timesync:', 'x:', '497:', '497:')
     """
-    if separator is None:
+    if sep is None:
         yield from _split_lines(iterable, keep_ends=keep_ends)
     else:
-        yield from _split_lines_with_separator(
+        yield from _split_items_with_separator(
             iterable,
-            separator=separator,
+            sep=sep,
             keep_ends=keep_ends,
         )
 
 
-def _split_lines_with_separator(iterable: Iterable[bytes | str],
-                                separator: str | bytes,
+def _split_items_with_separator(iterable: Iterable[bytes | str],
+                                sep: str | bytes,
                                 keep_ends: bool = False,
                                 ) -> Generator[bytes | str, None, None]:
     assembled = None
@@ -79,20 +107,20 @@ def _split_lines_with_separator(iterable: Iterable[bytes | str],
             assembled = chunk
         else:
             assembled += chunk
-        lines = assembled.split(sep=separator)
-        if len(lines) == 1:
+        items = assembled.split(sep=sep)
+        if len(items) == 1:
             continue
 
-        if assembled.endswith(separator):
+        if assembled.endswith(sep):
             assembled = None
         else:
-            assembled = lines[-1]
-        lines.pop(-1)
+            assembled = items[-1]
+        items.pop(-1)
         if keep_ends:
-            for line in lines:
-                yield line + separator
+            for item in items:
+                yield item + sep
         else:
-            yield from lines
+            yield from items
 
     if assembled:
         yield assembled
