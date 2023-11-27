@@ -31,7 +31,7 @@ def decode_bytes(
 
     .. code-block:: python
 
-       >>> [chunk.decode() for chunk in [b'\\xc3', b'\\xb6']]
+       >>> [chunk.decode() for chunk in [b'\\xc3', b'\\xb6']]     # doctest: +SKIP
         Traceback (most recent call last):
           File "<stdin>", line 1, in <module>
           File "<stdin>", line 1, in <listcomp>
@@ -60,8 +60,8 @@ def decode_bytes(
     .. code-block:: python
 
         >>> tuple(decode_bytes([b'\\xc3']))
-        ('\\xc3',)
-        >>> tuple(decode_bytes([b'\\xc3'], backslash_replace=False))
+        ('\\\\xc3',)
+        >>> tuple(decode_bytes([b'\\xc3'], backslash_replace=False))    # doctest: +SKIP
         Traceback (most recent call last):
             ...
         UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc3 in position 1: invalid continuation byte

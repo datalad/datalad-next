@@ -74,16 +74,16 @@ def itemize(
     .. code-block:: python
 
         >>> from datalad_next.itertools import itemize
-        >>> with open('/etc/passwd', 'rt') as f:
-        ...     print(tuple(itemize(iter(f.read, ''), sep=None))[0:2])
+        >>> with open('/etc/passwd', 'rt') as f:                            # doctest: +SKIP
+        ...     print(tuple(itemize(iter(f.read, ''), sep=None))[0:2])      # doctest: +SKIP
         ('root:x:0:0:root:/root:/bin/bash',
          'systemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin')
-        >>> with open('/etc/passwd', 'rt') as f:
-        ...     print(tuple(itemize(iter(f.read, ''), sep=':'))[0:10])
+        >>> with open('/etc/passwd', 'rt') as f:                            # doctest: +SKIP
+        ...     print(tuple(itemize(iter(f.read, ''), sep=':'))[0:10])      # doctest: +SKIP
         ('root', 'x', '0', '0', 'root', '/root',
          '/bin/bash\\nsystemd-timesync', 'x', '497', '497')
-        >>> with open('/etc/passwd', 'rt') as f:
-        ...     print(tuple(itemize(iter(f.read, ''), sep=':', keep_ends=True))[0:10])
+        >>> with open('/etc/passwd', 'rt') as f:                                        # doctest: +SKIP
+        ...     print(tuple(itemize(iter(f.read, ''), sep=':', keep_ends=True))[0:10])  # doctest: +SKIP
         ('root:', 'x:', '0:', '0:', 'root:', '/root:',
          '/bin/bash\\nsystemd-timesync:', 'x:', '497:', '497:')
     """
