@@ -5,18 +5,22 @@ from __future__ import annotations
 from typing import (
     Generator,
     Iterable,
+    TypeVar,
 )
 
 
 __all__ = ['itemize']
 
 
+T = TypeVar('T', str, bytes, bytearray)
+
+
 def itemize(
-    iterable: Iterable[bytes | str],
-    sep: str | bytes | None,
+    iterable: Iterable[T],
+    sep: T | None,
     *,
     keep_ends: bool = False,
-) -> Generator[bytes | str, None, None]:
+) -> Generator[T, None, None]:
     """Yields complete items (only), assembled from an iterable
 
     This function consumes chunks from an iterable and yields items defined by
@@ -27,8 +31,8 @@ def itemize(
 
     Items are defined by a separator given via ``sep``. If ``sep`` is ``None``,
     the line-separators built into ``str.splitlines()`` are used, and each
-    yielded item will be a line. If ``sep`` is not `None`, its type must match
-    the type of the elements in ``iterable``.
+    yielded item will be a line. If ``sep`` is not `None`, its type must be
+    compatible to the type of the elements in ``iterable``.
 
     A separator could, for example, be ``b'\\n'``, in which case the items
     would be terminated by Unix line-endings, i.e. each yielded item is a
@@ -51,9 +55,9 @@ def itemize(
 
     Parameters
     ----------
-    iterable: Iterable[bytes | str]
+    iterable: Iterable[str | bytes | bytearray]
         The iterable that yields the input data
-    sep: str | bytes | None
+    sep: str | bytes | bytearray | None
         The separator that defines items. If ``None``, the items are
         determined by the line-separators that are built into
         ``str.splitlines()``.
@@ -64,7 +68,7 @@ def itemize(
 
     Yields
     ------
-    bytes | str
+    str | bytes | bytearray
         The items determined from the input iterable. The type of the yielded
         items depends on the type of the first element in ``iterable``.
 
@@ -97,10 +101,10 @@ def itemize(
         )
 
 
-def _split_items_with_separator(iterable: Iterable[bytes | str],
-                                sep: str | bytes,
+def _split_items_with_separator(iterable: Iterable[T],
+                                sep: T,
                                 keep_ends: bool = False,
-                                ) -> Generator[bytes | str, None, None]:
+                                ) -> Generator[T, None, None]:
     assembled = None
     for chunk in iterable:
         if not assembled:
@@ -126,9 +130,9 @@ def _split_items_with_separator(iterable: Iterable[bytes | str],
         yield assembled
 
 
-def _split_lines(iterable: Iterable[bytes | str],
+def _split_lines(iterable: Iterable[T],
                  keep_ends: bool = False,
-                 ) -> Generator[bytes | str, None, None]:
+                 ) -> Generator[T, None, None]:
     assembled = None
     for chunk in iterable:
         if not assembled:
