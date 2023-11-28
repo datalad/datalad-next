@@ -165,3 +165,35 @@ def test_ls_renderer():
         Path(__file__).parent,
         result_renderer='tailored',
     )
+
+
+def test_ls_annexworktree_empty_dataset(existing_dataset):
+    res = ls_file_collection(
+        'annexworktree',
+        existing_dataset.pathobj,
+        result_renderer='disabled'
+    )
+    assert len(res) == 3
+    annexed_files = [annex_info for annex_info in res if 'annexkey' in annex_info]
+    assert len(annexed_files) == 0
+
+
+def test_ls_annexworktree_simple_dataset(existing_dataset):
+
+    (existing_dataset.pathobj / 'sample.bin').write_bytes(b'\x00' * 1024)
+    existing_dataset.save(message='add sample file')
+
+    res = ls_file_collection(
+        'annexworktree',
+        existing_dataset.pathobj,
+        result_renderer='disabled'
+    )
+    assert len(res) == 4
+    annexed_files = [annex_info for annex_info in res if 'annexkey' in annex_info]
+    assert len(annexed_files) == 1
+    assert annexed_files[0]['type'] == 'annexed file'
+    assert {
+        'annexkey',
+        'annexsize',
+        'annexobjpath'
+    }.issubset(set(annexed_files[0].keys()))
