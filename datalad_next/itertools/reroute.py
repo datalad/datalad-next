@@ -67,7 +67,7 @@ def route_out(iterable: Iterable,
             # if data == 0, return `dont_process` in the first element of the
             # result tuple to indicate that route_out should not yield this
             # element to its consumer
-            return (dont_process, [data]) if data == 0 else (data, [data])
+            return (dont_process, data) if data == 0 else (data, data)
 
         def joiner(processed_data, stored_data):
             #
@@ -77,7 +77,7 @@ def route_out(iterable: Iterable,
         store = list()
         r = route_in(
             map(
-                lambda x: x / 2.0,
+                lambda x: 2.0 / x,
                 route_out(
                     numbers,
                     store,
@@ -89,7 +89,7 @@ def route_out(iterable: Iterable,
         )
         print(list(r))
 
-    The example about will print ``[nan, 0.5, nan, 1.0, nan, 1.5, nan, 2.0]``.
+    The example about will print ``[nan, 2.0, nan, 1.0, nan, 0.6666666666666666, nan, 0.5]``.
 
     Parameters
     ----------
