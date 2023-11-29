@@ -10,7 +10,7 @@ from typing import (
 )
 
 
-__all__ = ['dont_process', 'join_with_list', 'route_in', 'route_out']
+__all__ = ['dont_process', 'route_in', 'route_out']
 
 
 dont_process = object()
@@ -191,42 +191,3 @@ def route_in(iterable: Iterable,
         assert process_info[0] is False
         yield joiner(dont_process, process_info[1])
     del data_store[:]
-
-
-def join_with_list(processed_data: Any,
-                   stored_data: list
-                   ) -> list:
-    """ A standard joiner that works with splitter-functions that store a list
-
-        This joiner is used in combination with splitters that return a list as
-        second element of the result tuple, i.e. splitters that will store a
-        list in their data store.
-
-        :func:`join_with_list` adds ``processed_data`` as first element to the
-        list ``stored_data``. The extended list is then yielded by
-        :func:`route_in`.
-
-        Parameters
-        ----------
-        processed_data: Any
-            The data that was yielded by the underlying iterable of the
-            :func:`route_in`-call, if data was processed. If no data was
-            processed: ``datalad_next.itertools.dont_process``.
-        stored_data: list
-            The data that was stored in the data store provided at the
-            :func:`route_in`-call.
-
-        Returns
-        -------
-        list
-            If ``processed_data is datalad_next.itertools.dont_process``, the
-            result will be ``[None] + stored_data``. If ``processed_data`` is
-            any other object, the result will be equivalent to
-            ``[processed_data] + stored_data``.
-    """
-    if processed_data is dont_process:
-        return [None] + stored_data
-    if not isinstance(processed_data, list):
-        return [processed_data] + stored_data
-    processed_data.extend(stored_data)
-    return processed_data

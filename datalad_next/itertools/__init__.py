@@ -10,7 +10,6 @@
     load_json_with_flag
     route_out
     route_in
-    join_with_list
 """
 
 
@@ -21,7 +20,6 @@ from .load_json import (
     load_json_with_flag,
 )
 from .reroute import (
-    join_with_list,
     route_in,
     route_out,
     dont_process,
