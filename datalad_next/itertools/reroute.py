@@ -18,7 +18,7 @@ dont_process = object()
 
 def route_out(iterable: Iterable,
               data_store: list,
-              splitter: Callable[[Any], tuple[Any, Any | None]],
+              splitter: Callable[[Any], tuple[Any, Any]],
               ) -> Generator:
     """ Route data around the consumer of this iterable
 
