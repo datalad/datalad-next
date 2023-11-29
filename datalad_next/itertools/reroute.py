@@ -30,8 +30,8 @@ def route_out(iterable: Iterable,
 
     To determine which data is to be yielded to the consumer and which data
     should only be stored but not yielded, :func:`route_out` calls
-    :func:`splitter`. :func:`splitter` is called for each element of the input
-    iterable, with the element as sole argument. The function should return a
+    :func:`splitter`. :func:`splitter` is called for each item of the input
+    iterable, with the item as sole argument. The function should return a
     tuple of two elements. The first element is the data that is to be
     yielded to the consumer. The second element is the data that is to be
     stored in the list ``data_store``. If the first element of the tuple is
@@ -43,9 +43,9 @@ def route_out(iterable: Iterable,
     :func:`route_out` and with the data the was not processed, i.e. not yielded
     by :func:`route_out`.
 
-    The elements yielded by :func:`route_in` will be in the same
+    The items yielded by :func:`route_in` will be in the same
     order in which they were passed into :func:`route_out`, including the
-    elements that were not yielded by :func:`route_out` because :func:`splitter`
+    items that were not yielded by :func:`route_out` because :func:`splitter`
     returned ``dont_process`` in the first element of the result-tuple.
 
     The combination of the two functions :func:`route_out` and :func:`route_in`
@@ -53,33 +53,33 @@ def route_out(iterable: Iterable,
     iterators. And it can be used to route data around iterators that cannot
     process certain data.
 
-    For example, a user has an iterator to divide all number in a list by the
-    number ``2``. The user wants the iterator to process all numbers in a list,
-    except from zeros, In this case :func:`route_out` and :func:`route_in` can
-    be used as follows:
+    For example, a user has an iterator to divide the number ``2`` by all
+    numbers in a list. The user wants the iterator to process all numbers in a
+    divisor list, except from zeros, In this case :func:`route_out` and
+    :func:`route_in` can be used as follows:
 
     .. code-block:: python
 
         from math import nan
         from datalad_next.itertools import route_out, route_in, dont_process
 
-        def splitter(data):
-            # if data == 0, return `dont_process` in the first element of the
+        def splitter(divisor):
+            # if divisor == 0, return `dont_process` in the first element of the
             # result tuple to indicate that route_out should not yield this
             # element to its consumer
-            return (dont_process, data) if data == 0 else (data, data)
+            return (dont_process, divisor) if divisor == 0 else (divisor, divisor)
 
         def joiner(processed_data, stored_data):
             #
             return nan if processed_data is dont_process else processed_data
 
-        numbers = [0, 1, 0, 2, 0, 3, 0, 4]
+        divisors = [0, 1, 0, 2, 0, 3, 0, 4]
         store = list()
         r = route_in(
             map(
                 lambda x: 2.0 / x,
                 route_out(
-                    numbers,
+                    divisors,
                     store,
                     splitter
                 )
@@ -100,9 +100,9 @@ def route_out(iterable: Iterable,
     splitter: Callable[[Any], tuple[Any, Any | None]]
         The function that is used to determine which part of the input data,
         if any, is to be yielded to the consumer and which data is to
-        be stored in the list ``data_store``. The function is called with each
-        The function is called for each element of
-        the input iterable with the element as sole argument. It should return a
+        be stored in the list ``data_store``.
+        The function is called for each item of
+        the input iterable with the item as sole argument. It should return a
         tuple of two elements. If the first element is not
         ``datalad_next.itertools.dont_process``, it is yielded to the consumer.
         If the first element is ``datalad_next.itertools.dont_process``,
@@ -126,19 +126,19 @@ def route_in(iterable: Iterable,
     """ Yield previously rerouted data to the consumer
 
     This function is the counter-part to :func:`route_out`. It takes the iterable
-    ``iterable`` and a data store given in ``data_store`` and yields elements
+    ``iterable`` and a data store given in ``data_store`` and yields items
     in the same order in which :func:`route_out` received them from its
-    underlying iterable (using the same data store). This includes elements that
+    underlying iterable (using the same data store). This includes items that
     were not yielded by :func:`route_out`, but only stored.
 
-    :func:`route_in` uses  :func:`joiner`-function to determine how stored and
-    optionally processed data should be joined into a single element, which is
+    :func:`route_in` uses :func:`joiner`-function to determine how stored and
+    optionally processed data should be joined into a single item, which is
     then yielded by :func:`route_in`.
     :func:`route_in` calls :func:`joiner` with a 2-tuple. The first
     element of the tuple is either ``dont_process`` or the next item from the
     underlying iterator. The second element is the data
-    that was stored in the data store. :func:`joiner` should return a single
-    element, which will be yielded by :func:`route_in`.
+    that was stored in the data store. The result of :func:`joiner` which will
+    be yielded by :func:`route_in`.
 
     This module provides a standard joiner-function: :func:`join_with_list`
     that works with splitter-functions that return a list as second element of
@@ -171,12 +171,12 @@ def route_in(iterable: Iterable,
     iterable: Iterable
         The iterable that yields the input data.
     data_store: list
-        The list from which the data that be routed is read.
+        The list from which the data that is to be "routed in" is read.
     joiner: Callable[[Any, Any], Any]
-        A function that determines how the data that is yielded by
+        A function that determines how the items that are yielded by
         ``iterable`` should be combined with the corresponding data from
         ``data_store``, in order to yield the final result.
-        The first argument to ``joiner`` is the data that is yielded by
+        The first argument to ``joiner`` is the item that is yielded by
         ``iterable``, or ``datalad_next.itertools.dont_process`` if no data
         was processed in the corresponding step. The second argument is the
         data that was stored in ``data_store`` in the corresponding step.
