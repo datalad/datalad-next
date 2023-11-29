@@ -17,10 +17,10 @@ def load_json(iterable: Iterable[bytes | str],
               ) -> Generator[Any, None, None]:
     """ Convert items yielded by ``iterable`` into JSON objects and yield them
 
-    ``load_json`` fetches items from the underlying
+    This function fetches items from the underlying
     iterable. The items are expected to be ``bytes``, ``str``, or ``bytearry``,
-    and contain one JSON-encoded object. ``load_json``
-    will convert each item into a JSON-object, by feeding it into
+    and contain one JSON-encoded object. Items
+    are converted into a JSON-object, by feeding them into
     ``json.loads``.
 
     On successful conversion to a JSON-object, ``load_json`` will yield the
