@@ -24,7 +24,6 @@ from .gitworktree import (
 )
 from datalad_next.itertools import (
     itemize,
-    join_with_list,
     load_json,
     route_in,
     route_out,
@@ -50,6 +49,34 @@ class AnnexWorktreeItem(GitWorktreeItem):
 class AnnexWorktreeFileSystemItem(GitWorktreeFileSystemItem):
     annexkey: str | None = None
     annexsize: int | None = None
+    annexobjpath: PurePath | None = None
+
+
+def get_annex_item(data):
+    if isinstance(data, GitWorktreeItem):
+        return AnnexWorktreeItem(**data.__dict__)
+    elif isinstance(data, GitWorktreeFileSystemItem):
+        return AnnexWorktreeFileSystemItem(**data.__dict__)
+    else:
+        raise TypeError(
+            'Expected GitWorktreeItem or '
+            f'GitWorktreeFileSystemItem, got {type(data)}'
+        )
+
+
+def join_annex_info(processed_data,
+                    stored_data: AnnexWorktreeItem | AnnexWorktreeFileSystemItem
+                    ):
+    if processed_data is dont_process:
+        return stored_data
+    else:
+        if processed_data:
+            stored_data.annexkey = processed_data['key']
+            stored_data.annexsize = int(processed_data['bytesize'])
+            stored_data.annexobjpath = PurePath(
+                PurePosixPath(str(processed_data['objectpath']))
+            )
+        return stored_data
 
 
 def iter_annexworktree(
@@ -78,46 +105,53 @@ def iter_annexworktree(
                 # this avoids string operations to append newlines to items
                 input=intersperse(
                     b'\n',
-                    # store all output of the git ls-find in the gitfileinfo
-                    # store
+                    # use `GitWorktree*`-elements yielded by `iter_gitworktree`
+                    # to create an `AnnexWorktreeItem` or
+                    # `AnnexWorktreeFileSystemItem` object, which is stored in
+                    # `git_fileinfo_store`. Yield a string representation of the
+                    # path contained in the `GitWorktree*`-element yielded by
+                    # `iter_gitworktree`
                     route_out(
                         glsf,
                         git_fileinfo_store,
-                        lambda data: (str(data.name).encode(), [data])
+                        lambda git_worktree_item: (
+                                str(git_worktree_item.name).encode(),
+                                get_annex_item(git_worktree_item),
+                        )
                     )
                 ),
             ) as gaf, \
             iter_subproc(
                 # get the key properties JSON-lines style
                 ['git', '-C', str(path), 'annex', 'examinekey', '--json', '--batch'],
-                # process all non-empty keys and store them in the key store,
-                # skip processing of empty keys and store an ignored value in
-                # the key store
+                # use only non-empty keys as input to `git annex examinekey`.
                 input=route_out(
                     itemize(gaf, sep=linesep_bytes, keep_ends=True),
                     key_store,
-                    lambda data: (dont_process, [None])
-                                 if data == linesep_bytes
-                                 else (data, [data])
+                    # do not process empty key lines. Non-empty key lines
+                    # are processed, but nothing needs to be stored because the
+                    # processing result includes the key itself.
+                    lambda key: (dont_process, None)
+                                 if key == linesep_bytes
+                                 else (key, None)
                 )
             ) as gek:
 
-        for item in route_in(
-                route_in(
-                    load_json(itemize(gek, sep=linesep_bytes)),
-                    key_store,
-                    join_with_list,
-                ),
-                git_fileinfo_store,
-                join_with_list,
-        ):
-            yield AnnexWorktreeItem(
-                name=item[2].name,
-                gitsha=item[2].gitsha,
-                gittype=item[2].gittype,
-                annexkey=item[1].decode().strip() if item[1] else None,
-                annexsize=int(item[0]['bytesize']) if item[0] else None,
-                annexobjpath=PurePath(PurePosixPath(str(item[0]['objectpath'])))
-                             if item[0]
-                             else None,
-            )
+        yield from route_in(
+            # the following `route_in` yields processed keys for annexed
+            # files and `dont_process` for non-annexed files. Its
+            # cardinality is the same as the cardinality of
+            # `iter_gitworktree`, i.e. it produces data for each element
+            # yielded by `iter_gitworktree`.
+            route_in(
+                load_json(itemize(gek, sep=linesep_bytes)),
+                key_store,
+                # `processed` data is either `dont_process` or detailed
+                # annex key information. we just return `process_data` as
+                # result, because `join_annex_info` knows how to incorporate
+                # it into an `AnnexWorktree*`-object.
+                lambda processed_data, _: processed_data
+            ),
+            git_fileinfo_store,
+            join_annex_info,
+        )
