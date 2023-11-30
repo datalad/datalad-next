@@ -10,10 +10,11 @@ from typing import (
 )
 
 
-__all__ = ['dont_process', 'route_in', 'route_out']
+__all__ = ['StoreOnly', 'route_in', 'route_out']
 
 
-dont_process = object()
+class StoreOnly:
+    pass
 
 
 def route_out(iterable: Iterable,
@@ -35,7 +36,7 @@ def route_out(iterable: Iterable,
     tuple of two elements. The first element is the data that is to be
     yielded to the consumer. The second element is the data that is to be
     stored in the list ``data_store``. If the first element of the tuple is
-    ``datalad_next.itertools.dont_process``, no data is yielded to the
+    ``datalad_next.itertools.StoreOnly``, no data is yielded to the
     consumer.
 
     :func:`route_in` can be used to combine data that was previously
@@ -46,7 +47,7 @@ def route_out(iterable: Iterable,
     The items yielded by :func:`route_in` will be in the same
     order in which they were passed into :func:`route_out`, including the
     items that were not yielded by :func:`route_out` because :func:`splitter`
-    returned ``dont_process`` in the first element of the result-tuple.
+    returned ``StoreOnly`` in the first element of the result-tuple.
 
     The combination of the two functions :func:`route_out` and :func:`route_in`
     can be used to "carry" additional data along with data that is processed by
@@ -61,17 +62,17 @@ def route_out(iterable: Iterable,
     .. code-block:: python
 
         from math import nan
-        from datalad_next.itertools import route_out, route_in, dont_process
+        from datalad_next.itertools import route_out, route_in, StoreOnly
 
         def splitter(divisor):
-            # if divisor == 0, return `dont_process` in the first element of the
+            # if divisor == 0, return `StoreOnly` in the first element of the
             # result tuple to indicate that route_out should not yield this
             # element to its consumer
-            return (dont_process, divisor) if divisor == 0 else (divisor, divisor)
+            return (StoreOnly, divisor) if divisor == 0 else (divisor, divisor)
 
         def joiner(processed_data, stored_data):
             #
-            return nan if processed_data is dont_process else processed_data
+            return nan if processed_data is StoreOnly else processed_data
 
         divisors = [0, 1, 0, 2, 0, 3, 0, 4]
         store = list()
@@ -104,8 +105,8 @@ def route_out(iterable: Iterable,
         The function is called for each item of
         the input iterable with the item as sole argument. It should return a
         tuple of two elements. If the first element is not
-        ``datalad_next.itertools.dont_process``, it is yielded to the consumer.
-        If the first element is ``datalad_next.itertools.dont_process``,
+        ``datalad_next.itertools.StoreOnly``, it is yielded to the consumer.
+        If the first element is ``datalad_next.itertools.StoreOnly``,
         nothing is yielded to the consumer. The second element is stored in the
         list ``data_store``.
         The cardinality of ``data_store`` will be the same as the cardinality of
@@ -113,7 +114,7 @@ def route_out(iterable: Iterable,
     """
     for item in iterable:
         data_to_process, data_to_store = splitter(item)
-        if data_to_process is dont_process:
+        if data_to_process is StoreOnly:
             data_store.append((False, data_to_store))
         else:
             data_store.append((True, data_to_store))
@@ -135,8 +136,8 @@ def route_in(iterable: Iterable,
     optionally processed data should be joined into a single item, which is
     then yielded by :func:`route_in`.
     :func:`route_in` calls :func:`joiner` with a 2-tuple. The first
-    element of the tuple is either ``dont_process`` or the next item from the
-    underlying iterator. The second element is the data
+    element of the tuple is either ``datalad_next.itertools.StoreOnly`` or the
+    next item from the underlying iterator. The second element is the data
     that was stored in the data store. The result of :func:`joiner` which will
     be yielded by :func:`route_in`.
 
@@ -177,17 +178,17 @@ def route_in(iterable: Iterable,
         ``iterable`` should be combined with the corresponding data from
         ``data_store``, in order to yield the final result.
         The first argument to ``joiner`` is the item that is yielded by
-        ``iterable``, or ``datalad_next.itertools.dont_process`` if no data
+        ``iterable``, or ``datalad_next.itertools.StoreOnly`` if no data
         was processed in the corresponding step. The second argument is the
         data that was stored in ``data_store`` in the corresponding step.
     """
     for element in iterable:
         process_info = data_store.pop(0)
         while not process_info[0]:
-            yield joiner(dont_process, process_info[1])
+            yield joiner(StoreOnly, process_info[1])
             process_info = data_store.pop(0)
         yield joiner(element, process_info[1])
     for process_info in data_store:
         assert process_info[0] is False
-        yield joiner(dont_process, process_info[1])
+        yield joiner(StoreOnly, process_info[1])
     del data_store[:]

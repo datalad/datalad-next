@@ -27,7 +27,7 @@ from datalad_next.itertools import (
     load_json,
     route_in,
     route_out,
-    dont_process,
+    StoreOnly,
 )
 from datalad_next.runners import iter_subproc
 
@@ -67,7 +67,7 @@ def get_annex_item(data):
 def join_annex_info(processed_data,
                     stored_data: AnnexWorktreeItem | AnnexWorktreeFileSystemItem
                     ):
-    if processed_data is dont_process:
+    if processed_data is StoreOnly:
         return stored_data
     else:
         if processed_data:
@@ -131,7 +131,7 @@ def iter_annexworktree(
                     # do not process empty key lines. Non-empty key lines
                     # are processed, but nothing needs to be stored because the
                     # processing result includes the key itself.
-                    lambda key: (dont_process, None)
+                    lambda key: (StoreOnly, None)
                                  if key == linesep_bytes
                                  else (key, None)
                 )
@@ -139,14 +139,14 @@ def iter_annexworktree(
 
         yield from route_in(
             # the following `route_in` yields processed keys for annexed
-            # files and `dont_process` for non-annexed files. Its
+            # files and `StoreOnly` for non-annexed files. Its
             # cardinality is the same as the cardinality of
             # `iter_gitworktree`, i.e. it produces data for each element
             # yielded by `iter_gitworktree`.
             route_in(
                 load_json(itemize(gek, sep=linesep_bytes)),
                 key_store,
-                # `processed` data is either `dont_process` or detailed
+                # `processed` data is either `StoreOnly` or detailed
                 # annex key information. we just return `process_data` as
                 # result, because `join_annex_info` knows how to incorporate
                 # it into an `AnnexWorktree*`-object.

@@ -4,7 +4,7 @@ from more_itertools import intersperse
 from ..reroute import (
     route_in,
     route_out,
-    dont_process
+    StoreOnly
 )
 
 
@@ -19,14 +19,14 @@ def test_route_around():
             route_out(
                 intersperse(0, range(2, 20)),
                 store,
-                lambda divisor: (dont_process, [divisor])
+                lambda divisor: (StoreOnly, [divisor])
                                 if divisor == 0
                                 else (divisor, None)
             )
         ),
         store,
         lambda processed_data, stored_data: processed_data
-                                            if processed_data is not dont_process
+                                            if processed_data is not StoreOnly
                                             else 'divisor is 0'
     )
     # The result should be a list in which every odd element consists of a list
@@ -48,7 +48,7 @@ def test_route_no_processing():
             route_out(
                 range(10),
                 store,
-                lambda x: (dont_process, x)
+                lambda x: (StoreOnly, x)
             )
         ),
         store,
