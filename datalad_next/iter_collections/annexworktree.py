@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from os import linesep
 from pathlib import (
     Path,
     PurePath,
@@ -33,9 +32,6 @@ from datalad_next.runners import iter_subproc
 
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.annexworktree')
-
-
-linesep_bytes = linesep.encode()
 
 
 @dataclass
@@ -126,13 +122,13 @@ def iter_annexworktree(
                 ['git', '-C', str(path), 'annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
                 input=route_out(
-                    itemize(gaf, sep=linesep_bytes, keep_ends=True),
+                    itemize(gaf, sep=None, keep_ends=True),
                     key_store,
                     # do not process empty key lines. Non-empty key lines
                     # are processed, but nothing needs to be stored because the
                     # processing result includes the key itself.
                     lambda key: (StoreOnly, None)
-                                 if key == linesep_bytes
+                                 if key.strip() == b''
                                  else (key, None)
                 )
             ) as gek:
@@ -144,7 +140,7 @@ def iter_annexworktree(
             # `iter_gitworktree`, i.e. it produces data for each element
             # yielded by `iter_gitworktree`.
             route_in(
-                load_json(itemize(gek, sep=linesep_bytes)),
+                load_json(itemize(gek, sep=None)),
                 key_store,
                 # `processed` data is either `StoreOnly` or detailed
                 # annex key information. we just return `process_data` as
