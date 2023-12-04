@@ -48,6 +48,18 @@ class AnnexWorktreeFileSystemItem(GitWorktreeFileSystemItem):
     annexobjpath: PurePath | None = None
 
 
+def content_path(item: AnnexWorktreeItem | AnnexWorktreeFileSystemItem,
+                 base_path: Path,
+                 ) -> PurePath | None:
+
+    if item.annexobjpath:
+        return \
+            item.annexobjpath \
+            if (base_path / item.annexobjpath).exists() \
+            else None
+    return item.name
+
+
 def get_annex_item(data):
     if isinstance(data, GitWorktreeItem):
         return AnnexWorktreeItem(**data.__dict__)
@@ -87,7 +99,17 @@ def iter_annexworktree(
         path,
         untracked=untracked,
         link_target=link_target,
-        fp=fp
+        # TODO: we have to pass `fp` to `iter_gitworktree` because we want to
+        #  get the attributes from `GitWorktreeFileSystemItem`. We only get those
+        #  if we specify `fp=True` or `link_target=True`. However, we cannot use
+        #  the file pointer that we receive from `iter_gitworktree`, because the
+        #  they are closed when the next item is consumed from
+        #  `iter_gitworktree`. This happens before we yield our results.
+        #  Therefore, we have to open the file again. This is not ideal, but
+        #  it works for now. A better solution might be, for example, to factor
+        #  the worktree code out and provide object-factories for
+        #  `GitWorktreeFileSystemItem` and for `AnnexWorktreeFileSystemItem`.
+        fp=fp,
     )
 
     git_fileinfo_store: list[Any] = list()
@@ -133,7 +155,7 @@ def iter_annexworktree(
                 )
             ) as gek:
 
-        yield from route_in(
+        results = route_in(
             # the following `route_in` yields processed keys for annexed
             # files and `StoreOnly` for non-annexed files. Its
             # cardinality is the same as the cardinality of
@@ -151,3 +173,18 @@ def iter_annexworktree(
             git_fileinfo_store,
             join_annex_info,
         )
+
+        if not fp:
+            yield from results
+        else:
+            # Ensure that `path` is a `Path` object
+            path = Path(path)
+            for item in results:
+                item_path = content_path(item, path)
+                if item_path:
+                    with (path / item_path).open('rb') as active_fp:
+                        item.fp = active_fp
+                        yield item
+                else:
+                    item.fp = None
+                    yield item
