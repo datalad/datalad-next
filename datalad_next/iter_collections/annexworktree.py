@@ -19,6 +19,7 @@ from more_itertools import intersperse
 from .gitworktree import (
     GitWorktreeItem,
     GitWorktreeFileSystemItem,
+    FileSystemItemType,
     iter_gitworktree
 )
 from datalad_next.itertools import (
@@ -50,6 +51,7 @@ class AnnexWorktreeFileSystemItem(GitWorktreeFileSystemItem):
 
 def content_path(item: AnnexWorktreeItem | AnnexWorktreeFileSystemItem,
                  base_path: Path,
+                 link_target: bool,
                  ) -> PurePath | None:
 
     if item.annexobjpath:
@@ -57,7 +59,13 @@ def content_path(item: AnnexWorktreeItem | AnnexWorktreeFileSystemItem,
             item.annexobjpath \
             if (base_path / item.annexobjpath).exists() \
             else None
-    return item.name
+
+    # if this is not an annexed file, honor `link_target`-parameter.
+    if item.type == FileSystemItemType.file:
+        return item.name
+    elif item.type == FileSystemItemType.symlink:
+        return item.link_target if link_target is True else None
+    return item.link_target if link_target else item.name
 
 
 def get_annex_item(data):
@@ -180,7 +188,7 @@ def iter_annexworktree(
             # Ensure that `path` is a `Path` object
             path = Path(path)
             for item in results:
-                item_path = content_path(item, path)
+                item_path = content_path(item, path, link_target)
                 if item_path:
                     with (path / item_path).open('rb') as active_fp:
                         item.fp = active_fp
