@@ -38,72 +38,31 @@ lgr = logging.getLogger('datalad.ext.next.iter_collections.annexworktree')
 class AnnexWorktreeItem(GitWorktreeItem):
     annexkey: str | None = None
     annexsize: int | None = None
+    # annex object path, relative to the item
     annexobjpath: PurePath | None = None
+
+    @classmethod
+    def from_gitworktreeitem(
+        cls,
+        item: GitWorktreeItem,
+    ):
+        return cls(**item.__dict__)
 
 
 @dataclass
 class AnnexWorktreeFileSystemItem(GitWorktreeFileSystemItem):
     annexkey: str | None = None
     annexsize: int | None = None
+    # annex object path, relative to the item
     annexobjpath: PurePath | None = None
 
 
-def content_path(item: AnnexWorktreeFileSystemItem,
-                 base_path: Path,
-                 link_target: bool,
-                 ) -> PurePath | None:
-
-    if item.annexobjpath:
-        return \
-            item.annexobjpath \
-            if (base_path / item.annexobjpath).exists() \
-            else None
-
-    # if this is not an annexed file, honor `link_target`-parameter.
-    if item.type == FileSystemItemType.file:
-        return item.name
-    elif item.type == FileSystemItemType.symlink:
-        return item.link_target if link_target is True else None
-    return item.link_target if link_target else item.name
-
-
-def get_annex_item(data, **kwargs):
-    # Reuse the work done in `iter_gitworktree`.
-    # TODO: this approach is a little wasteful because we have to pass `fp` and
-    #  `link_target` into `iter_gitworktree` to get the proper
-    #  `GitWorkTree*`-class. But that might lead `iter_gitworktree` to open a
-    #  file for us (if `fp` is `True`), which we do not use.
-    all_args = {
-        **data.__dict__,
-        **kwargs,
-    }
-    if isinstance(data, GitWorktreeItem):
-        return AnnexWorktreeItem(**all_args)
-    elif isinstance(data, GitWorktreeFileSystemItem):
-        return AnnexWorktreeFileSystemItem(**all_args)
-    else:
-        raise TypeError(
-            'Expected GitWorktreeItem or '
-            f'GitWorktreeFileSystemItem, got {type(data)}'
-        )
-
-
-def join_annex_info(processed_data,
-                    stored_data: GitWorktreeItem | GitWorktreeFileSystemItem,
-                    ):
-    if processed_data is StoreOnly:
-        return get_annex_item(stored_data)
-    else:
-        return get_annex_item(
-            stored_data,
-            annexkey=processed_data['key'],
-            annexsize=int(processed_data['bytesize']),
-            annexobjpath=PurePath(
-                PurePosixPath(str(processed_data['objectpath']))
-            ),
-        )
-
-
+# TODO this iterator should get a filter mechanism to limit it to a single
+# directory (non-recursive). This will be needed for gooey.
+# unlike iter_gitworktree() we pay a larger dedicated per item cost.
+# Given that the switch to iterative processing is also made for
+# iter_gitworktree() we should provide the same filtering for that one
+# too!
 def iter_annexworktree(
         path: Path,
         *,
@@ -111,22 +70,14 @@ def iter_annexworktree(
         link_target: bool = False,
         fp: bool = False,
 ) -> Generator[AnnexWorktreeItem | AnnexWorktreeFileSystemItem, None, None]:
+    """TODO
+    """
 
     glsf = iter_gitworktree(
         path,
         untracked=untracked,
-        # TODO: we have to pass `fp` and `link_target` to `iter_gitworktree`
-        #  because we want to get the attributes from `GitWorktreeFileSystemItem`.
-        #  We only get those if we specify `fp=True` or `link_target=True`.
-        #  However, we cannot use the file pointer that we receive from
-        #  `iter_gitworktree`, because they are closed when the next item is
-        #  consumed from `iter_gitworktree`. This happens before we yield our
-        #  results. Therefore, we have to open the file again. This is not ideal, but
-        #  it works for now. A better solution might be, for example, to factor
-        #  the worktree code out and provide object-factories for
-        #  `GitWorktreeFileSystemItem` and for `AnnexWorktreeFileSystemItem`.
-        link_target=link_target,
-        fp=fp,
+        link_target=False,
+        fp=False,
     )
 
     git_fileinfo_store: list[Any] = list()
@@ -134,8 +85,10 @@ def iter_annexworktree(
 
     with \
             iter_subproc(
-                # we get the annex key for any filename (or empty if not annexed)
-                ['git', '-C', str(path), 'annex', 'find', '--anything', '--format=\${key}\n', '--batch'],
+                # we get the annex key for any filename
+                # (or empty if not annexed)
+                ['git', '-C', str(path),
+                 'annex', 'find', '--anything', '--format=\${key}\n', '--batch'],
                 # intersperse items with newlines to trigger a batch run
                 # this avoids string operations to append newlines to items
                 input=intersperse(
@@ -143,22 +96,23 @@ def iter_annexworktree(
                     # use `GitWorktree*`-elements yielded by `iter_gitworktree`
                     # to create an `AnnexWorktreeItem` or
                     # `AnnexWorktreeFileSystemItem` object, which is stored in
-                    # `git_fileinfo_store`. Yield a string representation of the
-                    # path contained in the `GitWorktree*`-element yielded by
-                    # `iter_gitworktree`
+                    # `git_fileinfo_store`. Yield a string representation of
+                    # the path contained in the `GitWorktree*`-element yielded
+                    # by `iter_gitworktree`
                     route_out(
                         glsf,
                         git_fileinfo_store,
                         lambda git_worktree_item: (
-                                str(git_worktree_item.name).encode(),
-                                git_worktree_item
+                            str(git_worktree_item.name).encode(),
+                            git_worktree_item
                         )
                     )
                 )
             ) as gaf, \
             iter_subproc(
                 # get the key properties JSON-lines style
-                ['git', '-C', str(path), 'annex', 'examinekey', '--json', '--batch'],
+                ['git', '-C', str(path),
+                 'annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
                 input=route_out(
                     itemize(gaf, sep=None, keep_ends=True),
@@ -166,9 +120,7 @@ def iter_annexworktree(
                     # do not process empty key lines. Non-empty key lines
                     # are processed, but nothing needs to be stored because the
                     # processing result includes the key itself.
-                    lambda key: (StoreOnly, None)
-                                 if key.strip() == b''
-                                 else (key, None)
+                    lambda key: (key if key.strip() else StoreOnly, None)
                 )
             ) as gek:
 
@@ -188,20 +140,100 @@ def iter_annexworktree(
                 lambda processed_data, _: processed_data
             ),
             git_fileinfo_store,
-            join_annex_info,
+            _join_annex_info,
         )
 
+        # at this point, each item in `results` is a dict with a `git_item`
+        # key that hold a `GitWorktreeItem` instance, plus additional annex
+        # related keys added by join_annex_info() for annexed files
         if not fp:
-            yield from results
-        else:
-            # Ensure that `path` is a `Path` object
-            path = Path(path)
-            for item in results:
-                item_path = content_path(item, path, link_target)
-                if item_path:
-                    with (path / item_path).open('rb') as active_fp:
-                        item.fp = active_fp
-                        yield item
-                else:
-                    item.fp = None
-                    yield item
+            # life is simpler here, we do not need to open any files in the
+            # annex, hence all processing can be based in the information
+            # collected so far
+            for res in results:
+                yield _get_worktree_item(path, get_fs_info=link_target, **res)
+            return
+
+        # if we get here, this is about file pointers...
+        # for any annexed file we need to open, we need to locate it in
+        # the annex. we get `annexobjpath` in the results. this is
+        # relative to `path`. We could not use the `link_target`, because
+        # we might be in a managed branch without link.
+        path = Path(path)
+        for res in results:
+            item = _get_worktree_item(path, get_fs_info=True, **res)
+            annexobjpath = res.get('annexobjpath')
+            if not annexobjpath:
+                # this is not an annexed file
+                yield item
+                continue
+            full_annexobjpath = path / annexobjpath
+            if not full_annexobjpath.exists():
+                # annexed object is not present
+                yield item
+                continue
+            with (full_annexobjpath).open('rb') as active_fp:
+                item.fp = active_fp
+                yield item
+
+
+def _get_worktree_item(
+    base_path: Path,
+    get_fs_info: bool,
+    git_item: GitWorktreeItem,
+    annexkey: str | None = None,
+    annexsize: int | None = None,
+    annexobjpath: str | None = None,
+) -> AnnexWorktreeFileSystemItem | AnnexWorktreeItem:
+    """Internal helper to get an item from ``_join_annex_info()`` output
+
+    The assumption is that minimal investigations have been done
+    until this helper is called. In particular, no file system inspects
+    have been performed.
+
+    Depending on whether a user requested file system information to be
+    contained in the items (``get_fs_info``), either
+    ``AnnexWorktreeFileSystemItem`` or ``AnnexWorktreeItem`` is returned.
+
+    The main workhorse of this function if
+    ``AnnexWorktreeFileSystemItem.from_path()``. Besides calling it,
+    information is only taken from arguments and injected into the item
+    instances.
+    """
+    # we did not do any filesystem inspection previously, so
+    # do now when link_target is enabled
+    item = AnnexWorktreeFileSystemItem.from_path(
+        base_path / git_item.name,
+        link_target=True,
+    ) if get_fs_info else AnnexWorktreeItem.from_gitworktreeitem(git_item)
+    # amend the AnnexWorktree* object with the available git info
+    item.gitsha = git_item.gitsha
+    item.gittype = git_item.gittype
+    # amend the AnnexWorktree* object with the available annex info
+    item.annexkey = annexkey
+    item.annexsize = annexsize
+    item.annexobjpath = annexobjpath
+    return item
+
+
+def _join_annex_info(
+    processed_data,
+    stored_data: GitWorktreeItem,
+) -> dict:
+    """Internal helper to join results from pipeline stages
+
+    All that is happening here is that information from git and git-annex
+    inquiries gets merged into a single result dict.
+    """
+    joined = dict(git_item=stored_data)
+    if processed_data is StoreOnly:
+        # this is a non-annexed item, nothing to join
+        return joined
+    else:
+        # here processed data is a dict with properties from annex examinekey
+        joined.update(
+            annexkey=processed_data['key'],
+            annexsize=int(processed_data['bytesize']),
+            annexobjpath=PurePosixPath(str(processed_data['objectpath'])),
+        )
+        return joined
