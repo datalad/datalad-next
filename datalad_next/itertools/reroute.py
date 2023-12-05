@@ -114,11 +114,10 @@ def route_out(iterable: Iterable,
     """
     for item in iterable:
         data_to_process, data_to_store = splitter(item)
-        if data_to_process is StoreOnly:
-            data_store.append((False, data_to_store))
-        else:
-            data_store.append((True, data_to_store))
+        data_store.append((data_to_process, data_to_store))
+        if data_to_process is not StoreOnly:
             yield data_to_process
+
 
 def route_in(iterable: Iterable,
              data_store: list,
@@ -183,21 +182,20 @@ def route_in(iterable: Iterable,
         data that was stored in ``data_store`` in the corresponding step.
     """
     for element in iterable:
-        process_info = data_store.pop(0)
-        # route_out() translated StoreOnly to False, now we translate it back
-        # and yield until we find an item that was processed
-        while not process_info[0]:
-            yield joiner(StoreOnly, process_info[1])
-            process_info = data_store.pop(0)
-        yield joiner(element, process_info[1])
+        processed, stored = data_store.pop(0)
+        # yield stored-only content until we find an item that was processed
+        while processed is StoreOnly:
+            yield joiner(processed, stored)
+            processed, stored = data_store.pop(0)
+        yield joiner(element, stored)
     # we reached the end of the incoming iterable.
     # this means that we must not find any remaining items in `data_store`
     # that indicate that they would have a corresponding item in the
-    # iterable (process_info[0] == True)
-    for process_info in data_store:
-        assert process_info[0] is False, \
+    # iterable (processed is not StoreOnly)
+    for processed, stored in data_store:
+        assert processed is StoreOnly, \
             "iterable did not yield matching item for route-in item, cardinality mismatch?"
-        yield joiner(StoreOnly, process_info[1])
-    # rather than pop() in the last loop, wejust yielded from the list
+        yield joiner(processed, stored)
+    # rather than pop() in the last loop, we just yielded from the list
     # now this information is no longer needed
     del data_store[:]
