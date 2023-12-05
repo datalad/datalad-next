@@ -128,11 +128,13 @@ def iter_annexworktree(
                             sep=b'\n',
                         ),
                         # we need this route-out solely for the purpose
-                        # of maintaining a 1:1 relation ship of items reported
+                        # of maintaining a 1:1 relationship of items reported
                         # by git-ls-files and git-annex-find (merged again
-                        # in the route-in that gives `results` below`. The
-                        # "store" here does not actually store anything other than
-                        # `None`s
+                        # in the `route-in` that gives `results` below). The
+                        # "store" here does not actually store anything other
+                        # than`None`s (because the `key` --which is consumed by
+                        # `git annex examinekey`-- is also present in the
+                        # output of `git annex examinekey`).
                         _annex_git_align,
                         # do not process empty key lines. Non-empty key lines
                         # are processed, but nothing needs to be stored because the
