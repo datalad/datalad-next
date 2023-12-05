@@ -117,7 +117,18 @@ def iter_annexworktree(
                  'annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
                 input=route_out(
-                    itemize(gaf, sep=None, keep_ends=True),
+                    itemize(
+                        gaf,
+                        # git-annex changed its line-ending behavior, but we
+                        # should be safe, because we declare a specific format
+                        # for git-annex-find above
+                        # TODO this should be the following line only, not need
+                        # to put ends back
+                        # but MIH cannot get this adjusted
+                        #sep=b'\n',
+                        sep=None,
+                        keep_ends=True,
+                    ),
                     # we need this route-out solely for the purpose
                     # of maintaining a 1:1 relation ship of items reported
                     # by git-ls-files and git-annex-find (merged again
@@ -128,6 +139,9 @@ def iter_annexworktree(
                     # do not process empty key lines. Non-empty key lines
                     # are processed, but nothing needs to be stored because the
                     # processing result includes the key itself.
+                    # TODO when `keep_ends=True` is removed above, the strip()
+                    # should not be necessary anymore, but MIH cannot get
+                    # this adjusted
                     lambda key: (key if key.strip() else StoreOnly, None)
                 )
             ) as gek:
