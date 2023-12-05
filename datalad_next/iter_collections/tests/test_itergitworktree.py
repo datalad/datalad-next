@@ -5,6 +5,8 @@ from pathlib import (
 
 import pytest
 
+from datalad_next.tests.utils import rmtree
+
 from ..gitworktree import (
     GitWorktreeItem,
     GitWorktreeFileSystemItem,
@@ -91,3 +93,13 @@ def test_name_starting_with_tab(existing_dataset, no_result_rendering):
 
     iter_names = [item.name for item in iter_gitworktree(ds.pathobj)]
     assert PurePosixPath(tabbed_file_name) in iter_names
+
+
+def test_iter_gitworktree_empty(existing_dataset, no_result_rendering):
+    ds = existing_dataset
+    rmtree(ds.pathobj / '.datalad')
+    (ds.pathobj / '.gitattributes').unlink()
+    ds.save()
+    assert len(ds.status()) == 0
+    all_items = list(iter_gitworktree(ds.pathobj))
+    assert len(all_items) == 0

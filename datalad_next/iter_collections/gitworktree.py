@@ -93,6 +93,7 @@ def iter_gitworktree(
     untracked: str | None = 'all',
     link_target: bool = False,
     fp: bool = False,
+    recursive: str = 'repository',
 ) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
     """Uses ``git ls-files`` to report on a work tree of a Git repository
 
@@ -136,6 +137,16 @@ def iter_gitworktree(
       If ``True``, each file-type item includes a file-like object
       to access the file's content. This file handle will be closed
       automatically when the next item is yielded.
+    recursive: {'repository', 'no'}, optional
+      Behavior for recursion into subdirectories of ``path``. By default
+      (``repository``), all directories within the repository are reported.
+      This possibly includes untracked ones (see ``untracked``), but not
+      directories within submodules. If ``no``, only direct children
+      of ``path`` are reported on. For any worktree items in subdirectories
+      of ``path`` only a single record for the containing immediate
+      subdirectory ``path`` is yielded. For example, with
+      'path/subdir/file1' and 'path/subdir/file2' there will only be a
+      single item with ``name='subdir'`` and ``type='directory'``.
 
     Yields
     ------
@@ -146,7 +157,7 @@ def iter_gitworktree(
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
     # helper to handle multi-stage reports by ls-files
-    pending_item = None
+    pending_item = (None,)
 
     # we add a "fake" `None` record at the end to avoid a special
     # case for submitting the last pending item after the loop.
@@ -160,8 +171,9 @@ def iter_gitworktree(
 
         # yield any pending item, if the current record is not an
         # addendum of it
-        if ipath is None or (
-                pending_item is not None and pending_item[0] != ipath):
+        if ipath is None or pending_item[0] not in (None, ipath):
+            if ipath is None and pending_item[0] is None:
+                return
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
             item = _get_item(path, link_target, fp, *pending_item)
