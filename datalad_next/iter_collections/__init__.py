@@ -17,6 +17,7 @@ collections.
 .. autosummary::
    :toctree: generated
 
+   annexworktree
    directory
    gitworktree
    tarfile

@@ -69,9 +69,62 @@ def iter_annexworktree(
         link_target: bool = False,
         fp: bool = False,
 ) -> Generator[AnnexWorktreeItem | AnnexWorktreeFileSystemItem, None, None]:
-    """TODO
-    """
+    """Report work tree item of an annexed Git repository
 
+    This iterator can be used to report on all tracked, and untracked
+    non-annexed content and on the annexed content of the work tree of an
+    annexed Git repository. This includes files that have been removed
+    from the work tree (deleted), unless their removal has already been staged.
+
+    For any tracked content, yielded items include type information, gitsha
+    as last known to Git, and annex information, if the file is annexed. Annex
+    information includes the key of the annexed item, the size of the annexed
+    item in bytes, and the path where the content of an annexed item will be
+    available, if it is present.
+
+    This iterator is based on :func:`iter_gitworktree` and like this, any
+    yielded item reflects the last committed or staged content, not the state
+    of an unstaged modification in the work tree.
+
+    When no reporting of link targets or file-objects are requested, items of
+    type :class:`AnnexWorktreeItem` are yielded, otherwise
+    :class:`AnnexWorktreeFileSystemItem` instances are yielded. In both cases,
+    ``gitsha``, ``gittype``, ``annexkey``, ``annexsize``, and ``annnexobjpath``
+    properties are provided. Either of ``gitsha`` and ``gittyoe`` being ``None``
+    indicates untracked work tree content. Either of ``annexkey``, ``annexsize``,
+    ``annexobjpath`` being ``None`` indicates non-annexed work tree content.
+
+    .. note::
+      The ``gitsha`` is not equivalent to a SHA1 hash of a file's content,
+      but is the SHA-type blob identifier as reported and used by Git.
+
+    .. note::
+      Although ``annexobjpath`` is always set for annexed content, that does not
+      imply that an object at this path actually exists. The latter will only
+      be the case if the annexed content is present in the work tree, typically
+      as a result of a `datalad get`- or `git annex get`-call.
+
+    Parameters
+    ----------
+    path: Path
+      Path of a directory in a Git repository to report on.
+      Please see :func:`iter_gitworktree` for details.
+    untracked: {'all', 'whole-dir', 'no-empty'} or `None`, optional
+      Please see :func:`iter_gitworktree` for details.
+    link_target: bool, optional
+      If ``True`` and the item represents a symlink, the target of the symlink
+      is stored in the ``link_target`` attribute of the item.
+    fp: bool, optional
+      If ``True``, each file-type item includes a file-like object
+      to access the file's content, if the file is either: non-annexed, or if
+      the files is annexed and the content is locally available.
+      This file handle will be closed automatically when the next item is
+      yielded.
+
+    Yields
+    ------
+    :class:`AnnexWorktreeItem` or `AnnexWorktreeFileSystemItem`
+    """
     glsf = iter_gitworktree(
         path,
         untracked=untracked,
