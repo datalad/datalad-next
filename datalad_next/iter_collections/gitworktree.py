@@ -159,6 +159,9 @@ def iter_gitworktree(
     # helper to handle multi-stage reports by ls-files
     pending_item = (None,)
 
+    reported_dirs = set()
+    _single_dir = recursive == 'no'
+
     # we add a "fake" `None` record at the end to avoid a special
     # case for submitting the last pending item after the loop.
     # otherwise the context manager handling of the file pointer
@@ -174,6 +177,38 @@ def iter_gitworktree(
         if ipath is None or pending_item[0] not in (None, ipath):
             if ipath is None and pending_item[0] is None:
                 return
+            # this is the last point where we can still withhold a report.
+            # it is also the point where we can do this with minimal
+            # impact on the rest of the logic.
+            # so act on recursion setup now
+            pending_item_path_parts = pending_item[0].parts
+            if _single_dir and len(pending_item_path_parts) > 1:
+                # this path is pointing inside a subdirectory of the
+                # base directory -> ignore
+                # we do reset pending_item here, although this would also
+                # happen below -- it decomplexifies the conditionals
+                dir_path = pending_item_path_parts[0]
+                if dir_path in reported_dirs:
+                    # we only yield each containing dir once, and only once
+                    pending_item = (ipath,)
+                    continue
+                item = _get_item(
+                    path,
+                    # the next two must be passed in order to get the
+                    # full logic when to yield a GitWorktreeFileSystemItem
+                    # (not just GitWorktreeItem)
+                    link_target=link_target,
+                    fp=fp,
+                    # we know all props already
+                    ipath=dir_path,
+                    type=GitTreeItemType.directory,
+                    gitsha=None,
+                )
+                yield item
+                reported_dirs.add(dir_path)
+                pending_item = (ipath,)
+                continue
+
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
             item = _get_item(path, link_target, fp, *pending_item)

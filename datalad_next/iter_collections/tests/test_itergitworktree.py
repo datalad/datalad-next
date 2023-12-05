@@ -95,6 +95,49 @@ def test_name_starting_with_tab(existing_dataset, no_result_rendering):
     assert PurePosixPath(tabbed_file_name) in iter_names
 
 
+def test_iter_gitworktree_recursive(existing_dataset):
+    # actually, this tests non-recursive, because within-repo
+    # recursion is the default.
+    # later, we might also test subdataset recursion here
+    ds = existing_dataset
+    # some tracked content
+    tracked1 = ds.pathobj / 'tracked1'
+    tracked2 = ds.pathobj / 'subdir' / 'tracked2'
+    tracked3 = ds.pathobj / 'subdir' / 'tracked3'
+    for p in (tracked1, tracked2, tracked3):
+        p.parent.mkdir(exist_ok=True)
+        p.write_text(p.name)
+    ds.save()
+
+    # an "invisible" directory (no content)
+    (ds.pathobj / 'emptydir').mkdir()
+    # untracked file in subdir
+    untracked = ds.pathobj / 'subdir_u' / 'untracked'
+    untracked.parent.mkdir()
+    untracked.write_text('untracked')
+
+    # matches git report with untracked=all
+    all_content = set((
+        PurePath('.datalad'),
+        PurePath('subdir'),
+        PurePath('.gitattributes'),
+        PurePath('subdir_u'),
+        PurePath('tracked1'),
+    ))
+    # without any recursion, we see all top-level content, except for
+    # the empty directory with no content
+    all_items = list(iter_gitworktree(ds.pathobj, recursive='no'))
+    assert set(i.name for i in all_items) == all_content
+
+    # no we test a query that gooey would want to make,
+    # give me all content in a single directory, and also include any
+    # untracked files and even untracked/empty directories
+    all_items = list(iter_gitworktree(ds.pathobj, recursive='no',
+                                      untracked='whole-dir'))
+    assert set(i.name for i in all_items) == \
+        all_content.union((PurePath('emptydir'),))
+
+
 def test_iter_gitworktree_empty(existing_dataset, no_result_rendering):
     ds = existing_dataset
     rmtree(ds.pathobj / '.datalad')
