@@ -20,6 +20,7 @@ collections.
    annexworktree
    directory
    gitworktree
+   annexworktree
    tarfile
    zipfile
    utils

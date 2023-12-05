@@ -1,4 +1,6 @@
 """Report on the content of a Git-annex repository worktree
+
+The main functionality is provided by the :func:`iter_annexworktree()` function.
 """
 from __future__ import annotations
 
@@ -69,67 +71,63 @@ def iter_annexworktree(
         link_target: bool = False,
         fp: bool = False,
 ) -> Generator[AnnexWorktreeItem | AnnexWorktreeFileSystemItem, None, None]:
-    """Report work tree item of an annexed Git repository
+    """Companion to ``iter_gitworktree()`` for git-annex repositories
 
-    This iterator can be used to report on all tracked, and untracked
-    non-annexed content and on the annexed content of the work tree of an
-    annexed Git repository. This includes files that have been removed
-    from the work tree (deleted), unless their removal has already been staged.
+    This iterator wraps
+    :func:`~datalad_next.iter_collections.gitworktree.iter_gitworktree`.
+    For each item, it determines whether it is an annexed file. If so,
+    it amends the yielded item with information on the respective
+    annex key, the byte size of the key, and its (would-be) location
+    in the repository's annex.
 
-    For any tracked content, yielded items include type information, gitsha
-    as last known to Git, and annex information, if the file is annexed. Annex
-    information includes the key of the annexed item, the size of the annexed
-    item in bytes, and the path where the content of an annexed item will be
-    available, if it is present.
+    The basic semantics of all arguments are identical to
+    :func:`~datalad_next.iter_collections.gitworktree.iter_gitworktree`.
+    Importantly, with ``fp=True``, the annex object is opened directly,
+    if available. If not available, no attempt is made to open the associated
+    symlink or pointer file.
 
-    This iterator is based on
-    :func:`datalad_next.iter_collections.gitworktree.iter_gitworktree` and like
-    this, any yielded item reflects the last committed or staged content, not
-    the state of an unstaged modification in the work tree.
-
-    When no reporting of link targets or file-objects are requested, items of
+    With ``link_target`` and ``fp`` disabled items of
     type :class:`AnnexWorktreeItem` are yielded, otherwise
     :class:`AnnexWorktreeFileSystemItem` instances are yielded. In both cases,
-    ``gitsha``, ``gittype``, ``annexkey``, ``annexsize``, and ``annnexobjpath``
-    properties are provided. Either of ``gitsha`` and ``gittyoe`` being ``None``
-    indicates untracked work tree content. Either of ``annexkey``, ``annexsize``,
-    ``annexobjpath`` being ``None`` indicates non-annexed work tree content.
+    ``annexkey``, ``annexsize``, and ``annnexobjpath`` properties are provided.
 
     .. note::
-      The ``gitsha`` is not equivalent to a SHA1 hash of a file's content,
-      but is the SHA-type blob identifier as reported and used by Git.
-
-    .. note::
-      Although ``annexobjpath`` is always set for annexed content, that does not
-      imply that an object at this path actually exists. The latter will only
-      be the case if the annexed content is present in the work tree, typically
-      as a result of a `datalad get`- or `git annex get`-call.
+      Although ``annexobjpath`` is always set for annexed content, that does
+      not imply that an object at this path actually exists. The latter will
+      only be the case if the annexed content is present in the work tree,
+      typically as a result of a `datalad get`- or `git annex get`-call.
 
     Parameters
     ----------
     path: Path
-      Path of a directory in a Git repository to report on.
-      Please see
-      :func:`datalad_next.iter_collections.gitworktree.iter_gitworktree` for
-      details.
-    untracked: {'all', 'whole-dir', 'no-empty'} or `None`, optional
-      Please see
-      :func:`datalad_next.iter_collections.gitworktree.iter_gitworktree` for
-      details.
+      Path of a directory in a git-annex repository to report on. This
+      directory need not be the root directory of the repository, but
+      must be part of the repository's work tree.
+    untracked: {'all', 'whole-dir', 'no-empty'} or None, optional
+      If not ``None``, also reports on untracked work tree content.
+      ``all`` reports on any untracked file; ``whole-dir`` yields a single
+      report for a directory that is entirely untracked, and not individual
+      untracked files in it; ``no-empty-dir`` skips any reports on
+      untracked empty directories.
     link_target: bool, optional
-      If ``True`` and the item represents a symlink, the target of the symlink
-      is stored in the ``link_target`` attribute of the item.
+      If ``True``, information matching a
+      :class:`~datalad_next.iter_collections.utils.FileSystemItem`
+      will be included for each yielded item, and the targets of
+      any symlinks will be reported, too.
     fp: bool, optional
-      If ``True``, each file-type item includes a file-like object
-      to access the file's content, if the file is either: non-annexed, or if
-      the files is annexed and the content is locally available.
-      This file handle will be closed automatically when the next item is
-      yielded.
+      If ``True``, information matching a
+      :class:`~datalad_next.iter_collections.utils.FileSystemItem`
+      will be included for each yielded item, but without a
+      link target detection, unless ``link_target`` is given.
+      Moreover, each file-type item includes a file-like object
+      to access the file's content. This file handle will be closed
+      automatically when the next item is yielded.
 
     Yields
     ------
-    :class:`AnnexWorktreeItem` or `AnnexWorktreeFileSystemItem`
+    :class:`AnnexWorktreeItem` or :class:`AnnexWorktreeFileSystemItem`
     """
+
     glsf = iter_gitworktree(
         path,
         untracked=untracked,
