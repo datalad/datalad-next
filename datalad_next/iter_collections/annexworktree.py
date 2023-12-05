@@ -115,33 +115,30 @@ def iter_annexworktree(
                 ['git', '-C', str(path),
                  'annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
-                input=route_out(
-                    itemize(
-                        gaf,
-                        # git-annex changed its line-ending behavior, but we
-                        # should be safe, because we declare a specific format
-                        # for git-annex-find above
-                        # TODO this should be the following line only, not need
-                        # to put ends back
-                        # but MIH cannot get this adjusted
-                        #sep=b'\n',
-                        sep=None,
-                        keep_ends=True,
-                    ),
-                    # we need this route-out solely for the purpose
-                    # of maintaining a 1:1 relation ship of items reported
-                    # by git-ls-files and git-annex-find (merged again
-                    # in the route-in that gives `results` below`. The
-                    # "store" here does not actually store anything other than
-                    # `None`s
-                    _annex_git_align,
-                    # do not process empty key lines. Non-empty key lines
-                    # are processed, but nothing needs to be stored because the
-                    # processing result includes the key itself.
-                    # TODO when `keep_ends=True` is removed above, the strip()
-                    # should not be necessary anymore, but MIH cannot get
-                    # this adjusted
-                    lambda key: (key if key.strip() else StoreOnly, None)
+                input=intersperse(
+                    # Add line ending to submit the key to batch processing in
+                    # `git annex examinekey`.
+                    b'\n',
+                    route_out(
+                        itemize(
+                            gaf,
+                            # git-annex changed its line-ending behavior, but we
+                            # should be safe, because we declare a specific format
+                            # for git-annex-find above
+                            sep=b'\n',
+                        ),
+                        # we need this route-out solely for the purpose
+                        # of maintaining a 1:1 relation ship of items reported
+                        # by git-ls-files and git-annex-find (merged again
+                        # in the route-in that gives `results` below`. The
+                        # "store" here does not actually store anything other than
+                        # `None`s
+                        _annex_git_align,
+                        # do not process empty key lines. Non-empty key lines
+                        # are processed, but nothing needs to be stored because the
+                        # processing result includes the key itself.
+                        lambda key: (key if key else StoreOnly, None)
+                    )
                 )
             ) as gek:
 
