@@ -49,7 +49,7 @@ class AnnexWorktreeFileSystemItem(GitWorktreeFileSystemItem):
     annexobjpath: PurePath | None = None
 
 
-def content_path(item: AnnexWorktreeItem | AnnexWorktreeFileSystemItem,
+def content_path(item: AnnexWorktreeFileSystemItem,
                  base_path: Path,
                  link_target: bool,
                  ) -> PurePath | None:
