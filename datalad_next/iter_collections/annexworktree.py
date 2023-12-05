@@ -8,7 +8,6 @@ from more_itertools import intersperse
 from pathlib import (
     Path,
     PurePath,
-    PurePosixPath,
 )
 from typing import (
     Any,
