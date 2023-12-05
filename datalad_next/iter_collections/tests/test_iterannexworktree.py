@@ -82,3 +82,20 @@ def test_iter_annexworktree_tuned(tmp_path_factory, monkeypatch):
         'annex.tune.objecthashlower': 'true',
     })
     _dotests(ds)
+
+
+def test_iter_annexworktree_basic_fp(tmp_path_factory, monkeypatch):
+    ds = _mkds(tmp_path_factory, monkeypatch, {})
+    for i in range(3):
+        (ds.pathobj / f'file_{i}').write_text(f'content: #ö file_{i}\n')
+    ds.save(result_renderer='disabled')
+    ds.drop(
+        ds.pathobj / 'file_1',
+        reckless='availability',
+        result_renderer='disabled'
+    )
+    for ai in filter(lambda i: str(i.name).startswith('file_'), iter_annexworktree(ds.pathobj, fp=True)):
+        if ai.fp:
+            assert f'content: #ö {str(ai.name)}\n' == ai.fp.read().decode()
+        else:
+            assert (ds.pathobj / ai.annexobjpath).exists() is False
