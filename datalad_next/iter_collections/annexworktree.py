@@ -242,6 +242,6 @@ def _join_annex_info(
         joined.update(
             annexkey=processed_data['key'],
             annexsize=int(processed_data['bytesize']),
-            annexobjpath=PurePosixPath(str(processed_data['objectpath'])),
+            annexobjpath=PurePath(str(processed_data['objectpath'])),
         )
         return joined
