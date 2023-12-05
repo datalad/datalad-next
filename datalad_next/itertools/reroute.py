@@ -184,11 +184,20 @@ def route_in(iterable: Iterable,
     """
     for element in iterable:
         process_info = data_store.pop(0)
+        # route_out() translated StoreOnly to False, now we translate it back
+        # and yield until we find an item that was processed
         while not process_info[0]:
             yield joiner(StoreOnly, process_info[1])
             process_info = data_store.pop(0)
         yield joiner(element, process_info[1])
+    # we reached the end of the incoming iterable.
+    # this means that we must not find any remaining items in `data_store`
+    # that indicate that they would have a corresponding item in the
+    # iterable (process_info[0] == True)
     for process_info in data_store:
-        assert process_info[0] is False
+        assert process_info[0] is False, \
+            "iterable did not yield matching item for route-in item, cardinality mismatch?"
         yield joiner(StoreOnly, process_info[1])
+    # rather than pop() in the last loop, wejust yielded from the list
+    # now this information is no longer needed
     del data_store[:]
