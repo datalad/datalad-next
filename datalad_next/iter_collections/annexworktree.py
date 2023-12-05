@@ -68,11 +68,20 @@ def content_path(item: AnnexWorktreeItem | AnnexWorktreeFileSystemItem,
     return item.link_target if link_target else item.name
 
 
-def get_annex_item(data):
+def get_annex_item(data, **kwargs):
+    # Reuse the work done in `iter_gitworktree`.
+    # TODO: this approach is a little wasteful because we have to pass `fp` and
+    #  `link_target` into `iter_gitworktree` to get the proper
+    #  `GitWorkTree*`-class. But that might lead `iter_gitworktree` to open a
+    #  file for us (if `fp` is `True`), which we do not use.
+    all_args = {
+        **data.__dict__,
+        **kwargs,
+    }
     if isinstance(data, GitWorktreeItem):
-        return AnnexWorktreeItem(**data.__dict__)
+        return AnnexWorktreeItem(**all_args)
     elif isinstance(data, GitWorktreeFileSystemItem):
-        return AnnexWorktreeFileSystemItem(**data.__dict__)
+        return AnnexWorktreeFileSystemItem(**all_args)
     else:
         raise TypeError(
             'Expected GitWorktreeItem or '
@@ -81,18 +90,19 @@ def get_annex_item(data):
 
 
 def join_annex_info(processed_data,
-                    stored_data: AnnexWorktreeItem | AnnexWorktreeFileSystemItem
+                    stored_data: GitWorktreeItem | GitWorktreeFileSystemItem,
                     ):
     if processed_data is StoreOnly:
-        return stored_data
+        return get_annex_item(stored_data)
     else:
-        if processed_data:
-            stored_data.annexkey = processed_data['key']
-            stored_data.annexsize = int(processed_data['bytesize'])
-            stored_data.annexobjpath = PurePath(
+        return get_annex_item(
+            stored_data,
+            annexkey=processed_data['key'],
+            annexsize=int(processed_data['bytesize']),
+            annexobjpath=PurePath(
                 PurePosixPath(str(processed_data['objectpath']))
-            )
-        return stored_data
+            ),
+        )
 
 
 def iter_annexworktree(
@@ -106,17 +116,17 @@ def iter_annexworktree(
     glsf = iter_gitworktree(
         path,
         untracked=untracked,
-        link_target=link_target,
-        # TODO: we have to pass `fp` to `iter_gitworktree` because we want to
-        #  get the attributes from `GitWorktreeFileSystemItem`. We only get those
-        #  if we specify `fp=True` or `link_target=True`. However, we cannot use
-        #  the file pointer that we receive from `iter_gitworktree`, because the
-        #  they are closed when the next item is consumed from
-        #  `iter_gitworktree`. This happens before we yield our results.
-        #  Therefore, we have to open the file again. This is not ideal, but
+        # TODO: we have to pass `fp` and `link_target` to `iter_gitworktree`
+        #  because we want to get the attributes from `GitWorktreeFileSystemItem`.
+        #  We only get those if we specify `fp=True` or `link_target=True`.
+        #  However, we cannot use the file pointer that we receive from
+        #  `iter_gitworktree`, because they are closed when the next item is
+        #  consumed from `iter_gitworktree`. This happens before we yield our
+        #  results. Therefore, we have to open the file again. This is not ideal, but
         #  it works for now. A better solution might be, for example, to factor
         #  the worktree code out and provide object-factories for
         #  `GitWorktreeFileSystemItem` and for `AnnexWorktreeFileSystemItem`.
+        link_target=link_target,
         fp=fp,
     )
 
@@ -142,10 +152,10 @@ def iter_annexworktree(
                         git_fileinfo_store,
                         lambda git_worktree_item: (
                                 str(git_worktree_item.name).encode(),
-                                get_annex_item(git_worktree_item),
+                                git_worktree_item
                         )
                     )
-                ),
+                )
             ) as gaf, \
             iter_subproc(
                 # get the key properties JSON-lines style
