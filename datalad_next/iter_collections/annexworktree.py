@@ -81,7 +81,9 @@ def iter_annexworktree(
     )
 
     git_fileinfo_store: list[Any] = list()
-    key_store: list[Any] = list()
+    # this is a technical helper that will just store a bunch of `None`s
+    # for aligning item-results between git-ls-files and git-annex-find
+    _annex_git_align: list[Any] = list()
 
     with \
             iter_subproc(
@@ -116,7 +118,13 @@ def iter_annexworktree(
                 # use only non-empty keys as input to `git annex examinekey`.
                 input=route_out(
                     itemize(gaf, sep=None, keep_ends=True),
-                    key_store,
+                    # we need this route-out solely for the purpose
+                    # of maintaining a 1:1 relation ship of items reported
+                    # by git-ls-files and git-annex-find (merged again
+                    # in the route-in that gives `results` below`. The
+                    # "store" here does not actually store anything other than
+                    # `None`s
+                    _annex_git_align,
                     # do not process empty key lines. Non-empty key lines
                     # are processed, but nothing needs to be stored because the
                     # processing result includes the key itself.
@@ -132,7 +140,7 @@ def iter_annexworktree(
             # yielded by `iter_gitworktree`.
             route_in(
                 load_json(itemize(gek, sep=None)),
-                key_store,
+                _annex_git_align,
                 # `processed` data is either `StoreOnly` or detailed
                 # annex key information. we just return `process_data` as
                 # result, because `join_annex_info` knows how to incorporate
