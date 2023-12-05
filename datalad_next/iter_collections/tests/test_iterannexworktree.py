@@ -45,7 +45,7 @@ def _dotests(ds):
     #
     # pick the present annex file to start
     r = [r for r in res if r.name.name == 'file1.txt'][0]
-    assert r.name == PurePath('subdir', 'file1.txt')
+    assert r.name == query_path / 'subdir' / 'file1.txt'
     # we cannot check gitsha and symlink content for identity, it will change
     # depending on the tuning
     # we cannot check the item type, because it will vary across repository
@@ -58,7 +58,7 @@ def _dotests(ds):
     #
     # now pick the dropped annex file
     r = [r for r in res if r.name.name == 'dropped.txt'][0]
-    assert r.name == PurePath('dropped.txt')
+    assert r.name == query_path / 'dropped.txt'
     # we get basic info regardless of availability
     assert r.annexsize == len(droptest_content)
     assert r.annexkey == 'MD5E-s16--770a06889bc88f8743d1ed9a1977ff7b.txt'
