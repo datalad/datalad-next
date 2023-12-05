@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from more_itertools import intersperse
 from pathlib import (
     Path,
     PurePath,
@@ -14,14 +15,6 @@ from typing import (
     Generator,
 )
 
-from more_itertools import intersperse
-
-from .gitworktree import (
-    GitWorktreeItem,
-    GitWorktreeFileSystemItem,
-    FileSystemItemType,
-    iter_gitworktree
-)
 from datalad_next.itertools import (
     itemize,
     load_json,
@@ -30,6 +23,12 @@ from datalad_next.itertools import (
     StoreOnly,
 )
 from datalad_next.runners import iter_subproc
+
+from .gitworktree import (
+    GitWorktreeItem,
+    GitWorktreeFileSystemItem,
+    iter_gitworktree
+)
 
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.annexworktree')
