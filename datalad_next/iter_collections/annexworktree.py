@@ -82,9 +82,10 @@ def iter_annexworktree(
     item in bytes, and the path where the content of an annexed item will be
     available, if it is present.
 
-    This iterator is based on :func:`iter_gitworktree` and like this, any
-    yielded item reflects the last committed or staged content, not the state
-    of an unstaged modification in the work tree.
+    This iterator is based on
+    :func:`datalad_next.iter_collections.gitworktree.iter_gitworktree` and like
+    this, any yielded item reflects the last committed or staged content, not
+    the state of an unstaged modification in the work tree.
 
     When no reporting of link targets or file-objects are requested, items of
     type :class:`AnnexWorktreeItem` are yielded, otherwise
@@ -108,9 +109,13 @@ def iter_annexworktree(
     ----------
     path: Path
       Path of a directory in a Git repository to report on.
-      Please see :func:`iter_gitworktree` for details.
+      Please see
+      :func:`datalad_next.iter_collections.gitworktree.iter_gitworktree` for
+      details.
     untracked: {'all', 'whole-dir', 'no-empty'} or `None`, optional
-      Please see :func:`iter_gitworktree` for details.
+      Please see
+      :func:`datalad_next.iter_collections.gitworktree.iter_gitworktree` for
+      details.
     link_target: bool, optional
       If ``True`` and the item represents a symlink, the target of the symlink
       is stored in the ``link_target`` attribute of the item.
