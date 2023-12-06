@@ -7,9 +7,8 @@ from datalad import cfg as dlcfg
 from datalad_next.datasets import Dataset
 from datalad_next.utils import check_symlink_capability
 
-from ..annexworktree import (
-    iter_annexworktree,
-)
+from ..gitworktree import GitTreeItemType
+from ..annexworktree import iter_annexworktree
 
 
 def _mkds(tmp_path_factory, monkeypatch, cfg_overrides):
@@ -132,3 +131,17 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
                 ds.pathobj / ai.annexobjpath).exists() is False) or (
                     ai.name.exists() is False)
     assert not fcount
+
+
+def test_iter_annexworktree_nonrecursive(existing_dataset):
+    # just a smoke test
+    # given that iter_annexworktree() only wraps iter_gitworktree()
+    # there is nothing to test here, any item not yielded by
+    # iter_gitworktree() will also not be amended
+    all_items = list(iter_annexworktree(
+        existing_dataset.pathobj, recursive='no'))
+    # we get a .datalad directory-tyoe item, rather than the file item from
+    # inside the dir
+    dirs = [i for i in all_items if i.gittype == GitTreeItemType.directory]
+    assert len(dirs) == 1
+    dirs[0].name == PurePath('.datalad')

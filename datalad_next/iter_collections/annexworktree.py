@@ -67,11 +67,12 @@ class AnnexWorktreeFileSystemItem(GitWorktreeFileSystemItem):
 # iter_gitworktree() we should provide the same filtering for that one
 # too!
 def iter_annexworktree(
-        path: Path,
-        *,
-        untracked: str | None = 'all',
-        link_target: bool = False,
-        fp: bool = False,
+    path: Path,
+    *,
+    untracked: str | None = 'all',
+    link_target: bool = False,
+    fp: bool = False,
+    recursive: str = 'repository',
 ) -> Generator[AnnexWorktreeItem | AnnexWorktreeFileSystemItem, None, None]:
     """Companion to ``iter_gitworktree()`` for git-annex repositories
 
@@ -124,6 +125,10 @@ def iter_annexworktree(
       Moreover, each file-type item includes a file-like object
       to access the file's content. This file handle will be closed
       automatically when the next item is yielded.
+    recursive: {'repository', 'no'}, optional
+      Pass on to
+      :func:`~datalad_next.iter_collections.gitworktree.iter_gitworktree`,
+      thereby determining which items this iterator will yield.
 
     Yields
     ------
@@ -135,6 +140,7 @@ def iter_annexworktree(
         untracked=untracked,
         link_target=False,
         fp=False,
+        recursive=recursive,
     )
 
     git_fileinfo_store: list[Any] = list()
