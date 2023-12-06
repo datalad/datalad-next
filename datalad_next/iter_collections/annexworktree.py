@@ -153,7 +153,7 @@ def iter_annexworktree(
                 # we get the annex key for any filename
                 # (or empty if not annexed)
                 ['git', '-C', str(path),
-                 'annex', 'find', '--anything', '--format=${key}\n',
+                 'annex', 'find', '--anything', '--format=${key}\\n',
                  '--batch'],
                 # intersperse items with newlines to trigger a batch run
                 # this avoids string operations to append newlines to items
