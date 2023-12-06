@@ -19,10 +19,9 @@ from typing import (
     Dict,
     Generator,
     IO,
+    cast,
 )
 from urllib.parse import urlparse
-
-from more_itertools import side_effect
 
 from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.runners import (
@@ -105,7 +104,7 @@ class SshUrlOperations(UrlOperations):
             raise UrlOperationsResourceUnknown(url)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
-    def _get_props(self, url, stream: Generator) -> dict | None:
+    def _get_props(self, url, stream: Generator) -> dict:
         # Any stream must start with this magic marker, or we do not
         # recognize what is happening
         # after this marker, the server will send the size of the
@@ -119,7 +118,9 @@ class SshUrlOperations(UrlOperations):
 
         # Because the stream should start with the pattern, the first chunk of
         # the aligned stream must contain it.
-        chunk = next(aligned_stream)
+        # We know that the stream will deliver bytes, cast the result
+        # accordingly.
+        chunk = cast(bytes, next(aligned_stream))
         if chunk[:len(magic_marker)] != magic_marker:
             raise RuntimeError("Protocol error: report header not received")
         chunk = chunk[len(magic_marker):]
@@ -152,7 +153,7 @@ class SshUrlOperations(UrlOperations):
                  # obtain escalated/different privileges on a system
                  # to gain file access
                  credential: str | None = None,
-                 hash: str | None = None,
+                 hash: list[str] | None = None,
                  timeout: float | None = None) -> Dict:
         """Download a file by streaming it through an SSH connection.
 
@@ -258,7 +259,7 @@ class SshUrlOperations(UrlOperations):
                         to_url: str,
                         hash_names: list[str] | None,
                         expected_size: int | None,
-                        timeout: int | None) -> dict:
+                        timeout: float | None) -> dict:
 
         hasher = self._get_hasher(hash_names)
 
@@ -273,7 +274,7 @@ class SshUrlOperations(UrlOperations):
         #
         #   `iter(partial(src_fp.read, COPY_BUFSIZE), b'')
         #
-        upload_queue = Queue(maxsize=2)
+        upload_queue: Queue = Queue(maxsize=2)
 
         cmd = _SshCommandBuilder(to_url).get_cmd(
             # leave special exit code when writing fails, but not the
@@ -340,7 +341,7 @@ class _SshCommandBuilder:
         cmd.extend(self.ssh_args)
         cmd.extend([
             '-e', 'none',
-            self._parsed.hostname,
+            self._parsed.hostname or '',
             payload_cmd.format(
                 fdir=str(PurePosixPath(fpath).parent),
                 fpath=fpath,

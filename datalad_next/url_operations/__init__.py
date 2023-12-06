@@ -347,7 +347,7 @@ class UrlOperations:
                    *,
                    progress_id: str,
                    label: str,
-                   expected_size: int,
+                   expected_size: int | None,
                    start_log_msg: tuple,
                    end_log_msg: tuple,
                    update_log_msg: tuple
