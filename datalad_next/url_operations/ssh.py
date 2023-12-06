@@ -135,10 +135,9 @@ class SshUrlOperations(UrlOperations):
         chunk = chunk[marker_index + 1:]
         props = {
             'content-length': expected_size,
-            '_stream':
-                chain([chunk], aligned_stream)
-                if chunk
-                else aligned_stream
+            # go back to the original iterator, no need to keep looking for
+            # a pattern
+            '_stream': chain([chunk], stream) if chunk else stream
         }
         return props
 
