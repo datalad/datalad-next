@@ -223,12 +223,14 @@ def iter_gitworktree(
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
             item = _get_item(path, link_target, fp, *pending_item)
-            if fp and item.type == FileSystemItemType.file:
-                with (Path(path) / item.name).open('rb') as fp:
-                    item.fp = fp
-                    yield item
-            else:
+            fp_src = _get_fp_src(fp, path, item)
+            if fp_src is None:
+                # nothing to open
                 yield item
+            else:
+                with fp_src.open('rb') as active_fp:
+                    item.fp = active_fp
+                    yield item
 
         if ipath is None:
             # this is the trailing `None` record. we are done here
@@ -328,3 +330,29 @@ def _git_ls_files(path, *args):
                 keep_ends=False,
             )
         )
+
+
+def _get_fp_src(
+    fp: bool,
+    basepath: Path,
+    item: GitWorktreeItem | GitWorktreeFileSystemItem,
+) -> Path | None:
+    if not fp:
+        # no file pointer request, we are done
+        return None
+
+    # if we get here, this is about file pointers...
+    fp_src = None
+    if item.type in (FileSystemItemType.file,
+                     FileSystemItemType.symlink):
+        fp_src = item.name
+    if fp_src is None:
+        # nothing to open
+        return None
+
+    fp_src_fullpath = basepath / fp_src
+    if not fp_src_fullpath.exists():
+        # nothing there to open (would resolve through a symlink)
+        return None
+
+    return fp_src_fullpath
