@@ -41,11 +41,7 @@ from . import (
 lgr = logging.getLogger('datalad.ext.next.ssh_url_operations')
 
 
-__all__ = [
-    'SshUrlOperations',
-    'UrlOperationsRemoteError',
-    'UrlOperationsResourceUnknown'
-]
+__all__ = ['SshUrlOperations']
 
 
 class SshUrlOperations(UrlOperations):
