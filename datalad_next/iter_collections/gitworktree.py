@@ -156,6 +156,13 @@ def iter_gitworktree(
     ------
     :class:`GitWorktreeItem` or :class:`GitWorktreeFileSystemItem`
     """
+    # we force-convert to Path to prevent delayed crashing when reading from
+    # the file system. The docs already ask for that, but it is easy to
+    # forget/ignore and leads to non-obvious errors. Running this once is
+    # a cheap safety net
+    # https://github.com/datalad/datalad-next/issues/551
+    path = Path(path)
+
     lsfiles_args = ['--stage', '--cached']
     if untracked:
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
