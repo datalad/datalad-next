@@ -25,8 +25,10 @@ from urllib.parse import urlparse
 from more_itertools import side_effect
 
 from datalad_next.consts import COPY_BUFSIZE
-from datalad_next.runners.iter_subproc import iter_subproc
-from datalad_next.iterable_subprocess.iterable_subprocess import IterableSubprocessError
+from datalad_next.runners import (
+    iter_subproc,
+    IterableSubprocessError,
+)
 from datalad_next.itertools import align_pattern
 
 
