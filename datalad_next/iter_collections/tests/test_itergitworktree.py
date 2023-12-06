@@ -5,6 +5,8 @@ from pathlib import (
 
 import pytest
 
+from datalad_next.utils import check_symlink_capability
+
 from datalad_next.tests.utils import rmtree
 
 from ..gitworktree import (
@@ -170,3 +172,62 @@ def test_iter_gitworktree_deadsymlinks(existing_dataset, no_result_rendering):
     # it may take a different form, hence not checking for type
     assert len(all_items) == 1
     assert all_items[0].name == PurePath('file1')
+
+
+def prep_fp_tester(ds):
+    # we expect to process an exact number of files below
+    # 3 annexed files, 1 untracked, 1 in git,
+    # and possibly 1 symlink in git, 1 symlink untracked
+    # we count them up on creation, and then down on test
+    fcount = 0
+
+    # TODO bring back the umlaut. But waiting for triage
+    # https://github.com/datalad/datalad-next/pull/539#issuecomment-1842605708
+    #content_tmpl = 'content: #ö file_{}\n'
+    content_tmpl = 'content: # file_{}\n'
+    for i in ('annex1', 'annex2', 'annex3'):
+        (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+        fcount += 1
+    ds.save()
+    ds.drop(
+        ds.pathobj / 'file_annex1',
+        reckless='availability',
+    )
+    # and also add a file to git directly and a have one untracked too
+    for i in ('untracked', 'ingit'):
+        (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+        fcount += 1
+    ds.save('file_ingit', to_git=True)
+    # and add symlinks (untracked and in git)
+    if check_symlink_capability(
+        ds.pathobj / '_dummy', ds.pathobj / '_dummy_target'
+    ):
+        for i in ('symlinkuntracked', 'symlinkingit'):
+            tpath = ds.pathobj / f'target_{i}'
+            lpath = ds.pathobj / f'file_{i}'
+            tpath.write_text(content_tmpl.format(i))
+            lpath.symlink_to(tpath)
+            fcount += 1
+    ds.save('file_symlinkingit', to_git=True)
+    return fcount, content_tmpl
+
+
+def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
+    ds = existing_dataset
+    fcount, content_tmpl = prep_fp_tester(ds)
+
+    for ai in filter(
+        lambda i: i.name.name.startswith('file_'),
+        iter_gitworktree(ds.pathobj, fp=True)
+    ):
+        fcount -= 1
+        if ai.fp:
+            # for annexed files the fp can be an annex pointer file.
+            # in the context of `iter_gitworktree` this is not a
+            # recognized construct
+            assert content_tmpl.format(
+                ai.name.name[5:]) == ai.fp.read().decode() \
+                or ai.name.name.startswith('file_annex')
+        else:
+            assert (ds.pathobj / ai.name).exists() is False
+    assert not fcount
