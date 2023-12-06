@@ -164,6 +164,8 @@ class SshUrlOperations(UrlOperations):
         hasher = self._get_hasher(hash)
         progress_id = self._get_progress_id(from_url, str(to_path))
 
+        dst_fp = None
+
         ssh_cat = _SshCommandBuilder(from_url)
         cmd = ssh_cat.get_cmd(f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}')
         try:
@@ -208,6 +210,8 @@ class SshUrlOperations(UrlOperations):
         except StopIteration:
             raise UrlOperationsResourceUnknown(from_url)
         finally:
+            if dst_fp and to_path is not None:
+                dst_fp.close()
             self._progress_report_stop(progress_id, ('Finished download',))
 
         return {
