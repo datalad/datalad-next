@@ -185,25 +185,14 @@ class SshUrlOperations(UrlOperations):
                 dst_fp_write = dst_fp.write
 
                 # download can start
-                for chunk in side_effect(
-                        lambda chunk: self._progress_report_update(
-                            progress_id,
-                            ('Downloaded chunk',),
-                            len(chunk)
-                        ),
+                for chunk in self._reporting(
                         download_stream,
-                        before=partial(
-                            self._progress_report_start,
-                            progress_id,
-                            ('Download %s to %s', from_url, to_path),
-                            'downloading',
-                            expected_size
-                        ),
-                        after=partial(
-                            self._progress_report_stop,
-                            progress_id,
-                            ('Finished download',)
-                       )
+                        progress_id=progress_id,
+                        label='downloading',
+                        expected_size=expected_size,
+                        start_log_msg=('Download %s to %s', from_url, to_path),
+                        end_log_msg=('Finished download',),
+                        update_log_msg=('Downloaded chunk',)
                 ):
                     # write data
                     dst_fp_write(chunk)
@@ -293,23 +282,14 @@ class SshUrlOperations(UrlOperations):
         try:
             with iter_subproc(
                     cmd,
-                    input=side_effect(
-                        lambda chunk: self._progress_report_update(
-                            progress_id, ('Uploaded chunk',), len(chunk)
-                        ),
+                    input=self._reporting(
                         iter(upload_queue.get, None),
-                        before=partial(
-                            self._progress_report_start,
-                            progress_id,
-                            ('Upload %s to %s', source_name, to_url),
-                            'uploading',
-                            expected_size
-                        ),
-                        after=partial(
-                            self._progress_report_stop,
-                            progress_id,
-                            ('Finished upload',)
-                        )
+                        progress_id=progress_id,
+                        label='uploading',
+                        expected_size=expected_size,
+                        start_log_msg=('Upload %s to %s', source_name, to_url),
+                        end_log_msg=('Finished upload',),
+                        update_log_msg=('Uploaded chunk',)
                     )
             ):
                 upload_size = 0
