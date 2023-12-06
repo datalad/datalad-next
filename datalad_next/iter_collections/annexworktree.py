@@ -1,6 +1,7 @@
 """Report on the content of a Git-annex repository worktree
 
-The main functionality is provided by the :func:`iter_annexworktree()` function.
+The main functionality is provided by the :func:`iter_annexworktree()`
+function.
 """
 from __future__ import annotations
 
@@ -145,7 +146,8 @@ def iter_annexworktree(
                 # we get the annex key for any filename
                 # (or empty if not annexed)
                 ['git', '-C', str(path),
-                 'annex', 'find', '--anything', '--format=${key}\n', '--batch'],
+                 'annex', 'find', '--anything', '--format=${key}\n',
+                 '--batch'],
                 # intersperse items with newlines to trigger a batch run
                 # this avoids string operations to append newlines to items
                 input=intersperse(
@@ -178,9 +180,9 @@ def iter_annexworktree(
                     route_out(
                         itemize(
                             gaf,
-                            # git-annex changed its line-ending behavior, but we
-                            # should be safe, because we declare a specific format
-                            # for git-annex-find above
+                            # git-annex changed its line-ending behavior, but
+                            # we should be safe, because we declare a specific
+                            # format for git-annex-find above
                             sep=b'\n',
                         ),
                         # we need this route-out solely for the purpose
@@ -193,8 +195,8 @@ def iter_annexworktree(
                         # output of `git annex examinekey`).
                         _annex_git_align,
                         # do not process empty key lines. Non-empty key lines
-                        # are processed, but nothing needs to be stored because the
-                        # processing result includes the key itself.
+                        # are processed, but nothing needs to be stored because
+                        # the processing result includes the key itself.
                         lambda key: (key if key else StoreOnly, None)
                     )
                 )
