@@ -93,6 +93,7 @@ def iter_gitworktree(
     untracked: str | None = 'all',
     link_target: bool = False,
     fp: bool = False,
+    recursive: str = 'repository',
 ) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
     """Uses ``git ls-files`` to report on a work tree of a Git repository
 
@@ -126,27 +127,51 @@ def iter_gitworktree(
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual
       untracked files in it; ``no-empty-dir`` skips any reports on
-      untracked empty directories. Any untracked content is yielded as
-      a ``PurePosixPath``.
+      untracked empty directories.
     link_target: bool, optional
-      If ``True``, each file-type item includes a file-like object
-      to access the file's content. This file handle will be closed
-      automatically when the next item is yielded.
+      If ``True``, information matching a
+      :class:`~datalad_next.iter_collections.utils.FileSystemItem`
+      will be included for each yielded item, and the targets of
+      any symlinks will be reported, too.
     fp: bool, optional
-      If ``True``, each file-type item includes a file-like object
+      If ``True``, information matching a
+      :class:`~datalad_next.iter_collections.utils.FileSystemItem`
+      will be included for each yielded item, but without a
+      link target detection, unless ``link_target`` is given.
+      Moreover, each file-type item includes a file-like object
       to access the file's content. This file handle will be closed
       automatically when the next item is yielded.
+    recursive: {'repository', 'no'}, optional
+      Behavior for recursion into subdirectories of ``path``. By default
+      (``repository``), all directories within the repository are reported.
+      This possibly includes untracked ones (see ``untracked``), but not
+      directories within submodules. If ``no``, only direct children
+      of ``path`` are reported on. For any worktree items in subdirectories
+      of ``path`` only a single record for the containing immediate
+      subdirectory ``path`` is yielded. For example, with
+      'path/subdir/file1' and 'path/subdir/file2' there will only be a
+      single item with ``name='subdir'`` and ``type='directory'``.
 
     Yields
     ------
-    :class:`GitWorktreeItem` or `GitWorktreeFileSystemItem`
+    :class:`GitWorktreeItem` or :class:`GitWorktreeFileSystemItem`
     """
+    # we force-convert to Path to prevent delayed crashing when reading from
+    # the file system. The docs already ask for that, but it is easy to
+    # forget/ignore and leads to non-obvious errors. Running this once is
+    # a cheap safety net
+    # https://github.com/datalad/datalad-next/issues/551
+    path = Path(path)
+
     lsfiles_args = ['--stage', '--cached']
     if untracked:
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
     # helper to handle multi-stage reports by ls-files
-    pending_item = None
+    pending_item = (None,)
+
+    reported_dirs = set()
+    _single_dir = recursive == 'no'
 
     # we add a "fake" `None` record at the end to avoid a special
     # case for submitting the last pending item after the loop.
@@ -160,8 +185,41 @@ def iter_gitworktree(
 
         # yield any pending item, if the current record is not an
         # addendum of it
-        if ipath is None or (
-                pending_item is not None and pending_item[0] != ipath):
+        if ipath is None or pending_item[0] not in (None, ipath):
+            if ipath is None and pending_item[0] is None:
+                return
+            # this is the last point where we can still withhold a report.
+            # it is also the point where we can do this with minimal
+            # impact on the rest of the logic.
+            # so act on recursion setup now
+            pending_item_path_parts = pending_item[0].parts
+            if _single_dir and len(pending_item_path_parts) > 1:
+                # this path is pointing inside a subdirectory of the
+                # base directory -> ignore
+                # we do reset pending_item here, although this would also
+                # happen below -- it decomplexifies the conditionals
+                dir_path = pending_item_path_parts[0]
+                if dir_path in reported_dirs:
+                    # we only yield each containing dir once, and only once
+                    pending_item = (ipath,)
+                    continue
+                item = _get_item(
+                    path,
+                    # the next two must be passed in order to get the
+                    # full logic when to yield a GitWorktreeFileSystemItem
+                    # (not just GitWorktreeItem)
+                    link_target=link_target,
+                    fp=fp,
+                    # we know all props already
+                    ipath=dir_path,
+                    type=GitTreeItemType.directory,
+                    gitsha=None,
+                )
+                yield item
+                reported_dirs.add(dir_path)
+                pending_item = (ipath,)
+                continue
+
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
             item = _get_item(path, link_target, fp, *pending_item)
