@@ -86,15 +86,19 @@ def test_iter_annexworktree_tuned(tmp_path_factory, monkeypatch):
 
 def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
     ds = existing_dataset
+    content_tmpl = 'content: #ö file_{}\n'
     for i in range(3):
-        (ds.pathobj / f'file_{i}').write_text(f'content: #ö file_{i}\n')
+        (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
     ds.save()
     ds.drop(
         ds.pathobj / 'file_1',
         reckless='availability',
     )
-    for ai in filter(lambda i: str(i.name).startswith('file_'), iter_annexworktree(ds.pathobj, fp=True)):
+    for ai in filter(
+        lambda i: str(i.name).startswith('file_'),
+        iter_annexworktree(ds.pathobj, fp=True)
+    ):
         if ai.fp:
-            assert f'content: #ö {str(ai.name)}\n' == ai.fp.read().decode()
+            assert content_tmpl.format(ai.name) == ai.fp.read().decode()
         else:
             assert (ds.pathobj / ai.annexobjpath).exists() is False
