@@ -207,6 +207,9 @@ class SshUrlOperations(UrlOperations):
             self._check_return_code(e.returncode, from_url)
         except StopIteration:
             raise UrlOperationsResourceUnknown(from_url)
+        finally:
+            self._progress_report_stop(progress_id, ('Finished download',))
+
         return {
             **props,
             **hasher.get_hexdigest(),
@@ -317,6 +320,8 @@ class SshUrlOperations(UrlOperations):
             if chunk != b'':
                 # we had a timeout while uploading
                 raise TimeoutError
+        finally:
+            self._progress_report_stop(progress_id, ('Finished upload',))
 
         return {
             **hasher.get_hexdigest(),
