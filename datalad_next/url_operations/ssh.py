@@ -115,16 +115,19 @@ class SshUrlOperations(UrlOperations):
 
         # use the `align_pattern` iterable to guarantees, that the magic
         # marker is always contained in a complete chunk.
-        # TODO: the align-pattern iterator stays "on" the stream, which might
-        #  slow down processing upstream. We could consider to change
-        #  align_pattern to an iterator-class and support detaching.
         aligned_stream = align_pattern(stream, magic_marker)
 
-        # Because the stream should start with the pattern, the first chunk should contain it.
+        # Because the stream should start with the pattern, the first chunk of
+        # the aligned stream must contain it.
         chunk = next(aligned_stream)
         if chunk[:len(magic_marker)] != magic_marker:
             raise RuntimeError("Protocol error: report header not received")
         chunk = chunk[len(magic_marker):]
+
+        # We are done with the aligned stream, use the original stream again.
+        # This is possible because `align_pattern` does not cache any data
+        # after a `yield`.
+        del aligned_stream
 
         # The length is transferred now and terminated by b'\x01'.
         while b'\x01' not in chunk:

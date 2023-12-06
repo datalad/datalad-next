@@ -50,6 +50,14 @@ def align_pattern(iterable: Iterable[str | bytes | bytearray],
     allows to use a simple ``in``-check to determine whether the pattern is
     present in the yielded result chunks.
 
+    The function always yields everything it has fetched from the underlying
+    iterable. So after a yield it does not cache any data from the underlying
+    iterable. That means, if the functionality of
+    ``align_pattern`` is no longer required, the underlying iterator can be
+    used, when ``align_pattern`` has yielded a data chunk.
+    This allows more efficient  processing of the data that remains in the
+    underlying iterable.
+
     Parameters
     ----------
     iterable: Iterable
