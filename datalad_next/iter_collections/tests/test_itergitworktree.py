@@ -95,7 +95,7 @@ def test_name_starting_with_tab(existing_dataset, no_result_rendering):
     assert PurePosixPath(tabbed_file_name) in iter_names
 
 
-def test_iter_gitworktree_recursive(existing_dataset):
+def test_iter_gitworktree_recursive(existing_dataset, no_result_rendering):
     # actually, this tests non-recursive, because within-repo
     # recursion is the default.
     # later, we might also test subdataset recursion here
@@ -146,3 +146,27 @@ def test_iter_gitworktree_empty(existing_dataset, no_result_rendering):
     assert len(ds.status()) == 0
     all_items = list(iter_gitworktree(ds.pathobj))
     assert len(all_items) == 0
+
+
+def test_iter_gitworktree_deadsymlinks(existing_dataset, no_result_rendering):
+    ds = existing_dataset
+    dpath = ds.pathobj / 'subdir'
+    dpath.mkdir()
+    fpath = dpath / 'file1'
+    test_content = 'content'
+    fpath.write_text(test_content)
+    ds.save()
+    ds.drop(fpath, reckless='availability')
+    try:
+        # if there is a file we can open, it should not have the content
+        # (annex pointer file)
+        assert fpath.read_text() != test_content
+    except FileNotFoundError:
+        # with dead symlinks, we end up here and that is normal
+        pass
+    # next one must not crash
+    all_items = list(iter_gitworktree(dpath))
+    # we get our "dead symlink" -- but depending on the p[latform
+    # it may take a different form, hence not checking for type
+    assert len(all_items) == 1
+    assert all_items[0].name == PurePath('file1')
