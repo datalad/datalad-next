@@ -92,9 +92,12 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
     # we count them up on creation, and then down on test
     fcount = 0
 
-    content_tmpl = 'content: #ö file_{}\n'
+    content_tmpl = 'content: #ö file_{}'
     for i in range(3):
-        (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+        (ds.pathobj / f'file_{i}').write_text(
+            content_tmpl.format(i),
+            encoding='utf-8'
+        )
         fcount += 1
     ds.save()
     ds.drop(
@@ -103,7 +106,10 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
     )
     # and also add a file to git directly and a have one untracked too
     for i in ('untracked', 'ingit'):
-        (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+        (ds.pathobj / f'file_{i}').write_text(
+            content_tmpl.format(i),
+            encoding='utf-8'
+        )
         fcount += 1
     ds.save('file_ingit', to_git=True)
     # and add symlinks (untracked and in git)
@@ -113,7 +119,7 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
         for i in ('symlinkuntracked', 'symlinkingit'):
             tpath = ds.pathobj / f'target_{i}'
             lpath = ds.pathobj / f'file_{i}'
-            tpath.write_text(content_tmpl.format(i))
+            tpath.write_text(content_tmpl.format(i), encoding='utf-8')
             lpath.symlink_to(tpath)
             fcount += 1
     ds.save('file_symlinkingit', to_git=True)
