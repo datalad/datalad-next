@@ -94,11 +94,21 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
         ds.pathobj / 'file_1',
         reckless='availability',
     )
+    # and also add a file to git directly and a have one untracked too
+    for i in ('untracked', 'ingit'):
+        (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+    ds.save('file_ingit', to_git=True)
+
+    # we expect to process an exact number of files below
+    fcount = 5
     for ai in filter(
-        lambda i: str(i.name).startswith('file_'),
+        lambda i: str(i.name.name).startswith('file_'),
         iter_annexworktree(ds.pathobj, fp=True)
     ):
+        fcount -= 1
         if ai.fp:
-            assert content_tmpl.format(ai.name) == ai.fp.read().decode()
+            assert content_tmpl.format(
+                ai.name.name[5:]) == ai.fp.read().decode()
         else:
             assert (ds.pathobj / ai.annexobjpath).exists() is False
+    assert not fcount
