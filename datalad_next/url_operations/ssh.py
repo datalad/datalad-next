@@ -198,7 +198,12 @@ class SshUrlOperations(UrlOperations):
                             ('Download %s to %s', from_url, to_path),
                             'downloading',
                             expected_size
-                        )
+                        ),
+                        after=partial(
+                            self._progress_report_stop,
+                            progress_id,
+                            ('Finished download',)
+                       )
                 ):
                     # write data
                     dst_fp_write(chunk)
@@ -212,7 +217,6 @@ class SshUrlOperations(UrlOperations):
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
-            self._progress_report_stop(progress_id, ('Finished download',))
 
         return {
             **props,
@@ -300,6 +304,11 @@ class SshUrlOperations(UrlOperations):
                             ('Upload %s to %s', source_name, to_url),
                             'uploading',
                             expected_size
+                        ),
+                        after=partial(
+                            self._progress_report_stop,
+                            progress_id,
+                            ('Finished upload',)
                         )
                     )
             ):
@@ -324,8 +333,6 @@ class SshUrlOperations(UrlOperations):
             if chunk != b'':
                 # we had a timeout while uploading
                 raise TimeoutError
-        finally:
-            self._progress_report_stop(progress_id, ('Finished upload',))
 
         return {
             **hasher.get_hexdigest(),
