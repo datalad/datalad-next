@@ -31,6 +31,7 @@ from .gitworktree import (
     GitWorktreeFileSystemItem,
     iter_gitworktree
 )
+from .utils import FileSystemItemType
 
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.annexworktree')
@@ -83,7 +84,7 @@ def iter_annexworktree(
 
     The basic semantics of all arguments are identical to
     :func:`~datalad_next.iter_collections.gitworktree.iter_gitworktree`.
-    Importantly, with ``fp=True``, the annex object is opened directly,
+    Importantly, with ``fp=True``, an annex object is opened directly,
     if available. If not available, no attempt is made to open the associated
     symlink or pointer file.
 
@@ -240,19 +241,31 @@ def iter_annexworktree(
         path = Path(path)
         for res in results:
             item = _get_worktree_item(path, get_fs_info=True, **res)
-            annexobjpath = res.get('annexobjpath')
-            if not annexobjpath:
-                # this is not an annexed file
+            # determine would file we would open
+            fp_src = None
+            if item.annexobjpath is not None:
+                # this is an annexed file
+                fp_src = item.annexobjpath
+            elif item.type == FileSystemItemType.file \
+                    and item.annexkey is None:
+                # regular file (untracked or tracked)
+                fp_src = item.name
+            elif item.type == FileSystemItemType.symlink \
+                    and item.annexkey is None:
+                # regular symlink
+                fp_src = item.name
+            if fp_src is None:
+                # nothing to open
                 yield item
-                continue
-            full_annexobjpath = path / annexobjpath
-            if not full_annexobjpath.exists():
-                # annexed object is not present
-                yield item
-                continue
-            with (full_annexobjpath).open('rb') as active_fp:
-                item.fp = active_fp
-                yield item
+            else:
+                fp_src_fullpath = path / fp_src
+                if not fp_src_fullpath.exists():
+                    # nothing there to open (would resolve through a symlink)
+                    yield item
+                else:
+                    with fp_src_fullpath.open('rb') as active_fp:
+                        item.fp = active_fp
+                        yield item
 
 
 def _get_worktree_item(

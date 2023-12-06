@@ -5,6 +5,7 @@ from pathlib import (
 from datalad import cfg as dlcfg
 
 from datalad_next.datasets import Dataset
+from datalad_next.utils import check_symlink_capability
 
 from ..annexworktree import (
     iter_annexworktree,
@@ -86,9 +87,16 @@ def test_iter_annexworktree_tuned(tmp_path_factory, monkeypatch):
 
 def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
     ds = existing_dataset
+    # we expect to process an exact number of files below
+    # 3 annexed files, 1 untracked, 1 in git,
+    # and possibly 1 symlink in git, 1 symlink untracked
+    # we count them up on creation, and then down on test
+    fcount = 0
+
     content_tmpl = 'content: #ö file_{}\n'
     for i in range(3):
         (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+        fcount += 1
     ds.save()
     ds.drop(
         ds.pathobj / 'file_1',
@@ -97,10 +105,20 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
     # and also add a file to git directly and a have one untracked too
     for i in ('untracked', 'ingit'):
         (ds.pathobj / f'file_{i}').write_text(content_tmpl.format(i))
+        fcount += 1
     ds.save('file_ingit', to_git=True)
+    # and add symlinks (untracked and in git)
+    if check_symlink_capability(
+        ds.pathobj / '_dummy', ds.pathobj / '_dummy_target'
+    ):
+        for i in ('symlinkuntracked', 'symlinkingit'):
+            tpath = ds.pathobj / f'target_{i}'
+            lpath = ds.pathobj / f'file_{i}'
+            tpath.write_text(content_tmpl.format(i))
+            lpath.symlink_to(tpath)
+            fcount += 1
+    ds.save('file_symlinkingit', to_git=True)
 
-    # we expect to process an exact number of files below
-    fcount = 5
     for ai in filter(
         lambda i: str(i.name.name).startswith('file_'),
         iter_annexworktree(ds.pathobj, fp=True)
@@ -110,5 +128,7 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
             assert content_tmpl.format(
                 ai.name.name[5:]) == ai.fp.read().decode()
         else:
-            assert (ds.pathobj / ai.annexobjpath).exists() is False
+            assert (ai.annexobjpath and (
+                ds.pathobj / ai.annexobjpath).exists() is False) or (
+                    ai.name.exists() is False)
     assert not fcount
