@@ -84,15 +84,14 @@ def test_iter_annexworktree_tuned(tmp_path_factory, monkeypatch):
     _dotests(ds)
 
 
-def test_iter_annexworktree_basic_fp(tmp_path_factory, monkeypatch):
-    ds = _mkds(tmp_path_factory, monkeypatch, {})
+def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
+    ds = existing_dataset
     for i in range(3):
         (ds.pathobj / f'file_{i}').write_text(f'content: #ö file_{i}\n')
-    ds.save(result_renderer='disabled')
+    ds.save()
     ds.drop(
         ds.pathobj / 'file_1',
         reckless='availability',
-        result_renderer='disabled'
     )
     for ai in filter(lambda i: str(i.name).startswith('file_'), iter_annexworktree(ds.pathobj, fp=True)):
         if ai.fp:
