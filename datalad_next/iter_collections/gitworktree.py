@@ -127,14 +127,18 @@ def iter_gitworktree(
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual
       untracked files in it; ``no-empty-dir`` skips any reports on
-      untracked empty directories. Any untracked content is yielded as
-      a ``PurePosixPath``.
+      untracked empty directories.
     link_target: bool, optional
-      If ``True``, each file-type item includes a file-like object
-      to access the file's content. This file handle will be closed
-      automatically when the next item is yielded.
+      If ``True``, information matching a
+      :class:`~datalad_next.iter_collections.utils.FileSystemItem`
+      will be included for each yielded item, and the targets of
+      any symlinks will be reported, too.
     fp: bool, optional
-      If ``True``, each file-type item includes a file-like object
+      If ``True``, information matching a
+      :class:`~datalad_next.iter_collections.utils.FileSystemItem`
+      will be included for each yielded item, but without a
+      link target detection, unless ``link_target`` is given.
+      Moreover, each file-type item includes a file-like object
       to access the file's content. This file handle will be closed
       automatically when the next item is yielded.
     recursive: {'repository', 'no'}, optional
@@ -150,7 +154,7 @@ def iter_gitworktree(
 
     Yields
     ------
-    :class:`GitWorktreeItem` or `GitWorktreeFileSystemItem`
+    :class:`GitWorktreeItem` or :class:`GitWorktreeFileSystemItem`
     """
     lsfiles_args = ['--stage', '--cached']
     if untracked:
