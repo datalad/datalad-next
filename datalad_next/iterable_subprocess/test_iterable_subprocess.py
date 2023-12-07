@@ -128,13 +128,12 @@ def test_exception_from_not_found_process_propagated():
 
 
 def test_exception_from_return_code():
-    with pytest.raises(IterableSubprocessError) as excinfo:
+    with pytest.raises(IterableSubprocessError, match='No such file or directory') as excinfo:
         with iterable_subprocess(['ls', 'does-not-exist'], ()) as output:
             a = b''.join(output)
 
     assert excinfo.value.returncode > 0
-    assert (b'No such file or directory' in excinfo.value.stderr) \
-           or (b'Datei oder Verzeichnis nicht gefunden' in excinfo.value.stderr)
+    assert b'No such file or directory' in excinfo.value.stderr
 
 
 def test_exception_from_context_even_though_return_code_with_long_standard_error():
