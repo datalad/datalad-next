@@ -391,7 +391,7 @@ class LsFileCollection(ValidatedInterface):
         # stick with numerical IDs (although less accessible), we cannot
         # know in general whether this particular system can map numerical
         # IDs to valid target names (think stored name in tarballs)
-        owner_info = f'{res["uid"]}:{res["gid"]}' if 'uid' in res else ''
+        owner_info = f'{res["uid"]}:{res["gid"]}' if res.get('uid') else ''
 
         ui.message('{mode} {size: >6} {owner: >9} {hts: >11} {item} ({type})'.format(
             mode=mode,
