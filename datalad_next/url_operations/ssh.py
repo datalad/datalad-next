@@ -294,7 +294,7 @@ class SshUrlOperations(UrlOperations):
         try:
             with iter_subproc(
                     cmd,
-                    input=self._reporting(
+                    input=self._with_progress(
                         iter(upload_queue.get, None),
                         progress_id=progress_id,
                         label='uploading',

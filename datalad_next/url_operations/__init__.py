@@ -342,16 +342,16 @@ class UrlOperations:
     def _get_hasher(self, hash: list[str] | None) -> NoOpHash | MultiHash:
         return MultiHash(hash) if hash is not None else NoOpHash()
 
-    def _reporting(self,
-                   stream: Iterable[Any],
-                   *,
-                   progress_id: str,
-                   label: str,
-                   expected_size: int | None,
-                   start_log_msg: tuple,
-                   end_log_msg: tuple,
-                   update_log_msg: tuple
-                   ) -> Generator[Any, None, None]:
+    def _with_progress(self,
+                       stream: Iterable[Any],
+                       *,
+                       progress_id: str,
+                       label: str,
+                       expected_size: int | None,
+                       start_log_msg: tuple,
+                       end_log_msg: tuple,
+                       update_log_msg: tuple
+                       ) -> Generator[Any, None, None]:
         yield from side_effect(
             lambda chunk: self._progress_report_update(
                 progress_id,
