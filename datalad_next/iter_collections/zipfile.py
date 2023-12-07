@@ -30,7 +30,8 @@ class _ZipFileDirPath(PurePosixPath):
     directory members to be identified with a trailing slash.
     """
     def __str__(self) -> str:
-        return f'{super().__str__()}/'
+        super_str = super().__str__()
+        return super_str if super_str.endswith('/') else f'{super_str}/'
 
     def __eq__(self, other):
         if not isinstance(other, _ZipFileDirPath):
