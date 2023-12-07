@@ -7,6 +7,8 @@ import pytest
 from datalad.api import ls_file_collection
 
 from datalad_next.constraints.exceptions import CommandParametrizationError
+# we need this fixture
+from datalad_next.iter_collections.tests.test_iterzip import sample_zip
 from datalad_next.tests.marker import skipif_no_network
 
 from ..ls_file_collection import LsFileCollectionParamValidator
@@ -31,29 +33,42 @@ def test_ls_file_collection_insufficient_args():
         ls_file_collection('bogus', 'http://example.com')
 
 
+def _check_archive_member_result(r, collection):
+    # basics of a result
+    assert r['action'] == 'ls_file_collection'
+    assert r['status'] == 'ok'
+    # a collection identifier, here the tar location
+    assert 'collection' in r
+    assert r['collection'] == collection
+    # an item identifier, here a path of an archive member
+    assert 'item' in r
+    assert isinstance(r['item'], PurePath)
+    # item type info, here some filesystem-related category
+    assert 'type' in r
+    assert r['type'] in ('file', 'directory', 'symlink', 'hardlink')
+
+
+def test_ls_file_collection_zipfile(sample_zip, no_result_rendering):
+    for res in (
+        ls_file_collection('zipfile', sample_zip),
+        ls_file_collection('zipfile', sample_zip, hash='md5'),
+    ):
+        assert len(res) == 4
+        # test a few basic properties that should be true for any result
+        for r in res:
+            _check_archive_member_result(r, sample_zip)
+
+
 @skipif_no_network
 def test_ls_file_collection_tarfile(sample_tar_xz, no_result_rendering):
-    # smoke test first
-    res = ls_file_collection(
-        'tarfile',
-        sample_tar_xz,
-        hash='md5',
-    )
-    assert len(res) == 6
-    # test a few basic properties that should be true for any result
-    for r in res:
-        # basics of a result
-        assert r['action'] == 'ls_file_collection'
-        assert r['status'] == 'ok'
-        # a collection identifier, here the tar location
-        assert 'collection' in r
-        assert r['collection'] == sample_tar_xz
-        # an item identifier, here a path of an archive member
-        assert 'item' in r
-        assert isinstance(r['item'], PurePath)
-        # item type info, here some filesystem-related category
-        assert 'type' in r
-        assert r['type'] in ('file', 'directory', 'symlink', 'hardlink')
+    for res in (
+        ls_file_collection('tarfile', sample_tar_xz),
+        ls_file_collection('tarfile', sample_tar_xz, hash='md5'),
+    ):
+        assert len(res) == 6
+        # test a few basic properties that should be true for any result
+        for r in res:
+            _check_archive_member_result(r, sample_tar_xz)
 
 
 def test_ls_file_collection_directory(tmp_path, no_result_rendering):
