@@ -50,6 +50,7 @@ from datalad_next.utils import ensure_list
 
 from datalad_next.iter_collections.directory import iter_dir
 from datalad_next.iter_collections.tarfile import iter_tar
+from datalad_next.iter_collections.zipfile import iter_zip
 from datalad_next.iter_collections.utils import (
     FileSystemItemType,
     compute_multihash_from_fp,
@@ -74,6 +75,7 @@ lgr = getLogger('datalad.local.ls_file_collection')
 _supported_collection_types = (
     'directory',
     'tarfile',
+    'zipfile',
     'gitworktree',
     'annexworktree',
 )
@@ -114,7 +116,7 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         hash = kwargs['hash']
         iter_fx = None
         iter_kwargs = None
-        if type in ('directory', 'tarfile', 'gitworktree', 'annexworktree'):
+        if type in ('directory', 'tarfile', 'zipfile', 'gitworktree', 'annexworktree'):
             if not isinstance(collection, Path):
                 self.raise_for(
                     kwargs,
@@ -131,6 +133,9 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
             item2res = fsitem_to_dict
         elif type == 'tarfile':
             iter_fx = iter_tar
+            item2res = fsitem_to_dict
+        elif type == 'zipfile':
+            iter_fx = iter_zip
             item2res = fsitem_to_dict
         elif type == 'gitworktree':
             iter_fx = iter_gitworktree
@@ -364,7 +369,9 @@ class LsFileCollection(ValidatedInterface):
         type = res.get('type', None)
 
         # if there is no mode, produces '?---------'
-        mode = filemode(res.get('mode', 0))
+        # .. or 0 is needed, because some iterators report an explicit
+        # `None` mode
+        mode = filemode(res.get('mode', 0) or 0)
 
         size = None
         if type in ('file', 'hardlink'):
