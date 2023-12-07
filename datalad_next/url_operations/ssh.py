@@ -198,7 +198,7 @@ class SshUrlOperations(UrlOperations):
                     dst_fp_write = dst_fp.write
 
                     # download can start
-                    for chunk in self._reporting(
+                    for chunk in self._with_progress(
                             download_stream,
                             progress_id=progress_id,
                             label='downloading',
