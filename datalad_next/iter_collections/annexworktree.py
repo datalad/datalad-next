@@ -187,10 +187,13 @@ def iter_annexworktree(
                     route_out(
                         itemize(
                             gaf,
-                            # git-annex changed its line-ending behavior, but
-                            # we should be safe, because we declare a specific
-                            # format for git-annex-find above
-                            sep=b'\n',
+                            # although we declare a specific key output format
+                            # for the git-annex find call, some versions of
+                            # git-annex on Windows will terminate the key output
+                            # with '\r\n' instead of '\n'. We therefore use
+                            # `None` as separator, which enables `itemize()`
+                            # to use either separator, i.e. '\r\n' or '\n'.
+                            sep=None,
                         ),
                         # we need this route-out solely for the purpose
                         # of maintaining a 1:1 relationship of items reported
