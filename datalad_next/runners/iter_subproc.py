@@ -49,9 +49,38 @@ def iter_subproc(
       passing chunks to the process, while the standard error thread
       fetches the error output, and while the main thread iterates over
       the process's output from client code in the context.
+
       On context exit, the main thread closes the process's standard output,
       waits for the standard input thread to exit, waits for the standard
-      error thread to exit, and wait for the process to exit.
+      error thread to exit, and wait for the process to exit. If the process
+      exited with a non-zero return code, an
+      ``IterableSubprocessError`` is raised, containing the process's return
+      code.
+
+      If the context is exited due to an exception that was raised in the
+      context, the main thread terminates the process via ``Popen.terminate()``,
+      closes the process's standard output, waits for the standard input
+      thread to exit, waits for the standard error thread to exit, waits
+      for the process to exit, and re-raises the exception.
+
+      Note that any exception, that is raised in the context will re-raised
+      in the main thread. In this case, no ``IterableSubprocessError`` will
+      be raised if the process exited with a
+      non-zero return code. The return code will be available in the attribute
+      `returncode` of the `as`-variable. For example, the following code will
+
+      .. code-block:: python
+
+        >>> from datalad_next.runners import iter_subproc
+        >>> try:
+        ...     with iter_subproc(['ls', '-@']) as ls:
+        ...         while True:
+        ...             next(ls)
+        ...         raise ValueError('This is a test-exception')
+        ... except Exception as e:
+        ...     print(repr(e), ls.returncode)
+        StopIteration() 2
+
     """
     return iterable_subprocess(
         args,

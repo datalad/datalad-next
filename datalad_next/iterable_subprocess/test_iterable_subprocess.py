@@ -127,7 +127,8 @@ def test_exception_from_not_found_process_propagated():
             b''.join(output)
 
 
-def test_exception_from_return_code():
+def test_exception_from_return_code(monkeypatch):
+    monkeypatch.setenv('LANG', 'C')
     with pytest.raises(IterableSubprocessError, match='No such file or directory') as excinfo:
         with iterable_subprocess(['ls', 'does-not-exist'], ()) as output:
             a = b''.join(output)
