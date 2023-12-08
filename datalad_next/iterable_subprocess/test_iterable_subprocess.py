@@ -311,3 +311,17 @@ def test_funzip_deflate():
 
     with iterable_subprocess(['funzip'], yield_input()) as output:
         assert b''.join(output) == contents
+
+
+def test_iterable_subprocess_error_if_non_zero_exit_code_and_stop_iteration_raised_in_context():
+    with pytest.raises(IterableSubprocessError):
+        with iterable_subprocess(['ls', 'does-not-exist'], ()) as ls:
+            next(ls)
+            raise StopIteration
+
+
+def test_stop_iteration_if_zero_exit_code_and_stop_iteration_raised_in_context():
+    with pytest.raises(StopIteration):
+        with iterable_subprocess(['echo', 'a'], ()) as echo:
+            next(echo)
+            raise StopIteration
