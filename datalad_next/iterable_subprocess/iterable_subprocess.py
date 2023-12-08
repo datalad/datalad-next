@@ -148,6 +148,17 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
     except _BrokenPipeError as e:
         if proc.returncode == 0:
             raise e.__context__ from None
+    except StopIteration:
+        # This except-clause prioritizes `IterableSubprocessError` over
+        # `StopIteration` to avoid swallowing the former.
+        # This assumes that any `StopIteration` that is
+        # caught here, and that coincides with a non-zero return code,
+        # is raised due to an unexpected short read from `stdout` of
+        # the subprocess and directly connected to the non-zero
+        # return code and can therefore be ignored, because the
+        # return code would transport all necessary information.
+        if proc.returncode == 0:
+            raise
 
     if proc.returncode:
         raise IterableSubprocessError(proc.returncode, b''.join(stderr_deque)[-chunk_size:])
