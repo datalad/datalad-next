@@ -17,6 +17,7 @@ from typing import (
     Generator,
 )
 
+from datalad_next.consts import on_windows
 from datalad_next.itertools import (
     itemize,
     load_json,
@@ -187,10 +188,13 @@ def iter_annexworktree(
                     route_out(
                         itemize(
                             gaf,
-                            # git-annex changed its line-ending behavior, but
-                            # we should be safe, because we declare a specific
-                            # format for git-annex-find above
-                            sep=b'\n',
+                            # although we declare a specific key output format
+                            # for the git-annex find call, versions of
+                            # git-annex <10.20231129 on Windows will terminate
+                            # lines with '\r\n' instead of '\n'. We therefore use
+                            # `None` as separator, which enables `itemize()`
+                            # to use either separator, i.e. '\r\n' or '\n'.
+                            sep=None if on_windows else b'\n',
                         ),
                         # we need this route-out solely for the purpose
                         # of maintaining a 1:1 relationship of items reported

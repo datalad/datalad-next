@@ -127,7 +127,8 @@ def test_exception_from_not_found_process_propagated():
             b''.join(output)
 
 
-def test_exception_from_return_code():
+def test_exception_from_return_code(monkeypatch):
+    monkeypatch.setenv('LANG', 'C')
     with pytest.raises(IterableSubprocessError, match='No such file or directory') as excinfo:
         with iterable_subprocess(['ls', 'does-not-exist'], ()) as output:
             a = b''.join(output)
@@ -311,3 +312,26 @@ def test_funzip_deflate():
 
     with iterable_subprocess(['funzip'], yield_input()) as output:
         assert b''.join(output) == contents
+
+
+def test_error_returncode_available_from_generator():
+    with pytest.raises(IterableSubprocessError):
+        with iterable_subprocess(['ls', 'does-not-exist'], ()) as ls:
+            tuple(ls)
+    assert ls.returncode != 0
+
+
+def test_error_returncode_available_from_generator_with_exception():
+    with pytest.raises(StopIteration):
+        with iterable_subprocess(['ls', 'does-not-exist'], ()) as ls:
+            while True:
+                next(ls)
+    assert ls.returncode != 0
+
+
+def test_success_returncode_available_from_generator_with_exception():
+    with pytest.raises(StopIteration):
+        with iterable_subprocess(['echo', 'a'], ()) as echo:
+            while True:
+                next(echo)
+    assert echo.returncode == 0

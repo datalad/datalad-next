@@ -2,6 +2,7 @@ from collections import deque
 from contextlib import contextmanager
 from subprocess import PIPE, SubprocessError, Popen
 from threading import Thread
+from typing import Generator
 
 
 @contextmanager
@@ -95,12 +96,19 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
                 if e.errno != 22:
                     raise
 
-    def output_from(stdout):
-        while True:
-            chunk = stdout.read(chunk_size)
+    class OutputFrom(Generator):
+        def __init__(self, stdout):
+            self.stdout = stdout
+            self.returncode = None
+
+        def send(self, _):
+            chunk = self.stdout.read(chunk_size)
             if not chunk:
-                break
-            yield chunk
+                raise StopIteration
+            return chunk
+
+        def throw(self, typ, value=None, traceback=None):
+            return super().throw(typ, value, traceback)
 
     def keep_only_most_recent(stderr, stderr_deque):
         total_length = 0
@@ -120,6 +128,7 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
 
     proc = None
     stderr_deque = deque()
+    chunk_generator = None
     exception_stdin = None
     exception_stderr = None
 
@@ -133,7 +142,8 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
             try:
                 start_t_stderr()
                 start_t_stdin()
-                yield output_from(proc.stdout)
+                chunk_generator = OutputFrom(proc.stdout)
+                yield chunk_generator
             except BaseException:
                 proc.terminate()
                 raise
@@ -146,9 +156,16 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
             raise_if_not_none(exception_stderr)
 
     except _BrokenPipeError as e:
+        if chunk_generator:
+            chunk_generator.returncode = proc.returncode
         if proc.returncode == 0:
             raise e.__context__ from None
+    except BaseException:
+        if chunk_generator:
+            chunk_generator.returncode = proc.returncode
+        raise
 
+    chunk_generator.returncode = proc.returncode
     if proc.returncode:
         raise IterableSubprocessError(proc.returncode, b''.join(stderr_deque)[-chunk_size:])
 
