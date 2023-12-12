@@ -1,8 +1,8 @@
 from collections import deque
+from collections.abc import Generator
 from contextlib import contextmanager
 from subprocess import PIPE, SubprocessError, Popen
 from threading import Thread
-from typing import Generator
 
 
 @contextmanager
