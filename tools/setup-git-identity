@@ -1,6 +1,0 @@
-#!/bin/bash
-
-set -e -u
-
-git config --global user.email "team@datalad.org"
-git config --global user.name "DataLad bot"

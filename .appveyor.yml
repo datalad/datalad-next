@@ -75,6 +75,17 @@ environment:
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
 
+    # same as 'test-linux', but TMPDIR is on a crippled filesystem, causing
+    # most, if not all test datasets to be created on that filesystem
+    - job_name: test-linux-crippled
+      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+      PY: 3.10
+      # datalad-annex git remote needs something after git-annex_8.20211x
+      INSTALL_GITANNEX: git-annex -m snapshot
+      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+      DEPLOY_HTTPBIN_IMAGE: yes
+      INSTALL_SYSPKGS:
+
     # Windows core tests
     - job_name: test-win
       # ~35 min
@@ -186,6 +197,7 @@ for:
   - matrix:
       only:
         - job_name: test-linux
+        - job_name: test-linux-crippled
         - job_name: test-mac
         - job_name: datalad-core-1
         - job_name: datalad-core-2
@@ -233,6 +245,24 @@ for:
       - "[ -n \"$DEPLOY_HTTPBIN_IMAGE\" ] && tools/appveyor/docker-load-httpbin || true"
 
     test_script:
+      # store original TMPDIR setting to limit modification to test execution
+      - export PREV_TMPDIR=$TMPDIR
+      # make TMPDIR a "crippled filesystem" to test wrong assumptions of POSIX-ness
+      # on POSIX OSes. The test fixtures will create all test datasets under TMPDIR
+      - |
+        set -e
+        if [ "$APPVEYOR_JOB_NAME" = "test-linux-crippled" ]; then
+          # 500 MB VFAT FS in a box
+          sudo dd if=/dev/zero of=/crippledfs.img count=500 bs=1M
+          sudo mkfs.vfat /crippledfs.img
+          sudo mkdir /crippledfs
+          sudo mount -o "uid=$(id -u),gid=$(id -g)" /crippledfs.img /crippledfs
+          echo "== mount >>"
+          mount | grep crippled
+          echo "<< mount =="
+          export TMPDIR=/crippledfs
+        fi
+      - echo TMPDIR=$TMPDIR
       # run tests on installed module, not source tree files
       - mkdir __testhome__
       # run tests on installed module, not source tree files
