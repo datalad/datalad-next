@@ -1,8 +1,0 @@
-#!/bin/bash
-
-set -e -u
-
-python -m coverage xml
-curl -Os $CODECOV_BINARY
-chmod +x codecov
-./codecov
