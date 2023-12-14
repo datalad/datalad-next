@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 
 from collections import deque
 import logging
 from functools import wraps
+import os
 from os import environ
 from pathlib import Path
+import subprocess
 from typing import Any
 
 from datalad.support.external_versions import external_versions
@@ -28,7 +32,6 @@ from datalad.tests.utils_pytest import (
     ok_good_symlink,
     rmtree,
     skip_if_on_windows,
-    skip_ssh,
     skip_wo_symlink_capability,
     swallow_logs,
 )
@@ -155,14 +158,14 @@ def with_credential(name, **kwargs):
 
 def get_git_config_global_fpath() -> Path:
     """Returns the file path for the "global" (aka user) Git config scope"""
-    fpath = environ.get('GIT_CONFIG_GLOBAL')
-    if fpath is None:
+    fpath_str = environ.get('GIT_CONFIG_GLOBAL')
+    if fpath_str is None:
         # this can happen with the datalad-core setup for Git < 2.32.
         # we provide a fallback, but we do not aim to support all
         # possible variants
         fpath = Path(environ['HOME']) / '.gitconfig'
-
-    fpath = Path(fpath)
+    else:
+        fpath = Path(fpath_str)
     return fpath
 
 
@@ -248,3 +251,50 @@ class InteractiveTestUI(TestUI):
         response = self.staged_responses.popleft()
         self._log.append(('response', response))
         return response
+
+
+def assert_ssh_access(
+    host: str,
+    port: str,
+    login: str,
+    seckey: str,
+    path: str,
+    localpath: str | None = None,
+):
+    """Test for a working SSH connection and sufficient permissions to write
+
+    This helper establishes a connection to an SSH server identified by
+    ``host`` and ``port``, using a given SSH private key file (``seckey``) for
+    authentication.  Once logged in successfully, it tries to create a
+    directory and a file at POSIX ``path`` on the server. If ``localpath`` is
+    given, it must be a representation of that server-side path on the local
+    file system (e.g., a bindmount), and the helper tests whether the created
+    content is also reflected in this directory.
+    """
+    # we can only handle openssh
+    ssh_bin = os.environ.get('DATALAD_SSH_EXECUTABLE', 'ssh')
+
+    ssh_call = [
+        ssh_bin,
+        '-i', seckey,
+        '-p', port,
+        f'{login}@{host}',
+    ]
+    # now try if this is a viable configuration
+    # verify execute and write permissions (implicitly also POSIX path handling
+    subprocess.run(
+        ssh_call + [
+            f"bash -c 'mkdir -p {path} && touch {path}/datalad-tests-probe'"],
+        stdin=subprocess.PIPE,
+        check=True,
+    )
+    if localpath:
+        # check if a given
+        assert (Path(localpath) / 'datalad-tests-probe').exists()
+    subprocess.run(
+        ssh_call + [f"bash -c 'rm {path}/datalad-tests-probe'"],
+        stdin=subprocess.PIPE,
+        check=True,
+    )
+    if localpath:
+        assert not (Path(localpath) / 'datalad-tests-probe').exists()

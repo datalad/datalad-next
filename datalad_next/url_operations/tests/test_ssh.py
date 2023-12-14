@@ -3,7 +3,6 @@ import io
 import pytest
 
 from datalad_next.tests.utils import (
-    skip_ssh,
     skip_if_on_windows,
 )
 from ..ssh import (
@@ -15,12 +14,10 @@ from ..ssh import (
 
 # path magic inside the test is posix only
 @skip_if_on_windows
-# SshUrlOperations does not work against a windows server
-# and the test uses 'localhost' as target
-@skip_ssh
-def test_ssh_url_download(tmp_path, monkeypatch):
-    test_path = tmp_path / 'myfile'
-    test_url = f'ssh://localhost{test_path}'
+def test_ssh_url_download(tmp_path, monkeypatch, sshserver):
+    ssh_url, ssh_localpath = sshserver
+    test_path = ssh_localpath / 'myfile'
+    test_url = f'{ssh_url}/myfile'
     ops = SshUrlOperations()
     # no target file (yet), precise exception
     with pytest.raises(UrlOperationsResourceUnknown):
@@ -60,14 +57,12 @@ def test_ssh_url_download(tmp_path, monkeypatch):
 
 # path magic inside the test is posix only
 @skip_if_on_windows
-# SshUrlOperations does not work against a windows server
-# and the test uses 'localhost' as target
-@skip_ssh
-def test_ssh_url_upload(tmp_path, monkeypatch):
+def test_ssh_url_upload(tmp_path, monkeypatch, sshserver):
+    ssh_url, ssh_localpath = sshserver
     payload = 'surprise!'
     payload_path = tmp_path / 'payload'
-    upload_path = tmp_path / 'subdir' / 'myfile'
-    upload_url = f'ssh://localhost{upload_path}'
+    upload_path = ssh_localpath / 'subdir' / 'myfile'
+    upload_url = f'{ssh_url}/subdir/myfile'
     ops = SshUrlOperations()
 
     # standard error if local source is not around
@@ -85,13 +80,11 @@ def test_ssh_url_upload(tmp_path, monkeypatch):
     assert upload_path.read_text() == payload
 
 
-# SshUrlOperations does not work against a windows server
-# and the test uses 'localhost' as target
-@skip_ssh
-def test_ssh_url_upload_from_stdin(tmp_path, monkeypatch):
+def test_ssh_url_upload_from_stdin(tmp_path, monkeypatch, sshserver):
+    ssh_url, ssh_localpath = sshserver
     payload = 'surprise!'
-    upload_path = tmp_path / 'uploaded.txt'
-    upload_url = f'ssh://localhost{upload_path}'
+    upload_path = ssh_localpath / 'uploaded.txt'
+    upload_url = f'{ssh_url}/uploaded.txt'
     ops = SshUrlOperations()
 
     class StdinBufferMock:

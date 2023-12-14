@@ -20,9 +20,14 @@ from typing import (
     Dict,
     Generator,
     IO,
+    Tuple,
 )
-from urllib.parse import urlparse
+from urllib.parse import (
+    urlparse,
+    ParseResult,
+)
 
+from datalad_next.config import ConfigManager
 from datalad_next.runners import (
     GeneratorMixIn,
     NoCaptureGeneratorProtocol,
@@ -105,7 +110,7 @@ class SshUrlOperations(UrlOperations):
         expected_size_str = b''
         expected_size = None
 
-        ssh_cat = _SshCat(url)
+        ssh_cat = _SshCat(url, self.cfg)
         stream = ssh_cat.run(cmd, protocol=StdOutCaptureGeneratorProtocol)
         for chunk in stream:
             if need_magic:
@@ -257,7 +262,7 @@ class SshUrlOperations(UrlOperations):
         # queue
         upload_queue = Queue(maxsize=2)
 
-        ssh_cat = _SshCat(to_url)
+        ssh_cat = _SshCat(to_url, self.cfg)
         ssh_runner_generator = ssh_cat.run(
             # leave special exit code when writing fails, but not the
             # general SSH access
@@ -321,32 +326,54 @@ class SshUrlOperations(UrlOperations):
 
 
 class _SshCat:
-    def __init__(self, url: str, *additional_ssh_args):
-        self._parsed = urlparse(url)
+    def __init__(
+            self,
+            url: str,
+            cfg: ConfigManager,
+    ):
+        self.ssh_args, self._parsed = ssh_url2openargs(url, cfg)
+        self.ssh_args.extend(('-e', 'none'))
         # make sure the essential pieces exist
-        assert self._parsed.hostname
         assert self._parsed.path
-        self.ssh_args: list[str] = list(additional_ssh_args)
+        self.substitutions = dict(
+            fdir=str(PurePosixPath(self._parsed.path).parent),
+            fpath=self._parsed.path,
+        )
 
     def run(self,
             payload_cmd: str,
             protocol: type[RunnerProtocol],
             stdin: Queue | None = None,
             timeout: float | None = None) -> Any | Generator:
-        fpath = self._parsed.path
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
-        cmd.extend([
-            '-e', 'none',
-            self._parsed.hostname,
-            payload_cmd.format(
-                fdir=str(PurePosixPath(fpath).parent),
-                fpath=fpath,
-            ),
-        ])
+        cmd.append(payload_cmd.format(**self.substitutions))
         return ThreadedRunner(
             cmd=cmd,
             protocol_class=protocol,
             stdin=subprocess.DEVNULL if stdin is None else stdin,
             timeout=timeout,
         ).run()
+
+
+def ssh_url2openargs(
+    url: str,
+    cfg: ConfigManager,
+) -> Tuple[list[str], ParseResult]:
+    """Helper to report ssh-open arguments from a URL and config
+
+    Returns the a tuple with the argument list and the parsed URL.
+    """
+    args: list[str] = list()
+    parsed = urlparse(url)
+    # make sure the essential pieces exist
+    assert parsed.hostname
+    for opt, arg in (('-p', parsed.port),
+                     ('-l', parsed.username),
+                     ('-i', cfg.get("datalad.ssh.identityfile"))):
+        if arg:
+            # f-string, because port is not str
+            args.extend((opt, f'{arg}'))
+    # we could also use .netloc here and skip -p/-l above
+    args.append(parsed.hostname)
+    return args, parsed
