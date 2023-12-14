@@ -1,5 +1,6 @@
 """Collection of fixtures for facilitation test implementations
 """
+import getpass
 import logging
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from datalad_next.tests.utils import (
     HTTPPath,
     SkipTest,
     WebDAVPath,
+    assert_ssh_access,
     external_versions,
     get_git_config_global_fpath,
     md5sum,
@@ -485,3 +487,63 @@ def datalad_noninteractive_ui(monkeypatch):
     with monkeypatch.context() as m:
         m.setattr(ui_switcher, '_ui', TestUI())
         yield ui_switcher.ui
+
+
+@pytest.fixture(autouse=False, scope="session")
+def sshserver_setup(tmp_path_factory):
+    if not os.environ.get('DATALAD_TESTS_SSH'):
+        raise SkipTest(
+            "set DATALAD_TESTS_SSH=1 to enable")
+
+    # query a bunch of recognized configuration environment variables,
+    # fill in the blanks, then check if the given configuration is working,
+    # and post the full configuration again as ENV vars, to be picked up by
+    # the function-scope `datalad_cfg`
+    tmp_root = str(tmp_path_factory.mktemp("sshroot"))
+    host = os.environ.get('DATALAD_TESTS_SERVER_SSH_HOST', 'localhost')
+    port = os.environ.get('DATALAD_TESTS_SERVER_SSH_PORT', '22')
+    login = os.environ.get(
+        'DATALAD_TESTS_SERVER_SSH_LOGIN',
+        getpass.getuser())
+    seckey = os.environ.get(
+        'DATALAD_TESTS_SERVER_SSH_SECKEY',
+        str(Path.home() / '.ssh' / 'id_rsa'))
+    path = os.environ.get('DATALAD_TESTS_SERVER_SSH_PATH', tmp_root)
+    # TODO this should not use `tmp_root` unconditionally, but only if
+    # the SSH_PATH is known to be the same. This might not be if SSH_PATH
+    # is explicitly configured and LOCALPATH is not -- which could be
+    # an indication that there is none
+    localpath = os.environ.get('DATALAD_TESTS_SERVER_LOCALPATH', tmp_root)
+
+    assert_ssh_access(host, port, login, seckey, path, localpath)
+
+    info = {}
+    # as far as we can tell, this is good, post effective config in ENV
+    for v, e in (
+            (host, 'HOST'),
+            # this is SSH_*, because elsewhere we also have other properties
+            # for other services
+            (port, 'SSH_PORT'),
+            (login, 'SSH_LOGIN'),
+            (seckey, 'SSH_SECKEY'),
+            (path, 'SSH_PATH'),
+            (localpath, 'LOCALPATH'),
+    ):
+        os.environ[f"DATALAD_TESTS_SERVER_{e}"] = v
+        info[e] = v
+
+    yield info
+
+
+@pytest.fixture(autouse=False, scope="function")
+def sshserver(sshserver_setup, datalad_cfg, monkeypatch):
+    baseurl = f"ssh://{sshserver_setup['SSH_LOGIN']}" \
+        f"@{sshserver_setup['HOST']}" \
+        f":{sshserver_setup['SSH_PORT']}" \
+        f"/{sshserver_setup['SSH_PATH']}"
+    with monkeypatch.context() as m:
+        m.setenv("DATALAD_SSH_IDENTITYFILE", sshserver_setup['SSH_SECKEY'])
+        # force reload the config manager, to ensure the private key setting
+        # makes it into the active config
+        datalad_cfg.reload(force=True)
+        yield baseurl, Path(sshserver_setup['LOCALPATH'])
