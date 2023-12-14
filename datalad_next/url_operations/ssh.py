@@ -106,7 +106,7 @@ class SshUrlOperations(UrlOperations):
             # sent, but for unknown reasons the ssh-cmd returned `0`.
             # Due to the short read, we assume that the file does not
             # exist anymore.
-            self._check_return_code(244, from_url)
+            self._check_return_code(244, url)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
     def _get_props(self, url, stream: Generator) -> dict:
