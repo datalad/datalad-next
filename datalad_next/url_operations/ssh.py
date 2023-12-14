@@ -101,6 +101,12 @@ class SshUrlOperations(UrlOperations):
                 props = self._get_props(url, stream)
         except (IterableSubprocessError, StopIteration):
             self._check_return_code(stream.returncode, url)
+            # at this point, we have a `StopIteration` exception and a
+            # zero exit value. This means, some expected data was not
+            # sent, but for unknown reasons the ssh-cmd returned `0`.
+            # Due to the short read, we assume that the file does not
+            # exist anymore.
+            self._check_return_code(244, from_url)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
     def _get_props(self, url, stream: Generator) -> dict:
@@ -203,6 +209,12 @@ class SshUrlOperations(UrlOperations):
                     hasher.update(chunk)
         except (IterableSubprocessError, StopIteration):
             self._check_return_code(stream.returncode, from_url)
+            # at this point, we have a `StopIteration` exception and a
+            # zero exit value. This means, some expected data was not
+            # sent, but for unknown reasons the ssh-cmd returned `0`.
+            # Due to the short read, we assume that the file does not
+            # exist anymore.
+            self._check_return_code(244, from_url)
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
