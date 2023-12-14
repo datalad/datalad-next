@@ -37,6 +37,10 @@ from datalad_next.tests.fixtures import (
     no_result_rendering,
     # session-scope redirection of log messages
     reduce_logging,
+    # session-scope determine setup of an SSH server to use for testing
+    sshserver_setup,
+    # function-scope SSH server base url and local path
+    sshserver,
     # session-scope, standard webdav credential (full dict)
     webdav_credential,
     # function-scope, serve a local temp-path via WebDAV

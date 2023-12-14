@@ -21,14 +21,18 @@ from typing import (
     IO,
     cast,
 )
-from urllib.parse import urlparse
+from urllib.parse import (
+    urlparse,
+    ParseResult,
+)
 
 from datalad_next.consts import COPY_BUFSIZE
+from datalad_next.config import ConfigManager
+from datalad_next.itertools import align_pattern
 from datalad_next.runners import (
     iter_subproc,
     IterableSubprocessError,
 )
-from datalad_next.itertools import align_pattern
 
 
 from . import (
@@ -90,7 +94,7 @@ class SshUrlOperations(UrlOperations):
         See :meth:`datalad_next.url_operations.UrlOperations.stat`
         for parameter documentation and exception behavior.
         """
-        ssh_cat = _SshCommandBuilder(url)
+        ssh_cat = _SshCommandBuilder(url, self.cfg)
         cmd = ssh_cat.get_cmd(SshUrlOperations._stat_cmd)
         try:
             with iter_subproc(cmd) as stream:
@@ -165,7 +169,7 @@ class SshUrlOperations(UrlOperations):
 
         dst_fp = None
 
-        ssh_cat = _SshCommandBuilder(from_url)
+        ssh_cat = _SshCommandBuilder(from_url, self.cfg)
         cmd = ssh_cat.get_cmd(f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}')
         try:
             with iter_subproc(cmd) as stream:
@@ -268,7 +272,7 @@ class SshUrlOperations(UrlOperations):
         #
         upload_queue: Queue = Queue(maxsize=2)
 
-        cmd = _SshCommandBuilder(to_url).get_cmd(
+        cmd = _SshCommandBuilder(to_url, self.cfg).get_cmd(
             # leave special exit code when writing fails, but not the
             # general SSH access
             "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244"
@@ -320,23 +324,47 @@ class SshUrlOperations(UrlOperations):
 
 
 class _SshCommandBuilder:
-    def __init__(self, url: str, *additional_ssh_args):
-        self._parsed = urlparse(url)
+    def __init__(
+            self,
+            url: str,
+            cfg: ConfigManager,
+    ):
+        self.ssh_args, self._parsed = ssh_url2openargs(url, cfg)
+        self.ssh_args.extend(('-e', 'none'))
         # make sure the essential pieces exist
-        assert self._parsed.hostname
         assert self._parsed.path
-        self.ssh_args: list[str] = list(additional_ssh_args)
+        self.substitutions = dict(
+            fdir=str(PurePosixPath(self._parsed.path).parent),
+            fpath=self._parsed.path,
+        )
 
-    def get_cmd(self, payload_cmd: str) -> list[str]:
-        fpath = self._parsed.path
+    def get_cmd(self,
+            payload_cmd: str,
+            ) -> list[str]:
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
-        cmd.extend([
-            '-e', 'none',
-            self._parsed.hostname or '',
-            payload_cmd.format(
-                fdir=str(PurePosixPath(fpath).parent),
-                fpath=fpath,
-            ),
-        ])
+        cmd.append(payload_cmd.format(**self.substitutions))
         return cmd
+
+
+def ssh_url2openargs(
+    url: str,
+    cfg: ConfigManager,
+) -> tuple[list[str], ParseResult]:
+    """Helper to report ssh-open arguments from a URL and config
+
+    Returns a tuple with the argument list and the parsed URL.
+    """
+    args: list[str] = list()
+    parsed = urlparse(url)
+    # make sure the essential pieces exist
+    assert parsed.hostname
+    for opt, arg in (('-p', parsed.port),
+                     ('-l', parsed.username),
+                     ('-i', cfg.get('datalad.ssh.identityfile'))):
+        if arg:
+            # f-string, because port is not str
+            args.extend((opt, f'{arg}'))
+    # we could also use .netloc here and skip -p/-l above
+    args.append(parsed.hostname)
+    return args, parsed

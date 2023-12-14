@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e -u -x
+
+DATALAD_TESTS_SERVER_SSH_SECKEY=${DATALAD_TESTS_SERVER_SSH_SECKEY:-$HOME/.ssh/id_rsa}
+
+
+function setup_docker () {
+  # obtain the docker image for SSH testing
+  curl -fsSL --ssl-no-revoke -o sshd.dockerimg.gz "${DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL}"
+  gzip -c -d sshd.dockerimg.gz | docker load
+
+  # obtain the matching SSH private key for SSH server login
+  curl \
+    -fsSL \
+    -o "${DATALAD_TESTS_SERVER_SSH_SECKEY}" \
+    "${DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL}"
+
+  # start docker container
+  docker run \
+    --rm -dit \
+    --name "${DATALAD_TESTS_DOCKER_SSHD_CONTAINER_NAME}" \
+    -p "${DATALAD_TESTS_SERVER_SSH_PORT}:22" \
+    -v "${DATALAD_TESTS_SERVER_LOCALPATH}:${DATALAD_TESTS_SERVER_SSH_PATH}" \
+    sshd
+}
+
+function setup_ssh_localhost () {
+  ssh-keygen -f "${DATALAD_TESTS_SERVER_SSH_SECKEY}" -N ''
+  cat "${DATALAD_TESTS_SERVER_SSH_SECKEY}.pub" >> ${HOME}/.ssh/authorized_keys
+}
+
+# if there is docker use it, if not, use the worker itself
+docker -v && setup_docker || setup_ssh_localhost
+
+# wipe any other known host keys
+ssh-keygen \
+  -f "${HOME}/.ssh/known_hosts" \
+  -R "[${DATALAD_TESTS_SERVER_SSH_HOST}]:${DATALAD_TESTS_SERVER_SSH_PORT}"
+
+# establish expected permission setup for SSH key
+chmod 600 "${DATALAD_TESTS_SERVER_SSH_SECKEY}"
+
+# ingest actual host key
+ssh-keyscan \
+  -t ecdsa \
+  -p "${DATALAD_TESTS_SERVER_SSH_PORT}" \
+  -H "${DATALAD_TESTS_SERVER_SSH_HOST}" >> "${HOME}/.ssh/known_hosts"

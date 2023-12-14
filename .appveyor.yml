@@ -52,10 +52,20 @@ shallow_clone: false
 build: off
 
 environment:
-  # we do not have an adequate setup for SSH-based tests right now
-  #DATALAD_TESTS_SSH: 1
   # unless indicated otherwise, we test datalad_next
   DTS: datalad_next
+  # SSH testing is done via a side-loaded container that provides a POSIX/SSHable
+  # server environment
+  DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/recipes/sshd/id_rsa?job=sshd
+  DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/sshd.dockerimg.gz?job=sshd
+  DATALAD_TESTS_DOCKER_SSHD_CONTAINER_NAME: test-sshd
+  # std SSH container runtime setup
+  DATALAD_TESTS_SERVER_SSH_HOST: datalad-test-sshd
+  DATALAD_TESTS_SERVER_SSH_PORT: 2222
+  DATALAD_TESTS_SERVER_SSH_LOGIN: sshuser
+  DATALAD_TESTS_SERVER_SSH_SECKEY: /home/appveyor/.ssh/datalad_tests_id_rsa
+  DATALAD_TESTS_SERVER_SSH_PATH: /usr/local/apache2/htdocs
+  DATALAD_TESTS_SERVER_LOCALPATH: /home/appveyor/DLTMP/sshdroot
 
   # Do not use `image` as a matrix dimension, to have fine-grained control over
   # what tests run on which platform
@@ -72,8 +82,12 @@ environment:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+      # 'test_publish_target_url' relies on a strict `localhost` target
+      # setup, we don't have that
+      KEYWORDS: not test_publish_target_url
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
+      DATALAD_TESTS_SSH: 1
 
     # same as 'test-linux', but TMPDIR is on a crippled filesystem, causing
     # most, if not all test datasets to be created on that filesystem
@@ -85,6 +99,7 @@ environment:
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
+      DATALAD_TESTS_SSH: 1
 
     # Windows core tests
     - job_name: test-win
@@ -93,6 +108,9 @@ environment:
       # Python version specification is non-standard on windows
       PY: 39-x64
       INSTALL_GITANNEX: git-annex -m datalad/packages
+      DATALAD_TESTS_SSH: 1
+      DATALAD_TESTS_SERVER_SSH_SECKEY: C:\DLTMP\datalad_tests_id_rsa
+      DATALAD_TESTS_SERVER_LOCALPATH: C:\DLTMP\sshdroot
 
     # MacOS core tests
     - job_name: test-mac
@@ -101,6 +119,17 @@ environment:
       INSTALL_GITANNEX: git-annex
       DATALAD_LOCATIONS_SOCKETS: /Users/appveyor/DLTMP/sockets
       CODECOV_BINARY: https://uploader.codecov.io/latest/macos/codecov
+      DATALAD_TESTS_SSH: 1
+      # no docker on Mac, we log into self
+      # 'test_publish_target_url' relies git-annex being installed on the
+      # target, but we only have that in a personal env
+      KEYWORDS: not test_publish_target_url
+      DATALAD_TESTS_SERVER_SSH_HOST: localhost
+      DATALAD_TESTS_SERVER_SSH_PORT: 22
+      DATALAD_TESTS_SERVER_SSH_LOGIN: appveyor
+      DATALAD_TESTS_SERVER_SSH_SECKEY: /Users/appveyor/.ssh/datalad_tests_id_rsa
+      DATALAD_TESTS_SERVER_SSH_PATH: /Users/appveyor/DLTMP/riaroot
+      DATALAD_TESTS_SERVER_LOCALPATH: /Users/appveyor/DLTMP/riaroot
 
     # run a subset of the core tests on the oldest supported Python version
     - job_name: datalad-core-1
@@ -189,6 +218,15 @@ skip_commits:
     - '*.md'
 
 
+# tests need specific hostnames to be available
+# note, this is insufficient on MacOS, and needs to be reflected
+# in the SSH config too
+hosts:
+  datalad-test-sshd: 127.0.0.1
+  # same, but for datalad-core implementations
+  datalad-test: 127.0.0.1
+
+
 # job-specific configurations
 for:
   #
@@ -224,6 +262,8 @@ for:
       # we place the "unix" one into the user's HOME to avoid git-annex issues on MacOSX
       # gh-5291
       - mkdir ~/DLTMP && export TMPDIR=~/DLTMP
+      # establish a root directory for SSH tests
+      - "mkdir ${DATALAD_TESTS_SERVER_LOCALPATH}"
 
     install:
       # verify that a PY variable is declared that identifies the desired Python version
@@ -243,6 +283,10 @@ for:
       - "[ -f ${HOME}/dlinstaller_env.sh ] && . ${HOME}/dlinstaller_env.sh || true"
       # HTTPBIN
       - "[ -n \"$DEPLOY_HTTPBIN_IMAGE\" ] && tools/appveyor/docker-load-httpbin || true"
+
+    before_test:
+      - "[ \"$DATALAD_TESTS_SSH\" = 1 ] && tools/appveyor/setup-sshd || true"
+      - "[ \"$DATALAD_TESTS_SSH\" = 1 ] && tools/appveyor/verify-ssh-access || true"
 
     test_script:
       # store original TMPDIR setting to limit modification to test execution
@@ -308,6 +352,8 @@ for:
       # (avoiding length-limits as much as possible)
       - cmd: "set TMP=C:\\DLTMP"
       - cmd: "set TEMP=C:\\DLTMP"
+      # establish a root directory for SSH tests
+      - cmd: "md %DATALAD_TESTS_SERVER_LOCALPATH%"
 
     install:
       # place a debug setup helper at a convenient location
@@ -323,6 +369,10 @@ for:
       # Install git-annex on windows, otherwise INSTALL_SYSPKGS can be used
       # deploy git-annex, if desired
       - cmd: IF DEFINED INSTALL_GITANNEX datalad-installer --sudo ok %INSTALL_GITANNEX%
+
+    before_test:
+      - tools\appveyor\setup-sshd
+      - tools\appveyor\verify-ssh-access
 
     test_script:
       # run tests on installed module, not source tree files

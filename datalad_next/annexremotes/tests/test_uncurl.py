@@ -5,7 +5,6 @@ import re
 from datalad_next.utils import on_windows
 from datalad_next.tests.utils import (
     create_tree,
-    skip_ssh,
     skip_if_on_windows,
 )
 from datalad_next.constraints.dataset import EnsureDataset
@@ -361,8 +360,8 @@ def test_uncurl_store(tmp_path, existing_dataset, no_result_rendering):
         dsca(['copy', '-t', 'myuncurl', str(testfile)])
 
 
-@skip_ssh
-def test_uncurl_store_via_ssh(tmp_path, existing_dataset, no_result_rendering):
+def test_uncurl_store_via_ssh(
+        sshserver, existing_dataset, no_result_rendering):
     ds = existing_dataset
     testfile = ds.pathobj / 'testfile1.txt'
     testfile_content = 'uppytyup!'
@@ -373,7 +372,7 @@ def test_uncurl_store_via_ssh(tmp_path, existing_dataset, no_result_rendering):
     # as annex/objects within a bare remote repo
     dsca(['initremote', 'myuncurl'] + std_initargs + [
         # intentional double-braces at the end to get templates into the template
-        f'url={(tmp_path).as_uri().replace("file://", "ssh://localhost")}/{{annex_key}}',
+        f'url={sshserver[0]}/{{annex_key}}',
     ])
     # store file at remote
     dsca(['copy', '-t', 'myuncurl', str(testfile)])
