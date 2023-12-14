@@ -67,22 +67,27 @@ def iter_subproc(
       thread to exit, waits for the standard error thread to exit, waits
       for the process to exit, and re-raises the exception.
 
-      Note that any exception, that is raised in the context will re-raised
-      in the main thread. In this case, no ``IterableSubprocessError`` will
-      be raised if the process exited with a
-      non-zero return code. The return code will be available in the attribute
-      `returncode` of the `as`-variable. For example, the following code will
+      Note, if an exception is raised in the context, this exception will bubble
+      up to the main thread. That means no ``IterableSubprocessError`` will
+      be raised if the subprocess exited with a non-zero return code.
+      To access the return code in case of an exception inside the context,
+      use the ``returncode``-attribute of the ``as``-variable.
+      This object will always contain the return code of the subprocess.
+      For example, the following code will raise a ``StopIteration``-exception
+      in the context (by repeatedly using :func:`next`). The subprocess
+      will exit with ``2`` due to the illegal option ``-@``, and no
+      ``IterableSubprocessError`` is raised. The return code is read from
+      the variable ``ls_stdout``
 
       .. code-block:: python
 
         >>> from datalad_next.runners import iter_subproc
         >>> try:
-        ...     with iter_subproc(['ls', '-@']) as ls:
+        ...     with iter_subproc(['ls', '-@']) as ls_stdout:
         ...         while True:
-        ...             next(ls)
-        ...         raise ValueError('This is a test-exception')
+        ...             next(ls_stdout)
         ... except Exception as e:
-        ...     print(repr(e), ls.returncode)
+        ...     print(repr(e), ls_stdout.returncode)
         StopIteration() 2
 
     """
