@@ -67,8 +67,8 @@ class SshUrlOperations(UrlOperations):
     # when executed through ssh, only a missing file would yield 244, while
     # a connection error or other problem unrelated to the present of a file
     # would a different error code (255 in case of a connection error)
-    _stat_cmd = "printf \"\1\2\3\"; ls '{fpath}' &> /dev/null " \
-                "&& ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}' " \
+    _stat_cmd = "printf \"\\1\\2\\3\"; ls '{fpath}' &> /dev/null " \
+                "&& ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\\1\"}} {{print $5}}' " \
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
