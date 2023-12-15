@@ -29,6 +29,51 @@ def iter_subproc(
     https://github.com/uktrade/iterable-subprocess, written by
     Michal Charemza.
 
+    This function provides a context manager.
+    On entering the context, the subprocess is started, the thread to read
+    from standard error is started, the thread to populate subprocess
+    input is started.
+    When running, the standard input thread iterates over the input,
+    passing chunks to the process, while the standard error thread
+    fetches the error output, and while the main thread iterates over
+    the process's output from client code in the context.
+
+    On context exit, the main thread closes the process's standard output,
+    waits for the standard input thread to exit, waits for the standard error
+    thread to exit, and wait for the process to exit. If the process exited
+    with a non-zero return code, an ``IterableSubprocessError`` is raised,
+    containing the process's return code.
+
+    If the context is exited due to an exception that was raised in the
+    context, the main thread terminates the process via ``Popen.terminate()``,
+    closes the process's standard output, waits for the standard input
+    thread to exit, waits for the standard error thread to exit, waits
+    for the process to exit, and re-raises the exception.
+
+    Note, if an exception is raised in the context, this exception will bubble
+    up to the main thread. That means no ``IterableSubprocessError`` will
+    be raised if the subprocess exited with a non-zero return code.
+    To access the return code in case of an exception inside the context,
+    use the ``returncode``-attribute of the ``as``-variable.
+    This object will always contain the return code of the subprocess.
+    For example, the following code will raise a ``StopIteration``-exception
+    in the context (by repeatedly using :func:`next`). The subprocess
+    will exit with ``2`` due to the illegal option ``-@``, and no
+    ``IterableSubprocessError`` is raised. The return code is read from
+    the variable ``ls_stdout``
+
+    .. code-block:: python
+
+      >>> from datalad_next.runners import iter_subproc
+      >>> try:
+      ...     with iter_subproc(['ls', '-@']) as ls_stdout:
+      ...         while True:
+      ...             next(ls_stdout)
+      ... except Exception as e:
+      ...     print(repr(e), ls_stdout.returncode)
+      StopIteration() 2
+
+
     Parameters
     ----------
     args: list
@@ -42,50 +87,6 @@ def iter_subproc(
     Returns
     -------
     contextmanager
-      On entering the context, the subprocess is started, the thread to read
-      from standard error is started, the thread to populate subprocess
-      input is started.
-      When running, the standard input thread iterates over the input,
-      passing chunks to the process, while the standard error thread
-      fetches the error output, and while the main thread iterates over
-      the process's output from client code in the context.
-
-      On context exit, the main thread closes the process's standard output,
-      waits for the standard input thread to exit, waits for the standard
-      error thread to exit, and wait for the process to exit. If the process
-      exited with a non-zero return code, an
-      ``IterableSubprocessError`` is raised, containing the process's return
-      code.
-
-      If the context is exited due to an exception that was raised in the
-      context, the main thread terminates the process via ``Popen.terminate()``,
-      closes the process's standard output, waits for the standard input
-      thread to exit, waits for the standard error thread to exit, waits
-      for the process to exit, and re-raises the exception.
-
-      Note, if an exception is raised in the context, this exception will bubble
-      up to the main thread. That means no ``IterableSubprocessError`` will
-      be raised if the subprocess exited with a non-zero return code.
-      To access the return code in case of an exception inside the context,
-      use the ``returncode``-attribute of the ``as``-variable.
-      This object will always contain the return code of the subprocess.
-      For example, the following code will raise a ``StopIteration``-exception
-      in the context (by repeatedly using :func:`next`). The subprocess
-      will exit with ``2`` due to the illegal option ``-@``, and no
-      ``IterableSubprocessError`` is raised. The return code is read from
-      the variable ``ls_stdout``
-
-      .. code-block:: python
-
-        >>> from datalad_next.runners import iter_subproc
-        >>> try:
-        ...     with iter_subproc(['ls', '-@']) as ls_stdout:
-        ...         while True:
-        ...             next(ls_stdout)
-        ... except Exception as e:
-        ...     print(repr(e), ls_stdout.returncode)
-        StopIteration() 2
-
     """
     return iterable_subprocess(
         args,
