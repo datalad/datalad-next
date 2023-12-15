@@ -99,13 +99,11 @@ class SshUrlOperations(UrlOperations):
         try:
             with iter_subproc(cmd) as stream:
                 props = self._get_props(url, stream)
-        except (IterableSubprocessError, StopIteration):
+        except IterableSubprocessError:
             self._check_return_code(stream.returncode, url)
-            # at this point, we have a `StopIteration` exception and a
-            # zero exit value. This means, some expected data was not
-            # sent, but for unknown reasons the ssh-cmd returned `0`.
-            # Due to the short read, we assume that the file does not
-            # exist anymore.
+        except StopIteration:
+            # an unexpected `StopIteration` occurred, this indicates a
+            # non-existing resource.
             self._check_return_code(244, url)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
@@ -207,13 +205,11 @@ class SshUrlOperations(UrlOperations):
                     dst_fp_write(chunk)
                     # compute hash simultaneously
                     hasher.update(chunk)
-        except (IterableSubprocessError, StopIteration):
+        except IterableSubprocessError:
             self._check_return_code(stream.returncode, from_url)
-            # at this point, we have a `StopIteration` exception and a
-            # zero exit value. This means, some expected data was not
-            # sent, but for unknown reasons the ssh-cmd returned `0`.
-            # Due to the short read, we assume that the file does not
-            # exist anymore.
+        except StopIteration:
+            # an unexpected `StopIteration` occurred, this indicates a
+            # non-existing resource.
             self._check_return_code(244, from_url)
         finally:
             if dst_fp and to_path is not None:
