@@ -5,8 +5,8 @@ from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 from pathlib import Path
 
+from datalad_next.consts import on_windows
 from datalad_next.exceptions import CapturedException
-from datalad_next.utils import on_windows
 
 from ..base import DatasetParameter
 

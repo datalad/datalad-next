@@ -2,7 +2,7 @@ from pathlib import Path
 import pytest
 import re
 
-from datalad_next.utils import on_windows
+from datalad_next.consts import on_windows
 from datalad_next.tests.utils import (
     create_tree,
     skip_if_on_windows,

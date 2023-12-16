@@ -11,7 +11,7 @@ from datalad_next.commands import (
     Parameter,
     eval_results,
 )
-from datalad_next.utils import on_windows
+from datalad_next.consts import on_windows
 from .. import (
     ConstraintError,
     EnsureGeneratorFromFileLike,
