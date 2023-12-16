@@ -1,10 +1,6 @@
 """Constraints for Git-related concepts and parameters"""
 
-from datalad_next.runners import (
-    CommandError,
-    GitRunner,
-    StdOutCapture,
-)
+import subprocess
 
 from .base import Constraint
 
@@ -43,7 +39,6 @@ class EnsureGitRefName(Constraint):
             # simple, do here
             self.raise_for(value, 'refname must not be empty')
 
-        runner = GitRunner()
         cmd = ['git', 'check-ref-format']
         cmd.append('--allow-onelevel'
                    if self._allow_onelevel
@@ -56,8 +51,13 @@ class EnsureGitRefName(Constraint):
         cmd.append(value)
 
         try:
-            out = runner.run(cmd, protocol=StdOutCapture)
-        except CommandError as e:
+            out = subprocess.run(
+                cmd,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
             self.raise_for(
                 value,
                 'is not a valid refname',
@@ -65,7 +65,7 @@ class EnsureGitRefName(Constraint):
             )
 
         if self._normalize:
-            return out['stdout'].strip()
+            return out.stdout.strip()
         else:
             return value
 
