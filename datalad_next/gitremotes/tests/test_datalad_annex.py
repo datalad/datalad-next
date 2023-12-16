@@ -27,7 +27,7 @@ from datalad_next.tests.utils import (
     eq_,
     rmtree,
 )
-from datalad_next.utils import on_windows
+from datalad_next.consts import on_windows
 from datalad_next.exceptions import CommandError
 from ..datalad_annex import get_initremote_params_from_url
 
