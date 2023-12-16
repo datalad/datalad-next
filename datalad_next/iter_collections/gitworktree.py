@@ -315,13 +315,14 @@ def _lsfiles_line2props(
 def _git_ls_files(path, *args):
     with iter_subproc(
             [
-                'git', '-C', str(path),
+                'git',
                 'ls-files',
                 # we rely on zero-byte splitting below
                 '-z',
                 # otherwise take whatever is coming in
                 *args,
             ],
+            cwd=path,
     ) as r:
         yield from decode_bytes(
             itemize(

@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from pathlib import Path
 from typing import (
     Iterable,
     List,
@@ -20,6 +22,7 @@ def iter_subproc(
     *,
     input: Iterable[bytes] | None = None,
     chunk_size: int = COPY_BUFSIZE,
+    cwd: Path | None = None,
 ):
     """Context manager to communicate with a subprocess using iterables
 
@@ -87,6 +90,8 @@ def iter_subproc(
       subprocess's ``stdin``.
     chunk_size: int, optional
       Size of chunks to read from the subprocess's stdout/stderr in bytes.
+    cwd: Path
+      Working directory for the subprocess, passed to ``subprocess.Popen``.
 
     Returns
     -------
@@ -96,4 +101,5 @@ def iter_subproc(
         args,
         tuple() if input is None else input,
         chunk_size=chunk_size,
+        cwd=cwd,
     )

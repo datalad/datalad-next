@@ -153,7 +153,7 @@ def iter_annexworktree(
             iter_subproc(
                 # we get the annex key for any filename
                 # (or empty if not annexed)
-                ['git', '-C', str(path),
+                ['git',
                  'annex', 'find', '--anything', '--format=${key}\\n',
                  '--batch'],
                 # intersperse items with newlines to trigger a batch run
@@ -174,11 +174,12 @@ def iter_annexworktree(
                             git_worktree_item
                         )
                     )
-                )
+                ),
+                cwd=path,
             ) as gaf, \
             iter_subproc(
                 # get the key properties JSON-lines style
-                ['git', '-C', str(path),
+                ['git',
                  'annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
                 input=intersperse(
@@ -210,7 +211,8 @@ def iter_annexworktree(
                         # the processing result includes the key itself.
                         lambda key: (key if key else StoreOnly, None)
                     )
-                )
+                ),
+                cwd=path,
             ) as gek:
 
         results = route_in(
