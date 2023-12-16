@@ -15,10 +15,14 @@ Available handlers:
 from __future__ import annotations
 
 import logging
+from functools import partial
+from more_itertools import side_effect
 from pathlib import Path
 from typing import (
     Any,
     Dict,
+    Generator,
+    Iterable,
 )
 
 import datalad
@@ -337,6 +341,37 @@ class UrlOperations:
 
     def _get_hasher(self, hash: list[str] | None) -> NoOpHash | MultiHash:
         return MultiHash(hash) if hash is not None else NoOpHash()
+
+    def _with_progress(self,
+                       stream: Iterable[Any],
+                       *,
+                       progress_id: str,
+                       label: str,
+                       expected_size: int | None,
+                       start_log_msg: tuple,
+                       end_log_msg: tuple,
+                       update_log_msg: tuple
+                       ) -> Generator[Any, None, None]:
+        yield from side_effect(
+            lambda chunk: self._progress_report_update(
+                progress_id,
+                update_log_msg,
+                len(chunk)
+            ),
+            stream,
+            before=partial(
+                self._progress_report_start,
+                progress_id,
+                start_log_msg,
+                label,
+                expected_size
+            ),
+            after=partial(
+                self._progress_report_stop,
+                progress_id,
+                end_log_msg
+            )
+        )
 
 
 #
