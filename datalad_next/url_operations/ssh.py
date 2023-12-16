@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import logging
-import subprocess
 import sys
+from functools import partial
 from itertools import chain
 from pathlib import (
     Path,
@@ -16,28 +16,24 @@ from queue import (
     Queue,
 )
 from typing import (
-    Any,
     Dict,
     Generator,
     IO,
-    Tuple,
+    cast,
 )
 from urllib.parse import (
     urlparse,
     ParseResult,
 )
 
+from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.config import ConfigManager
+from datalad_next.itertools import align_pattern
 from datalad_next.runners import (
-    GeneratorMixIn,
-    NoCaptureGeneratorProtocol,
-    Protocol as RunnerProtocol,
-    StdOutCaptureGeneratorProtocol,
-    ThreadedRunner,
-    CommandError,
+    iter_subproc,
+    IterableSubprocessError,
 )
 
-from datalad_next.utils.consts import COPY_BUFSIZE
 
 from . import (
     UrlOperations,
@@ -71,10 +67,22 @@ class SshUrlOperations(UrlOperations):
     # when executed through ssh, only a missing file would yield 244, while
     # a connection error or other problem unrelated to the present of a file
     # would a different error code (255 in case of a connection error)
-    _stat_cmd = "printf \"\1\2\3\"; ls '{fpath}' &> /dev/null " \
-                "&& ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\1\"}} {{print $5}}' " \
+    _stat_cmd = "printf \"\\1\\2\\3\"; ls '{fpath}' &> /dev/null " \
+                "&& ls -nl '{fpath}' | awk 'BEGIN {{ORS=\"\\1\"}} {{print $5}}' " \
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
+
+    def _check_return_code(self, return_code: int, url: str):
+        # At this point the subprocess has either exited, was terminated, or
+        # was killed.
+        if return_code == 244:
+            # this is the special code for a file-not-found
+            raise UrlOperationsResourceUnknown(url)
+        elif return_code != 0:
+            raise UrlOperationsRemoteError(
+                url,
+                message=f'ssh process returned {return_code}'
+            )
 
     def stat(self,
              url: str,
@@ -86,63 +94,59 @@ class SshUrlOperations(UrlOperations):
         See :meth:`datalad_next.url_operations.UrlOperations.stat`
         for parameter documentation and exception behavior.
         """
+        ssh_cat = _SshCommandBuilder(url, self.cfg)
+        cmd = ssh_cat.get_cmd(SshUrlOperations._stat_cmd)
         try:
-            props = self._stat(
-                url,
-                cmd=SshUrlOperations._stat_cmd,
-            )
-        except CommandError as e:
-            if e.code == 244:
-                # this is the special code for a file-not-found
-                raise UrlOperationsResourceUnknown(url) from e
-            else:
-                raise UrlOperationsRemoteError(url, message=str(e)) from e
-
+            with iter_subproc(cmd) as stream:
+                props = self._get_props(url, stream)
+        except IterableSubprocessError:
+            self._check_return_code(stream.returncode, url)
+        except StopIteration:
+            # an unexpected `StopIteration` occurred, this indicates a
+            # non-existing resource.
+            self._check_return_code(244, url)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
-    def _stat(self, url: str, cmd: str) -> Dict:
-        # any stream must start with this magic marker, or we do not
+    def _get_props(self, url, stream: Generator) -> dict:
+        # Any stream must start with this magic marker, or we do not
         # recognize what is happening
         # after this marker, the server will send the size of the
         # to-be-downloaded file in bytes, followed by another magic
-        # b'\1', and the file content after that
-        need_magic = b'\1\2\3'
-        expected_size_str = b''
-        expected_size = None
+        # b'\1', and the file content after that.
+        magic_marker = b'\1\2\3'
 
-        ssh_cat = _SshCat(url, self.cfg)
-        stream = ssh_cat.run(cmd, protocol=StdOutCaptureGeneratorProtocol)
-        for chunk in stream:
-            if need_magic:
-                expected_magic = need_magic[:min(len(need_magic),
-                                                 len(chunk))]
-                incoming_magic = chunk[:len(need_magic)]
-                # does the incoming data have the remaining magic bytes?
-                if incoming_magic != expected_magic:
-                    raise RuntimeError(
-                        "Protocol error: report header not received")
-                # reduce (still missing) magic, if any
-                need_magic = need_magic[len(expected_magic):]
-                # strip magic from input
-                chunk = chunk[len(expected_magic):]
-            if chunk and expected_size is None:
-                # we have incoming data left and
-                # we have not yet consumed the size info
-                size_data = chunk.split(b'\1', maxsplit=1)
-                expected_size_str += size_data[0]
-                if len(size_data) > 1:
-                    # this is not only size info, but we found the start of
-                    # the data
-                    expected_size = int(expected_size_str)
-                    chunk = size_data[1]
-            if expected_size:
-                props = {
-                    'content-length': expected_size,
-                    '_stream': chain([chunk], stream) if chunk else stream,
-                }
-                return props
-            # there should be no data left to process, or something went wrong
-            assert not chunk
+        # use the `align_pattern` iterable to guarantees, that the magic
+        # marker is always contained in a complete chunk.
+        aligned_stream = align_pattern(stream, magic_marker)
+
+        # Because the stream should start with the pattern, the first chunk of
+        # the aligned stream must contain it.
+        # We know that the stream will deliver bytes, cast the result
+        # accordingly.
+        chunk = cast(bytes, next(aligned_stream))
+        if chunk[:len(magic_marker)] != magic_marker:
+            raise RuntimeError("Protocol error: report header not received")
+        chunk = chunk[len(magic_marker):]
+
+        # We are done with the aligned stream, use the original stream again.
+        # This is possible because `align_pattern` does not cache any data
+        # after a `yield`.
+        del aligned_stream
+
+        # The length is transferred now and terminated by b'\x01'.
+        while b'\x01' not in chunk:
+            chunk += next(stream)
+
+        marker_index = chunk.index(b'\x01')
+        expected_size = int(chunk[:marker_index])
+        chunk = chunk[marker_index + 1:]
+        props = {
+            'content-length': expected_size,
+            # go back to the original iterator, no need to keep looking for
+            # a pattern
+            '_stream': chain([chunk], stream) if chunk else stream
+        }
+        return props
 
     def download(self,
                  from_url: str,
@@ -152,7 +156,7 @@ class SshUrlOperations(UrlOperations):
                  # obtain escalated/different privileges on a system
                  # to gain file access
                  credential: str | None = None,
-                 hash: str | None = None,
+                 hash: list[str] | None = None,
                  timeout: float | None = None) -> Dict:
         """Download a file by streaming it through an SSH connection.
 
@@ -165,49 +169,56 @@ class SshUrlOperations(UrlOperations):
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
         hasher = self._get_hasher(hash)
-        progress_id = self._get_progress_id(from_url, to_path)
+        progress_id = self._get_progress_id(from_url, str(to_path))
 
         dst_fp = None
 
+        ssh_cat = _SshCommandBuilder(from_url, self.cfg)
+        cmd = ssh_cat.get_cmd(f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}')
         try:
-            props = self._stat(
-                from_url,
-                cmd=f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}',
-            )
-            stream = props.pop('_stream')
-            expected_size = props['content-length']
-            dst_fp = sys.stdout.buffer if to_path is None \
-                else open(to_path, 'wb')
-            # Localize variable access to minimize overhead
-            dst_fp_write = dst_fp.write
-            # download can start
-            self._progress_report_start(
-                progress_id,
-                ('Download %s to %s', from_url, to_path),
-                'downloading',
-                expected_size,
-            )
-            for chunk in stream:
-                # write data
-                dst_fp_write(chunk)
-                # compute hash simultaneously
-                hasher.update(chunk)
-                self._progress_report_update(
-                    progress_id, ('Downloaded chunk',), len(chunk))
-            props.update(hasher.get_hexdigest())
-            return props
-        except CommandError as e:
-            if e.code == 244:
-                # this is the special code for a file-not-found
-                raise UrlOperationsResourceUnknown(from_url) from e
-            else:
-                # wrap this into the datalad-standard, but keep the
-                # original exception linked
-                raise UrlOperationsRemoteError(from_url, message=str(e)) from e
+            with iter_subproc(cmd) as stream:
+                props = self._get_props(from_url, stream)
+                expected_size = props['content-length']
+                # The stream might have changed due to not yet processed, but
+                # fetched data, that is now chained in front of it. Therefore we
+                # get the updated stream from the props
+                download_stream = props.pop('_stream')
+
+                dst_fp = sys.stdout.buffer \
+                    if to_path is None \
+                    else open(to_path, 'wb')
+
+                # Localize variable access to minimize overhead
+                dst_fp_write = dst_fp.write
+
+                # download can start
+                for chunk in self._with_progress(
+                        download_stream,
+                        progress_id=progress_id,
+                        label='downloading',
+                        expected_size=expected_size,
+                        start_log_msg=('Download %s to %s', from_url, to_path),
+                        end_log_msg=('Finished download',),
+                        update_log_msg=('Downloaded chunk',)
+                ):
+                    # write data
+                    dst_fp_write(chunk)
+                    # compute hash simultaneously
+                    hasher.update(chunk)
+        except IterableSubprocessError:
+            self._check_return_code(stream.returncode, from_url)
+        except StopIteration:
+            # an unexpected `StopIteration` occurred, this indicates a
+            # non-existing resource.
+            self._check_return_code(244, from_url)
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
-            self._progress_report_stop(progress_id, ('Finished download',))
+
+        return {
+            **props,
+            **hasher.get_hexdigest(),
+        }
 
     def upload(self,
                from_path: Path | None,
@@ -239,7 +250,7 @@ class SshUrlOperations(UrlOperations):
             with from_path.open("rb") as src_fp:
                 return self._perform_upload(
                     src_fp=src_fp,
-                    source_name=from_path,
+                    source_name=str(from_path),
                     to_url=to_url,
                     hash_names=hash,
                     expected_size=from_path.stat().st_size,
@@ -252,69 +263,64 @@ class SshUrlOperations(UrlOperations):
                         to_url: str,
                         hash_names: list[str] | None,
                         expected_size: int | None,
-                        timeout: int | None) -> dict:
+                        timeout: float | None) -> dict:
 
         hasher = self._get_hasher(hash_names)
 
+        # we use a queue to implement timeouts.
         # we limit the queue to few items in order to `make queue.put()`
         # block relatively quickly, and thereby have the progress report
-        # actually track the upload, and not just the feeding of the
-        # queue
-        upload_queue = Queue(maxsize=2)
+        # actually track the upload, i.e. the feeding of the stdin pipe
+        # of the ssh-process, and not just the feeding of the
+        # queue.
+        # If we did not support timeouts, we could just use the following
+        # as `input`-iterable for `iter_subproc`:
+        #
+        #   `iter(partial(src_fp.read, COPY_BUFSIZE), b'')
+        #
+        upload_queue: Queue = Queue(maxsize=2)
 
-        ssh_cat = _SshCat(to_url, self.cfg)
-        ssh_runner_generator = ssh_cat.run(
+        cmd = _SshCommandBuilder(to_url, self.cfg).get_cmd(
             # leave special exit code when writing fails, but not the
             # general SSH access
-            "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244",
-            protocol=NoCaptureGeneratorProtocol,
-            stdin=upload_queue,
-            timeout=timeout,
+            "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244"
         )
 
-        # file is open, we can start progress tracking
         progress_id = self._get_progress_id(source_name, to_url)
-        self._progress_report_start(
-            progress_id,
-            ('Upload %s to %s', source_name, to_url),
-            'uploading',
-            expected_size,
-        )
         try:
-            upload_size = 0
-            while ssh_runner_generator.runner.process.poll() is None:
-                chunk = src_fp.read(COPY_BUFSIZE)
-                if chunk == b'':
-                    break
-                chunk_size = len(chunk)
-                # compute hash simultaneously
-                hasher.update(chunk)
-                # we are just putting stuff in the queue, and rely on
-                # its maxsize to cause it to block the next call to
-                # have the progress reports be anyhow valid
-                upload_queue.put(chunk, timeout=timeout)
-                self._progress_report_update(
-                    progress_id, ('Uploaded chunk',), chunk_size)
-                upload_size += chunk_size
-            # we're done, close queue
-            upload_queue.put(None, timeout=timeout)
+            with iter_subproc(
+                    cmd,
+                    input=self._with_progress(
+                        iter(upload_queue.get, None),
+                        progress_id=progress_id,
+                        label='uploading',
+                        expected_size=expected_size,
+                        start_log_msg=('Upload %s to %s', source_name, to_url),
+                        end_log_msg=('Finished upload',),
+                        update_log_msg=('Uploaded chunk',)
+                    )
+            ):
+                upload_size = 0
+                for chunk in iter(partial(src_fp.read, COPY_BUFSIZE), b''):
 
-            # Exhaust the generator, that might raise CommandError
-            # or TimeoutError, if timeout was not `None`.
-            tuple(ssh_runner_generator)
-        except CommandError as e:
-            if e.code == 244:
-                raise UrlOperationsResourceUnknown(to_url) from e
-            else:
-                raise UrlOperationsRemoteError(to_url, message=str(e)) from e
-        except (TimeoutError, Full):
-            ssh_runner_generator.runner.process.kill()
-            raise TimeoutError
-        finally:
-            self._progress_report_stop(progress_id, ('Finished upload',))
+                    # we are just putting stuff in the queue, and rely on
+                    # its maxsize to cause it to block the next call to
+                    # have the progress reports be anyhow valid, we also
+                    # rely on put-timeouts to implement timeout.
+                    upload_queue.put(chunk, timeout=timeout)
 
-        assert ssh_runner_generator.return_code == 0, "Unexpected ssh " \
-            f"return value: {ssh_runner_generator.return_code}"
+                    # compute hash simultaneously
+                    hasher.update(chunk)
+                    upload_size += len(chunk)
+
+                upload_queue.put(None, timeout=timeout)
+
+        except IterableSubprocessError as e:
+            self._check_return_code(e.returncode, to_url)
+        except Full:
+            if chunk != b'':
+                # we had a timeout while uploading
+                raise TimeoutError
 
         return {
             **hasher.get_hexdigest(),
@@ -325,7 +331,7 @@ class SshUrlOperations(UrlOperations):
         }
 
 
-class _SshCat:
+class _SshCommandBuilder:
     def __init__(
             self,
             url: str,
@@ -340,29 +346,22 @@ class _SshCat:
             fpath=self._parsed.path,
         )
 
-    def run(self,
+    def get_cmd(self,
             payload_cmd: str,
-            protocol: type[RunnerProtocol],
-            stdin: Queue | None = None,
-            timeout: float | None = None) -> Any | Generator:
+            ) -> list[str]:
         cmd = ['ssh']
         cmd.extend(self.ssh_args)
         cmd.append(payload_cmd.format(**self.substitutions))
-        return ThreadedRunner(
-            cmd=cmd,
-            protocol_class=protocol,
-            stdin=subprocess.DEVNULL if stdin is None else stdin,
-            timeout=timeout,
-        ).run()
+        return cmd
 
 
 def ssh_url2openargs(
     url: str,
     cfg: ConfigManager,
-) -> Tuple[list[str], ParseResult]:
+) -> tuple[list[str], ParseResult]:
     """Helper to report ssh-open arguments from a URL and config
 
-    Returns the a tuple with the argument list and the parsed URL.
+    Returns a tuple with the argument list and the parsed URL.
     """
     args: list[str] = list()
     parsed = urlparse(url)
@@ -370,7 +369,7 @@ def ssh_url2openargs(
     assert parsed.hostname
     for opt, arg in (('-p', parsed.port),
                      ('-l', parsed.username),
-                     ('-i', cfg.get("datalad.ssh.identityfile"))):
+                     ('-i', cfg.get('datalad.ssh.identityfile'))):
         if arg:
             # f-string, because port is not str
             args.extend((opt, f'{arg}'))

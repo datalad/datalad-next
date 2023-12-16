@@ -1,3 +1,4 @@
+import contextlib
 import io
 
 import pytest
@@ -74,7 +75,7 @@ def test_ssh_url_upload(tmp_path, monkeypatch, sshserver):
     # this may seem strange for SSH, but FILE does it too.
     # likewise an HTTP upload is also not required to establish
     # server-side preconditions first.
-    # this functionality is not about about exposing a full
+    # this functionality is not about exposing a full
     # remote FS abstraction -- just upload
     ops.upload(payload_path, upload_url)
     assert upload_path.read_text() == payload
@@ -107,13 +108,13 @@ def test_ssh_url_upload_timeout(tmp_path, monkeypatch):
     upload_url = f'ssh://localhost/not_used'
     ssh_url_ops = SshUrlOperations()
 
-    def mocked_popen(*args, **kwargs):
-        from subprocess import Popen
-        args = (['sleep', '3'],) + args[1:]
-        return Popen(*args, **kwargs)
+    @contextlib.contextmanager
+    def mocked_iter_subproc(*args, **kwargs):
+        yield None
 
     with monkeypatch.context() as mp_ctx:
-        import datalad
-        mp_ctx.setattr(datalad.runner.nonasyncrunner, "Popen", mocked_popen)
+        import datalad_next.url_operations.ssh
+        mp_ctx.setattr(datalad_next.url_operations.ssh, 'iter_subproc', mocked_iter_subproc)
+        mp_ctx.setattr(datalad_next.url_operations.ssh, 'COPY_BUFSIZE', 1)
         with pytest.raises(TimeoutError):
             ssh_url_ops.upload(payload_path, upload_url, timeout=1)
