@@ -50,6 +50,7 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
     @contextmanager
     def thread(target, *args):
         exception = None
+
         def wrapper():
             nonlocal exception
             try:
@@ -135,9 +136,21 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
     try:
 
         with \
-                Popen(program, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc, \
-                thread(keep_only_most_recent, proc.stderr, stderr_deque) as (start_t_stderr, join_t_stderr), \
-                thread(input_to, proc.stdin) as (start_t_stdin, join_t_stdin):
+                Popen(
+                    program,
+                    stdin=PIPE,
+                    stdout=PIPE,
+                    stderr=PIPE,
+                ) as proc, \
+                thread(
+                    keep_only_most_recent,
+                    proc.stderr,
+                    stderr_deque,
+                ) as (start_t_stderr, join_t_stderr), \
+                thread(
+                    input_to,
+                    proc.stdin,
+                ) as (start_t_stdin, join_t_stdin):
 
             try:
                 start_t_stderr()
@@ -167,7 +180,10 @@ def iterable_subprocess(program, input_chunks, chunk_size=65536):
 
     chunk_generator.returncode = proc.returncode
     if proc.returncode:
-        raise IterableSubprocessError(proc.returncode, b''.join(stderr_deque)[-chunk_size:])
+        raise IterableSubprocessError(
+            proc.returncode,
+            b''.join(stderr_deque)[-chunk_size:],
+        )
 
 
 class IterableSubprocessError(SubprocessError):
