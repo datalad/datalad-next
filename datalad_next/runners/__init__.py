@@ -42,7 +42,10 @@ inspired by ``asyncio.SubprocessProtocol``.
    StdOutErrCapture
 """
 
-from .iter_subproc import iter_subproc
+from .iter_subproc import (
+    iter_subproc,
+    IterableSubprocessError,
+)
 
 # runners
 from datalad.runner import (
