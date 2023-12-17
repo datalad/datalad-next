@@ -79,7 +79,7 @@ def test_EnsureRemoteName(existing_dataset):
     # but fail with non-existing remote
     with pytest.raises(ValueError) as e:
         tc('not-my-remote')
-    assert str(e.value) == "is not one of the known remote(s) ['my-remote']"
+    assert str(e.value) == "is not a known remote"
     # return sibling name with no existence checks
     assert EnsureRemoteName()('anything') == 'anything'
 
