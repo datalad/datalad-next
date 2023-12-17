@@ -74,6 +74,26 @@ def check_common_workflow(
             if declare_credential else None,
             mode=mode,
         )
+        # Ensure that remote name constraint check works
+        # second time should raise because the sibling exists already
+        with pytest.raises(ValueError) as e:
+            create_sibling_webdav(
+                url,
+                credential=webdav_credential['name']
+                if declare_credential else None,
+                mode=mode,
+                name='127.0.0.1',
+            )
+        with pytest.raises(ValueError) as e:
+            create_sibling_webdav(
+                url,
+                credential=webdav_credential['name']
+                if declare_credential else None,
+                mode=mode,
+                name='other',
+                storage_name='127.0.0.1-storage',
+            )
+
     assert_in_results(
         res,
         action='create_sibling_webdav.storage',
