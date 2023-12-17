@@ -9,9 +9,6 @@
 """High-level interface for creating a combi-target on a WebDAV capable server
  """
 import logging
-from typing import (
-    Dict,
-)
 from unittest.mock import patch
 from urllib.parse import (
     quote as urlquote,
@@ -41,10 +38,16 @@ from datalad_next.constraints import (
     EnsureRemoteName,
     EnsureStr,
 )
-from datalad_next.constraints.dataset import EnsureDataset
+from datalad_next.constraints.dataset import (
+    DatasetParameter,
+    EnsureDataset,
+)
+from datalad_next.constraints.exceptions import (
+    ConstraintError,
+    ParameterConstraintContext,
+)
 from datalad_next.utils import CredentialManager
 from datalad_next.utils import (
-    ParamDictator,
     get_specialremote_credential_properties,
     update_specialremote_credential,
     _yield_ds_w_matching_siblings,
@@ -57,37 +60,119 @@ lgr = logging.getLogger('datalad.distributed.create_sibling_webdav')
 
 
 class CreateSiblingWebDAVParamValidator(EnsureCommandParameterization):
-    def joint_validation(self, params: Dict, on_error: str) -> Dict:
-        p = ParamDictator(params)
-        if p.url.scheme == "http":
+    def __init__(self):
+        super().__init__(
+            param_constraints=dict(
+                url=EnsureParsedURL(
+                    required=['scheme', 'netloc'],
+                    forbidden=['query', 'fragment'],
+                    match='^(http|https)://',
+                ),
+                dataset=EnsureDataset(
+                    installed=True, purpose='create WebDAV sibling(s)'),
+                name=EnsureRemoteName(),
+                storage_name=EnsureRemoteName(),
+                mode=EnsureChoice(
+                    'annex', 'filetree', 'annex-only', 'filetree-only',
+                    'git-only',
+                ),
+                # TODO https://github.com/datalad/datalad-next/issues/131
+                credential=EnsureStr(),
+                existing=EnsureChoice('skip', 'error', 'reconfigure'),
+                recursive=EnsureBool(),
+                recursion_limit=EnsureInt() & EnsureRange(min=0),
+            ),
+            validate_defaults=('dataset',),
+            joint_constraints={
+                ParameterConstraintContext(('url',), 'url'):
+                self._validate_param_url,
+                ParameterConstraintContext(
+                    ('url', 'name'), 'default name'):
+                self._validate_default_name,
+                ParameterConstraintContext(
+                    ('mode', 'name', 'storage_name'), 'default storage name'):
+                self._validate_default_storage_name,
+                ParameterConstraintContext(
+                    ('mode', 'name', 'storage_name'), 'default storage name'):
+                self._validate_default_storage_name,
+                ParameterConstraintContext(
+                    ('existing', 'recursive', 'name', 'storage_name',
+                     'dataset', 'mode')):
+                self._validate_existing_names,
+            },
+        )
+
+    def _validate_param_url(self, url):
+        if url.scheme == "http":
             lgr.warning(
-                f"Using 'http:' ({p.url.geturl()!r}) means that WebDAV "
+                f"Using 'http:' ({url.geturl()!r}) means that WebDAV "
                 "credentials are sent unencrypted over network links. "
                 "Consider using 'https:'.")
 
-        if not params['name']:
+    def _validate_default_name(self, url, name):
+        if not name:
             # not using .netloc to avoid ports to show up in the name
-            params['name'] = p.url.hostname
+            return {'name': url.hostname}
 
-        if p.mode in ('annex-only', 'filetree-only') and p.storage_name:
+    def _validate_default_storage_name(self, mode, name, storage_name):
+        if mode in ('annex-only', 'filetree-only') and storage_name:
             lgr.warning(
                 "Sibling name will be used for storage sibling in "
                 "storage-sibling-only mode, but a storage sibling name "
                 "was provided"
             )
-        if p.mode == 'git-only' and p.storage_name:
+        if mode == 'git-only' and storage_name:
             lgr.warning(
                 "Storage sibling setup disabled, but a storage sibling name "
                 "was provided"
             )
-        if p.mode != 'git-only' and not p.storage_name:
-            p.storage_name = f"{p.name}-storage"
+        if mode != 'git-only' and not storage_name:
+            storage_name = f"{name}-storage"
 
-        if p.mode != 'git-only' and p.name == p.storage_name:
+        if mode != 'git-only' and name == storage_name:
             # leads to unresolvable, circular dependency with publish-depends
-            raise ValueError("sibling names must not be equal")
+            self.raise_for(
+                dict(mode=mode, name=name, storage_name=storage_name),
+                "sibling names must not be equal",
+            )
+        return dict(mode=mode, name=name, storage_name=storage_name)
 
-        return params
+    def _validate_existing_names(
+            self, existing, recursive, name, storage_name, dataset,
+            mode):
+        if recursive:
+            # we don't do additional validation for recursive processing,
+            # this has to be done when things are running, because an
+            # upfront validation would require an expensive traversal
+            return
+
+        if existing != 'error':
+            # nothing to check here
+            return
+
+        if not isinstance(dataset, DatasetParameter):
+            # we did not get a proper dataset parameter,
+            # hence cannot tailor to a dataset to check a remote
+            # name against
+            return
+
+        validator = EnsureRemoteName(known=False, dsarg=dataset)
+        try:
+            if mode != 'annex-only':
+                validator(name)
+            if mode != 'git-only':
+                validator(storage_name)
+        except ConstraintError as e:
+            self.raise_for(
+                dict(existing=existing,
+                     recursive=recursive,
+                     name=name,
+                     storage_name=storage_name,
+                     dataset=dataset,
+                     mode=mode),
+                e.msg,
+            )
+        return
 
 
 @build_doc
@@ -252,29 +337,7 @@ class CreateSiblingWebDAV(ValidatedInterface):
             """),
     )
 
-    _validators = dict(
-        url=EnsureParsedURL(
-            required=['scheme', 'netloc'],
-            forbidden=['query', 'fragment'],
-            match='^(http|https)://',
-        ),
-        dataset=EnsureDataset(
-            installed=True, purpose='create WebDAV sibling(s)'),
-        name=EnsureRemoteName(),
-        storage_name=EnsureRemoteName(),
-        mode=EnsureChoice(
-            'annex', 'filetree', 'annex-only', 'filetree-only', 'git-only'
-        ),
-        # TODO https://github.com/datalad/datalad-next/issues/131
-        credential=EnsureStr(),
-        existing=EnsureChoice('skip', 'error', 'reconfigure'),
-        recursive=EnsureBool(),
-        recursion_limit=EnsureInt() & EnsureRange(min=0),
-    )
-    _validator_ = CreateSiblingWebDAVParamValidator(
-        _validators,
-        validate_defaults=('dataset',),
-    )
+    _validator_ = CreateSiblingWebDAVParamValidator()
 
     @staticmethod
     @datasetmethod(name='create_sibling_webdav')
