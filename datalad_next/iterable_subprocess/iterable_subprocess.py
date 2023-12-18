@@ -4,6 +4,9 @@ from contextlib import contextmanager
 from subprocess import PIPE, SubprocessError, Popen
 from threading import Thread
 
+# Importing from datalad-core to prevent circular imports
+from datalad_next.runners import CommandError
+
 
 @contextmanager
 def iterable_subprocess(
@@ -47,7 +50,7 @@ def iterable_subprocess(
     # BrokenPipeError, so propagating "what happens first" isn't helpful in this case.
     # So, we re-raise BrokenPipeError as _BrokenPipeError so we can catch it after the
     # process ends to then allow us to branch on its error code:
-    # - if it's non-zero raise an IterableSubprocessError containing its standard error
+    # - if it's non-zero raise a CommandError containing its standard error
     # - if it's zero, re-raise the original BrokenPipeError
     class _BrokenPipeError(Exception):
         pass
@@ -186,13 +189,9 @@ def iterable_subprocess(
 
     chunk_generator.returncode = proc.returncode
     if proc.returncode:
-        raise IterableSubprocessError(
-            proc.returncode,
-            b''.join(stderr_deque)[-chunk_size:],
+        raise CommandError(
+            cmd=program,
+            code=proc.returncode,
+            stderr=b''.join(stderr_deque)[-chunk_size:],
+            cwd=cwd,
         )
-
-
-class IterableSubprocessError(SubprocessError):
-    def __init__(self, returncode, stderr):
-        self.returncode = returncode
-        self.stderr = stderr

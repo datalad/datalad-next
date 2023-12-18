@@ -3,7 +3,7 @@ import sys
 
 from ..iter_subproc import (
     iter_subproc,
-    IterableSubprocessError,
+    CommandError,
 )
 
 
@@ -22,7 +22,7 @@ def test_iter_subproc_cwd(tmp_path):
         )
     # we cannot read the test file without a full path, because
     # CWD is not `tmp_path`
-    with pytest.raises(IterableSubprocessError) as e:
+    with pytest.raises(CommandError) as e:
         with iter_subproc([sys.executable, '-c', check_fx]):
             pass
         assert 'FileNotFoundError' in e.value

@@ -31,7 +31,7 @@ from datalad_next.config import ConfigManager
 from datalad_next.itertools import align_pattern
 from datalad_next.runners import (
     iter_subproc,
-    IterableSubprocessError,
+    CommandError,
 )
 
 
@@ -99,7 +99,7 @@ class SshUrlOperations(UrlOperations):
         try:
             with iter_subproc(cmd) as stream:
                 props = self._get_props(url, stream)
-        except IterableSubprocessError:
+        except CommandError:
             self._check_return_code(stream.returncode, url)
         except StopIteration:
             # an unexpected `StopIteration` occurred, this indicates a
@@ -205,7 +205,7 @@ class SshUrlOperations(UrlOperations):
                     dst_fp_write(chunk)
                     # compute hash simultaneously
                     hasher.update(chunk)
-        except IterableSubprocessError:
+        except CommandError:
             self._check_return_code(stream.returncode, from_url)
         except StopIteration:
             # an unexpected `StopIteration` occurred, this indicates a
@@ -315,7 +315,7 @@ class SshUrlOperations(UrlOperations):
 
                 upload_queue.put(None, timeout=timeout)
 
-        except IterableSubprocessError as e:
+        except CommandError as e:
             self._check_return_code(e.returncode, to_url)
         except Full:
             if chunk != b'':

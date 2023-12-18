@@ -46,7 +46,7 @@ inspired by ``asyncio.SubprocessProtocol``.
 from .iter_subproc import (
     iter_subproc,
     iter_git_subproc,
-    IterableSubprocessError,
+    CommandError,
 )
 
 # runners
