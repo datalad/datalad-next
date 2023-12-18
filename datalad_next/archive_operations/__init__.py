@@ -96,7 +96,7 @@ class ArchiveOperations(ABC):
 
     @contextmanager
     @abstractmethod
-    def open(self, item: Any) -> Generator[IO | None]:
+    def open(self, item: Any) -> Generator[IO | None, None, None]:
         """Get a file-like for an archive item
 
         Parameters

@@ -78,7 +78,11 @@ class ZipArchiveOperations(ArchiveOperations):
             self._zipfile = None
 
     @contextmanager
-    def open(self, item: str | PurePosixPath | ZipInfo, **kwargs) -> IO:
+    def open(
+        self,
+        item: str | PurePosixPath | ZipInfo,
+        **kwargs,
+    ) -> Generator[IO | None, None, None]:
         """Context manager, returning an open file for a member of the archive.
 
         The file-like object will be closed when the context-handler
