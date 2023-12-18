@@ -1,8 +1,12 @@
 """Constraints for Git-related concepts and parameters"""
+from __future__ import annotations
 
 import subprocess
 
-from .base import Constraint
+from .base import (
+    Constraint,
+    DatasetParameter,
+)
 
 
 class EnsureGitRefName(Constraint):
@@ -74,3 +78,101 @@ class EnsureGitRefName(Constraint):
             '(single-level) ' if self._allow_onelevel else '',
             ' or refspec pattern' if self._refspec_pattern else '',
         )
+
+
+class EnsureRemoteName(Constraint):
+    """Ensures a valid remote name, and optionally if such a remote is known
+    """
+    _label = 'remote'
+
+    def __init__(self,
+                 known: bool | None = None,
+                 dsarg: DatasetParameter | None = None):
+        """
+        Parameters
+        ----------
+        known: bool, optional
+           By default, a given value is only checked if it is a syntactically
+           correct remote name.
+           If ``True``, also checks that the given name corresponds to a
+           known remote in the dataset given by ``dsarg``. If ``False``,
+           checks that the given remote does not match any known remote
+           in that dataset.
+        dsarg: DatasetParameter, optional
+           Identifies a dataset for testing remote existence, if requested.
+        """
+        self._label = 'remote'
+        self._known = known
+        self._dsarg = dsarg
+
+    def __call__(self, value: str) -> str:
+        if not value:
+            # simple, do here
+            self.raise_for(
+                value,
+                f'missing {self._label} name',
+            )
+
+        if self._known is not None:
+            assert self._dsarg, \
+                f"Existence check for {self._label} requires dataset " \
+                "specification"
+
+        if self._known:
+            # we don't need to check much, only if a remote of this name
+            # already exists -- no need to check for syntax compliance
+            # again
+            if not any(
+                k.startswith(f"remote.{value}.")
+                for k in self._dsarg.ds.config.keys()
+            ):
+                self.raise_for(
+                    value,
+                    f'is not a known {self._label}',
+                )
+        else:
+            # whether or not the remote must not exist, or we would not care,
+            # in all cases we need to check for syntax compliance
+            EnsureGitRefName(
+                allow_onelevel=True,
+                refspec_pattern=False,
+            )(value)
+
+        if self._known is None:
+            # we only need to know that something was provided,
+            # no further check
+            return value
+
+        if self._known is False and any(
+            k.startswith(f"remote.{value}.")
+            for k in self._dsarg.ds.config.keys()
+        ):
+            self.raise_for(
+                value,
+                f'name conflicts with a known {self._label}',
+            )
+
+        return value
+
+    def short_description(self):
+        return f"Name of a{{desc}} {self._label}".format(
+            desc=' known' if self._known
+            else ' not-yet-known' if self._known is False else ''
+        )
+
+    def for_dataset(self, dataset: DatasetParameter) -> Constraint:
+        """Return an similarly parametrized variant that checks remote names
+        against a given dataset (argument)"""
+        return self.__class__(
+            known=self._known,
+            dsarg=dataset,
+        )
+
+
+class EnsureSiblingName(EnsureRemoteName):
+    """Identical to ``EnsureRemoteName``, but used the term "sibling"
+
+    Only error messages and documentation differ, with "remote" being
+    replaced with "sibling".
+    """
+    _label = 'sibling'

@@ -85,3 +85,8 @@ from .formats import (
     EnsureURL,
     EnsureParsedURL,
 )
+
+from .git import (
+    EnsureGitRefName,
+    EnsureRemoteName
+)
