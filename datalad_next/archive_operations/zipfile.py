@@ -124,9 +124,11 @@ class ZipArchiveOperations(ArchiveOperations):
         yield from iter_zip(self._zipfile_path, fp=False)
 
 
-def _anyzipid2membername(item: str | PurePosixPath | ZipInfo) -> str | ZipInfo:
+def _anyzipid2membername(item: str | PurePosixPath | ZipInfo) -> str:
+    """Convert any supported archive member ID for ``zipfile.open|getinfo()``
+    """
     if isinstance(item, ZipInfo):
-        return item
+        return item.filename
     elif isinstance(item, PurePosixPath):
         return item.as_posix()
     return item
