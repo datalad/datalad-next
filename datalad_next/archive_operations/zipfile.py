@@ -1,4 +1,4 @@
-"""Archive operation handler for zipfiles"""
+"""ZIP archive operation handler"""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ lgr = logging.getLogger('datalad.ext.next.archive_operations.zipfile')
 
 
 class ZipArchiveOperations(ArchiveOperations):
-    """
+    """Handler for a ZIP archive on a local file system
     """
     def __init__(self,
                  location: Path,
@@ -63,6 +63,7 @@ class ZipArchiveOperations(ArchiveOperations):
 
     @property
     def zipfile(self) -> zipfile.ZipFile:
+        """Access to the wrapped ZIP archive as a ``zipfile.ZipFile``"""
         if self._zipfile is None:
             self._zipfile = zipfile.ZipFile(
                 self._zipfile_path,
@@ -71,6 +72,7 @@ class ZipArchiveOperations(ArchiveOperations):
         return self._zipfile
 
     def close(self) -> None:
+        """Calls `.close()` on the underlying ``zipfile.ZipFile`` instance"""
         if self._zipfile:
             self._zipfile.close()
             self._zipfile = None
@@ -82,10 +84,21 @@ class ZipArchiveOperations(ArchiveOperations):
         The file-like object will be closed when the context-handler
         exits.
 
-        Parameters:
-        ---------
+        This method can be used in conjunction with ``__iter__`` to read any
+        file from an archive::
+
+            with ZipArchiveOperations(archive_path) as zf:
+                for item in zf:
+                    if item.type != FileSystemItemType.file:
+                        continue
+                    with zf.open(item.name) as fp:
+                        ...
+
+        Parameters
+        ----------
         item: str | PurePosixPath | zipfile.ZipInfo
-          Name, path, or ZipInfo-instance that identifies an item in the zipfile
+          Name, path, or ZipInfo-instance that identifies an item in the
+          zipfile
         kwargs: dict
           Keyword arguments that will be used for ZipFile.open()
 

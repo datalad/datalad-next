@@ -9,6 +9,7 @@ Available handlers:
    :toctree: generated
 
    tarfile
+   zipfile
 """
 
 # allow for |-type UnionType declarations
@@ -45,10 +46,10 @@ class ArchiveOperations(ABC):
 
     In addition to the :func:`~ArchiveOperations.open()` method for accessing
     archive item content, each handler implements the standard
-    ``__contains__()``, and ``__iter__()``.
+    ``__contains__()``, and ``__iter__()`` methods.
 
-    ``__contains__()`` reports whether the archive contains an items of a given
-    identifier.
+    ``__contains__() -> bool`` reports whether the archive contains an items of
+    a given identifier.
 
     ``__iter__()`` provides an iterator that yields
     :class:`~datalad_next.iter_collections.utils.FileSystemItem` instances with
