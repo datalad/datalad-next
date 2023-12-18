@@ -57,7 +57,7 @@ def test_ziparchive_contain(structured_sample_zip: TestArchive):
 
 def test_ziparchive_iterator(structured_sample_zip: TestArchive):
     spec = structured_sample_zip
-    with ZipArchiveOperations(structured_sample_zip.path) as archive_ops:
+    with ZipArchiveOperations(spec.path) as archive_ops:
         items = list(archive_ops)
         assert len(items) == spec.item_count
         for item in items:
@@ -67,11 +67,32 @@ def test_ziparchive_iterator(structured_sample_zip: TestArchive):
 def test_open(structured_sample_zip: TestArchive):
     spec = structured_sample_zip
     file_pointer = set()
-    with ZipArchiveOperations(structured_sample_zip.path) as zf:
+    with ZipArchiveOperations(spec.path) as zf:
         for item in zf:
-            if item.type == FileSystemItemType.file:
-                with zf.open(str(PurePosixPath(item.name))) as fp:
-                    file_pointer.add(fp)
-                    assert fp.read(len(spec.content)) == spec.content
+            if item.type != FileSystemItemType.file:
+                continue
+            with zf.open(item.name) as fp:
+                file_pointer.add(fp)
+                assert fp.read(len(spec.content)) == spec.content
         for fp in file_pointer:
             assert fp.closed is True
+
+
+def test_open_zipinfo(structured_sample_zip: TestArchive):
+    spec = structured_sample_zip
+    with ZipArchiveOperations(spec.path) as zf:
+        # get zipfile-native ZipInfo items
+        for item in zf.zipfile.infolist():
+            if item.filename.endswith('/'):
+                # crude approach to skippping non-files
+                continue
+            with zf.open(item) as fp:
+                assert fp.read(len(spec.content)) == spec.content
+
+
+def test_ziparchive_noncontext(structured_sample_zip: TestArchive):
+    spec = structured_sample_zip
+    zip = ZipArchiveOperations(spec.path)
+    assert zip.zipfile.filename == str(spec.path)
+    zip.close()
+    assert zip._zipfile is None
