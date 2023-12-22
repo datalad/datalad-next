@@ -118,3 +118,12 @@ def test_ssh_url_upload_timeout(tmp_path, monkeypatch):
         mp_ctx.setattr(datalad_next.url_operations.ssh, 'COPY_BUFSIZE', 1)
         with pytest.raises(TimeoutError):
             ssh_url_ops.upload(payload_path, upload_url, timeout=1)
+
+
+def test_check_return_code():
+    SshUrlOperations._check_return_code(0, 'test-0')
+    with pytest.raises(UrlOperationsResourceUnknown):
+        SshUrlOperations._check_return_code(244, 'test-244')
+    with pytest.raises(UrlOperationsRemoteError):
+        SshUrlOperations._check_return_code(None, 'test-None')
+        SshUrlOperations._check_return_code(1, 'test-1')

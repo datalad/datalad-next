@@ -72,7 +72,8 @@ class SshUrlOperations(UrlOperations):
                 "|| exit 244"
     _cat_cmd = "cat '{fpath}'"
 
-    def _check_return_code(self, return_code: int, url: str):
+    @staticmethod
+    def _check_return_code(return_code: int, url: str):
         # At this point the subprocess has either exited, was terminated, or
         # was killed.
         if return_code == 244:
