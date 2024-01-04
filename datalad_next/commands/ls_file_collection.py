@@ -55,8 +55,12 @@ from datalad_next.iter_collections.utils import (
     FileSystemItemType,
     compute_multihash_from_fp,
 )
-from datalad_next.iter_collections.gitworktree import (
+from datalad_next.iter_collections.gittree import (
     GitTreeItemType,
+    GitTreeItem,
+    iter_gittree,
+)
+from datalad_next.iter_collections.gitworktree import (
     GitWorktreeFileSystemItem,
     iter_gitworktree,
 )
@@ -76,6 +80,7 @@ _supported_collection_types = (
     'directory',
     'tarfile',
     'zipfile',
+    'gittree',
     'gitworktree',
     'annexworktree',
 )
@@ -137,6 +142,19 @@ class LsFileCollectionParamValidator(EnsureCommandParameterization):
         elif type == 'zipfile':
             iter_fx = iter_zip
             item2res = fsitem_to_dict
+        elif type == 'gittree':
+            if hash is not None:
+                self.raise_for(
+                    kwargs,
+                    "gittree collection does not support "
+                    "content hash reporting",
+                )
+            iter_fx = iter_gittree
+            item2res = gittreeitem_to_dict
+            iter_kwargs = dict(
+                path=Path('.'),
+                treeish=collection,
+            )
         elif type == 'gitworktree':
             iter_fx = iter_gitworktree
             item2res = gitworktreeitem_to_dict
@@ -187,6 +205,30 @@ def fsitem_to_dict(item, hash) -> Dict:
         # and we do not know whether a particular file-like even supports
         # seek() under all circumstances. we simply document the fact.
         d['fp'] = fp
+    return d
+
+
+def gittreeitem_to_dict(item, hash) -> Dict:
+    gittreeitem_type_to_res_type = {
+        # permission bits are not distinguished for types
+        GitTreeItemType.executablefile: 'file',
+        # 'dataset' is the commonly used label as the command API
+        # level
+        GitTreeItemType.submodule: 'dataset',
+    }
+
+    gittype = gittreeitem_type_to_res_type.get(
+        item.gittype, item.gittype.value) if item.gittype else None
+
+    d = dict(item=item.name)
+    if gittype is not None:
+        d['type'] = gittype
+
+    if item.gitsha:
+        d['gitsha'] = item.gitsha
+
+    if gittype is not None:
+        d['gittype'] = gittype
     return d
 
 
@@ -256,6 +298,19 @@ class LsFileCollection(ValidatedInterface):
       cases. This file handle is only open when items are yielded directly
       by this command (``return_type='generator``) and only until the next
       result is yielded. PY]
+
+    ``gittree``
+      Reports on the content of a Git "tree-ish". The collection identifier
+      is that tree-ish. The command must be executed inside a Git repository.
+      If the working directory for the command is not the repository root
+      (in case of a non-bare repository), the report is constrained to
+      items underneath the working directory. Item identifiers
+      are the relative paths of items within that working directory.
+      Reported properties include ``gitsha`` and ``gittype``; note that the
+      ``gitsha`` is not equivalent to a SHA1 hash of a file's content, but
+      is the SHA-type blob identifier as reported and used by Git.
+      Reporting of content hashes beyond the ``gitsha`` is presently not
+      supported.
 
     ``gitworktree``
       Reports on all tracked and untracked content of a Git repository's

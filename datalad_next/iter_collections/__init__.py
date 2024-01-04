@@ -19,6 +19,7 @@ collections.
 
    annexworktree
    directory
+   gittree
    gitworktree
    tarfile
    zipfile

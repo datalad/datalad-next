@@ -5,7 +5,6 @@ The main functionality is provided by the :func:`iter_gitworktree()` function.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from itertools import chain
 import logging
 from pathlib import (
@@ -32,32 +31,19 @@ git_needs_filter_kludge = external_versions['cmd:git'] < '2.25'
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
-    PathBasedItem,
+)
+from .gittree import (
+    GitTreeItem,
+    GitTreeItemType,
+    _mode_type_map,
 )
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.gitworktree')
 
 
-# TODO Could be `StrEnum`, came with PY3.11
-class GitTreeItemType(Enum):
-    """Enumeration of item types of Git trees
-    """
-    file = 'file'
-    executablefile = 'executablefile'
-    symlink = 'symlink'
-    directory = 'directory'
-    submodule = 'submodule'
-
-
-# TODO maybe establish GitTreeItem and derive from that
 @dataclass
-class GitWorktreeItem(PathBasedItem):
-    name: PurePath
-    # gitsha is not the sha1 of the file content, but the output
-    # of `git hash-object` which does something like
-    # `printf "blob $(wc -c < "$file_name")\0$(cat "$file_name")" | sha1sum`
-    gitsha: str | None = None
-    gittype: GitTreeItemType | None = None
+class GitWorktreeItem(GitTreeItem):
+    pass
 
 
 @dataclass
@@ -68,14 +54,6 @@ class GitWorktreeFileSystemItem(FileSystemItem):
     gitsha: str | None = None
     gittype: GitTreeItemType | None = None
 
-
-_mode_type_map = {
-    '100644': GitTreeItemType.file,
-    '100755': GitTreeItemType.executablefile,
-    '040000': GitTreeItemType.directory,
-    '120000': GitTreeItemType.symlink,
-    '160000': GitTreeItemType.submodule,
-}
 
 lsfiles_untracked_args = {
     'all':
