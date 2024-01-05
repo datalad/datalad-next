@@ -15,6 +15,7 @@ from ..gittree import (
 
 def test_iter_gittree(existing_dataset, no_result_rendering):
     ds = existing_dataset
+    is_crippled_fs = ds.repo.is_crippled_fs()
 
     tracked_items = list(iter_gittree(ds.pathobj, 'HEAD'))
     # without untracked's and no link resolution this is plain and fast
@@ -24,22 +25,32 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
     )
     # we add a new file and test its expected properties
     probe_name = 'probe.txt'
+    # on crippled FS we are testing the managed branch which contains
+    # pointer files, not symlinks
+    expected_probe_sha = '969921a905b411137fce77c104954f742e1ee6c7' \
+        if is_crippled_fs \
+        else '7c38bf0378c31f8696e5869e7828a32c9dc2684e'
     probe = ds.pathobj / 'subdir' / probe_name
     probe.parent.mkdir()
     probe.write_text('probe')
     ds.save()
     assert any(
         i.name == PurePosixPath(f'subdir/{probe_name}')
-        and i.gitsha == '7c38bf0378c31f8696e5869e7828a32c9dc2684e'
-        and i.gittype == GitTreeItemType.symlink
+        and i.gitsha == expected_probe_sha
+        and (
+            i.gittype in (GitTreeItemType.file, GitTreeItemType.executablefile)
+            if is_crippled_fs
+            else i.gittype == GitTreeItemType.symlink
+        )
         for i in iter_gittree(ds.pathobj, 'HEAD')
     )
-    # if we check the prior version, we do not see it (hence the
-    # tree-ish passing is working
-    assert not any(
-        i.name == PurePosixPath(f'subdir/{probe_name}')
-        for i in iter_gittree(ds.pathobj, 'HEAD~1')
-    )
+    if not is_crippled_fs:
+        # if we check the prior version, we do not see it (hence the
+        # tree-ish passing is working
+        assert not any(
+            i.name == PurePosixPath(f'subdir/{probe_name}')
+            for i in iter_gittree(ds.pathobj, 'HEAD~1')
+        )
 
     # if we disable recursion, the probe is not listed, but its
     # parent dir is
@@ -51,7 +62,8 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
     )
     assert any(
         i.name == PurePosixPath('subdir')
-        and i.gitsha == 'eb4aa65f42b90178837350571a227445b996cf90'
+        and (True if is_crippled_fs
+             else 'eb4aa65f42b90178837350571a227445b996cf90')
         and i.gittype == GitTreeItemType.directory
         for i in tracked_toplevel_items
     )
@@ -60,7 +72,7 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
     assert len(tracked_subdir_items) == 1
     probe_item = tracked_subdir_items[0]
     assert probe_item.name == PurePosixPath(probe_name)
-    assert probe_item.gitsha == '7c38bf0378c31f8696e5869e7828a32c9dc2684e'
+    assert probe_item.gitsha == expected_probe_sha
 
 
 def test_name_starting_with_tab(existing_dataset, no_result_rendering):
