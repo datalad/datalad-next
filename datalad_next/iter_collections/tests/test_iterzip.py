@@ -4,7 +4,6 @@ from pathlib import PurePosixPath
 
 from ..zipfile import (
     FileSystemItemType,
-    _ZipFileDirPath,
     ZipfileItem,
     iter_zip,
 )
@@ -24,7 +23,7 @@ def sample_zip(tmp_path_factory):
 
     Layout::
 
-        test-archive
+        test-archive/
         ├── onetwothree.txt
         └── subdir/
             └── onetwothree<>again.txt
@@ -48,25 +47,25 @@ def test_iter_zip(sample_zip):
         'SHA1': 'b5dfcec4d1b6166067226fae102f7fbcf6bd1bd4',
         'md5': 'd700214df5487801e8ee23d31e60382a',
     }
-    root = PurePosixPath('test-archive')
+    root = 'test-archive'
     targets = [
         ZipfileItem(
-            name=_ZipFileDirPath(root),
+            name=f'{root}/',
             type=FileSystemItemType.directory,
             size=0,
         ),
         ZipfileItem(
-            name=root / 'onetwothree.txt',
+            name=f'{root}/onetwothree.txt',
             type=FileSystemItemType.file,
             size=8,
         ),
         ZipfileItem(
-            name=_ZipFileDirPath(root, 'subdir'),
+            name=f'{root}/subdir/',
             type=FileSystemItemType.directory,
             size=0,
         ),
         ZipfileItem(
-            name=root / 'subdir' / 'onetwothree<>again.txt',
+            name=f'{root}/subdir/onetwothree<>again.txt',
             type=FileSystemItemType.file,
             size=8,
         ),
@@ -89,15 +88,3 @@ def test_iter_zip(sample_zip):
         r.mtime = None
     for t in targets:
         assert t in ires
-
-
-def test_zip_dir_path():
-    zp1 = _ZipFileDirPath("a/b")
-    zp2 = _ZipFileDirPath("a/b")
-    zp3 = _ZipFileDirPath("a/c")
-    pp = PurePosixPath("a/b")
-
-    assert zp1.as_posix()[-1] == '/'
-    assert zp1 == zp2
-    assert zp1 != zp3
-    assert zp1 != pp

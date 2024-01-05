@@ -134,6 +134,8 @@ def iter_annexworktree(
     Yields
     ------
     :class:`AnnexWorktreeItem` or :class:`AnnexWorktreeFileSystemItem`
+      The ``name`` attribute of an item is a ``PurePath`` instance with
+      the corresponding (relative) path, in platform conventions.
     """
 
     glsf = iter_gitworktree(

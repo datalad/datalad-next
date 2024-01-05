@@ -6,6 +6,7 @@ The main functionality is provided by the :func:`iter_zip()` function.
 from __future__ import annotations
 
 import datetime
+from functools import cached_property
 import time
 import zipfile
 from dataclasses import dataclass
@@ -21,31 +22,21 @@ from .utils import (
 )
 
 
-class _ZipFileDirPath(PurePosixPath):
-    """PurePosixPath variant that appends a '/' to the str-representation
-
-    This is used by class:`ZipfileItem` to represent directory members in
-    ZIP archives, in order to streamline archive member tests via a
-    ``item.name in zipfile.ZipFile(...)`` pattern. ``ZipFile`` requires
-    directory members to be identified with a trailing slash.
-    """
-    def __str__(self) -> str:
-        super_str = super().__str__()
-        return super_str if super_str.endswith('/') else f'{super_str}/'
-
-    def __eq__(self, other):
-        if not isinstance(other, _ZipFileDirPath):
-            return False
-        return super().__eq__(other)
-
-
 @dataclass
 class ZipfileItem(FileSystemItem):
-    name: PurePosixPath
-    """ZIP uses POSIX paths as item identifiers from version 6.3.3 onwards.
-    Not all POSIX paths are legal paths on non-POSIX file systems or platforms.
-    Therefore we cannot use a platform-dependent ``PurePath``-instance to
-    address ZIP-file items, anq we use ``PurePosixPath``-instances instead."""
+    name: str
+
+    @cached_property
+    def path(self) -> PurePosixPath:
+        """Returns the item name as a ``PurePosixPath`` instance
+
+        ZIP uses POSIX paths as item identifiers from version 6.3.3 onwards.
+        Not all POSIX paths are legal paths on non-POSIX file systems or
+        platforms.  Therefore we cannot use a platform-dependent
+        ``PurePath``-instance to address ZIP-file items, anq we use
+        ``PurePosixPath``-instances instead.
+        """
+        return PurePosixPath(self.name)
 
 
 def iter_zip(
@@ -74,6 +65,8 @@ def iter_zip(
     Yields
     ------
     :class:`ZipfileItem`
+      The ``name`` attribute of an item is a ``str`` with the corresponding
+      archive member name (in POSIX conventions).
     """
     with zipfile.ZipFile(path, mode='r') as zip_file:
         for zip_info in zip_file.infolist():
@@ -88,15 +81,9 @@ def iter_zip(
 
 def _get_zipfile_item(zip_info: zipfile.ZipInfo) -> ZipfileItem:
     return ZipfileItem(
-        **(
-            dict(
-                name=_ZipFileDirPath(zip_info.filename),
-                type=FileSystemItemType.directory)
-            if zip_info.is_dir()
-            else dict(
-                name=PurePosixPath(zip_info.filename),
-                type=FileSystemItemType.file)
-        ),
+        name=zip_info.filename,
+        type=FileSystemItemType.directory if zip_info.is_dir()
+        else FileSystemItemType.file,
         size=zip_info.file_size,
         mtime=time.mktime(
             datetime.datetime(*zip_info.date_time).timetuple()
