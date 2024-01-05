@@ -92,6 +92,10 @@ def iter_gittree(
     # what the main factor for the slowdown is, but in test cases I can
     # see 10x slower
     #lstree_args = ['--long']
+    # we do not go for a custom format that would allow for a single split
+    # by tab, because if we do, Git starts quoting paths with special
+    # characters (like tab) again
+    #lstree_args = ['--format=%(objectmode)%x09%(objectname)%x09%(path)']
     lstree_args = []
     if recursive == 'repository':
         lstree_args.append('-r')
@@ -101,7 +105,7 @@ def iter_gittree(
 
 
 def _get_tree_item(spec: str) -> GitTreeItem:
-    props, path = spec.split('\t')
+    props, path = spec.split('\t', maxsplit=1)
     # 0::2 gets the first and third (last) item, effectively skippping the
     # type name (blob/tree etc.), we have the mode lookup for that, which
     # provides more detail
