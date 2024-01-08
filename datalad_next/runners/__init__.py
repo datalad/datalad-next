@@ -17,6 +17,7 @@ of a Git repository.
    GitRunner
    Runner
    iter_subproc
+   iter_git_subproc
 
 Additional information on the design of the subprocess execution tooling
 is available from https://docs.datalad.org/design/threaded_runner.html
@@ -44,6 +45,7 @@ inspired by ``asyncio.SubprocessProtocol``.
 
 from .iter_subproc import (
     iter_subproc,
+    iter_git_subproc,
     IterableSubprocessError,
 )
 

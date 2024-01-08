@@ -14,7 +14,7 @@ from pathlib import (
 )
 from typing import Generator
 
-from datalad_next.runners import iter_subproc
+from datalad_next.runners import iter_git_subproc
 from datalad_next.itertools import (
     decode_bytes,
     itemize,
@@ -118,9 +118,8 @@ def _get_tree_item(spec: str) -> GitTreeItem:
 
 
 def _git_ls_tree(path, *args):
-    with iter_subproc(
+    with iter_git_subproc(
             [
-                'git',
                 'ls-tree',
                 # we rely on zero-byte splitting below
                 '-z',

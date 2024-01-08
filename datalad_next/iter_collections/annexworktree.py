@@ -25,7 +25,7 @@ from datalad_next.itertools import (
     route_out,
     StoreOnly,
 )
-from datalad_next.runners import iter_subproc
+from datalad_next.runners import iter_git_subproc
 
 from .gitworktree import (
     GitWorktreeItem,
@@ -150,11 +150,10 @@ def iter_annexworktree(
     _annex_git_align: list[Any] = list()
 
     with \
-            iter_subproc(
+            iter_git_subproc(
                 # we get the annex key for any filename
                 # (or empty if not annexed)
-                ['git',
-                 'annex', 'find', '--anything', '--format=${key}\\n',
+                ['annex', 'find', '--anything', '--format=${key}\\n',
                  '--batch'],
                 # intersperse items with newlines to trigger a batch run
                 # this avoids string operations to append newlines to items
@@ -177,10 +176,9 @@ def iter_annexworktree(
                 ),
                 cwd=path,
             ) as gaf, \
-            iter_subproc(
+            iter_git_subproc(
                 # get the key properties JSON-lines style
-                ['git',
-                 'annex', 'examinekey', '--json', '--batch'],
+                ['annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
                 input=intersperse(
                     # Add line ending to submit the key to batch processing in

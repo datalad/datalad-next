@@ -18,7 +18,7 @@ from typing import (
     Tuple,
 )
 
-from datalad_next.runners import iter_subproc
+from datalad_next.runners import iter_git_subproc
 from datalad_next.itertools import (
     decode_bytes,
     itemize,
@@ -291,9 +291,8 @@ def _lsfiles_line2props(
 
 
 def _git_ls_files(path, *args):
-    with iter_subproc(
+    with iter_git_subproc(
             [
-                'git',
                 'ls-files',
                 # we rely on zero-byte splitting below
                 '-z',
