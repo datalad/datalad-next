@@ -40,9 +40,9 @@ def _check_archive_member_result(r, collection):
     # a collection identifier, here the tar location
     assert 'collection' in r
     assert r['collection'] == collection
-    # an item identifier, here a path of an archive member
+    # an item identifier, here a str-path of an archive member
     assert 'item' in r
-    assert isinstance(r['item'], PurePath)
+    assert isinstance(r['item'], str)
     # item type info, here some filesystem-related category
     assert 'type' in r
     assert r['type'] in ('file', 'directory', 'symlink', 'hardlink')

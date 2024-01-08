@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 import os
 from pathlib import (
     Path,
@@ -46,10 +47,27 @@ class TypedItem:
 
 @dataclass
 class PathBasedItem(NamedItem):
-    # a path-identifier in an appropriate context.
-    # could be a filename, a relpath, or an absolute path.
-    # should match platform conventions
-    name: PurePath
+    """An item with a path as its ``name``
+
+    A dedicated (cached) property supports the conversion of the
+    native name representation into a ``PurePath`` instance.
+
+    Any argument understood by the ``PurePath`` constructor can
+    be used as ``name``, such as a a filename, a relative path, or an
+    absolute path -- in string form, as path segment sequence, or
+    a ``Path`` instance.
+
+    It is recommended to use name/path values that are relative
+    to the containing collection (directory, archive, repository, etc.).
+    """
+    @cached_property
+    def path(self) -> PurePath:
+        """Returns the item name as a ``PurePath`` instance
+
+        This default implementation assumes the ``name`` to be
+        platform path conventions.
+        """
+        return PurePath(self.name)
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
@@ -60,8 +78,13 @@ class FileSystemItem(PathBasedItem, TypedItem):
     mode: int | None = None
     uid: int | None = None
     gid: int | None = None
-    link_target: PurePath | None = None
+    link_target: Any | None = None
     fp: IO | None = None
+
+    @cached_property
+    def link_target_path(self) -> PurePath:
+        """Returns the link_target as a ``PurePath`` instance"""
+        return PurePath(self.link_target)
 
     @classmethod
     def from_path(
@@ -98,7 +121,8 @@ class FileSystemItem(PathBasedItem, TypedItem):
         )
         if link_target and ctype == FileSystemItemType.symlink:
             # could be p.readlink() from PY3.9+
-            item.link_target = PurePath(os.readlink(path))
+            # but check performance difference
+            item.link_target = os.readlink(path)
         return item
 
 

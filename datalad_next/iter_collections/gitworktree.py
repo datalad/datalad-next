@@ -43,11 +43,12 @@ lgr = logging.getLogger('datalad.ext.next.iter_collections.gitworktree')
 
 @dataclass
 class GitWorktreeItem(GitTreeItem):
-    pass
+    name: PurePath
 
 
 @dataclass
 class GitWorktreeFileSystemItem(FileSystemItem):
+    name: PurePath
     # gitsha is not the sha1 of the file content, but the output
     # of `git hash-object` which does something like
     # `printf "blob $(wc -c < "$file_name")\0$(cat "$file_name")" | sha1sum`
@@ -133,6 +134,8 @@ def iter_gitworktree(
     Yields
     ------
     :class:`GitWorktreeItem` or :class:`GitWorktreeFileSystemItem`
+      The ``name`` attribute of an item is a ``PurePath`` instance with
+      the corresponding (relative) path, in platform conventions.
     """
     # we force-convert to Path to prevent delayed crashing when reading from
     # the file system. The docs already ask for that, but it is easy to

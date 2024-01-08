@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 import logging
 from pathlib import (
     Path,
-    PurePath,
     PurePosixPath,
 )
 from typing import Generator
@@ -38,12 +38,19 @@ class GitTreeItemType(Enum):
 
 @dataclass
 class GitTreeItem(PathBasedItem):
-    name: PurePath
+    """``PathBasedItem`` with a relative path as a name (in POSIX conventions)
+    """
+    name: str
     # gitsha is not the sha1 of the file content, but the output
     # of `git hash-object` which does something like
     # `printf "blob $(wc -c < "$file_name")\0$(cat "$file_name")" | sha1sum`
     gitsha: str | None = None
     gittype: GitTreeItemType | None = None
+
+    @cached_property
+    def path(self) -> PurePosixPath:
+        """Returns the item name as a ``PurePosixPath`` instance"""
+        return PurePosixPath(self.name)
 
 
 _mode_type_map = {
@@ -80,6 +87,8 @@ def iter_gittree(
     Yields
     ------
     :class:`GitTreeItem`
+      The ``name`` attribute of an item is a ``str`` with the corresponding
+      (relative) path, as reported by Git (in POSIX conventions).
     """
     # we force-convert to Path to give us the piece of mind we want.
     # The docs already ask for that, but it is easy to
@@ -111,7 +120,7 @@ def _get_tree_item(spec: str) -> GitTreeItem:
     # provides more detail
     mode, sha = props.split(' ')[0::2]
     return GitTreeItem(
-        name=PurePosixPath(path),
+        name=path,
         gitsha=sha,
         gittype=_mode_type_map[mode],
     )

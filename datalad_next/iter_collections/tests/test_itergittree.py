@@ -35,7 +35,8 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
     probe.write_text('probe')
     ds.save()
     assert any(
-        i.name == PurePosixPath(f'subdir/{probe_name}')
+        # let's query a Path instance here, to get that covered too
+        i.path == PurePosixPath(f'subdir/{probe_name}')
         and i.gitsha == expected_probe_sha
         and (
             i.gittype in (GitTreeItemType.file, GitTreeItemType.executablefile)
@@ -48,7 +49,7 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
         # if we check the prior version, we do not see it (hence the
         # tree-ish passing is working
         assert not any(
-            i.name == PurePosixPath(f'subdir/{probe_name}')
+            i.path == PurePosixPath(f'subdir/{probe_name}')
             for i in iter_gittree(ds.pathobj, 'HEAD~1')
         )
 
@@ -57,11 +58,11 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
     tracked_toplevel_items = list(
         iter_gittree(ds.pathobj, 'HEAD', recursive='no'))
     assert not any(
-        i.name == PurePosixPath(f'subdir/{probe_name}')
+        i.name == f'subdir/{probe_name}'
         for i in tracked_toplevel_items
     )
     assert any(
-        i.name == PurePosixPath('subdir')
+        i.name == 'subdir'
         and (True if is_crippled_fs
              else 'eb4aa65f42b90178837350571a227445b996cf90')
         and i.gittype == GitTreeItemType.directory
@@ -71,7 +72,7 @@ def test_iter_gittree(existing_dataset, no_result_rendering):
     tracked_subdir_items = list(iter_gittree(probe.parent, 'HEAD'))
     assert len(tracked_subdir_items) == 1
     probe_item = tracked_subdir_items[0]
-    assert probe_item.name == PurePosixPath(probe_name)
+    assert probe_item.name == probe_name
     assert probe_item.gitsha == expected_probe_sha
 
 
@@ -83,7 +84,7 @@ def test_name_starting_with_tab(existing_dataset, no_result_rendering):
     tabbed_name = ds.pathobj / tabbed_file_name
     tabbed_name.write_text('name of this file starts with a tab')
     ds.save()
-    iter_names = [item.name for item in iter_gittree(ds.pathobj, 'HEAD')]
+    iter_names = [item.path for item in iter_gittree(ds.pathobj, 'HEAD')]
     assert PurePosixPath(tabbed_file_name) in iter_names
 
 

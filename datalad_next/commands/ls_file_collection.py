@@ -57,7 +57,6 @@ from datalad_next.iter_collections.utils import (
 )
 from datalad_next.iter_collections.gittree import (
     GitTreeItemType,
-    GitTreeItem,
     iter_gittree,
 )
 from datalad_next.iter_collections.gitworktree import (

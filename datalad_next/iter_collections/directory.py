@@ -47,6 +47,11 @@ def iter_dir(
     Yields
     ------
     :class:`DirectoryItem`
+      The ``name`` attribute of an item is a ``Path`` instance, with the
+      format matching the main ``path`` argument. When an absolute ``path``
+      is given, item names are absolute paths too. When a relative path is
+      given, it is relative to CWD, and items names are relative paths
+      (relative to CWD) too.
     """
     for c in path.iterdir():
         # c could disappear while this is running. Example: temp files managed

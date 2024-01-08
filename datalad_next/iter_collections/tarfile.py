@@ -6,6 +6,7 @@ The main functionality is provided by the :func:`iter_tar()` function.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import (
     Path,
     PurePosixPath,
@@ -21,14 +22,24 @@ from .utils import (
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
 class TarfileItem(FileSystemItem):
-    name: PurePosixPath
+    name: str
     """TAR uses POSIX paths as item identifiers. Not all POSIX paths can
     be represented on all (non-POSIX) file systems, therefore the item
-    name is represented in POSIX form, instead of a platform-dependent
-    ``PurePath``."""
-    link_target: PurePosixPath | None = None
+    name is represented in POSIX form, instead of in platform conventions.
+    """
+    link_target: str | None = None
     """Just as for ``name``, a link target is also reported in POSIX
     format."""
+
+    @cached_property
+    def path(self) -> PurePosixPath:
+        """Returns the item name as a ``PurePosixPath`` instance"""
+        return PurePosixPath(self.name)
+
+    @cached_property
+    def link_target_path(self) -> PurePosixPath:
+        """Returns the link_target as a ``PurePosixPath`` instance"""
+        return PurePosixPath(self.link_target)
 
 
 def iter_tar(
@@ -57,6 +68,8 @@ def iter_tar(
     Yields
     ------
     :class:`TarfileItem`
+      The ``name`` attribute of an item is a ``str`` with the corresponding
+      archive member name (in POSIX conventions).
     """
     with tarfile.open(path, 'r') as tar:
         for member in tar:
@@ -69,14 +82,14 @@ def iter_tar(
                 else FileSystemItemType.hardlink if member.islnk() \
                 else FileSystemItemType.specialfile
             item = TarfileItem(
-                name=PurePosixPath(member.name),
+                name=member.name,
                 type=mtype,
                 size=member.size,
                 mode=member.mode,
                 mtime=member.mtime,
                 uid=member.uid,
                 gid=member.gid,
-                link_target=PurePosixPath(member.linkname)
+                link_target=member.linkname
                 if member.linkname else None,
             )
             if fp and mtype in (
