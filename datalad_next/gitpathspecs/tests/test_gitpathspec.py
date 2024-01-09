@@ -27,146 +27,165 @@ def pathspec_match_testground(tmp_path_factory):
     See the top item in `testcases` for a summary of the content
     """
     p = tmp_path_factory.mktemp('pathspec_match')
+    probe = p / 'pr?be'
+    crippled_fs = False
+    try:
+        probe.touch()
+        probe.unlink()
+    except OSError:
+        crippled_fs = True
+
     subprocess.run(['git', 'init'], cwd=p, check=True)
     p_sub = p / 'sub'
     p_sub.mkdir()
     for d in (p, p_sub):
         p_a = d / 'aba'
         p_b = d / 'a?a'
-        for sp in (p_a, p_b):
+        for sp in (p_a,) if crippled_fs else (p_a, p_b):
             sp.mkdir()
             for fname in ('a.txt', 'A.txt', 'a.JPG'):
                 (sp / fname).touch()
     # add something that is unique to sub/
     (p_sub / 'b.dat').touch()
-    yield p
 
+    testcases = [
+        # valid
+        dict(
+            ps=':',
+            fordir={
+                None: {'specs': [':'],
+                       'match': [
+                           'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
+                           'sub/aba/A.txt', 'sub/aba/a.JPG', 'sub/aba/a.txt',
+                           'sub/b.dat'] if crippled_fs else [
+                           'a?a/A.txt', 'a?a/a.JPG', 'a?a/a.txt',
+                           'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
+                           'sub/a?a/A.txt', 'sub/a?a/a.JPG', 'sub/a?a/a.txt',
+                           'sub/aba/A.txt', 'sub/aba/a.JPG', 'sub/aba/a.txt',
+                           'sub/b.dat'],
+                },
+                'sub': {'specs': [],
+                        'match': [
+                            'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
+                            'b.dat'] if crippled_fs else [
+                            'a?a/A.txt', 'a?a/a.JPG', 'a?a/a.txt',
+                            'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
+                            'b.dat'],
+                },
+            },
+        ),
+        dict(
+            ps='aba',
+            fordir={
+                None: {'match': ['aba/A.txt', 'aba/a.JPG', 'aba/a.txt']},
+                'aba': {'specs': [],
+                        'match': ['A.txt', 'a.JPG', 'a.txt']},
+            },
+        ),
+        # same as above, but with a trailing slash
+        dict(
+            ps='aba/',
+            fordir={
+                None: {'match': ['aba/A.txt', 'aba/a.JPG', 'aba/a.txt']},
+                'aba': {'specs': [],
+                        'match': ['A.txt', 'a.JPG', 'a.txt']},
+            },
+        ),
+        dict(
+            ps=':(glob)aba/*.txt',
+            fordir={
+                None: {'match': ['aba/A.txt', 'aba/a.txt']},
+            },
+        ),
+        dict(
+            ps=':/aba/*.txt',
+            norm=':(top)aba/*.txt',
+            fordir={
+                None: {'match': ['aba/A.txt', 'aba/a.txt']},
+                # for a subdir a keeps matching the exact same items
+                # not only be name, but by location
+                'sub': {'specs': [':(top)aba/*.txt'],
+                        'match': ['../aba/A.txt', '../aba/a.txt']},
+            },
+        ),
+        dict(
+            ps='aba/*.txt',
+            fordir={
+                None: {'match': ['aba/A.txt', 'aba/a.txt']},
+                # not applicable
+                'sub': {'specs': []},
+                # but this is
+                'aba': {'specs': ['*.txt']},
+            },
+        ),
+        dict(
+            ps='sub/aba/*.txt',
+            fordir={
+                None: {'match': ['sub/aba/A.txt', 'sub/aba/a.txt']},
+                'sub': {'specs': ['aba/*.txt'],
+                        'match': ['aba/A.txt', 'aba/a.txt']},
+            },
+        ),
+        dict(
+            ps='*.JPG',
+            fordir={
+                None: {'match': [
+                    'aba/a.JPG', 'sub/aba/a.JPG'] if crippled_fs else [
+                    'a?a/a.JPG', 'aba/a.JPG', 'sub/a?a/a.JPG',
+                    'sub/aba/a.JPG']},
+                # unchanged
+                'sub': {'specs': ['*.JPG']},
+            },
+        ),
+        dict(
+            ps='*ba*.JPG',
+            fordir={
+                None: {'match': ['aba/a.JPG', 'sub/aba/a.JPG']},
+                'aba': {'specs': ['*ba*.JPG', '*.JPG'],
+                        'match': ['a.JPG']},
+            },
+        ),
+        # invalid
+        #
+        # conceptual conflict and thereby unsupported by Git
+        # makes sense and is easy to catch that
+        dict(ps=':(glob,literal)broken', raises=ValueError),
+    ]
+    if not crippled_fs:
+        testcases.extend([
+            # literal magic is only needed for non-crippled FS
+            dict(
+                ps=':(literal)a?a/a.JPG',
+                fordir={
+                    None: dict(
+                        match=['a?a/a.JPG'],
+                    ),
+                    "a?a": dict(
+                        specs=[':(literal)a.JPG'],
+                        match=['a.JPG'],
+                    ),
+                },
+            ),
+            dict(
+                ps=':(literal,icase)SuB/A?A/a.jpg',
+                fordir={
+                    None: {'match': ['sub/a?a/a.JPG']},
+                    "sub/a?a": {
+                        'specs': [':(literal,icase)a.jpg'],
+                        # MIH would really expect to following,
+                        # but it is not coming :(
+                        #'match': ['a.JPG'],
+                        'match': [],
+                    },
+                },
+            ),
+        ])
 
-testcases = [
-    # valid
-    dict(
-        ps=':',
-        fordir={
-            None: {'specs': [':'],
-                   'match': [
-                       'a?a/A.txt', 'a?a/a.JPG', 'a?a/a.txt',
-                       'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
-                       'sub/a?a/A.txt', 'sub/a?a/a.JPG', 'sub/a?a/a.txt',
-                       'sub/aba/A.txt', 'sub/aba/a.JPG', 'sub/aba/a.txt',
-                       'sub/b.dat'],
-            },
-            'sub': {'specs': [],
-                    'match': [
-                        'a?a/A.txt', 'a?a/a.JPG', 'a?a/a.txt',
-                        'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
-                        'b.dat'],
-            },
-        },
-    ),
-    dict(
-        ps='aba',
-        fordir={
-            None: {'match': ['aba/A.txt', 'aba/a.JPG', 'aba/a.txt']},
-            'aba': {'specs': [],
-                    'match': ['A.txt', 'a.JPG', 'a.txt']},
-        },
-    ),
-    # same as above, but with a trailing slash
-    dict(
-        ps='aba/',
-        fordir={
-            None: {'match': ['aba/A.txt', 'aba/a.JPG', 'aba/a.txt']},
-            'aba': {'specs': [],
-                    'match': ['A.txt', 'a.JPG', 'a.txt']},
-        },
-    ),
-    dict(
-        ps=':(glob)aba/*.txt',
-        fordir={
-            None: {'match': ['aba/A.txt', 'aba/a.txt']},
-        },
-    ),
-    dict(
-        ps=':/aba/*.txt',
-        norm=':(top)aba/*.txt',
-        fordir={
-            None: {'match': ['aba/A.txt', 'aba/a.txt']},
-            # for a subdir a keeps matching the exact same items
-            # not only be name, but by location
-            'sub': {'specs': [':(top)aba/*.txt'],
-                    'match': ['../aba/A.txt', '../aba/a.txt']},
-        },
-    ),
-    dict(
-        ps='aba/*.txt',
-        fordir={
-            None: {'match': ['aba/A.txt', 'aba/a.txt']},
-            # not applicable
-            'sub': {'specs': []},
-            # but this is
-            'aba': {'specs': ['*.txt']},
-        },
-    ),
-    dict(
-        ps='sub/aba/*.txt',
-        fordir={
-            None: {'match': ['sub/aba/A.txt', 'sub/aba/a.txt']},
-            'sub': {'specs': ['aba/*.txt'],
-                    'match': ['aba/A.txt', 'aba/a.txt']},
-        },
-    ),
-    dict(
-        ps='*.JPG',
-        fordir={
-            None: {'match': ['a?a/a.JPG', 'aba/a.JPG', 'sub/a?a/a.JPG',
-                             'sub/aba/a.JPG']},
-            # unchanged
-            'sub': {'specs': ['*.JPG']},
-        },
-    ),
-    dict(
-        ps='*ba*.JPG',
-        fordir={
-            None: {'match': ['aba/a.JPG', 'sub/aba/a.JPG']},
-            'aba': {'specs': ['*ba*.JPG', '*.JPG'],
-                    'match': ['a.JPG']},
-        },
-    ),
-    dict(
-        ps=':(literal)a?a/a.JPG',
-        fordir={
-            None: dict(
-                match=['a?a/a.JPG'],
-            ),
-            "a?a": dict(
-                specs=[':(literal)a.JPG'],
-                match=['a.JPG'],
-            ),
-        },
-    ),
-    dict(
-        ps=':(literal,icase)SuB/A?A/a.jpg',
-        fordir={
-            None: {'match': ['sub/a?a/a.JPG']},
-            "sub/a?a": {
-                'specs': [':(literal,icase)a.jpg'],
-                # MIH would really expect to following,
-                # but it is not coming :(
-                #'match': ['a.JPG'],
-                'match': [],
-            },
-        },
-    ),
-    # invalid
-    #
-    # conceptual conflict and thereby unsupported by Git
-    # makes sense and is easy to catch that
-    dict(ps=':(glob,literal)broken', raises=ValueError),
-]
+    yield p, testcases
 
 
 def test_pathspecs(pathspec_match_testground):
-    tg = pathspec_match_testground
+    tg, testcases = pathspec_match_testground
 
     for testcase in testcases:
         if testcase.get('raises'):
