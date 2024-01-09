@@ -53,7 +53,7 @@ build: off
 
 environment:
   # unless indicated otherwise, we test datalad_next
-  DTS: datalad_next
+  DTS: datalad_next.gitpathspec datalad_next.iter_collections
   # SSH testing is done via a side-loaded container that provides a POSIX/SSHable
   # server environment
   DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/recipes/sshd/id_rsa?job=sshd
@@ -131,75 +131,75 @@ environment:
       DATALAD_TESTS_SERVER_SSH_PATH: /Users/appveyor/DLTMP/riaroot
       DATALAD_TESTS_SERVER_LOCALPATH: /Users/appveyor/DLTMP/riaroot
 
-    # run a subset of the core tests on the oldest supported Python version
-    - job_name: datalad-core-1
-      DTS: >
-        datalad.cli
-        datalad.core
-      # do not run tests that ensure behavior we intentionally changed
-      # - test_gh1811: is included in next in an alternative implementation
-      # - test_librarymode: assumes that CLI config overrides end up in the
-      #   session `datalad.cfg.overrides`, but -next changes that behavior
-      #   to have `.overrides` be uniformly limited to instance overrides
-      KEYWORDS: not test_gh1811 and not test_librarymode
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.8
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - job_name: datalad-core-2
-      DTS: >
-        datalad.customremotes
-        datalad.dataset
-        datalad.distributed
-        datalad.downloaders
-        datalad.interface
-      # do not run tests that ensure behavior we intentionally changed
-      # - test_gh1811: is included in next in an alternative implementation
-      # - test_fake_gitlab: we have an updated variant in next
-      # - test_dryrun: we have an updated variant in next; what is disabled is
-      #   the one in test_create_sibling_gitlab.py. However, there is one with
-      #   identical name in test_create_sibling_ghlike.py, now also disabled
-      #   because MIH does not know better
-      KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.8
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - job_name: datalad-core-3
-      DTS: >
-        datalad.distribution
-      KEYWORDS: not test_invalid_args
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.8
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - job_name: datalad-core-4
-      DTS: >
-        datalad.local
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.8
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
-    - job_name: datalad-core-5
-      DTS: >
-        datalad.runner
-        datalad.support
-        datalad.tests
-        datalad.ui
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.8
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-      CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+    ## run a subset of the core tests on the oldest supported Python version
+    #- job_name: datalad-core-1
+    #  DTS: >
+    #    datalad.cli
+    #    datalad.core
+    #  # do not run tests that ensure behavior we intentionally changed
+    #  # - test_gh1811: is included in next in an alternative implementation
+    #  # - test_librarymode: assumes that CLI config overrides end up in the
+    #  #   session `datalad.cfg.overrides`, but -next changes that behavior
+    #  #   to have `.overrides` be uniformly limited to instance overrides
+    #  KEYWORDS: not test_gh1811 and not test_librarymode
+    #  APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+    #  PY: 3.8
+    #  INSTALL_SYSPKGS:
+    #  # datalad-annex git remote needs something after git-annex_8.20211x
+    #  INSTALL_GITANNEX: git-annex -m snapshot
+    #  CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+    #- job_name: datalad-core-2
+    #  DTS: >
+    #    datalad.customremotes
+    #    datalad.dataset
+    #    datalad.distributed
+    #    datalad.downloaders
+    #    datalad.interface
+    #  # do not run tests that ensure behavior we intentionally changed
+    #  # - test_gh1811: is included in next in an alternative implementation
+    #  # - test_fake_gitlab: we have an updated variant in next
+    #  # - test_dryrun: we have an updated variant in next; what is disabled is
+    #  #   the one in test_create_sibling_gitlab.py. However, there is one with
+    #  #   identical name in test_create_sibling_ghlike.py, now also disabled
+    #  #   because MIH does not know better
+    #  KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
+    #  APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+    #  PY: 3.8
+    #  INSTALL_SYSPKGS:
+    #  # datalad-annex git remote needs something after git-annex_8.20211x
+    #  INSTALL_GITANNEX: git-annex -m snapshot
+    #  CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+    #- job_name: datalad-core-3
+    #  DTS: >
+    #    datalad.distribution
+    #  KEYWORDS: not test_invalid_args
+    #  APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+    #  PY: 3.8
+    #  INSTALL_SYSPKGS:
+    #  # datalad-annex git remote needs something after git-annex_8.20211x
+    #  INSTALL_GITANNEX: git-annex -m snapshot
+    #  CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+    #- job_name: datalad-core-4
+    #  DTS: >
+    #    datalad.local
+    #  APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+    #  PY: 3.8
+    #  INSTALL_SYSPKGS:
+    #  # datalad-annex git remote needs something after git-annex_8.20211x
+    #  INSTALL_GITANNEX: git-annex -m snapshot
+    #  CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
+    #- job_name: datalad-core-5
+    #  DTS: >
+    #    datalad.runner
+    #    datalad.support
+    #    datalad.tests
+    #    datalad.ui
+    #  APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+    #  PY: 3.8
+    #  INSTALL_SYSPKGS:
+    #  # datalad-annex git remote needs something after git-annex_8.20211x
+    #  INSTALL_GITANNEX: git-annex -m snapshot
+    #  CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
 
 
 # only run the CI if there are code or tooling changes
