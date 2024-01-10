@@ -15,6 +15,7 @@ from pathlib import (
 import subprocess
 from typing import Generator
 
+from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.runners import iter_subproc
 from datalad_next.itertools import (
     decode_bytes,
@@ -86,6 +87,7 @@ def iter_gitdiff(
     recursive: str = 'repository',
     find_renames: int | None = None,
     find_copies: int | None = None,
+    yield_tree_items: str | None = None,
 ) -> Generator[GitTreeItem, None, None]:
     """
     Notes on 'no' recursion mode
@@ -108,11 +110,19 @@ def iter_gitdiff(
       the repository. If the directory is not the root directory of a
       non-bare repository, the iterator is constrained to items underneath
       that directory.
-    recursive: {'repository', 'no'}, optional
+    recursive: {'repository', 'submodules', 'no'}, optional
       Behavior for recursion into subtrees. By default (``repository``),
-      all tree within the repository underneath ``path``) are reported,
-      but not tree within submodules. If ``no``, only direct children
+      all trees within the repository underneath ``path``) are reported,
+      but no tree within submodules. With ``submodules``, recursion includes
+      any submodule that is present. If ``no``, only direct children
       are reported on.
+    yield_tree_items: {'submodules', 'directories', 'all', None}, optional
+      Whether to yield an item on type of subtree that will also be recursed
+      into. For example, a submodule item, when submodule recursion is
+      enabled. When disabled, subtree items (directories, submodules)
+      will still be reported whenever there is no recursion into them.
+      For example, submodule items are reported when
+      ``recursive='repository``, even when ``yield_trees=None``.
 
     Yields
     ------
@@ -127,6 +137,65 @@ def iter_gitdiff(
     # a cheap safety net
     path = Path(path)
 
+    # put most args in a container, we need to pass then around quite
+    # a bit
+    kwargs = dict(
+        from_treeish=from_treeish,
+        to_treeish=to_treeish,
+        recursive=recursive,
+        find_renames=find_renames,
+        find_copies=find_copies,
+        yield_tree_items=yield_tree_items,
+    )
+
+    cmd = _build_cmd(**kwargs)
+
+    # when do we need to condense subdir reports into a single dir-report
+    reported_dirs = set()
+    _single_dir = (cmd[0] == 'diff-index') and recursive == 'no'
+    # diff-tree reports the compared tree when no from is given, we need
+    # to skip that output below
+    skip_first = (cmd[0] == 'diff-tree') and from_treeish is None
+    pending_props = None
+    for line in _git_diff_something(path, cmd):
+        if skip_first:
+            skip_first = False
+            continue
+        if pending_props:
+            pending_props.append(line)
+            if pending_props[4][0] in ('C', 'R'):
+                # for copies and renames we expect a second path
+                continue
+            yield from _yield_diff_item(
+                cwd=path,
+                single_dir=_single_dir,
+                spec=pending_props,
+                reported_dirs=reported_dirs,
+                **kwargs
+            )
+            pending_props = None
+        elif line.startswith(':'):
+            pending_props = line[1:].split(' ')
+        else:  # pragma: no cover
+            raise RuntimeError(
+                'we should not get here, unexpected diff output')
+    if pending_props:
+        # flush
+        yield from _yield_diff_item(
+            cwd=path,
+            single_dir=_single_dir,
+            spec=pending_props,
+            reported_dirs=reported_dirs,
+            **kwargs
+        )
+
+
+def _build_cmd(
+    *,
+    from_treeish, to_treeish,
+    recursive, yield_tree_items,
+    find_renames, find_copies,
+) -> list[str]:
     # from   : to   : description
     # ---------------------------
     # HEAD   : None : compare to worktree, not with the index (diff-index)
@@ -134,7 +203,7 @@ def iter_gitdiff(
     # None   : HEAD~2 : compare tree with its parents (diff-tree)
     # None   : None : exception
 
-    common_args = [
+    common_args: list[str] = [
         '--no-rename-empty',
         # ignore changes above CWD
         '--relative',
@@ -164,54 +233,29 @@ def iter_gitdiff(
         cmd = ['diff-tree', *common_args]
         if recursive == 'repository':
             cmd.append('-r')
+            if yield_tree_items in ('all', 'directories'):
+                cmd.append('-t')
         if from_treeish is None:
             cmd.append(to_treeish)
         else:
             # two tree-ishes given
             cmd.extend((from_treeish, to_treeish))
 
-    # when do we need to condense subdir reports into a single dir-report
-    reported_dirs = set()
-    _single_dir = (cmd[0] == 'diff-index') and recursive == 'no'
-    # diff-tree reports the compared tree when no from is given, we need
-    # to skip that output below
-    skip_first = (cmd[0] == 'diff-tree') and from_treeish is None
-    pending_props = None
-    for line in _git_diff_something(path, cmd):
-        if skip_first:
-            # RAW output format starts with hash that is being compared
-            # we ignore it
-            skip_first = False
-            continue
-        if pending_props:
-            pending_props.append(line)
-            if pending_props[4][0] in ('C', 'R'):
-                # for copies and renames we expect a second path
-                continue
-            item = _get_diff_item(pending_props, _single_dir, reported_dirs,
-                                  from_treeish, path)
-            if item:
-                yield item
-            pending_props = None
-        elif line.startswith(':'):
-            pending_props = line[1:].split(' ')
-        else:  # pragma: no cover
-            raise RuntimeError(
-                'we should not get here, unexpected diff output')
-    if pending_props:
-        item = _get_diff_item(pending_props, _single_dir, reported_dirs,
-                              from_treeish, path)
-        if item:
-            yield item
+    return cmd
 
 
-def _get_diff_item(
+def _yield_diff_item(
+        *,
+        cwd: Path,
+        recursive: str,
+        from_treeish: str | None,
+        to_treeish: str | None,
         spec: list,
         single_dir: bool,
         reported_dirs: set,
-        from_treeish: str | None,
-        cwd: Path,
-) -> GitDiffItem:
+        yield_tree_items: bool,
+        **kwargs
+) -> Generator[GitDiffItem, None, None]:
     props: dict[str, str | int | GitTreeItemType] = {}
     props.update(
         (k, _mode_type_map.get(v, None))
@@ -235,34 +279,77 @@ def _get_diff_item(
         props['prev_name'] = spec[5]
         props['name'] = spec[6] if len(spec) > 6 else spec[5]
 
+    # at this point we know all about the item
+    # conversion should be cheap, so let's do this here
+    # and get a bit neater code for the rest of this function
+    item = GitDiffItem(**props)
+
     if not single_dir:
-        return GitDiffItem(**props)
+        if item.gittype != GitTreeItemType.submodule:
+            yield item
+            return
+        # this is about a present submodule
+        if recursive != 'submodules' or yield_tree_items in (
+                'all', 'submodules'):
+            # we are instructed to yield it
+            yield item
+        if recursive == 'submodules':
+            # I believe we need no protection against absent submodules.
+            # The only way they can appear here is a reported modification.
+            # The only modification that is possible with an absent submodule
+            # is a deletion. And that would cause the item.gittype to be None
+            # -- a condition that is caught above
+            for i in iter_gitdiff(
+                cwd / PurePosixPath(item.name),
+                **dict(
+                    kwargs,
+                    # we never want to pass None here
+                    # if `prev_gitsha` is None, it means that the
+                    # submodule record is new, and we want its full
+                    # content reported. Passing None, however,
+                    # would only report the change to the current
+                    # state.
+                    from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
+                    # when comparing the parent to the worktree, we
+                    # also want to compare any children to the worktree
+                    to_treeish=None if to_treeish is None else item.gitsha,
+                )
+            ):
+                # prepend any item name with the parent items
+                # name
+                for attr in ('name', 'prev_name'):
+                    val = getattr(i, attr)
+                    if val is not None:
+                        setattr(i, attr, f'{item.name}/{val}')
+                yield i
+        return
 
     # we decide on mangling the actual report to be on the containing directory
     # only, or to withhold it entirely
     dname_l = (props['name'] or props['prev_name']).split('/', maxsplit=1)
     if len(dname_l) < 2:
         # nothing in a subdirectory
-        return GitDiffItem(**props)
+        yield item
+        return
     dname = dname_l[0]
     if dname in reported_dirs:
         # nothing else todo, we already reported
         return
 
     reported_dirs.add(dname)
-    return _mangle_item_for_singledir(props, dname, from_treeish, cwd)
+    yield _mangle_item_for_singledir(item, dname, from_treeish, cwd)
 
 
-def _mangle_item_for_singledir(props, dname, from_treeish, cwd):
+def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
     # at this point we have a change report on subdirectory content
     # we only get here when comparing `from_treeish` to the worktree.
-    props['name'] = dname
+    item.name = dname
     # non-committed change -> no SHA (this ignored the index,
     # like we do elsewhere too)
-    props['gitsha'] = None
-    props['gittype'] = GitTreeItemType.directory
+    item.gitsha = None
+    item.gittype = GitTreeItemType.directory
     try:
-        props['prev_gitsha'] = subprocess.run(
+        item.prev_gitsha = subprocess.run(
             ['git', 'rev-parse', '-q', f'{from_treeish}:./{dname}'],
             capture_output=True,
             check=True,
@@ -270,22 +357,22 @@ def _mangle_item_for_singledir(props, dname, from_treeish, cwd):
         ).stdout.decode('utf-8').rstrip()
         # if we get here, we know that the name was valid in
         # `from_treeish` too
-        props['prev_name'] = dname
+        item.prev_name = dname
         # it would require more calls to figure out the mode and infer
         # a possible type change. For now, we do not go there
-        props['prev_gittype'] = None
-        props['status'] = GitDiffStatus.modification
+        item.prev_gittype = None
+        item.status = GitDiffStatus.modification
     except subprocess.CalledProcessError:
         # the was nothing with this name in `from_treeish`, but now
         # it exists. We compare to the worktree, but not any untracked
         # content -- this means that we likely compare across multiple
         # states and the directory become tracked after `from_treeish`.
         # let's call it an addition
-        props['prev_gitsha'] = None
-        props['prev_gittype'] = None
-        props['status'] = GitDiffStatus.addition
+        item.prev_gitsha = None
+        item.prev_gittype = None
+        item.status = GitDiffStatus.addition
 
-    return GitDiffItem(**props)
+    return item
 
 
 def _git_diff_something(path, args):

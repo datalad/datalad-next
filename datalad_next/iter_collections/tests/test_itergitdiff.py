@@ -238,3 +238,85 @@ def test_iter_gitdiff_typechange_issue6791(
     assert di.gitsha is None
     assert di.prev_gittype == GitTreeItemType.submodule
     assert di.gittype == GitTreeItemType.file
+
+
+def test_iter_gitdiff_rec(existing_dataset, no_result_rendering):
+    ds = existing_dataset
+    subds = ds.create('subds')
+    dsp = ds.pathobj
+    comp_base = ds.repo.get_corresponding_branch() or 'HEAD'
+    status_args = (dsp, comp_base, None)
+    diff_args = (dsp, f'{comp_base}~1', comp_base)
+
+    diff = list(iter_gitdiff(*diff_args, recursive='submodules'))
+    # we get more than just .gitmodules and a submodule record
+    assert len(diff) > 2
+    # the entire submodule is new and the first one, so everything
+    # is an addition
+    assert all(i.status == GitDiffStatus.addition for i in diff)
+    # only files, no submodule record, by default
+    assert all(i.gittype == GitTreeItemType.file for i in diff)
+
+    # when we ask for it, we get the submodule item too
+    diff_w_sm = list(iter_gitdiff(*diff_args,
+                                  recursive='submodules',
+                                  yield_tree_items='submodules'))
+    assert len(diff) + 1 == len(diff_w_sm)
+    assert any(i.name == 'subds' and i.gittype == GitTreeItemType.submodule
+               for i in diff_w_sm)
+
+    # smoke test for an all-clean diff against the worktrees
+    assert list(iter_gitdiff(*status_args, recursive='submodules')) == []
+
+    # make subdataset record modified
+    (subds.pathobj / 'file').touch()
+    subds.save(to_git=True)
+    diff = list(iter_gitdiff(*status_args, recursive='submodules'))
+    assert len(diff) == 1
+    di = diff[0]
+    assert di.name == 'subds/file'
+    assert di.status == GitDiffStatus.addition
+    # now with submodule item
+    diff_w_sm = list(iter_gitdiff(*status_args,
+                                  recursive='submodules',
+                                  yield_tree_items='all'))
+    assert len(diff_w_sm) == 2
+    di = diff_w_sm[0]
+    # the submodule item is always first
+    assert di.name == 'subds'
+    assert di.gittype == GitTreeItemType.submodule
+    assert di.status == GitDiffStatus.modification
+    assert diff_w_sm[1] == diff[0]
+
+    # safe the whole hierarchy
+    ds.save(recursive=True)
+    # we get the exact same change report via the diff to HEAD~1:HEAD
+    assert diff == list(iter_gitdiff(*diff_args, recursive='submodules'))
+
+    # modify a tracked file in the subdataset
+    (subds.pathobj / 'file').write_text('123')
+    diff_w_sm = list(iter_gitdiff(*status_args,
+                                  recursive='submodules',
+                                  yield_tree_items='all'))
+    # same report for the submodule (and it is first again)
+    assert diff_w_sm[0].name == 'subds'
+    assert diff_w_sm[0].gittype == GitTreeItemType.submodule
+    assert diff_w_sm[0].status == GitDiffStatus.modification
+    # but this time the file is not an addition but a modification
+    assert diff_w_sm[1].name == 'subds/file'
+    assert diff_w_sm[1].status == GitDiffStatus.modification
+
+    # force-wipe the subdataset, and create a condition where the subdatasets
+    # is expected but missing
+    rmtree(subds.pathobj)
+    diff = list(iter_gitdiff(*status_args))
+    assert len(diff) == 1
+    di = diff[0]
+    assert di.name == 'subds'
+    assert di.status == GitDiffStatus.deletion
+    # if we now run with recursion, we get the exact same result, the absent
+    # submodule is a subtree that we do not recurse into, hence the report
+    # is only on the tree itself
+    assert diff == list(iter_gitdiff(*status_args, recursive='submodules'))
+    # use the opportunity to check equality of recursive='all' for this case
+    assert diff == list(iter_gitdiff(*status_args, recursive='all'))
