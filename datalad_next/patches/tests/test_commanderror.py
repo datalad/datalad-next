@@ -1,6 +1,6 @@
 import pytest
 
-from datalad_next.runners import CommandError
+from datalad_next.exceptions import CommandError
 
 
 def test_repr_str():

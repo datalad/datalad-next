@@ -8,8 +8,10 @@ import psutil
 import pytest
 from threading import Thread
 
-from .iterable_subprocess import iterable_subprocess
-from datalad_next.runners import CommandError
+from .iterable_subprocess import (
+    iterable_subprocess,
+    CommandError,
+)
 
 
 def test_cat_not_necessarily_streamed():

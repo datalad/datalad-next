@@ -46,7 +46,6 @@ inspired by ``asyncio.SubprocessProtocol``.
 from .iter_subproc import (
     iter_subproc,
     iter_git_subproc,
-    CommandError,
 )
 
 # runners
@@ -55,7 +54,6 @@ from datalad.runner import (
     Runner,
 )
 from datalad.runner.nonasyncrunner import ThreadedRunner
-
 # protocols
 from datalad.runner import (
     KillOutput,
@@ -71,9 +69,10 @@ from .protocols import (
     StdOutCaptureGeneratorProtocol,
 )
 # exceptions
-from datalad.runner.exception import (
-    CommandError,
-)
+# The following import supports legacy code that uses `CommandError` from this
+# module. If you are writing new code, please use `CommandError` from
+# `datalad.support.exceptions`. We intend to remove this import in the future.
+from datalad_next.exceptions import CommandError
 
 # utilities
 from datalad.runner.nonasyncrunner import (

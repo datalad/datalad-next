@@ -1,11 +1,11 @@
 from collections import deque
 from collections.abc import Generator
 from contextlib import contextmanager
-from subprocess import PIPE, SubprocessError, Popen
+from subprocess import PIPE, Popen
 from threading import Thread
 
 # Importing from datalad-core to prevent circular imports
-from datalad_next.runners import CommandError
+from datalad_next.exceptions import CommandError
 
 
 @contextmanager
