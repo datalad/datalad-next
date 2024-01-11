@@ -43,6 +43,9 @@ class GitDiffStatus(Enum):
     typechange = 'T'
     unmerged = 'U'
     unknown = 'X'
+    # this is a local addition and not defined by git
+    # AKA "untracked"
+    other = 'O'
 
 
 _diffstatus_map = {
@@ -54,6 +57,7 @@ _diffstatus_map = {
     'T': GitDiffStatus.typechange,
     'U': GitDiffStatus.unmerged,
     'X': GitDiffStatus.unknown,
+    'O': GitDiffStatus.other,
 }
 
 
