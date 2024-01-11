@@ -72,11 +72,12 @@ class GitDiffItem(GitTreeItem):
     for modifications."""
 
     @cached_property
-    def prev_path(self) -> PurePosixPath:
+    def prev_path(self) -> PurePosixPath | None:
         """Returns the item ``prev_name`` as a ``PurePosixPath``
         instance"""
-        if self.prev_name:
-            return PurePosixPath(self.prev_name)
+        if self.prev_name is None:
+            return None
+        return PurePosixPath(self.prev_name)
 
 
 def iter_gitdiff(
@@ -88,7 +89,7 @@ def iter_gitdiff(
     find_renames: int | None = None,
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
-) -> Generator[GitTreeItem, None, None]:
+) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 
     This function is a wrapper around the Git command ``diff-tree`` and
@@ -184,7 +185,7 @@ def iter_gitdiff(
     cmd = _build_cmd(**kwargs)
 
     # when do we need to condense subdir reports into a single dir-report
-    reported_dirs = set()
+    reported_dirs: set[str] = set()
     _single_dir = (cmd[0] == 'diff-index') and recursive == 'no'
     # diff-tree reports the compared tree when no from is given, we need
     # to skip that output below
@@ -357,9 +358,12 @@ def _yield_diff_item(
                 yield i
         return
 
+    name = props['name'] or props['prev_name']
+    # we cannot have items that have no name whatsoever
+    assert name is not None
     # we decide on mangling the actual report to be on the containing directory
     # only, or to withhold it entirely
-    dname_l = (props['name'] or props['prev_name']).split('/', maxsplit=1)
+    dname_l = name.split('/', maxsplit=1)
     if len(dname_l) < 2:
         # nothing in a subdirectory
         yield item
