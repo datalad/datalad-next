@@ -113,7 +113,7 @@ def iter_gitdiff(
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
     # TODO add documentation
-    eval_submodule_state: str = 'commit',
+    eval_submodule_state: str = 'full',
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 

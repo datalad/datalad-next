@@ -14,6 +14,7 @@ in this module to offer a one-stop-shop experience. This includes
 
    CommandResult
    CommandResultStatus
+   status.StatusResult
 """
 from __future__ import annotations
 

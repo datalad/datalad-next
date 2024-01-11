@@ -9,4 +9,5 @@ High-level API commands
    credentials
    download
    ls_file_collection
+   next_status
    tree
