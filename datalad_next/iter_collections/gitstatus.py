@@ -42,7 +42,7 @@ def iter_gitstatus(
       the repository. If the directory is not the root directory of a
       non-bare repository, the iterator is constrained to items underneath
       that directory.
-    untracked: {'all', 'whole-dir', 'no-empty'} or None, optional
+    untracked: {'all', 'whole-dir', 'no-empty-dir'} or None, optional
       If not ``None``, also reports on untracked work tree content.
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual

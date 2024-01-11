@@ -107,7 +107,7 @@ def iter_annexworktree(
       Path of a directory in a git-annex repository to report on. This
       directory need not be the root directory of the repository, but
       must be part of the repository's work tree.
-    untracked: {'all', 'whole-dir', 'no-empty'} or None, optional
+    untracked: {'all', 'whole-dir', 'no-empty-dir'} or None, optional
       If not ``None``, also reports on untracked work tree content.
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual
