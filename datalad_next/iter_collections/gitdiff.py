@@ -1,4 +1,4 @@
-"""Report on the difference of two Git tree-ishes or the worktree
+"""Report on the difference of two Git tree-ishes or tracked worktree content
 
 The main functionality is provided by the :func:`iter_gitdiff()` function.
 """
@@ -89,7 +89,15 @@ def iter_gitdiff(
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
 ) -> Generator[GitTreeItem, None, None]:
-    """
+    """Report differences between Git tree-ishes or tracked worktree content
+
+    This function is a wrapper around the Git command ``diff-tree`` and
+    ``diff-index``. Therefore most semantics also apply here.
+
+    The main difference with respect to the Git commands are: 1) uniform
+    support for non-recursive, single tree reporting (no subtrees); and
+    2) support for submodule recursion.
+
     Notes on 'no' recursion mode
 
     When comparing to the worktree, ``git diff-index`` always reports on
@@ -110,19 +118,44 @@ def iter_gitdiff(
       the repository. If the directory is not the root directory of a
       non-bare repository, the iterator is constrained to items underneath
       that directory.
+    from_treeish: str or None
+      Git "tree-ish" that defines the comparison reference. If ``None``,
+      ``to_treeeish`` must not be ``None`` (see its documentation for
+      details).
+    to_treeish:
+      Git "tree-ish" that defines the comparison target. If ``None``,
+      ``from_treeish`` must not be ``None``, and that tree-ish will be
+      compared against the worktree. (see its documentation for
+      details). If ``from_treeish`` is ``None``, the given tree-ish is
+      compared to its immediate parents (see ``git diff-tree`` documentation
+      for details).
     recursive: {'repository', 'submodules', 'no'}, optional
       Behavior for recursion into subtrees. By default (``repository``),
       all trees within the repository underneath ``path``) are reported,
       but no tree within submodules. With ``submodules``, recursion includes
       any submodule that is present. If ``no``, only direct children
       are reported on.
+    find_renames: int, optional
+      If given, this defines the similarity threshold for detecting renames
+      (see ``git diff-{index,tree} --find-renames``). By default, no rename
+      detection is done and reported items never have the ``rename`` status.
+      Instead, a renames would be reported as a deletion and an addition.
+    find_copied: int, optional
+      If given, this defines the similarity threshold for detecting copies
+      (see ``git diff-{index,tree} --find-copies``). By default, no copy
+      detection is done and reported items never have the ``copy`` status.
+      Instead, a copy would be reported as addition.
+      This option always implies the use of the ``--find-copies-harder``
+      Git option that enables reporting of copy sources, even when they
+      have not been modified in the same change. This is a very expensive
+      operation for large projects, so use it with caution.
     yield_tree_items: {'submodules', 'directories', 'all', None}, optional
       Whether to yield an item on type of subtree that will also be recursed
       into. For example, a submodule item, when submodule recursion is
       enabled. When disabled, subtree items (directories, submodules)
       will still be reported whenever there is no recursion into them.
       For example, submodule items are reported when
-      ``recursive='repository``, even when ``yield_trees=None``.
+      ``recursive='repository``, even when ``yield_tree_items=None``.
 
     Yields
     ------
