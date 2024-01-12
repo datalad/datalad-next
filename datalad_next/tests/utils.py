@@ -32,6 +32,7 @@ from datalad.tests.utils_pytest import (
     ok_good_symlink,
     rmtree,
     skip_if_on_windows,
+    skip_if_root,
     skip_wo_symlink_capability,
     swallow_logs,
 )
