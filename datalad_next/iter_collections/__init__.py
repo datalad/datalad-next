@@ -19,6 +19,7 @@ collections.
 
    annexworktree
    directory
+   gitdiff
    gittree
    gitworktree
    tarfile
