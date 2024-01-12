@@ -10,6 +10,7 @@ from datalad_next.tests.utils import (
     get_deeply_nested_structure,
     skip_wo_symlink_capability,
     skip_if_on_windows,
+    skip_if_root,
     ok_good_symlink,
     ok_broken_symlink,
     run_main,
@@ -732,6 +733,7 @@ class TestTreeFilesystemIssues:
         with assert_raises(ValueError):
             Tree(tmp_path / 'nonexistent_dir', max_depth=1)
 
+    @skip_if_root  # see https://github.com/datalad/datalad-next/issues/525
     @skip_if_on_windows
     @skip_wo_symlink_capability
     def test_print_tree_permission_denied(self, tmp_path):
@@ -823,6 +825,7 @@ class TestTreeFilesystemIssues:
             ]
         assert set(expected) == set(actual)
 
+    @skip_if_root  # see https://github.com/datalad/datalad-next/issues/525
     @skip_if_on_windows
     @skip_wo_symlink_capability
     @pytest.mark.parametrize("include_files", (True, False))

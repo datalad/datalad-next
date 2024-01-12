@@ -26,6 +26,7 @@ from datalad_next.tests.utils import (
     assert_status,
     eq_,
     rmtree,
+    skip_if_root,
 )
 from datalad_next.consts import on_windows
 from datalad_next.exceptions import CommandError
@@ -52,6 +53,7 @@ def eq_dla_branch_state(state, path, branch=DEFAULT_BRANCH):
     assert None, f'Could not find state for branch {branch} at {path}'
 
 
+@skip_if_root  # see https://github.com/datalad/datalad-next/issues/525
 def test_annex_remote(existing_noannex_dataset, tmp_path, no_result_rendering):
     remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL
@@ -63,6 +65,7 @@ def test_annex_remote(existing_noannex_dataset, tmp_path, no_result_rendering):
     _check_push_fetch_cycle(ds, dlaurl, remotepath, tmp_path)
 
 
+@skip_if_root  # see https://github.com/datalad/datalad-next/issues/525
 def test_export_remote(existing_noannex_dataset, tmp_path, no_result_rendering):
     remotepath = tmp_path / 'remote'
     # bypass the complications of folding a windows path into a file URL

@@ -6,6 +6,7 @@ from datalad_next.consts import on_windows
 from datalad_next.tests.utils import (
     create_tree,
     skip_if_on_windows,
+    skip_if_root,
 )
 from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.exceptions import (
@@ -309,6 +310,7 @@ def test_uncurl_ria_access(tmp_path, no_result_rendering):
     assert (ds.pathobj / target_fname).read_text() == testfile_content
 
 
+@skip_if_root  # see https://github.com/datalad/datalad-next/issues/525
 def test_uncurl_store(tmp_path, existing_dataset, no_result_rendering):
     ds = existing_dataset
     testfile = ds.pathobj / 'testfile1.txt'
