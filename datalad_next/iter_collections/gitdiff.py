@@ -35,17 +35,17 @@ lgr = logging.getLogger('datalad.ext.next.iter_collections.gitdiff')
 class GitDiffStatus(Enum):
     """Enumeration of statuses for diff items
     """
-    addition = 'A'
-    copy = 'C'
-    deletion = 'D'
-    modification = 'M'
-    rename = 'R'
-    typechange = 'T'
-    unmerged = 'U'
-    unknown = 'X'
+    addition = 'addition'
+    copy = 'copy'
+    deletion = 'deletion'
+    modification = 'modification'
+    rename = 'rename'
+    typechange = 'typechange'
+    unmerged = 'unmerged'
+    unknown = 'unknown'
     # this is a local addition and not defined by git
     # AKA "untracked"
-    other = 'O'
+    other = 'other'
 
 
 _diffstatus_map = {
