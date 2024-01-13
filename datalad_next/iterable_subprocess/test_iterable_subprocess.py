@@ -8,7 +8,10 @@ import psutil
 import pytest
 from threading import Thread
 
-from .iterable_subprocess import IterableSubprocessError, iterable_subprocess
+from .iterable_subprocess import (
+    iterable_subprocess,
+    CommandError,
+)
 
 
 def test_cat_not_necessarily_streamed():
@@ -129,7 +132,7 @@ def test_exception_from_not_found_process_propagated():
 
 def test_exception_from_return_code(monkeypatch):
     monkeypatch.setenv('LANG', 'C')
-    with pytest.raises(IterableSubprocessError, match='No such file or directory') as excinfo:
+    with pytest.raises(CommandError, match='No such file or directory') as excinfo:
         with iterable_subprocess(['ls', 'does-not-exist'], ()) as output:
             a = b''.join(output)
 
@@ -146,7 +149,7 @@ def test_exception_from_context_even_though_return_code_with_long_standard_error
 
 
 def test_exception_from_return_code_with_long_standard_error():
-    with pytest.raises(IterableSubprocessError) as excinfo:
+    with pytest.raises(CommandError) as excinfo:
         with iterable_subprocess([sys.executable, '-c', 'import sys; print("Out"); print("Error message" * 100000, file=sys.stderr); sys.exit(2)'], ()) as output:
             for _ in output:
                 pass
@@ -192,7 +195,7 @@ def test_if_process_closes_standard_input_but_exits_with_non_zero_error_code_the
         while True:
             yield b'*' * 10
 
-    with pytest.raises(IterableSubprocessError) as excinfo:
+    with pytest.raises(CommandError) as excinfo:
         with iterable_subprocess([
             sys.executable, '-c', 'import sys; sys.stdin.close(); print("The error", file=sys.stderr); print("After output"); sys.exit(3)',
         ], yield_input()) as output:
@@ -207,7 +210,7 @@ def test_if_process_closes_standard_input_but_exits_with_non_zero_error_code_the
 def test_program_that_outputs_for_a_long_time_is_interrupted_on_context_exit():
     start = time.monotonic()
 
-    with pytest.raises(IterableSubprocessError) as excinfo:
+    with pytest.raises(CommandError) as excinfo:
         with iterable_subprocess([sys.executable, '-c', 'import time; start = time.monotonic()\nwhile (time.monotonic() - start) < 60:\n    print("Output" * 1000)'], ()) as output:
             pass
 
@@ -315,7 +318,7 @@ def test_funzip_deflate():
 
 
 def test_error_returncode_available_from_generator():
-    with pytest.raises(IterableSubprocessError):
+    with pytest.raises(CommandError):
         with iterable_subprocess(['ls', 'does-not-exist'], ()) as ls:
             tuple(ls)
     assert ls.returncode != 0

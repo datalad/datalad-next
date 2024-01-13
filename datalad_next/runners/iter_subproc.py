@@ -10,7 +10,7 @@ from datalad_next.iterable_subprocess.iterable_subprocess import (
     iterable_subprocess,
     # not needed here, but we want to provide all critical pieces from
     # the same place. This is the key exception type
-    IterableSubprocessError,
+    CommandError,
 )
 from datalad_next.consts import COPY_BUFSIZE
 
@@ -48,7 +48,7 @@ def iter_subproc(
     On context exit, the main thread closes the process's standard output,
     waits for the standard input thread to exit, waits for the standard error
     thread to exit, and wait for the process to exit. If the process exited
-    with a non-zero return code, an ``IterableSubprocessError`` is raised,
+    with a non-zero return code, a ``CommandError`` is raised,
     containing the process's return code.
 
     If the context is exited due to an exception that was raised in the
@@ -58,15 +58,15 @@ def iter_subproc(
     for the process to exit, and re-raises the exception.
 
     Note, if an exception is raised in the context, this exception will bubble
-    up to the main thread. That means no ``IterableSubprocessError`` will
+    up to the main thread. That means no ``CommandError`` will
     be raised if the subprocess exited with a non-zero return code.
     To access the return code in case of an exception inside the context,
-    use the ``returncode``-attribute of the ``as``-variable.
+    use the ``code``-attribute of the ``as``-variable.
     This object will always contain the return code of the subprocess.
     For example, the following code will raise a ``StopIteration``-exception
     in the context (by repeatedly using :func:`next`). The subprocess
     will exit with ``2`` due to the illegal option ``-@``, and no
-    ``IterableSubprocessError`` is raised. The return code is read from
+    ``CommandError`` is raised. The return code is read from
     the variable ``ls_stdout``
 
     .. code-block:: python

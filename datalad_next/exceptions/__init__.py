@@ -2,7 +2,7 @@
 
 # TODO rethink the purpose of this module and possibly
 # make it about *external* custom exceptions
-from datalad_next.runners import CommandError
+from datalad.runner.exception import CommandError
 from datalad.support.exceptions import (
     CapturedException,
     IncompleteResultsError,
