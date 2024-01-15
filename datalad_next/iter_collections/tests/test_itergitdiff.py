@@ -15,6 +15,9 @@ def test_iter_gitdiff_invalid():
     with pytest.raises(ValueError):
         # no meaningful comparison
         list(iter_gitdiff('.', None, None))
+    with pytest.raises(ValueError):
+        # unsupported eval mode
+        list(iter_gitdiff('.', None, None, eval_submodule_state='weird'))
 
 
 def test_iter_gitdiff_basic(existing_dataset, no_result_rendering):

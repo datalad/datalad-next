@@ -109,6 +109,8 @@ def iter_gitdiff(
     find_renames: int | None = None,
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
+    # TODO add documentation
+    eval_submodule_state: str = 'commit',
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 
@@ -200,6 +202,7 @@ def iter_gitdiff(
         find_renames=find_renames,
         find_copies=find_copies,
         yield_tree_items=yield_tree_items,
+        eval_submodule_state=eval_submodule_state,
     )
 
     cmd = _build_cmd(**kwargs)
@@ -249,6 +252,7 @@ def _build_cmd(
     from_treeish, to_treeish,
     recursive, yield_tree_items,
     find_renames, find_copies,
+    eval_submodule_state,
 ) -> list[str]:
     # from   : to   : description
     # ---------------------------
@@ -276,6 +280,16 @@ def _build_cmd(
         # that this is cheaper than reading all file content.
         # but if that is actually true remains to be tested
         common_args.append(f'--find-copies-harder')
+
+    if eval_submodule_state == 'no':
+        common_args.append('--ignore-submodules=all')
+    elif eval_submodule_state == 'commit':
+        common_args.append('--ignore-submodules=dirty')
+    elif eval_submodule_state == 'full':
+        common_args.append('--ignore-submodules=none')
+    else:
+        raise ValueError(
+            f'unknown submodule evaluation mode {eval_submodule_state!r}')
 
     if from_treeish is None and to_treeish is None:
         raise ValueError(
@@ -343,10 +357,19 @@ def _yield_diff_item(
             yield item
             return
         # this is about a present submodule
-        if item.gitsha is None and item.status == GitDiffStatus.modification:
-            # this modification means that "content" is modified
-            item.add_modification_type(
-                GitContainerModificationType.modified_content)
+        if item.status == GitDiffStatus.modification:
+            if item.gitsha is None:
+                # in 'git diff-index' speak the submodule is "out-of-sync" with
+                # the index: this happens when there are new commits
+                item.add_modification_type(
+                    GitContainerModificationType.new_commits)
+            # TODO we cannot give details for other modification types.
+            # depending on --ignore-submodules a range of situations
+            # could be the case
+            #else:
+            #    # this modification means that "content" is modified
+            #    item.add_modification_type(
+            #        GitContainerModificationType.modified_content)
         if recursive != 'submodules' or yield_tree_items in (
                 'all', 'submodules'):
             # we are instructed to yield it
