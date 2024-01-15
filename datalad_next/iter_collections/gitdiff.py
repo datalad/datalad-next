@@ -61,6 +61,13 @@ _diffstatus_map = {
 }
 
 
+# TODO Could be `StrEnum`, came with PY3.11
+class GitContainerModificationType(Enum):
+    new_commits = 'new commits'
+    untracked_content = 'untracked content'
+    modified_content = 'modified content'
+
+
 @dataclass
 class GitDiffItem(GitTreeItem):
     """``GitTreeItem`` with "previous" property values given a state comparison
@@ -74,6 +81,9 @@ class GitDiffItem(GitTreeItem):
     """This is the percentage of similarity for copy-status and
     rename-status diff items, and the percentage of dissimilarity
     for modifications."""
+    modification_types: tuple[GitContainerModificationType] | None = None
+    """Qualifiers for modification types of container-type
+    items (directories, submodules)."""
 
     @cached_property
     def prev_path(self) -> PurePosixPath | None:
@@ -82,6 +92,12 @@ class GitDiffItem(GitTreeItem):
         if self.prev_name is None:
             return None
         return PurePosixPath(self.prev_name)
+
+    def add_modification_type(self, value: GitContainerModificationType):
+        if self.modification_types is None:
+            self.modification_types = (value,)
+        else:
+            self.modification_types = (*self.modification_types, value)
 
 
 def iter_gitdiff(
@@ -327,6 +343,10 @@ def _yield_diff_item(
             yield item
             return
         # this is about a present submodule
+        if item.gitsha is None and item.status == GitDiffStatus.modification:
+            # this modification means that "content" is modified
+            item.add_modification_type(
+                GitContainerModificationType.modified_content)
         if recursive != 'submodules' or yield_tree_items in (
                 'all', 'submodules'):
             # we are instructed to yield it
