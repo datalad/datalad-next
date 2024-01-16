@@ -1,8 +1,11 @@
 """Constraints for Git-related concepts and parameters"""
 from __future__ import annotations
 
-import subprocess
-
+from datalad_next.runners import (
+    CommandError,
+    call_git,
+    call_git_oneline,
+)
 from .base import (
     Constraint,
     DatasetParameter,
@@ -43,7 +46,7 @@ class EnsureGitRefName(Constraint):
             # simple, do here
             self.raise_for(value, 'refname must not be empty')
 
-        cmd = ['git', 'check-ref-format']
+        cmd = ['check-ref-format']
         cmd.append('--allow-onelevel'
                    if self._allow_onelevel
                    else '--no-allow-onelevel')
@@ -55,13 +58,9 @@ class EnsureGitRefName(Constraint):
         cmd.append(value)
 
         try:
-            out = subprocess.run(
-                cmd,
-                text=True,
-                capture_output=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
+            res = (call_git_oneline
+                   if self._normalize else call_git)(cmd)
+        except CommandError as e:
             self.raise_for(
                 value,
                 'is not a valid refname',
@@ -69,7 +68,7 @@ class EnsureGitRefName(Constraint):
             )
 
         if self._normalize:
-            return out.stdout.strip()
+            return res
         else:
             return value
 

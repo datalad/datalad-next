@@ -14,7 +14,7 @@ from datalad_next.iterable_subprocess.iterable_subprocess import (
 )
 from datalad_next.consts import COPY_BUFSIZE
 
-__all__ = ['iter_subproc', 'iter_git_subproc']
+__all__ = ['iter_subproc']
 
 
 def iter_subproc(
@@ -103,20 +103,3 @@ def iter_subproc(
         chunk_size=chunk_size,
         cwd=cwd,
     )
-
-
-def iter_git_subproc(
-    args: List[str],
-    **kwargs
-):
-    """``iter_subproc()`` wrapper for calling Git commands
-
-    All argument semantics are identical to those of ``iter_subproc()``,
-    except that ``args`` must not contain the Git binary, but need to be
-    exclusively arguments to it. The respective `git` command/binary is
-    automatically added internally.
-    """
-    cmd = ['git']
-    cmd.extend(args)
-
-    return iter_subproc(cmd, **kwargs)
