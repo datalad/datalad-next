@@ -48,8 +48,9 @@ from .iter_subproc import (
 )
 from .git import (
     call_git,
-    call_git_success,
+    call_git_lines,
     call_git_oneline,
+    call_git_success,
     iter_git_subproc,
 )
 

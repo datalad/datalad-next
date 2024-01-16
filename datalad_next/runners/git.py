@@ -100,6 +100,34 @@ def call_git_success(
     return True
 
 
+def call_git_lines(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+) -> bool:
+    """Call Git for any (small) number of lines of output.
+
+    ``args`` is a list of arguments for the Git command. This list must not
+    contain the Git executable itself. It will be prepended (unconditionally)
+    to the arguments before passing them on.
+
+    If ``cwd`` is not None, the function changes the working directory to
+    ``cwd`` before executing the command.
+
+    Raises
+    ------
+    CommandError if the call exits with a non-zero status.
+    """
+    res = _call_git(
+        args,
+        capture_output=True,
+        cwd=cwd,
+        check=True,
+        text=True,
+    )
+    return res.stdout.splitlines()
+
+
 def call_git_oneline(
     args: list[str],
     *,
@@ -115,17 +143,10 @@ def call_git_oneline(
     CommandError if the call exits with a non-zero status.
     AssertionError if there is more than one line of output.
     """
-    res = _call_git(
-        args,
-        capture_output=True,
-        cwd=cwd,
-        check=True,
-        text=True,
-    )
-    lines = res.stdout.splitlines()
+    lines = call_git_lines(args, cwd=cwd)
     if len(lines) > 1:
         raise AssertionError(
-            f"Expected Git {args} to return a single line, but got f{lines}"
+            f"Expected Git {args} to return a single line, but got {lines}"
         )
     return lines[0]
 

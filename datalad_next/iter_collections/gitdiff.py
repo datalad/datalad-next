@@ -12,15 +12,18 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
-import subprocess
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.runners import iter_subproc
+from datalad_next.runners import (
+    CommandError,
+    iter_git_subproc,
+)
 from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
+from datalad_next.runners import call_git_oneline
 
 from .gittree import (
     GitTreeItem,
@@ -309,6 +312,9 @@ def _build_cmd(
             # two tree-ishes given
             cmd.extend((from_treeish, to_treeish))
 
+    # add disambiguation marker for pathspec.
+    # even if we do not pass any, we get simpler error messages from Git
+    cmd.append('--')
     return cmd
 
 
@@ -433,12 +439,10 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
     item.gitsha = None
     item.gittype = GitTreeItemType.directory
     try:
-        item.prev_gitsha = subprocess.run(
-            ['git', 'rev-parse', '-q', f'{from_treeish}:./{dname}'],
-            capture_output=True,
-            check=True,
+        item.prev_gitsha = call_git_oneline(
+            ['rev-parse', '-q', f'{from_treeish}:./{dname}'],
             cwd=cwd,
-        ).stdout.decode('utf-8').rstrip()
+        )
         # if we get here, we know that the name was valid in
         # `from_treeish` too
         item.prev_name = dname
@@ -446,7 +450,7 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
         # a possible type change. For now, we do not go there
         item.prev_gittype = None
         item.status = GitDiffStatus.modification
-    except subprocess.CalledProcessError:
+    except CommandError:
         # the was nothing with this name in `from_treeish`, but now
         # it exists. We compare to the worktree, but not any untracked
         # content -- this means that we likely compare across multiple
@@ -460,14 +464,7 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
 
 
 def _git_diff_something(path, args):
-    with iter_subproc(
-            [
-                'git',
-                # take whatever is coming in
-                *args,
-            ],
-            cwd=path,
-    ) as r:
+    with iter_git_subproc([*args], cwd=path) as r:
         yield from decode_bytes(
             itemize(
                 r,
