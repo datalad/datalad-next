@@ -192,11 +192,11 @@ def prep_fp_tester(ds):
         reckless='availability',
     )
     # and also add a file to git directly and a have one untracked too
-    for i in ('untracked', 'ingit'):
+    for i in ('untracked', 'ingit', 'deleted'):
         (ds.pathobj / f'file_{i}').write_text(
             content_tmpl.format(i), encoding='utf-8')
         fcount += 1
-    ds.save('file_ingit', to_git=True)
+    ds.save(['file_ingit', 'file_deleted'], to_git=True)
     # and add symlinks (untracked and in git)
     if check_symlink_capability(
         ds.pathobj / '_dummy', ds.pathobj / '_dummy_target'
@@ -209,6 +209,7 @@ def prep_fp_tester(ds):
             lpath.symlink_to(tpath)
             fcount += 1
     ds.save('file_symlinkingit', to_git=True)
+    (ds.pathobj / 'file_deleted').unlink()
     return fcount, content_tmpl
 
 
@@ -221,7 +222,7 @@ def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
         iter_gitworktree(ds.pathobj, fp=True)
     ):
         fcount -= 1
-        if ai.fp:
+        if getattr(ai, 'fp', False):
             # for annexed files the fp can be an annex pointer file.
             # in the context of `iter_gitworktree` this is not a
             # recognized construct

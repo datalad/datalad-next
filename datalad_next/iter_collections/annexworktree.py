@@ -252,7 +252,14 @@ def iter_annexworktree(
         # we might be in a managed branch without link.
         path = Path(path)
         for res in results:
-            item = _get_worktree_item(path, get_fs_info=True, **res)
+            try:
+                item = _get_worktree_item(path, get_fs_info=True, **res)
+            except FileNotFoundError:
+                # there is nothing to open, yield non FS item
+                item = _get_worktree_item(path, get_fs_info=False, **res)
+                yield item
+                continue
+
             # determine would file we would open
             fp_src = None
             if item.annexobjpath is not None:
