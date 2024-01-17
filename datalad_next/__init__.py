@@ -43,6 +43,10 @@ command_suite = (
             'datalad_next.commands.ls_file_collection', 'LsFileCollection',
             'ls-file-collection',
         ),
+        (
+            'datalad_next.commands.status', 'Status',
+            'next-status', 'next_status',
+        ),
     ]
 )
 

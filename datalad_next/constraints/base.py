@@ -24,6 +24,9 @@ class DatasetParameter:
         self.original = original
         self.ds = ds
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.original}, {self.ds})'
+
 
 class Constraint:
     """Base class for value coercion/validation.

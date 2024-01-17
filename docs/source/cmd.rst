@@ -8,4 +8,5 @@ Command line reference
    generated/man/datalad-credentials
    generated/man/datalad-download
    generated/man/datalad-ls-file-collection
+   generated/man/datalad-next-status
    generated/man/datalad-tree

@@ -7,6 +7,14 @@ validation and structured error reporting.
 Beyond that, any further components necessary to implement command are imported
 in this module to offer a one-stop-shop experience. This includes
 ``build_doc``, ``datasetmethod``, and ``eval_results``, among others.
+
+.. currentmodule:: datalad_next.commands
+.. autosummary::
+   :toctree: generated
+
+   CommandResult
+   CommandResultStatus
+   status.StatusResult
 """
 from __future__ import annotations
 
@@ -26,7 +34,10 @@ from datalad_next.constraints.parameter import (
     ParameterConstraintContext,
 )
 from datalad_next.datasets import datasetmethod
-
+from .results import (
+    CommandResult,
+    CommandResultStatus,
+)
 
 class ValidatedInterface(Interface):
     """Alternative base class for commands with uniform parameter validation

@@ -12,15 +12,18 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
-import subprocess
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.runners import iter_subproc
+from datalad_next.runners import (
+    CommandError,
+    iter_git_subproc,
+)
 from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
+from datalad_next.runners import call_git_oneline
 
 from .gittree import (
     GitTreeItem,
@@ -35,14 +38,17 @@ lgr = logging.getLogger('datalad.ext.next.iter_collections.gitdiff')
 class GitDiffStatus(Enum):
     """Enumeration of statuses for diff items
     """
-    addition = 'A'
-    copy = 'C'
-    deletion = 'D'
-    modification = 'M'
-    rename = 'R'
-    typechange = 'T'
-    unmerged = 'U'
-    unknown = 'X'
+    addition = 'addition'
+    copy = 'copy'
+    deletion = 'deletion'
+    modification = 'modification'
+    rename = 'rename'
+    typechange = 'typechange'
+    unmerged = 'unmerged'
+    unknown = 'unknown'
+    # this is a local addition and not defined by git
+    # AKA "untracked"
+    other = 'other'
 
 
 _diffstatus_map = {
@@ -54,7 +60,15 @@ _diffstatus_map = {
     'T': GitDiffStatus.typechange,
     'U': GitDiffStatus.unmerged,
     'X': GitDiffStatus.unknown,
+    'O': GitDiffStatus.other,
 }
+
+
+# TODO Could be `StrEnum`, came with PY3.11
+class GitContainerModificationType(Enum):
+    new_commits = 'new commits'
+    untracked_content = 'untracked content'
+    modified_content = 'modified content'
 
 
 @dataclass
@@ -70,6 +84,9 @@ class GitDiffItem(GitTreeItem):
     """This is the percentage of similarity for copy-status and
     rename-status diff items, and the percentage of dissimilarity
     for modifications."""
+    modification_types: tuple[GitContainerModificationType] | None = None
+    """Qualifiers for modification types of container-type
+    items (directories, submodules)."""
 
     @cached_property
     def prev_path(self) -> PurePosixPath | None:
@@ -78,6 +95,12 @@ class GitDiffItem(GitTreeItem):
         if self.prev_name is None:
             return None
         return PurePosixPath(self.prev_name)
+
+    def add_modification_type(self, value: GitContainerModificationType):
+        if self.modification_types is None:
+            self.modification_types = (value,)
+        else:
+            self.modification_types = (*self.modification_types, value)
 
 
 def iter_gitdiff(
@@ -89,6 +112,8 @@ def iter_gitdiff(
     find_renames: int | None = None,
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
+    # TODO add documentation
+    eval_submodule_state: str = 'full',
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 
@@ -180,6 +205,7 @@ def iter_gitdiff(
         find_renames=find_renames,
         find_copies=find_copies,
         yield_tree_items=yield_tree_items,
+        eval_submodule_state=eval_submodule_state,
     )
 
     cmd = _build_cmd(**kwargs)
@@ -229,6 +255,7 @@ def _build_cmd(
     from_treeish, to_treeish,
     recursive, yield_tree_items,
     find_renames, find_copies,
+    eval_submodule_state,
 ) -> list[str]:
     # from   : to   : description
     # ---------------------------
@@ -257,6 +284,16 @@ def _build_cmd(
         # but if that is actually true remains to be tested
         common_args.append(f'--find-copies-harder')
 
+    if eval_submodule_state == 'no':
+        common_args.append('--ignore-submodules=all')
+    elif eval_submodule_state == 'commit':
+        common_args.append('--ignore-submodules=dirty')
+    elif eval_submodule_state == 'full':
+        common_args.append('--ignore-submodules=none')
+    else:
+        raise ValueError(
+            f'unknown submodule evaluation mode {eval_submodule_state!r}')
+
     if from_treeish is None and to_treeish is None:
         raise ValueError(
             'either `from_treeish` or `to_treeish` must not be None')
@@ -275,6 +312,9 @@ def _build_cmd(
             # two tree-ishes given
             cmd.extend((from_treeish, to_treeish))
 
+    # add disambiguation marker for pathspec.
+    # even if we do not pass any, we get simpler error messages from Git
+    cmd.append('--')
     return cmd
 
 
@@ -323,6 +363,19 @@ def _yield_diff_item(
             yield item
             return
         # this is about a present submodule
+        if item.status == GitDiffStatus.modification:
+            if item.gitsha is None:
+                # in 'git diff-index' speak the submodule is "out-of-sync" with
+                # the index: this happens when there are new commits
+                item.add_modification_type(
+                    GitContainerModificationType.new_commits)
+            # TODO we cannot give details for other modification types.
+            # depending on --ignore-submodules a range of situations
+            # could be the case
+            #else:
+            #    # this modification means that "content" is modified
+            #    item.add_modification_type(
+            #        GitContainerModificationType.modified_content)
         if recursive != 'submodules' or yield_tree_items in (
                 'all', 'submodules'):
             # we are instructed to yield it
@@ -386,12 +439,10 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
     item.gitsha = None
     item.gittype = GitTreeItemType.directory
     try:
-        item.prev_gitsha = subprocess.run(
-            ['git', 'rev-parse', '-q', f'{from_treeish}:./{dname}'],
-            capture_output=True,
-            check=True,
+        item.prev_gitsha = call_git_oneline(
+            ['rev-parse', '-q', f'{from_treeish}:./{dname}'],
             cwd=cwd,
-        ).stdout.decode('utf-8').rstrip()
+        )
         # if we get here, we know that the name was valid in
         # `from_treeish` too
         item.prev_name = dname
@@ -399,7 +450,7 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
         # a possible type change. For now, we do not go there
         item.prev_gittype = None
         item.status = GitDiffStatus.modification
-    except subprocess.CalledProcessError:
+    except CommandError:
         # the was nothing with this name in `from_treeish`, but now
         # it exists. We compare to the worktree, but not any untracked
         # content -- this means that we likely compare across multiple
@@ -413,14 +464,7 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
 
 
 def _git_diff_something(path, args):
-    with iter_subproc(
-            [
-                'git',
-                # take whatever is coming in
-                *args,
-            ],
-            cwd=path,
-    ) as r:
+    with iter_git_subproc([*args], cwd=path) as r:
         yield from decode_bytes(
             itemize(
                 r,

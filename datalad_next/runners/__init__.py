@@ -45,6 +45,12 @@ inspired by ``asyncio.SubprocessProtocol``.
 
 from .iter_subproc import (
     iter_subproc,
+)
+from .git import (
+    call_git,
+    call_git_lines,
+    call_git_oneline,
+    call_git_success,
     iter_git_subproc,
 )
 

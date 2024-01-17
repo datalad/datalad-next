@@ -101,7 +101,7 @@ def iter_gitworktree(
       Path of a directory in a Git repository to report on. This directory
       need not be the root directory of the repository, but must be part of
       the repository's work tree.
-    untracked: {'all', 'whole-dir', 'no-empty'} or None, optional
+    untracked: {'all', 'whole-dir', 'no-empty-dir'} or None, optional
       If not ``None``, also reports on untracked work tree content.
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual
@@ -149,7 +149,7 @@ def iter_gitworktree(
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
     # helper to handle multi-stage reports by ls-files
-    pending_item = (None,)
+    pending_item = (None, None)
 
     reported_dirs = set()
     _single_dir = recursive == 'no'
@@ -182,7 +182,7 @@ def iter_gitworktree(
                 dir_path = pending_item_path_parts[0]
                 if dir_path in reported_dirs:
                     # we only yield each containing dir once, and only once
-                    pending_item = (ipath,)
+                    pending_item = (ipath, lsfiles_props)
                     continue
                 item = _get_item(
                     path,
@@ -198,12 +198,19 @@ def iter_gitworktree(
                 )
                 yield item
                 reported_dirs.add(dir_path)
-                pending_item = (ipath,)
+                pending_item = (ipath, lsfiles_props)
                 continue
 
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
-            item = _get_item(path, link_target, fp, *pending_item)
+            item = _get_item(
+                path,
+                link_target,
+                fp,
+                pending_item[0],
+                pending_item[1]['mode'] if pending_item[1] else None,
+                pending_item[1]['gitsha'] if pending_item[1] else None,
+            )
             fp_src = _get_fp_src(fp, path, item)
             if fp_src is None:
                 # nothing to open
@@ -221,13 +228,9 @@ def iter_gitworktree(
             # when no properties were produced, this is a
             # category "other" report (i.e., untracked content)
             # the path is always relative-POSIX
-            pending_item = (ipath,)
+            pending_item = (ipath, None)
         else:
-            pending_item = (
-                ipath,
-                _mode_type_map[lsfiles_props['mode']],
-                lsfiles_props['gitsha']
-            )
+            pending_item = (ipath, lsfiles_props)
         # do not yield immediately, wait for a possible higher-stage
         # report in the next loop iteration
 
@@ -237,9 +240,11 @@ def _get_item(
     link_target: bool,
     fp: bool,
     ipath: PurePosixPath,
-    type: GitTreeItemType | None = None,
+    type: str | GitTreeItemType | None = None,
     gitsha: str | None = None,
 ) -> GitWorktreeItem | GitWorktreeFileSystemItem:
+    if isinstance(type, str):
+        type: GitTreeItemType = _mode_type_map[type]
     if link_target or fp:
         fullpath = basepath / ipath
         item = GitWorktreeFileSystemItem.from_path(
