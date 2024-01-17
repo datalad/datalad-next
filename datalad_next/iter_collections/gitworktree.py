@@ -245,22 +245,22 @@ def _get_item(
 ) -> GitWorktreeItem | GitWorktreeFileSystemItem:
     if isinstance(type, str):
         type: GitTreeItemType = _mode_type_map[type]
+    item = None
     if link_target or fp:
         fullpath = basepath / ipath
-        item = GitWorktreeFileSystemItem.from_path(
-            fullpath,
-            link_target=link_target,
-        )
-        if type is not None:
-            item.gittype = type
-        if gitsha is not None:
-            item.gitsha = gitsha
-    else:
-        item = GitWorktreeItem(
-            name=ipath,
-            gittype=type,
-            gitsha=gitsha,
-        )
+        try:
+            item = GitWorktreeFileSystemItem.from_path(
+                fullpath,
+                link_target=link_target,
+            )
+        except FileNotFoundError:
+            pass
+    if item is None:
+        item = GitWorktreeItem(name=ipath)
+    if type is not None:
+        item.gittype = type
+    if gitsha is not None:
+        item.gitsha = gitsha
     # make sure the name/id is the path relative to the basepath
     item.name = PurePath(ipath)
     return item
@@ -323,7 +323,7 @@ def _get_fp_src(
     basepath: Path,
     item: GitWorktreeItem | GitWorktreeFileSystemItem,
 ) -> Path | None:
-    if not fp:
+    if not fp or isinstance(item, GitWorktreeItem):
         # no file pointer request, we are done
         return None
 

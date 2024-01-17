@@ -95,13 +95,13 @@ def test_iter_annexworktree_basic_fp(existing_dataset, no_result_rendering):
         iter_annexworktree(ds.pathobj, fp=True)
     ):
         fcount -= 1
-        if ai.fp:
+        if getattr(ai, 'fp', False):
             assert content_tmpl.format(
                 ai.name.name[5:]) == ai.fp.read().decode()
         else:
             assert (ai.annexobjpath and (
                 ds.pathobj / ai.annexobjpath).exists() is False) or (
-                    ai.name.exists() is False)
+                    (ds.pathobj / ai.name).exists() is False)
     assert not fcount
 
 
