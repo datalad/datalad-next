@@ -99,13 +99,17 @@ class SshUrlOperations(UrlOperations):
         cmd = ssh_cat.get_cmd(SshUrlOperations._stat_cmd)
         try:
             with iter_subproc(cmd) as stream:
-                props = self._get_props(url, stream)
+                try:
+                    props = self._get_props(url, stream)
+                except StopIteration:
+                    # we did not receive all data that should be sent, if a
+                    # remote file exists. This indicates a non-existing
+                    # resource or some other problem. The remotely executed
+                    # command should signal the error via a non-zero exit code.
+                    # That will trigger a `CommandError` below.
+                    pass
         except CommandError:
             self._check_return_code(stream.returncode, url)
-        except StopIteration:
-            # an unexpected `StopIteration` occurred, this indicates a
-            # non-existing resource.
-            self._check_return_code(244, url)
         return {k: v for k, v in props.items() if not k.startswith('_')}
 
     def _get_props(self, url, stream: Generator) -> dict:
@@ -178,40 +182,44 @@ class SshUrlOperations(UrlOperations):
         cmd = ssh_cat.get_cmd(f'{SshUrlOperations._stat_cmd}; {SshUrlOperations._cat_cmd}')
         try:
             with iter_subproc(cmd) as stream:
-                props = self._get_props(from_url, stream)
-                expected_size = props['content-length']
-                # The stream might have changed due to not yet processed, but
-                # fetched data, that is now chained in front of it. Therefore we
-                # get the updated stream from the props
-                download_stream = props.pop('_stream')
+                try:
+                    props = self._get_props(from_url, stream)
+                    expected_size = props['content-length']
+                    # The stream might have changed due to not yet processed, but
+                    # fetched data, that is now chained in front of it. Therefore we
+                    # get the updated stream from the props
+                    download_stream = props.pop('_stream')
 
-                dst_fp = sys.stdout.buffer \
-                    if to_path is None \
-                    else open(to_path, 'wb')
+                    dst_fp = sys.stdout.buffer \
+                        if to_path is None \
+                        else open(to_path, 'wb')
 
-                # Localize variable access to minimize overhead
-                dst_fp_write = dst_fp.write
+                    # Localize variable access to minimize overhead
+                    dst_fp_write = dst_fp.write
 
-                # download can start
-                for chunk in self._with_progress(
-                        download_stream,
-                        progress_id=progress_id,
-                        label='downloading',
-                        expected_size=expected_size,
-                        start_log_msg=('Download %s to %s', from_url, to_path),
-                        end_log_msg=('Finished download',),
-                        update_log_msg=('Downloaded chunk',)
-                ):
-                    # write data
-                    dst_fp_write(chunk)
-                    # compute hash simultaneously
-                    hasher.update(chunk)
+                    # download can start
+                    for chunk in self._with_progress(
+                            download_stream,
+                            progress_id=progress_id,
+                            label='downloading',
+                            expected_size=expected_size,
+                            start_log_msg=('Download %s to %s', from_url, to_path),
+                            end_log_msg=('Finished download',),
+                            update_log_msg=('Downloaded chunk',)
+                    ):
+                        # write data
+                        dst_fp_write(chunk)
+                        # compute hash simultaneously
+                        hasher.update(chunk)
+                except StopIteration:
+                    # we did not receive all data that should be sent, if a
+                    # remote file exists. This indicates a non-existing
+                    # resource or some other problem. The remotely executed
+                    # command should signal the error via a non-zero exit code.
+                    # That will trigger a `CommandError` below.
+                    pass
         except CommandError:
             self._check_return_code(stream.returncode, from_url)
-        except StopIteration:
-            # an unexpected `StopIteration` occurred, this indicates a
-            # non-existing resource.
-            self._check_return_code(244, from_url)
         finally:
             if dst_fp and to_path is not None:
                 dst_fp.close()
