@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from functools import cached_property
 import os
 from pathlib import (
     Path,
@@ -49,7 +48,7 @@ class TypedItem:
 class PathBasedItem(NamedItem):
     """An item with a path as its ``name``
 
-    A dedicated (cached) property supports the conversion of the
+    A dedicated property supports the conversion of the
     native name representation into a ``PurePath`` instance.
 
     Any argument understood by the ``PurePath`` constructor can
@@ -60,7 +59,6 @@ class PathBasedItem(NamedItem):
     It is recommended to use name/path values that are relative
     to the containing collection (directory, archive, repository, etc.).
     """
-    @cached_property
     def path(self) -> PurePath:
         """Returns the item name as a ``PurePath`` instance
 
@@ -81,7 +79,6 @@ class FileSystemItem(PathBasedItem, TypedItem):
     link_target: Any | None = None
     fp: IO | None = None
 
-    @cached_property
     def link_target_path(self) -> PurePath:
         """Returns the link_target as a ``PurePath`` instance"""
         return PurePath(self.link_target)
