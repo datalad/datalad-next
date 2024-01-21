@@ -1,3 +1,188 @@
+# 1.1.0 (2024-01-21) -- Iterate!
+
+## 💫 Enhancements and new features
+
+- A new paradigm for subprocess execution is introduced. The main
+  workhorse is `datalad_next.runners.iter_subproc`. This is a
+  context manager that feeds input to subprocesses via iterables,
+  and also exposes their output as an iterable. The implementation
+  is based on https://github.com/uktrade/iterable-subprocess, and
+  a copy of it is now included in the sources. It has been modified
+  to work homogeneously on the Windows platform too.
+  This new implementation is leaner and more performant. Benchmarks
+  suggest that the execution of multi-step pipe connections of Git
+  and git-annex commands is within 5% of the runtime of their direct
+  shell-execution equivalent (outside Python).
+  See https://github.com/datalad/datalad-next/pull/538 (by @mih),
+  https://github.com/datalad/datalad-next/pull/547 (by @mih).
+
+  With this change a number of additional features have been added,
+  and internal improvements have been made. For example, any
+  use of `ThreadedRunner` has been discontinued. See
+  https://github.com/datalad/datalad-next/pull/539 (by @christian-monch),
+  https://github.com/datalad/datalad-next/pull/545 (by @christian-monch),
+  https://github.com/datalad/datalad-next/pull/550 (by @christian-monch),
+  https://github.com/datalad/datalad-next/pull/573 (by @christian-monch)
+
+  - A new `itertools` module was added. It provides implementations
+    of iterators that can be used in conjunction with `iter_subproc`
+    for standard tasks. This includes the itemization of output
+    (e.g., line-by-line) across chunks of bytes read from a process
+    (`itemize`), output decoding (`decode_bytes`), JSON-loading
+    (`json_load`), and helpers to construct more complex data flows
+    (`route_out`, `route_in`).
+
+  - The `more_itertools` package has been added as a new dependency.
+    It is used for `datalad-next` iterator implementations, but is also
+    ideal for client code that employed this new functionality.
+
+  - A new `iter_annexworktree()` provides the analog of `iter_gitworktree()`
+    for git-annex repositories.
+
+  - `iter_gitworktree()` has been reimplemented around `iter_subproc`. The
+    performance is substantially improved.
+
+  - `iter_gitworktree()` now also provides file pointers to
+    symlinked content. Fixes https://github.com/datalad/datalad-next/issues/553
+    via https://github.com/datalad/datalad-next/pull/555 (by @mih)
+
+  - `iter_gitworktree()` and `iter_annexworktree()` now support single
+    directory (i.e., non-recursive) reporting too.
+    See https://github.com/datalad/datalad-next/pull/552
+
+  - A new `iter_gittree()` that wraps `git ls-tree` for iterating over
+    the content of a Git tree-ish.
+    https://github.com/datalad/datalad-next/pull/580 (by @mih).
+
+  - A new `iter_gitdiff()` wraps `git diff-tree|files` and provides a flexible
+    basis for iteration over changesets.
+
+- `PathBasedItem`, a dataclass that is the bases for many item types yielded
+  by iterators now more strictly separates `name` property from path semantics.
+  The name is a plain string, and an additional, explicit `path` property
+  provides it in the form of a `Path`. This simplifies code (the
+  `_ZipFileDirPath` utility class became obsolete and was removed), and
+  improve performance.
+  Fixes https://github.com/datalad/datalad-next/issues/554 and
+  https://github.com/datalad/datalad-next/issues/581 via
+  https://github.com/datalad/datalad-next/pull/583 (by @mih)
+
+- A collection of helpers for running Git command has been added at
+  `datalad_next.runners.git`. Direct uses of datalad-core runners,
+  or `subprocess.run()` for this purpose have been replaced with call
+  to these utilities.
+  https://github.com/datalad/datalad-next/pull/585 (by @mih)
+
+- The performance of `iter_gitworktree()` has been improved by about
+  10%. Fixes https://github.com/datalad/datalad-next/issues/540
+  via https://github.com/datalad/datalad-next/pull/544 (by @mih).
+
+- New `EnsureHashAlgorithm` constraint to automatically expose
+  and verify algorithm labels from `hashlib.algorithms_guaranteed`
+  Fixes https://github.com/datalad/datalad-next/issues/346 via
+  https://github.com/datalad/datalad-next/pull/492 (by @mslw @adswa)
+
+- The `archivist` remote now supports archive type detection
+  from `*E`-type annex keys for `.tgz` archives too.
+  Fixes https://github.com/datalad/datalad-next/issues/517 via
+  https://github.com/datalad/datalad-next/pull/518 (by @mih)
+
+- `iter_zip()` uses a dedicated, internal `PurePath` variant to report on
+  directories (`_ZipFileDirPath`). This enables more straightforward
+  `item.name in zip_archive` tests, which require a trailing `/` for
+  directory-type archive members.
+  https://github.com/datalad/datalad-next/pull/430 (by @christian-monch)
+
+- A new `ZipArchiveOperations` class added support for ZIP files, and enables
+  their use together with the `archivist` git-annex special remote.
+  https://github.com/datalad/datalad-next/pull/578 (by @christian-monch)
+
+- `datalad ls-file-collection` has learned additional collections types:
+
+  - The new `zipfile` collection type that enables uniform reporting on
+    the additional archive type.
+
+  - The new `annexworktree` collection that enhances the `gitworktree`
+    collection by also reporting on annexed content, using the new
+    `iter_annexworktree()` implementation. It is about 15% faster than a
+    `datalad --annex basic --untracked no -e no -t eval`.
+
+  - The new `gittree` collection for listing any Git tree-ish.
+
+  - A new `iter_gitstatus()` can replace the functionality of
+    `GitRepo.diffstatus()` with a substantially faster implementation.
+    It also provides a novel `mono` recursion mode that completely
+    hides the notion of submodules and presents deeply nested
+    hierarchies of datasets as a single "monorepo".
+    https://github.com/datalad/datalad-next/pull/592 (by @mih)
+
+- A new `next-status` command provides a substantially faster
+  alternative to the datalad-core `status` command. It is closely
+  aligned to `git status` semantics, only reports changes (not repository
+  listings), and supports type change detection. Moreover, it exposes
+  the "monorepo" recursion mode, and single-directory reporting options
+  of `iter_gitstatus()`. It is the first command to use `dataclass`
+  instances as result types, rather than the traditional dictionaries.
+
+- `SshUrlOperations` now supports non-standard SSH ports, non-default
+  user names, and custom identity file specifications.
+  Fixed https://github.com/datalad/datalad-next/issues/571 via
+  https://github.com/datalad/datalad-next/pull/570 (by @mih)
+
+- A new `EnsureRemoteName` constraint improves the parameter validation
+  of `create-sibling-webdav`. Moreover, the command has been uplifted
+  to support uniform parameter validation also for the Python API.
+  Missing required remotes, or naming conflicts are now detected and
+  reported immediately before the actual command implementation runs.
+  Fixes https://github.com/datalad/datalad-next/issues/193 via
+  https://github.com/datalad/datalad-next/pull/577 (by @mih)
+
+- `datalad_next.repo_utils` provide a collection of implementations
+  for common operations on Git repositories. Unlike the datalad-core
+  `Repo` classes, these implementations do no require a specific
+  data structure or object type beyond a `Path`.
+
+## 🐛 Bug Fixes
+
+- Add patch to fix `update`'s target detection for adjusted mode datasets
+  that can crash under some circumstances.
+  See https://github.com/datalad/datalad/issues/7507, fixed via
+  https://github.com/datalad/datalad-next/pull/509 (by @mih)
+
+- Comparison with `is` and a literal was replaced with a proper construct.
+  While having no functional impact, it removes an ugly `SyntaxWarning`.
+  Fixed https://github.com/datalad/datalad-next/issues/526 via
+  https://github.com/datalad/datalad-next/pull/527 (by @mih)
+
+## 📝 Documentation
+
+- The API documentation has been substantially extended. More already
+  documented API components are now actually renderer, and more documentation
+  has been written.
+
+## 🏠 Internal
+
+- Type annotations have been extended. The development workflows now inform
+  about type annotation issues for each proposed change.
+
+- Constants have been migrated to `datalad_next.consts`.
+  https://github.com/datalad/datalad-next/pull/575 (by @mih)
+
+## 🛡 Tests
+
+- A new test verifies compatibility with HTTP serves that do not report
+  download progress.
+  https://github.com/datalad/datalad-next/pull/369 (by @christian-monch)
+
+- The overall noise-level in the test battery output has been reduced
+  substantially. INFO log messages are no longer shown, and command result
+  rendering is largely suppressed. New test fixtures make it easier
+  to maintain tidier output: `reduce_logging`, `no_result_rendering`.
+  The contribution guide has been adjusted encourage their use.
+
+- Tests that require an unprivileged system account to run are now skipped
+  when executed as root. This fixes an issue of the Debian package.
+  https://github.com/datalad/datalad-next/pull/593 (by @adswa)
 
 # 1.0.2 (2023-10-23) -- Debianize!
 
