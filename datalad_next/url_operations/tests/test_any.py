@@ -18,7 +18,7 @@ def test_get_best_url_handler(monkeypatch):
     with monkeypatch.context() as m:
         m.setitem(
             _url_handlers,
-            'https://ex.*\.co',
+            r'https://ex.*\.co',
             ('datalad_next.url_operations.file.FileUrlOperations',),
         )
         # the handlers are sucked into the class, so we need a new instance
