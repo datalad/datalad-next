@@ -13,6 +13,7 @@ from typing import Generator
 
 from datalad_next.runners import (
     CommandError,
+    call_git_lines,
     iter_git_subproc,
 )
 from datalad_next.itertools import (
@@ -414,18 +415,16 @@ def _get_submod_worktree_head(path: Path) -> tuple[bool, str | None, bool]:
         # its basis. it is not meaningful to track the managed branch in
         # a superdataset
         HEAD = corresponding_head
-    with iter_git_subproc(
-        ['rev-parse', '--path-format=relative',
-         '--show-toplevel', HEAD],
+    res = call_git_lines(
+        ['rev-parse', '--path-format=relative', '--show-toplevel', HEAD],
         cwd=path,
-    ) as r:
-        res = tuple(decode_bytes(itemize(r, sep=None, keep_ends=False)))
-        assert len(res) == 2
-        if res[0].startswith('..'):
-            # this is not a report on a submodule at this location
-            return False, None, adjusted
-        else:
-            return True, res[1], adjusted
+    )
+    assert len(res) == 2
+    if res[0].startswith('..'):
+        # this is not a report on a submodule at this location
+        return False, None, adjusted
+    else:
+        return True, res[1], adjusted
 
 
 def _eval_submodule(basepath, item, eval_mode) -> None:
