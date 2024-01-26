@@ -361,7 +361,7 @@ def _yield_hierarchy_items(
 
 def _yield_repo_untracked(
         path: Path,
-        untracked: str,
+        untracked: str | None,
 ) -> Generator[GitDiffItem, None, None]:
     """Yield items on all untracked content in a repository"""
     if untracked is None:
