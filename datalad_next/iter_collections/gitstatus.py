@@ -13,6 +13,7 @@ from typing import Generator
 
 from datalad_next.runners import (
     CommandError,
+    call_git_lines,
     iter_git_subproc,
 )
 from datalad_next.itertools import (
@@ -360,7 +361,7 @@ def _yield_hierarchy_items(
 
 def _yield_repo_untracked(
         path: Path,
-        untracked: str,
+        untracked: str | None,
 ) -> Generator[GitDiffItem, None, None]:
     """Yield items on all untracked content in a repository"""
     if untracked is None:
@@ -414,18 +415,16 @@ def _get_submod_worktree_head(path: Path) -> tuple[bool, str | None, bool]:
         # its basis. it is not meaningful to track the managed branch in
         # a superdataset
         HEAD = corresponding_head
-    with iter_git_subproc(
-        ['rev-parse', '--path-format=relative',
-         '--show-toplevel', HEAD],
+    res = call_git_lines(
+        ['rev-parse', '--path-format=relative', '--show-toplevel', HEAD],
         cwd=path,
-    ) as r:
-        res = tuple(decode_bytes(itemize(r, sep=None, keep_ends=False)))
-        assert len(res) == 2
-        if res[0].startswith('..'):
-            # this is not a report on a submodule at this location
-            return False, None, adjusted
-        else:
-            return True, res[1], adjusted
+    )
+    assert len(res) == 2
+    if res[0].startswith('..'):
+        # this is not a report on a submodule at this location
+        return False, None, adjusted
+    else:
+        return True, res[1], adjusted
 
 
 def _eval_submodule(basepath, item, eval_mode) -> None:
@@ -437,6 +436,14 @@ def _eval_submodule(basepath, item, eval_mode) -> None:
         return
 
     item_path = basepath / item.path
+
+    # this is the cheapest test for the theoretical chance that a submodule
+    # is present at `item_path`. This is beneficial even when we would only
+    # run a single call to `git rev-parse`
+    # https://github.com/datalad/datalad-next/issues/606
+    if not (item_path / '.git').exists():
+        return
+
     # get head commit, and whether a submodule is actually present,
     # and/or in adjusted mode
     subds_present, head_commit, adjusted = _get_submod_worktree_head(item_path)
