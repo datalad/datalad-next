@@ -172,11 +172,34 @@ def pathspec_match_testground(tmp_path_factory):
                     None: {'match': ['sub/a?a/a.JPG']},
                     "sub/a?a": {
                         'specs': [':(literal,icase)a.jpg'],
+                        # given the spec transformation matches
                         # MIH would really expect to following,
-                        # but it is not coming :(
+                        # but it is not coming from Git :(
                         #'match': ['a.JPG'],
                         'match': [],
                     },
+                },
+            ),
+            dict(
+                ps=':(icase)A?A/a.jpg',
+                fordir={
+                    None: {'match': ['a?a/a.JPG', 'aba/a.JPG']},
+                    "aba": {
+                        'specs': [':(icase)a.jpg'],
+                        'match': ['a.JPG'],
+                    },
+                },
+            ),
+            dict(
+                ps=':(literal,icase)A?A/a.jpg',
+                fordir={
+                    None: {'match': ['a?a/a.JPG']},
+                    "a?a": {
+                        'specs': [':(literal,icase)a.jpg'],
+                        'match': ['a.JPG'],
+                    },
+                    # the target subdir does not match the pathspec
+                    "aba": {'specs': set()},
                 },
             ),
         ])

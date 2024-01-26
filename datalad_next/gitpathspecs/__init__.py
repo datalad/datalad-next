@@ -72,6 +72,8 @@ class GitPathSpec:
                     *GitPathSpec._split_prefix_pattern(
                         testpattern[len(testsubdir):])
                 )]
+            else:
+                return []
         elif str(self) == ':':
             return []
         elif 'glob' in self.spectypes:
@@ -104,6 +106,9 @@ class GitPathSpec:
         testpattern = self._get_joined_pattern()
         testsubdir = subdir
         tp = testpattern
+        if 'icase' in self.spectypes:
+            testsubdir = subdir.casefold()
+            tp = testpattern.casefold()
         while tp:
             if fnmatch.fnmatch(testsubdir, tp):
                 # tp is a match for subdir, subtract it from the full pattern.
