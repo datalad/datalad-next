@@ -437,6 +437,14 @@ def _eval_submodule(basepath, item, eval_mode) -> None:
         return
 
     item_path = basepath / item.path
+
+    # this is the cheapest test for the theoretical chance that a submodule
+    # is present at `item_path`. This is beneficial even when we would only
+    # run a single call to `git rev-parse`
+    # https://github.com/datalad/datalad-next/issues/606
+    if not (item_path / '.git').exists():
+        return
+
     # get head commit, and whether a submodule is actually present,
     # and/or in adjusted mode
     subds_present, head_commit, adjusted = _get_submod_worktree_head(item_path)
