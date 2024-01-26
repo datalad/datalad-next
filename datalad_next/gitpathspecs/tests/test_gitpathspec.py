@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 import subprocess
 
@@ -28,7 +29,8 @@ def pathspec_match_testground(tmp_path_factory):
     """
     p = tmp_path_factory.mktemp('pathspec_match')
     probe = p / 'pr?be'
-    crippled_fs = False
+    # check for case insensitive file systems
+    crippled_fs = Path(str(p).upper()).exists()
     try:
         probe.touch()
         probe.unlink()
@@ -55,8 +57,8 @@ def pathspec_match_testground(tmp_path_factory):
             fordir={
                 None: {'specs': [':'],
                        'match': [
-                           'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
-                           'sub/aba/A.txt', 'sub/aba/a.JPG', 'sub/aba/a.txt',
+                           'aba/a.JPG', 'aba/a.txt',
+                           'sub/aba/a.JPG', 'sub/aba/a.txt',
                            'sub/b.dat'] if crippled_fs else [
                            'a?a/A.txt', 'a?a/a.JPG', 'a?a/a.txt',
                            'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
@@ -66,7 +68,7 @@ def pathspec_match_testground(tmp_path_factory):
                 },
                 'sub': {'specs': [],
                         'match': [
-                            'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
+                            'aba/a.JPG', 'aba/a.txt',
                             'b.dat'] if crippled_fs else [
                             'a?a/A.txt', 'a?a/a.JPG', 'a?a/a.txt',
                             'aba/A.txt', 'aba/a.JPG', 'aba/a.txt',
@@ -77,41 +79,62 @@ def pathspec_match_testground(tmp_path_factory):
         dict(
             ps='aba',
             fordir={
-                None: {'match': ['aba/A.txt', 'aba/a.JPG', 'aba/a.txt']},
+                None: {'match': [
+                    'aba/a.JPG', 'aba/a.txt',
+                ] if crippled_fs else [
+                    'aba/A.txt', 'aba/a.JPG', 'aba/a.txt'],
+                },
                 'aba': {'specs': [],
-                        'match': ['A.txt', 'a.JPG', 'a.txt']},
+                        'match': [
+                            'a.JPG', 'a.txt'] if crippled_fs else [
+                            'A.txt', 'a.JPG', 'a.txt'],
+                },
             },
         ),
         # same as above, but with a trailing slash
         dict(
             ps='aba/',
             fordir={
-                None: {'match': ['aba/A.txt', 'aba/a.JPG', 'aba/a.txt']},
+                None: {'match': [
+                    'aba/a.JPG', 'aba/a.txt',
+                ] if crippled_fs else [
+                    'aba/A.txt', 'aba/a.JPG', 'aba/a.txt'],
+                },
                 'aba': {'specs': [],
-                        'match': ['A.txt', 'a.JPG', 'a.txt']},
+                        'match': [
+                            'a.JPG', 'a.txt'] if crippled_fs else [
+                            'A.txt', 'a.JPG', 'a.txt'],
+                },
             },
         ),
         dict(
             ps=':(glob)aba/*.txt',
             fordir={
-                None: {'match': ['aba/A.txt', 'aba/a.txt']},
+                None: {'match': [
+                    'aba/a.txt',
+                ] if crippled_fs else ['aba/A.txt', 'aba/a.txt']},
             },
         ),
         dict(
             ps=':/aba/*.txt',
             norm=':(top)aba/*.txt',
             fordir={
-                None: {'match': ['aba/A.txt', 'aba/a.txt']},
+                None: {'match': [
+                    'aba/a.txt',
+                ] if crippled_fs else ['aba/A.txt', 'aba/a.txt']},
                 # for a subdir a keeps matching the exact same items
                 # not only be name, but by location
                 'sub': {'specs': [':(top)aba/*.txt'],
-                        'match': ['../aba/A.txt', '../aba/a.txt']},
+                        'match': ['../aba/a.txt'] if crippled_fs else [
+                            '../aba/A.txt', '../aba/a.txt']},
             },
         ),
         dict(
             ps='aba/*.txt',
             fordir={
-                None: {'match': ['aba/A.txt', 'aba/a.txt']},
+                None: {'match': ['aba/a.txt'] if crippled_fs else [
+                    'aba/A.txt', 'aba/a.txt'],
+                },
                 # not applicable
                 'sub': {'specs': []},
                 # but this is
@@ -121,9 +144,11 @@ def pathspec_match_testground(tmp_path_factory):
         dict(
             ps='sub/aba/*.txt',
             fordir={
-                None: {'match': ['sub/aba/A.txt', 'sub/aba/a.txt']},
+                None: {'match': ['sub/aba/a.txt'] if crippled_fs else [
+                    'sub/aba/A.txt', 'sub/aba/a.txt']},
                 'sub': {'specs': ['aba/*.txt'],
-                        'match': ['aba/A.txt', 'aba/a.txt']},
+                        'match': ['aba/a.txt'] if crippled_fs else [
+                            'aba/A.txt', 'aba/a.txt']},
             },
         ),
         dict(
