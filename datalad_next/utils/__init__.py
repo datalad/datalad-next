@@ -216,7 +216,7 @@ class ParamDictator:
 
     def __getattr__(self, attr: str):
         if attr.startswith('__'):
-            return super().__getattr__(attr)
+            return super().__getattribute__(attr)
         return self.__params[attr]
 
     def __setattr__(self, attr: str, value: Any):
