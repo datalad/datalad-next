@@ -1,3 +1,4 @@
+import warnings
 from datalad_next.utils.deprecate import deprecated
 
 import pytest
@@ -111,17 +112,17 @@ def test_deprecated():
     for func in [deprecated_function_param_value,
                  RandomClassParamValue().deprecated_method,
                  ]:
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings(record=True) as record:
             res = func(inputmode='not-deprecated')
-            assert res == 'not-deprecated'
-            assert len(record) == 0
+        assert res == 'not-deprecated'
+        assert len(record) == 0
 
         for func in [deprecated_function_param,
                      RandomClassParam().deprecated_method]:
-            with pytest.warns(None) as record:
+            with warnings.catch_warnings(record=True) as record:
                 res = func(other_param='something!')
-                assert res == inputmode
-                assert len(record) == 0
+            assert res == inputmode
+            assert len(record) == 0
 
     # make sure it catches the parameter even if its a list
     for func in [deprecated_function_param_value,
@@ -132,10 +133,10 @@ def test_deprecated():
                 match="Use of values {'default'} for argument 'inputmode'"):
             res = func(inputmode=[inputmode])
             assert res == [inputmode]
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings(record=True) as record:
             res = func(inputmode=['not-deprecated'])
-            assert res == ['not-deprecated']
-            assert len(record) == 0
+        assert res == ['not-deprecated']
+        assert len(record) == 0
 
     # two decorators work as expected
     with pytest.warns(DeprecationWarning) as record:
@@ -153,7 +154,7 @@ def test_deprecated():
         # shouldn't matter if the parameter value is a list
         res = two_deprecated_values(mode=['1'])
         assert res == ['1']
-    with pytest.warns(None) as record:
+    with warnings.catch_warnings(record=True) as record:
         res = two_deprecated_values(mode='safe')
-        assert res == 'safe'
-        assert len(record) == 0
+    assert res == 'safe'
+    assert len(record) == 0
