@@ -2,7 +2,10 @@ from itertools import chain
 import pytest
 
 from datalad_next.datasets import Dataset
-from datalad_next.runners import call_git_success
+from datalad_next.runners import (
+    call_git_lines,
+    call_git_success,
+)
 from datalad_next.tests.utils import rmtree
 
 from ..gitstatus import (
@@ -15,8 +18,12 @@ from ..gitstatus import (
 # we make this module-scope, because we use the same complex test case for all
 # tests here and we trust that nothing in here changes that test case
 @pytest.fixture(scope="module")
-def status_playground(tmp_path_factory):
+def modified_dataset(tmp_path_factory):
     """Produces a dataset with various modifications
+
+    The fixture is module-scope, aiming to be reused by many tests focused
+    on reporting. It does not support any further modification. The fixture
+    will fail, if any such modification is detected.
 
     ``git status`` will report::
 
@@ -66,7 +73,7 @@ def status_playground(tmp_path_factory):
     sm - submodule
     dir - directory
     """
-    ds = Dataset(tmp_path_factory.mktemp("status_playground"))
+    ds = Dataset(tmp_path_factory.mktemp("modified_dataset"))
     ds.create(result_renderer='disabled')
     ds_dir = ds.pathobj / 'dir_m'
     ds_dir.mkdir()
@@ -124,16 +131,23 @@ def status_playground(tmp_path_factory):
         (pobj / 'file_a').write_text('added')
         assert call_git_success(['add', 'file_a'], cwd=pobj)
 
+    # record git-status output as a reference
+    status_start = call_git_lines(['status'], cwd=ds.pathobj)
     yield ds
+    # compare with initial git-status output, if there are any
+    # differences the assumptions of any consuming test could be
+    # invalidated. The modifying code must be found and fixed
+    assert status_start == call_git_lines(['status'], cwd=ds.pathobj), \
+        "Unexpected modification of the testbed"
 
 
-def test_status_homogeneity(status_playground):
+def test_status_homogeneity(modified_dataset):
     """Test things that should always be true, no matter the precise
     parameterization
 
     A main purpose of this test is also to exercise all (main) code paths.
     """
-    ds = status_playground
+    ds = modified_dataset
     for kwargs in (
         # default
         dict(path=ds.pathobj),
@@ -261,25 +275,25 @@ def _assert_testcases(st, tc):
             assert mod_types is None
 
 
-def test_status_vs_git(status_playground):
+def test_status_vs_git(modified_dataset):
     """Implements a comparison against how git-status behaved when
     the test was written  (see fixture docstring)
     """
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='repository',
+            path=modified_dataset.pathobj, recursive='repository',
             eval_submodule_state='full', untracked='all',
         )
     }
     _assert_testcases(st, test_cases_repository_recursion)
 
 
-def test_status_norec(status_playground):
+def test_status_norec(modified_dataset):
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='no',
+            path=modified_dataset.pathobj, recursive='no',
             eval_submodule_state='full', untracked='all',
         )
     }
@@ -300,11 +314,11 @@ def test_status_norec(status_playground):
     _assert_testcases(st, test_cases)
 
 
-def test_status_smrec(status_playground):
+def test_status_smrec(modified_dataset):
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='submodules',
+            path=modified_dataset.pathobj, recursive='submodules',
             eval_submodule_state='full', untracked='all',
         )
     }
@@ -315,11 +329,11 @@ def test_status_smrec(status_playground):
                                 test_cases_submodule_recursion))
 
 
-def test_status_monorec(status_playground):
+def test_status_monorec(modified_dataset):
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='monolithic',
+            path=modified_dataset.pathobj, recursive='monolithic',
             eval_submodule_state='full', untracked='all',
         )
     }
