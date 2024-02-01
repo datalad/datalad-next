@@ -1,144 +1,15 @@
 from itertools import chain
 import pytest
 
-from datalad_next.datasets import Dataset
 from datalad_next.runners import (
-    call_git_lines,
     call_git_success,
 )
-from datalad_next.tests.utils import rmtree
 
 from ..gitstatus import (
     GitDiffStatus,
     GitContainerModificationType,
     iter_gitstatus,
 )
-
-
-# we make this module-scope, because we use the same complex test case for all
-# tests here and we trust that nothing in here changes that test case
-@pytest.fixture(scope="module")
-def modified_dataset(tmp_path_factory):
-    """Produces a dataset with various modifications
-
-    The fixture is module-scope, aiming to be reused by many tests focused
-    on reporting. It does not support any further modification. The fixture
-    will fail, if any such modification is detected.
-
-    ``git status`` will report::
-
-        ❯ git status -uall
-        On branch dl-test-branch
-        Changes to be committed:
-          (use "git restore --staged <file>..." to unstage)
-                new file:   dir_m/file_a
-                new file:   file_a
-
-        Changes not staged for commit:
-          (use "git add/rm <file>..." to update what will be committed)
-          (use "git restore <file>..." to discard changes in working directory)
-          (commit or discard the untracked or modified content in submodules)
-                deleted:    dir_d/file_d
-                deleted:    dir_m/file_d
-                modified:   dir_m/file_m
-                deleted:    dir_sm/sm_d
-                modified:   dir_sm/sm_m (modified content)
-                modified:   dir_sm/sm_mu (modified content, untracked content)
-                modified:   dir_sm/sm_n (new commits)
-                modified:   dir_sm/sm_nm (new commits, modified content)
-                modified:   dir_sm/sm_nmu (new commits, modified content, untracked content)
-                modified:   dir_sm/sm_u (untracked content)
-                deleted:    file_d
-                modified:   file_m
-
-        Untracked files:
-          (use "git add <file>..." to include in what will be committed)
-                dir_m/dir_u/file_u
-                dir_m/file_u
-                dir_u/file_u
-                file_u
-
-    Suffix indicates the ought-to state (multiple possible):
-
-    a - added
-    c - clean
-    d - deleted
-    n - new commits
-    m - modified
-    u - untracked content
-
-    Prefix indicated the item type:
-
-    file - file
-    sm - submodule
-    dir - directory
-    """
-    ds = Dataset(tmp_path_factory.mktemp("modified_dataset"))
-    ds.create(result_renderer='disabled')
-    ds_dir = ds.pathobj / 'dir_m'
-    ds_dir.mkdir()
-    ds_dir_d = ds.pathobj / 'dir_d'
-    ds_dir_d.mkdir()
-    (ds_dir / 'file_m').touch()
-    (ds.pathobj / 'file_m').touch()
-    dirsm = ds.pathobj / 'dir_sm'
-    dss = {}
-    for smname in (
-        'sm_d', 'sm_c', 'sm_n', 'sm_m', 'sm_nm', 'sm_u', 'sm_mu', 'sm_nmu',
-        'droppedsm_c',
-    ):
-        sds = Dataset(dirsm / smname).create(result_renderer='disabled')
-        # for the plain modification, commit the reference right here
-        if smname in ('sm_m', 'sm_nm', 'sm_mu', 'sm_nmu'):
-            (sds.pathobj / 'file_m').touch()
-        sds.save(to_git=True, result_renderer='disabled')
-        dss[smname] = sds
-    # files in superdataset to be deleted
-    for d in (ds_dir_d, ds_dir, ds.pathobj):
-        (d / 'file_d').touch()
-    dss['.'] = ds
-    dss['dir'] = ds_dir
-    ds.save(to_git=True, result_renderer='disabled')
-    ds.drop(dirsm / 'droppedsm_c', what='datasets', reckless='availability',
-            result_renderer='disabled')
-    # a new commit
-    for smname in ('.', 'sm_n', 'sm_nm', 'sm_nmu'):
-        sds = dss[smname]
-        (sds.pathobj / 'file_c').touch()
-        sds.save(to_git=True, result_renderer='disabled')
-    # modified file
-    for smname in ('.', 'dir', 'sm_m', 'sm_nm', 'sm_mu', 'sm_nmu'):
-        obj = dss[smname]
-        pobj = obj.pathobj if isinstance(obj, Dataset) else obj
-        (pobj / 'file_m').write_text('modify!')
-    # untracked
-    for smname in ('.', 'dir', 'sm_u', 'sm_mu', 'sm_nmu'):
-        obj = dss[smname]
-        pobj = obj.pathobj if isinstance(obj, Dataset) else obj
-        (pobj / 'file_u').touch()
-        (pobj / 'dirempty_u').mkdir()
-        (pobj / 'dir_u').mkdir()
-        (pobj / 'dir_u' / 'file_u').touch()
-    # delete items
-    rmtree(dss['sm_d'].pathobj)
-    rmtree(ds_dir_d)
-    (ds_dir / 'file_d').unlink()
-    (ds.pathobj / 'file_d').unlink()
-    # added items
-    for smname in ('.', 'dir', 'sm_m', 'sm_nm', 'sm_mu', 'sm_nmu'):
-        obj = dss[smname]
-        pobj = obj.pathobj if isinstance(obj, Dataset) else obj
-        (pobj / 'file_a').write_text('added')
-        assert call_git_success(['add', 'file_a'], cwd=pobj)
-
-    # record git-status output as a reference
-    status_start = call_git_lines(['status'], cwd=ds.pathobj)
-    yield ds
-    # compare with initial git-status output, if there are any
-    # differences the assumptions of any consuming test could be
-    # invalidated. The modifying code must be found and fixed
-    assert status_start == call_git_lines(['status'], cwd=ds.pathobj), \
-        "Unexpected modification of the testbed"
 
 
 def test_status_homogeneity(modified_dataset):
