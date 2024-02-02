@@ -337,4 +337,11 @@ def test_returncode_available_from_generator_with_exception():
         with iterable_subprocess(['echo', 'a'], ()) as echo:
             while True:
                 next(echo)
+    # On a Linux system, all exceptions that are raised before the subprocess
+    # exited will lead to a -15 return code. If StopIteration is raised, the
+    # subprocess will either have terminated which results in a 0-return code,
+    # or the subprocess is still running and will therefore be terminated which
+    # results in a -15 return code. Any other exception than StopIteration,
+    # e.g. a CommandError because echo could not be found, would lead to an
+    # early test-exit and not proceed to the assign-statement.
     assert echo.returncode in (0, -15)
