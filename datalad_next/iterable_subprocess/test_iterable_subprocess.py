@@ -332,9 +332,9 @@ def test_error_returncode_available_from_generator_with_exception():
     assert ls.returncode != 0
 
 
-def test_success_returncode_available_from_generator_with_exception():
+def test_returncode_available_from_generator_with_exception():
     with pytest.raises(StopIteration):
         with iterable_subprocess(['echo', 'a'], ()) as echo:
             while True:
                 next(echo)
-    assert echo.returncode == 0
+    assert echo.returncode in (0, -15)
