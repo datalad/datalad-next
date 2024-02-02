@@ -1,3 +1,38 @@
+# 1.2.0 (2024-02-02)
+
+## 🐛 Bug Fixes
+
+- Fix an invalid escape sequence in a regex that caused a syntax warning.
+  Fixes https://github.com/datalad/datalad-next/issues/602 via
+  https://github.com/datalad/datalad-next/pull/603 (by @mih)
+
+## 💫 Enhancements and new features
+
+- Speed up of status reports for repositories with many submodules.
+  An early presence check for submodules skips unnecessary evaluation
+  steps. Fixes https://github.com/datalad/datalad-next/issues/606 via
+  https://github.com/datalad/datalad-next/pull/607 (by @mih)
+
+## 🏠 Internal
+
+- Fix implementation error in `ParamDictator` class that caused a test
+  failure. The class itself is unused and has been scheduled for removal.
+  See https://github.com/datalad/datalad-next/issues/611 and
+  https://github.com/datalad/datalad-next/pull/610 (by @christian-monch)
+
+## 🛡 Tests
+
+- Promote a previously internal fixture to provide a standard
+  `modified_dataset` fixture. This fixture is sessions-scope, and
+  yields a dataset with many facets of modification, suitable for
+  testing change reporting. The fixture verifies that no
+  modifications have been applied to the testbed. (by @mih)
+
+- `iterable_subprocess` tests have been robustified to better handle the
+  observed diversity of execution environments. This addresseses, for example,
+  https://bugs.debian.org/1061739.
+  https://github.com/datalad/datalad-next/pull/614 (by @christian-monch)
+
 # 1.1.0 (2024-01-21) -- Iterate!
 
 ## 💫 Enhancements and new features
