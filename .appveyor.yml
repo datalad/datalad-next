@@ -202,20 +202,11 @@ environment:
       CODECOV_BINARY: https://uploader.codecov.io/latest/linux/codecov
 
 
-# do not run the CI if only documentation changes were made
-# documentation builds are tested elsewhere and cheaper
-skip_commits:
+# only run the CI if there are code or tooling changes
+only_commits:
   files:
-    - docs/
-    - changelog.d/
-    - .github/
-    - CITATION.cff
-    - CONTRIBUTORS
-    - LICENSE
-    - Makefile
-    - readthedocs.yml
-    - .zenodo.json
-    - '*.md'
+    - datalad_next/
+    - tools/
 
 
 # tests need specific hostnames to be available

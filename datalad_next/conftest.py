@@ -18,10 +18,13 @@ from datalad_next.tests.fixtures import (
     tmp_keyring,
     # function-scope, Dataset instance
     dataset,
-    #function-scope, Dataset instance with underlying repository
+    # function-scope, Dataset instance with underlying repository
     existing_dataset,
-    #function-scope, Dataset instance with underlying Git-only repository
+    # function-scope, Dataset instance with underlying Git-only repository
     existing_noannex_dataset,
+    # session-scope, Dataset instance with various modifications,
+    # to-be-treated read-only
+    modified_dataset,
     # session-scope, standard http credential (full dict)
     http_credential,
     # function-scope, auth-less HTTP server

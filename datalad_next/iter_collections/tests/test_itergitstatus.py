@@ -1,9 +1,9 @@
 from itertools import chain
 import pytest
 
-from datalad_next.datasets import Dataset
-from datalad_next.runners import call_git_success
-from datalad_next.tests.utils import rmtree
+from datalad_next.runners import (
+    call_git_success,
+)
 
 from ..gitstatus import (
     GitDiffStatus,
@@ -12,128 +12,13 @@ from ..gitstatus import (
 )
 
 
-# we make this module-scope, because we use the same complex test case for all
-# tests here and we trust that nothing in here changes that test case
-@pytest.fixture(scope="module")
-def status_playground(tmp_path_factory):
-    """Produces a dataset with various modifications
-
-    ``git status`` will report::
-
-        ❯ git status -uall
-        On branch dl-test-branch
-        Changes to be committed:
-          (use "git restore --staged <file>..." to unstage)
-                new file:   dir_m/file_a
-                new file:   file_a
-
-        Changes not staged for commit:
-          (use "git add/rm <file>..." to update what will be committed)
-          (use "git restore <file>..." to discard changes in working directory)
-          (commit or discard the untracked or modified content in submodules)
-                deleted:    dir_d/file_d
-                deleted:    dir_m/file_d
-                modified:   dir_m/file_m
-                deleted:    dir_sm/sm_d
-                modified:   dir_sm/sm_m (modified content)
-                modified:   dir_sm/sm_mu (modified content, untracked content)
-                modified:   dir_sm/sm_n (new commits)
-                modified:   dir_sm/sm_nm (new commits, modified content)
-                modified:   dir_sm/sm_nmu (new commits, modified content, untracked content)
-                modified:   dir_sm/sm_u (untracked content)
-                deleted:    file_d
-                modified:   file_m
-
-        Untracked files:
-          (use "git add <file>..." to include in what will be committed)
-                dir_m/dir_u/file_u
-                dir_m/file_u
-                dir_u/file_u
-                file_u
-
-    Suffix indicates the ought-to state (multiple possible):
-
-    a - added
-    c - clean
-    d - deleted
-    n - new commits
-    m - modified
-    u - untracked content
-
-    Prefix indicated the item type:
-
-    file - file
-    sm - submodule
-    dir - directory
-    """
-    ds = Dataset(tmp_path_factory.mktemp("status_playground"))
-    ds.create(result_renderer='disabled')
-    ds_dir = ds.pathobj / 'dir_m'
-    ds_dir.mkdir()
-    ds_dir_d = ds.pathobj / 'dir_d'
-    ds_dir_d.mkdir()
-    (ds_dir / 'file_m').touch()
-    (ds.pathobj / 'file_m').touch()
-    dirsm = ds.pathobj / 'dir_sm'
-    dss = {}
-    for smname in (
-        'sm_d', 'sm_c', 'sm_n', 'sm_m', 'sm_nm', 'sm_u', 'sm_mu', 'sm_nmu',
-        'droppedsm_c',
-    ):
-        sds = Dataset(dirsm / smname).create(result_renderer='disabled')
-        # for the plain modification, commit the reference right here
-        if smname in ('sm_m', 'sm_nm', 'sm_mu', 'sm_nmu'):
-            (sds.pathobj / 'file_m').touch()
-        sds.save(to_git=True, result_renderer='disabled')
-        dss[smname] = sds
-    # files in superdataset to be deleted
-    for d in (ds_dir_d, ds_dir, ds.pathobj):
-        (d / 'file_d').touch()
-    dss['.'] = ds
-    dss['dir'] = ds_dir
-    ds.save(to_git=True, result_renderer='disabled')
-    ds.drop(dirsm / 'droppedsm_c', what='datasets', reckless='availability',
-            result_renderer='disabled')
-    # a new commit
-    for smname in ('.', 'sm_n', 'sm_nm', 'sm_nmu'):
-        sds = dss[smname]
-        (sds.pathobj / 'file_c').touch()
-        sds.save(to_git=True, result_renderer='disabled')
-    # modified file
-    for smname in ('.', 'dir', 'sm_m', 'sm_nm', 'sm_mu', 'sm_nmu'):
-        obj = dss[smname]
-        pobj = obj.pathobj if isinstance(obj, Dataset) else obj
-        (pobj / 'file_m').write_text('modify!')
-    # untracked
-    for smname in ('.', 'dir', 'sm_u', 'sm_mu', 'sm_nmu'):
-        obj = dss[smname]
-        pobj = obj.pathobj if isinstance(obj, Dataset) else obj
-        (pobj / 'file_u').touch()
-        (pobj / 'dirempty_u').mkdir()
-        (pobj / 'dir_u').mkdir()
-        (pobj / 'dir_u' / 'file_u').touch()
-    # delete items
-    rmtree(dss['sm_d'].pathobj)
-    rmtree(ds_dir_d)
-    (ds_dir / 'file_d').unlink()
-    (ds.pathobj / 'file_d').unlink()
-    # added items
-    for smname in ('.', 'dir', 'sm_m', 'sm_nm', 'sm_mu', 'sm_nmu'):
-        obj = dss[smname]
-        pobj = obj.pathobj if isinstance(obj, Dataset) else obj
-        (pobj / 'file_a').write_text('added')
-        assert call_git_success(['add', 'file_a'], cwd=pobj)
-
-    yield ds
-
-
-def test_status_homogeneity(status_playground):
+def test_status_homogeneity(modified_dataset):
     """Test things that should always be true, no matter the precise
     parameterization
 
     A main purpose of this test is also to exercise all (main) code paths.
     """
-    ds = status_playground
+    ds = modified_dataset
     for kwargs in (
         # default
         dict(path=ds.pathobj),
@@ -261,25 +146,25 @@ def _assert_testcases(st, tc):
             assert mod_types is None
 
 
-def test_status_vs_git(status_playground):
+def test_status_vs_git(modified_dataset):
     """Implements a comparison against how git-status behaved when
     the test was written  (see fixture docstring)
     """
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='repository',
+            path=modified_dataset.pathobj, recursive='repository',
             eval_submodule_state='full', untracked='all',
         )
     }
     _assert_testcases(st, test_cases_repository_recursion)
 
 
-def test_status_norec(status_playground):
+def test_status_norec(modified_dataset):
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='no',
+            path=modified_dataset.pathobj, recursive='no',
             eval_submodule_state='full', untracked='all',
         )
     }
@@ -300,11 +185,11 @@ def test_status_norec(status_playground):
     _assert_testcases(st, test_cases)
 
 
-def test_status_smrec(status_playground):
+def test_status_smrec(modified_dataset):
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='submodules',
+            path=modified_dataset.pathobj, recursive='submodules',
             eval_submodule_state='full', untracked='all',
         )
     }
@@ -315,11 +200,11 @@ def test_status_smrec(status_playground):
                                 test_cases_submodule_recursion))
 
 
-def test_status_monorec(status_playground):
+def test_status_monorec(modified_dataset):
     st = {
         item.name: item
         for item in iter_gitstatus(
-            path=status_playground.pathobj, recursive='monolithic',
+            path=modified_dataset.pathobj, recursive='monolithic',
             eval_submodule_state='full', untracked='all',
         )
     }
