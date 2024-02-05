@@ -29,7 +29,7 @@ from datalad_next.iter_collections import (
     iter_tar,
 )
 
-from . import ArchiveOperations
+from .base import ArchiveOperations
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations.tarfile')
 

@@ -28,7 +28,7 @@ from datalad_next.iter_collections import (
     ZipfileItem,
     iter_zip,
 )
-from . import ArchiveOperations
+from .base import ArchiveOperations
 
 
 lgr = logging.getLogger('datalad.ext.next.archive_operations.zipfile')

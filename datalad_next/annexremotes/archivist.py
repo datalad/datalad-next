@@ -523,8 +523,7 @@ class _ArchiveHandlers:
             raise NotImplementedError
 
         if ainfo.type == ArchiveType.tar:
-            from datalad_next.archive_operations.tarfile import (
-                TarArchiveOperations)
+            from datalad_next.archive_operations import TarArchiveOperations
             return TarArchiveOperations(
                 ainfo.local_path,
                 cfg=self._repo.config,
