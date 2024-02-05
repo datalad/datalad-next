@@ -28,6 +28,11 @@ from datalad.support.external_versions import external_versions
 
 from datalad_next.credman import CredentialManager
 from .log import log_progress
+from .multihash import MultiHash
+from .requests_auth import (
+    DataladAuth,
+    parse_www_authenticate,
+)
 
 
 lgr = logging.getLogger('datalad.utils')

@@ -1,5 +1,5 @@
 import warnings
-from datalad_next.utils.deprecate import deprecated
+from ..deprecate import deprecated
 
 import pytest
 

@@ -9,8 +9,8 @@ from urllib.parse import urlparse
 import requests
 
 from datalad_next.config import ConfigManager
-from datalad_next.utils import CredentialManager
-from datalad_next.utils.http_helpers import get_auth_realm
+from datalad_next.credman import CredentialManager
+from .http_helpers import get_auth_realm
 
 lgr = logging.getLogger('datalad.ext.next.utils.requests_auth')
 

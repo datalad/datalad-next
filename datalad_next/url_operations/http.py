@@ -12,7 +12,7 @@ from requests_toolbelt import user_agent
 
 import datalad
 
-from datalad_next.utils.requests_auth import (
+from datalad_next.utils import (
     DataladAuth,
     parse_www_authenticate,
 )
