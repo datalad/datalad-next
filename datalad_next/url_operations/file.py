@@ -12,7 +12,7 @@ from urllib import (
     parse,
 )
 
-from datalad_next.utils.consts import COPY_BUFSIZE
+from datalad_next.consts import COPY_BUFSIZE
 
 from .base import UrlOperations
 from .exceptions import (

@@ -16,8 +16,8 @@ from typing import (
     List,
 )
 
-from datalad_next.utils.consts import COPY_BUFSIZE
-from datalad_next.utils.multihash import MultiHash
+from datalad_next.consts import COPY_BUFSIZE
+from datalad_next.utils import MultiHash
 
 
 # TODO Could be `StrEnum`, came with PY3.11
