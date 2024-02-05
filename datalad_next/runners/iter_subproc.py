@@ -6,12 +6,8 @@ from typing import (
     List,
 )
 
-from datalad_next.iterable_subprocess.iterable_subprocess import (
-    iterable_subprocess,
-    # not needed here, but we want to provide all critical pieces from
-    # the same place. This is the key exception type
-    CommandError,
-)
+from datalad_next.iterable_subprocess import iterable_subprocess
+from datalad_next.exceptions import CommandError
 from datalad_next.consts import COPY_BUFSIZE
 
 __all__ = ['iter_subproc']

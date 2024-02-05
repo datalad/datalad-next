@@ -23,6 +23,7 @@ packages.
    credman
    datasets
    exceptions
+   iterable_subprocess
    itertools
    iter_collections
    runners
