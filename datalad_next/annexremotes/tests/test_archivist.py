@@ -4,8 +4,8 @@ from pathlib import (
 )
 import pytest
 
-from datalad_next.annexremotes import UnsupportedRequest
-from datalad_next.annexremotes.archivist import ArchivistRemote
+from .. import UnsupportedRequest
+from ..archivist import ArchivistRemote
 from datalad_next.datasets import Dataset
 from datalad_next.runners import CommandError
 
