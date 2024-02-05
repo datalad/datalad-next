@@ -4,6 +4,10 @@
 .. autosummary::
    :toctree: generated
 
-   manager
+   CredentialManager
+   verify_property_names
 """
-from .manager import CredentialManager
+from .manager import (
+    CredentialManager,
+    verify_property_names,
+)
