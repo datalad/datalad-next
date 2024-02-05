@@ -5,9 +5,10 @@ from pathlib import (
 
 import pytest
 
-from datalad_next.utils import check_symlink_capability
-
-from datalad_next.tests.utils import rmtree
+from datalad_next.utils import (
+    check_symlink_capability,
+    rmtree,
+)
 
 from ..gitworktree import (
     GitWorktreeItem,

@@ -9,7 +9,7 @@ from datalad.api import ls_file_collection
 from datalad_next.constraints.exceptions import CommandParametrizationError
 # we need this fixture
 from datalad_next.iter_collections.tests.test_iterzip import sample_zip
-from datalad_next.tests.marker import skipif_no_network
+from datalad_next.tests import skipif_no_network
 
 from ..ls_file_collection import LsFileCollectionParamValidator
 

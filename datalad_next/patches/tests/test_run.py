@@ -1,10 +1,7 @@
 import pytest
 
 from datalad_next.exceptions import IncompleteResultsError
-from datalad_next.tests.utils import (
-    SkipTest,
-    assert_result_count,
-)
+from datalad_next.tests import assert_result_count
 
 
 def test_substitution_config_default(existing_dataset, no_result_rendering):
@@ -12,7 +9,7 @@ def test_substitution_config_default(existing_dataset, no_result_rendering):
 
     if ds.config.get('datalad.run.substitutions.python') is not None:
         # we want to test default handling when no config is set
-        raise SkipTest(
+        pytest.skip(
             'Test assumptions conflict with effective configuration')
 
     # the {python} placeholder is not explicitly defined, but it has

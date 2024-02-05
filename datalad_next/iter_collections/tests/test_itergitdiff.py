@@ -2,7 +2,7 @@ from pathlib import PurePosixPath
 import pytest
 import shutil
 
-from datalad_next.tests.utils import rmtree
+from datalad_next.utils import rmtree
 
 from ..gitdiff import (
     GitTreeItemType,

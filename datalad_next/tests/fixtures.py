@@ -16,9 +16,8 @@ from datalad_next.runners import (
     call_git_lines,
     call_git_success,
 )
-from datalad_next.tests.utils import (
+from .utils import (
     HTTPPath,
-    SkipTest,
     WebDAVPath,
     assert_ssh_access,
     external_versions,
@@ -167,7 +166,7 @@ def datalad_cfg():
     here was only introduced with that version.
     """
     if external_versions['cmd:git'] < "2.32":
-        raise SkipTest(
+        pytest.skip(
             "Git configuration redirect via GIT_CONFIG_GLOBAL "
             "only supported since Git v2.32"
         )
@@ -561,15 +560,15 @@ def httpbin(httpbin_service):
     in some cases it is simply not desirable to run a test. For example,
     the appveyor workers are more or less constantly unable to access the
     public service. This fixture is evaluated at function-scope and
-    raises ``SkipTest`` whenever any of these undesired conditions is
+    skips the test whenever any of these undesired conditions is
     detected. Otherwise it just relays ``httpbin_service``.
     """
     if os.environ.get('DATALAD_TESTS_NONETWORK'):
-        raise SkipTest(
+        pytest.skip(
             'Not running httpbin-based test: NONETWORK flag set'
         )
     if 'APPVEYOR' in os.environ and 'DEPLOY_HTTPBIN_IMAGE' not in os.environ:
-        raise SkipTest(
+        pytest.skip(
             "Not running httpbin-based test on appveyor without "
             "docker-deployed instance -- too unreliable"
         )
@@ -591,7 +590,7 @@ def datalad_interactive_ui(monkeypatch):
        > assert ... datalad_interactive_ui.log
     """
     from datalad_next.uis import ui_switcher
-    from datalad_next.tests.utils import InteractiveTestUI
+    from .utils import InteractiveTestUI
 
     with monkeypatch.context() as m:
         m.setattr(ui_switcher, '_ui', InteractiveTestUI())
@@ -611,7 +610,7 @@ def datalad_noninteractive_ui(monkeypatch):
        > assert ... datalad_interactive_ui.log
     """
     from datalad_next.uis import ui_switcher
-    from datalad_next.tests.utils import TestUI
+    from .utils import TestUI
 
     with monkeypatch.context() as m:
         m.setattr(ui_switcher, '_ui', TestUI())
@@ -621,7 +620,7 @@ def datalad_noninteractive_ui(monkeypatch):
 @pytest.fixture(autouse=False, scope="session")
 def sshserver_setup(tmp_path_factory):
     if not os.environ.get('DATALAD_TESTS_SSH'):
-        raise SkipTest(
+        pytest.skip(
             "set DATALAD_TESTS_SSH=1 to enable")
 
     # query a bunch of recognized configuration environment variables,

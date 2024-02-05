@@ -3,7 +3,7 @@ import io
 
 import pytest
 
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     skip_if_on_windows,
 )
 from ..ssh import (

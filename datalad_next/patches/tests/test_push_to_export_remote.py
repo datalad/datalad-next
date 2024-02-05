@@ -1,4 +1,5 @@
 from pathlib import Path
+import pytest
 from typing import Generator
 from unittest.mock import (
     MagicMock,
@@ -6,8 +7,7 @@ from unittest.mock import (
     patch,
 )
 
-from datalad_next.tests.utils import (
-    SkipTest,
+from datalad_next.tests import (
     assert_in,
     assert_in_results,
     eq_,
@@ -230,7 +230,7 @@ def test_get_export_log_entry():
 
 
 def test_is_valid_treeish():
-    raise SkipTest(
+    pytest.skip(
         "this test is skipped until issue "
         "https://github.com/datalad/datalad-next/issues/39 is solved")
 

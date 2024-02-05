@@ -1,8 +1,9 @@
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     assert_in_results,
     assert_raises,
-    chpwd,
 )
+from datalad_next.utils import chpwd
+
 from datalad.api import configuration
 from datalad_next.exceptions import IncompleteResultsError
 

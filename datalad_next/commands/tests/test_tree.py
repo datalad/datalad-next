@@ -3,7 +3,7 @@ from pathlib import Path
 from os import sep
 
 import pytest
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     BasicGitTestRepo,
     assert_raises,
     create_tree,

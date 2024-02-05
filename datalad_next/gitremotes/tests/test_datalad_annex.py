@@ -19,17 +19,17 @@ from datalad.api import (
     Dataset,
     clone,
 )
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
     assert_raises,
     assert_status,
     eq_,
-    rmtree,
     skip_if_root,
 )
 from datalad_next.consts import on_windows
 from datalad_next.exceptions import CommandError
+from datalad_next.utils import rmtree
 from ..datalad_annex import get_initremote_params_from_url
 
 

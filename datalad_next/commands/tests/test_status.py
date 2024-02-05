@@ -6,7 +6,7 @@ from datalad_next.constraints.exceptions import (
     CommandParametrizationError,
     ParameterConstraintContext,
 )
-from datalad_next.tests.utils import chpwd
+from datalad_next.utils import chpwd
 
 from ..status import (
     opt_eval_subdataset_state_values,

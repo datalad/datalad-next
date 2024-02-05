@@ -18,7 +18,7 @@ from ..credentials import (
 )
 from datalad_next.exceptions import IncompleteResultsError
 from datalad_next.utils import external_versions
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     assert_in,
     assert_in_results,
     assert_raises,

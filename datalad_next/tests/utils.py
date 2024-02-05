@@ -16,6 +16,7 @@ from datalad.tests.utils_pytest import (
     DEFAULT_BRANCH,
     DEFAULT_REMOTE,
     HTTPPath,
+    # TODO REMOVE FOR V2.0
     SkipTest,
     assert_in,
     assert_in_results,
@@ -30,6 +31,7 @@ from datalad.tests.utils_pytest import (
     ok_broken_symlink,
     ok_exists,
     ok_good_symlink,
+    # TODO REMOVE FOR V2.0
     rmtree,
     skip_if_on_windows,
     skip_if_root,
@@ -78,7 +80,7 @@ class WebDAVPath(object):
             from cheroot import wsgi
             from wsgidav.wsgidav_app import WsgiDAVApp
         except ImportError as e:
-            raise SkipTest('No WSGI capabilities. Install cheroot and/or wsgidav') from e
+            pytest.skip(f'No WSGI capabilities. Install cheroot and/or wsgidav ({e!r})')
 
         if self.auth:
             auth = {self.auth[0]: {'password': self.auth[1]}}

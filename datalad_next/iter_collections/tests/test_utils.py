@@ -1,4 +1,4 @@
-from datalad_next.tests.utils import skip_wo_symlink_capability
+from datalad_next.tests import skip_wo_symlink_capability
 
 from ..utils import FileSystemItem
 
