@@ -51,9 +51,11 @@ from datalad_next.archive_operations import ArchiveOperations
 from datalad_next.datasets import LegacyAnnexRepo
 
 from datalad_next.exceptions import CommandError
-from datalad_next.types.annexkey import AnnexKey
-from datalad_next.types.archivist import ArchivistLocator
-from datalad_next.types.enums import ArchiveType
+from datalad_next.types import (
+    AnnexKey,
+    ArchivistLocator,
+    ArchiveType,
+)
 
 from . import (
     RemoteError,
