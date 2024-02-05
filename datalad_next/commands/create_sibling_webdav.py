@@ -30,20 +30,16 @@ from datalad.interface.common_opts import (
     recursion_limit
 )
 from datalad_next.constraints import (
+    ConstraintError,
+    DatasetParameter,
     EnsureBool,
     EnsureChoice,
+    EnsureDataset,
     EnsureInt,
     EnsureParsedURL,
     EnsureRange,
     EnsureRemoteName,
     EnsureStr,
-)
-from datalad_next.constraints.dataset import (
-    DatasetParameter,
-    EnsureDataset,
-)
-from datalad_next.constraints.exceptions import (
-    ConstraintError,
     ParameterConstraintContext,
 )
 from datalad_next.utils import CredentialManager

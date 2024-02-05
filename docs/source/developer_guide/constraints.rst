@@ -51,7 +51,7 @@ In order to equip an existing or new command with the constraint system, the fol
        ValidatedInterface,
    )
    from datalad_next.constraints import EnsureChoice
-   from datalad_next.constraints.dataset import EnsureDataset
+   from datalad_next.constraints import EnsureDataset
 
    @build_doc
    class Download(ValidatedInterface):

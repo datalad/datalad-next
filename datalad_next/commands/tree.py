@@ -37,11 +37,11 @@ from datalad_next.exceptions import (
 from datalad.local.subdatasets import Subdatasets
 from datalad_next.constraints import (
     EnsureBool,
+    EnsureDataset,
     EnsureInt,
     EnsurePath,
     EnsureRange,
 )
-from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import get_dataset_root
 from datalad_next.uis import ui_switcher as ui
 from datalad_next.datasets import (

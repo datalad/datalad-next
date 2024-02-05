@@ -23,9 +23,9 @@ from datalad_next.commands import (
 )
 from datalad_next.constraints import (
     EnsureChoice,
+    EnsureDataset,
     WithDescription,
 )
-from datalad_next.constraints.dataset import EnsureDataset
 
 from datalad_next.iter_collections import (
     GitDiffStatus,

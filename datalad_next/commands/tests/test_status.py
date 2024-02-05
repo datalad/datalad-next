@@ -2,7 +2,7 @@ import pytest
 
 from datalad.api import next_status
 
-from datalad_next.constraints.exceptions import (
+from datalad_next.constraints import (
     CommandParametrizationError,
     ParameterConstraintContext,
 )

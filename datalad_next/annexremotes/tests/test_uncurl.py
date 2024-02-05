@@ -8,7 +8,7 @@ from datalad_next.tests.utils import (
     skip_if_on_windows,
     skip_if_root,
 )
-from datalad_next.constraints.dataset import EnsureDataset
+from datalad_next.constraints import EnsureDataset
 from datalad_next.exceptions import (
     CommandError,
     UrlOperationsRemoteError,

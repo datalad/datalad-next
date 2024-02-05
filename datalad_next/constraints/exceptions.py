@@ -341,7 +341,7 @@ class CommandParametrizationError(ParametrizationErrors):
 
     .. seealso::
 
-       :mod:`~datalad_next.constraints.parameter.EnsureCommandParameterization`
+       :mod:`~datalad_next.constraints.EnsureCommandParameterization`
     """
     def __str__(self):
         return self._render_violations_as_indented_text_list(
