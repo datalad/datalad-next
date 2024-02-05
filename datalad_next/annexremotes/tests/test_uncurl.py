@@ -14,7 +14,7 @@ from datalad_next.exceptions import (
     UrlOperationsRemoteError,
     IncompleteResultsError,
 )
-from datalad_next.url_operations.any import AnyUrlOperations
+from datalad_next.url_operations import AnyUrlOperations
 
 from ..uncurl import (
     RemoteError,

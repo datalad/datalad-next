@@ -38,7 +38,7 @@ from datalad_next.constraints import (
     WithDescription,
 )
 from datalad_next.constraints.dataset import EnsureDataset
-from datalad_next.url_operations.any import AnyUrlOperations
+from datalad_next.url_operations import AnyUrlOperations
 
 lgr = getLogger('datalad.local.download')
 

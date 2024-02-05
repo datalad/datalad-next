@@ -13,7 +13,7 @@ from typing import Dict
 from datalad_next.config import ConfigManager
 from datalad_next.exceptions import CapturedException
 
-from . import UrlOperations
+from .base import UrlOperations
 
 lgr = logging.getLogger('datalad.ext.next.url_operations.any')
 

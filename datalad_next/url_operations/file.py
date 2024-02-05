@@ -14,8 +14,8 @@ from urllib import (
 
 from datalad_next.utils.consts import COPY_BUFSIZE
 
-from . import (
-    UrlOperations,
+from .base import UrlOperations
+from .exceptions import (
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
 )

@@ -78,7 +78,7 @@ def get_specialremote_credential_properties(params):
     remote_type = params.get('type')
     if remote_type == 'webdav':
         from .http_helpers import get_auth_realm
-        from datalad_next.url_operations.http import HttpUrlOperations
+        from datalad_next.url_operations import HttpUrlOperations
         url = params.get('url')
         if not url:
             return
