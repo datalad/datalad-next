@@ -228,7 +228,7 @@ from datalad_next.exceptions import (
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
 )
-from datalad_next.url_operations.any import AnyUrlOperations
+from datalad_next.url_operations import AnyUrlOperations
 from datalad_next.utils import ensure_list
 
 from . import (

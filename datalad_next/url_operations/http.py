@@ -16,8 +16,8 @@ from datalad_next.utils.requests_auth import (
     DataladAuth,
     parse_www_authenticate,
 )
-from . import (
-    UrlOperations,
+from .base import UrlOperations
+from .exceptions import (
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
 )

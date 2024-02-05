@@ -35,8 +35,8 @@ from datalad_next.runners import (
 )
 
 
-from . import (
-    UrlOperations,
+from .base import UrlOperations
+from .exceptions import (
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
 )

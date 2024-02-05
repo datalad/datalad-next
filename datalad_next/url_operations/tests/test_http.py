@@ -119,8 +119,8 @@ def test_size_less_progress_reporting(http_server, monkeypatch):
     def catch_progress(*_, **kwargs):
         logs.append(kwargs)
 
-    import datalad_next.url_operations
-    monkeypatch.setattr(datalad_next.url_operations, 'log_progress', catch_progress)
+    import datalad_next.url_operations.base
+    monkeypatch.setattr(datalad_next.url_operations.base, 'log_progress', catch_progress)
 
     http_handler = HttpUrlOperations()
     http_handler._stream_download_from_request(r, None)
