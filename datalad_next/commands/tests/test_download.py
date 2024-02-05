@@ -7,7 +7,7 @@ from datalad.api import (
     credentials,
     download,
 )
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     assert_result_count,
     assert_status,
 )

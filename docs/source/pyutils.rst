@@ -26,6 +26,7 @@ packages.
    itertools
    iter_collections
    runners
+   tests
    tests.fixtures
    types
    uis

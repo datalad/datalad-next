@@ -9,7 +9,7 @@ from datalad_next.annexremotes.archivist import ArchivistRemote
 from datalad_next.datasets import Dataset
 from datalad_next.runners import CommandError
 
-from datalad_next.tests.utils import assert_result_count
+from datalad_next.tests import assert_result_count
 
 
 @pytest.fixture(autouse=False, scope="function")

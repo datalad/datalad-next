@@ -16,7 +16,7 @@ from ..manager import (
     CredentialManager,
     _get_cred_cfg_var,
 )
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     assert_in,
     assert_raises,
     eq_,

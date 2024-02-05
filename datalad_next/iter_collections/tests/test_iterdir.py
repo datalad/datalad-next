@@ -2,11 +2,13 @@ import os
 from pathlib import PurePath
 import pytest
 
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     create_tree,
+)
+from datalad_next.utils import (
+    check_symlink_capability,
     rmtree,
 )
-from datalad_next.utils import check_symlink_capability
 
 from ..directory import (
     DirectoryItem,

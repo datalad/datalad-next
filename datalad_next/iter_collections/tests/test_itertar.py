@@ -3,7 +3,7 @@ import pytest
 
 from datalad.api import download
 
-from datalad_next.tests.marker import skipif_no_network
+from datalad_next.tests import skipif_no_network
 
 from ..tarfile import (
     TarfileItem,

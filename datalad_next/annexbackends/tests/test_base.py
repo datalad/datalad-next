@@ -1,7 +1,7 @@
 import logging
 import io
 
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     assert_raises,
     eq_,
 )

@@ -1,5 +1,5 @@
 from datalad_next.utils import chpwd
-from datalad_next.tests.utils import run_main
+from datalad_next.tests import run_main
 
 
 def test_cli_configoverrides(existing_dataset):

@@ -3,7 +3,7 @@ import pytest
 import re
 
 from datalad_next.consts import on_windows
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     create_tree,
     skip_if_on_windows,
     skip_if_root,

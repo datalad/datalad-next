@@ -5,7 +5,7 @@ from unittest.mock import (
 )
 from urllib.parse import quote as urlquote
 
-from datalad_next.tests.utils import (
+from datalad_next.tests import (
     assert_in,
     assert_in_results,
     assert_raises,

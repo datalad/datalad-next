@@ -4,7 +4,7 @@ import gzip
 import pytest
 import requests
 
-from datalad_next.tests.marker import skipif_no_network
+from datalad_next.tests import skipif_no_network
 
 from ..any import AnyUrlOperations
 from ..http import (
