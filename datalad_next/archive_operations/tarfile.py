@@ -24,7 +24,7 @@ from datalad_next.config import ConfigManager
 # is nice, and `__iter__()` only has `self`, such that
 # any customization would need to be infused in the whole
 # class. Potentially cumbersome.
-from datalad_next.iter_collections.tarfile import (
+from datalad_next.iter_collections import (
     TarfileItem,
     iter_tar,
 )

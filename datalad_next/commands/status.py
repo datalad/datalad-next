@@ -27,12 +27,10 @@ from datalad_next.constraints import (
 )
 from datalad_next.constraints.dataset import EnsureDataset
 
-from datalad_next.iter_collections.gitdiff import (
+from datalad_next.iter_collections import (
     GitDiffStatus,
     GitTreeItemType,
     GitContainerModificationType,
-)
-from datalad_next.iter_collections.gitstatus import (
     iter_gitstatus,
 )
 from datalad_next.uis import (

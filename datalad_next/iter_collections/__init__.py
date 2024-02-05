@@ -17,12 +17,69 @@ collections.
 .. autosummary::
    :toctree: generated
 
-   annexworktree
-   directory
-   gitdiff
-   gittree
-   gitworktree
-   tarfile
-   zipfile
-   utils
+   iter_annexworktree
+   iter_dir
+   iter_gitdiff
+   iter_gitstatus
+   iter_gittree
+   iter_gitworktree
+   iter_tar
+   iter_zip
+   TarfileItem
+   ZipfileItem
+   FileSystemItem
+   FileSystemItemType
+   GitTreeItemType
+   GitWorktreeItem
+   GitWorktreeFileSystemItem
+   GitDiffItem
+   GitDiffStatus
+   GitContainerModificationType
 """
+
+from .tarfile import (
+    # TODO move to datalad_next.types?
+    TarfileItem,
+    iter_tar,
+)
+from .zipfile import (
+    # TODO move to datalad_next.types?
+    ZipfileItem,
+    iter_zip,
+)
+# TODO move to datalad_next.types?
+from .utils import (
+    # TODO move to datalad_next.types?
+    FileSystemItemType,
+    # TODO move to datalad_next.types?
+    FileSystemItem,
+    compute_multihash_from_fp,
+)
+from .directory import iter_dir
+from .gittree import (
+    # TODO move to datalad_next.types?
+    GitTreeItemType,
+    iter_gittree,
+)
+from .gitworktree import (
+    # TODO move to datalad_next.types?
+    GitWorktreeItem,
+    # TODO move to datalad_next.types?
+    GitWorktreeFileSystemItem,
+    iter_gitworktree,
+)
+from .annexworktree import (
+    iter_annexworktree,
+)
+from .gitdiff import (
+    # TODO move to datalad_next.types?
+    GitDiffItem,
+    # TODO move to datalad_next.types?
+    GitDiffStatus,
+    # TODO move to datalad_next.types?
+    GitContainerModificationType,
+    iter_gitdiff,
+)
+from .gitstatus import (
+    iter_gitstatus,
+)
