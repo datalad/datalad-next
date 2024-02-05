@@ -142,6 +142,33 @@ this extension causes a range of patches to be applied to the `datalad` package
 to enable them. A comprehensive description of the current set of patch is
 available at http://docs.datalad.org/projects/next/en/latest/#datalad-patches
 
+## Developing with DataLad NEXT
+
+This extension package moves fast in comparison to the core package. Nevertheless,
+attention is paid to API stability, adequate semantic versioning, and informative
+changelogs.
+
+### Public vs internal API
+
+Anything that can be imported directly from any of the sub-packages in
+`datalad_next` is considered to be part of the public API. Changes to this API
+determine the versioning, and development is done with the aim to keep this API
+as stable as possible. This includes signatures and return value behavior.
+
+As an example: `from datalad_next.runners import iter_git_subproc` imports a
+part of the public API, but `from datalad_next.runners.git import
+iter_git_subproc` does not.
+
+### Use of the internal API
+
+Developers can obviously use parts of the non-public API. However, this should
+only be done with the understanding that these components may change from one
+release to another, with no guarantee of transition periods, deprecation
+warnings, etc.
+
+Developers are advised to never reuse any components with names starting with
+`_` (underscore). Their use should be limited to their individual subpackage.
+
 ## Acknowledgements
 
 This DataLad extension was developed with funding from the Deutsche
