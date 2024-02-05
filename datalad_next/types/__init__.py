@@ -4,7 +4,12 @@
 .. autosummary::
    :toctree: generated
 
-   annexkey
-   archivist
-   enums
+   AnnexKey
+   ArchivistLocator
+   ArchiveType
 """
+
+
+from .annexkey import AnnexKey
+from .archivist import ArchivistLocator
+from .enums import ArchiveType
