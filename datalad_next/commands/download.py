@@ -28,6 +28,7 @@ from datalad_next.utils import ensure_list
 from datalad_next.constraints import (
     AnyOf,
     EnsureChoice,
+    EnsureDataset,
     EnsureGeneratorFromFileLike,
     EnsureJSON,
     EnsureListOf,
@@ -37,7 +38,6 @@ from datalad_next.constraints import (
     EnsureValue,
     WithDescription,
 )
-from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.url_operations import AnyUrlOperations
 
 lgr = getLogger('datalad.local.download')

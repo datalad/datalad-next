@@ -35,10 +35,10 @@ from datalad_next.exceptions import CapturedException
 from datalad_next.datasets import datasetmethod
 from datalad_next.constraints import (
     EnsureChoice,
+    EnsureDataset,
     EnsureNone,
     EnsureStr,
 )
-from datalad_next.constraints.dataset import EnsureDataset
 from datalad_next.utils import ParamDictator
 
 

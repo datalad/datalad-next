@@ -33,7 +33,7 @@ from datalad.interface.utils import (
 )
 from datalad_next.exceptions import IncompleteResultsError
 from . import apply_patch
-from datalad_next.constraints.dataset import DatasetParameter
+from datalad_next.constraints import DatasetParameter
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')

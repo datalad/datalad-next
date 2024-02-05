@@ -29,7 +29,7 @@ from datalad.interface.utils import generic_result_renderer
 from datalad.interface.base import eval_results
 from datalad.support.param import Parameter
 
-from datalad_next.constraints.parameter import (
+from datalad_next.constraints import (
     EnsureCommandParameterization,
     ParameterConstraintContext,
 )
@@ -75,7 +75,7 @@ class ValidatedInterface(Interface):
 
         If parameter validation shall be performed, this method must return an
         instance of
-        :class:`~datalad_next.constraints.parameter.EnsureCommandParameterization`.
+        :class:`~datalad_next.constraints.EnsureCommandParameterization`.
         All parameters will be passed through this validator, and only the its
         output will be passed to the underlying command's ``__call__`` method.
 

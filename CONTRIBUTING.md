@@ -99,7 +99,7 @@ The following components of the `datalad` package must not be used (directly) in
 
 #### `require_dataset()`
 
-Commands must use `datalad_next.constraints.dataset.EnsureDataset` instead.
+Commands must use `datalad_next.constraints.EnsureDataset` instead.
 
 #### nose-style decorators in test implementations
 
