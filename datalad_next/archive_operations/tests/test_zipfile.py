@@ -9,7 +9,7 @@ from typing import Generator
 
 import pytest
 
-from datalad_next.iter_collections.utils import FileSystemItemType
+from datalad_next.iter_collections import FileSystemItemType
 
 from ..zipfile import ZipArchiveOperations
 

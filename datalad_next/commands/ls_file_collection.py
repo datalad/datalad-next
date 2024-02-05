@@ -48,23 +48,17 @@ from datalad_next.uis import (
 )
 from datalad_next.utils import ensure_list
 
-from datalad_next.iter_collections.directory import iter_dir
-from datalad_next.iter_collections.tarfile import iter_tar
-from datalad_next.iter_collections.zipfile import iter_zip
-from datalad_next.iter_collections.utils import (
+from datalad_next.iter_collections import (
     FileSystemItemType,
-    compute_multihash_from_fp,
-)
-from datalad_next.iter_collections.gittree import (
     GitTreeItemType,
-    iter_gittree,
-)
-from datalad_next.iter_collections.gitworktree import (
     GitWorktreeFileSystemItem,
-    iter_gitworktree,
-)
-from datalad_next.iter_collections.annexworktree import (
+    compute_multihash_from_fp,
     iter_annexworktree,
+    iter_dir,
+    iter_gittree,
+    iter_gitworktree,
+    iter_tar,
+    iter_zip,
 )
 
 
