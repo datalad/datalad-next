@@ -4,39 +4,13 @@ from __future__ import annotations
 
 from pathlib import (
     Path,
-    PurePath,
 )
-from typing import Generator
 
 from datalad_next.exceptions import CapturedException
-from datalad_next.iter_collections.gitworktree import (
-    GitTreeItem,
-    GitTreeItemType,
-    iter_gitworktree,
-)
 from datalad_next.runners import (
     CommandError,
     call_git_lines,
 )
-
-
-def iter_submodules(
-    path: Path,
-) -> Generator[GitTreeItem, None, None]:
-    """Given a path, report all submodules of a repository underneath it"""
-    for item in iter_gitworktree(
-        path,
-        untracked=None,
-        link_target=False,
-        fp=False,
-        recursive='repository',
-    ):
-        # exclude non-submodules, or a submodule that was found at
-        # the root path -- which would indicate that the submodule
-        # itself it not around, only its record in the parent
-        if item.gittype == GitTreeItemType.submodule \
-                and item.name != PurePath('.'):
-            yield item
 
 
 def get_worktree_head(

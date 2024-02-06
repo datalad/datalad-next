@@ -23,6 +23,7 @@ collections.
    iter_gitstatus
    iter_gittree
    iter_gitworktree
+   iter_submodules
    iter_tar
    iter_zip
    TarfileItem
@@ -67,6 +68,7 @@ from .gitworktree import (
     # TODO move to datalad_next.types?
     GitWorktreeFileSystemItem,
     iter_gitworktree,
+    iter_submodules,
 )
 from .annexworktree import (
     iter_annexworktree,
