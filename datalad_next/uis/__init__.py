@@ -1,6 +1,11 @@
 """UI abstractions for user communication
 
-This module imports all necessary components.
+.. currentmodule:: datalad_next.uis
+.. autosummary::
+   :toctree: generated
+
+   ansi_colors
+   ui_switcher
 """
 
 # make more obvious that this is a frontend that behaves
