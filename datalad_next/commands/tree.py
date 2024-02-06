@@ -34,7 +34,7 @@ from datalad_next.exceptions import (
     NoDatasetFound
 )
 
-from datalad.local.subdatasets import Subdatasets
+from datalad_next.iter_collections import iter_submodules
 from datalad_next.constraints import (
     EnsureBool,
     EnsureDataset,
@@ -608,22 +608,10 @@ def get_subds_paths(ds_path: Path):
     # submodules. Since we need to run it to (A) calculate dataset depth and
     # (B) detect non-installed datasets, we cache results, so that the list of
     # subdatasets is computed only once for each parent dataset.
-
-    def res_filter(res):
-        return res.get('status') == 'ok' and res.get('type') == 'dataset'
-
-    # call subdatasets command instead of dataset method `ds.subdatasets()`
-    # to avoid potentially expensive import of full datalad API
-    return Subdatasets.__call__(
-        dataset=ds_path,
-        recursive=False,
-        state='any',  # include not-installed subdatasets
-        result_filter=res_filter,
-        on_failure='ignore',
-        result_xfm='paths',
-        result_renderer='disabled',
-        return_type='list'
-    )
+    return [
+        str(ds_path / sm.path)
+        for sm in iter_submodules(ds_path)
+    ]
 
 
 @lru_cache()

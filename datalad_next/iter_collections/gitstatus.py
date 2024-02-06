@@ -22,7 +22,6 @@ from datalad_next.itertools import (
 )
 from datalad_next.repo_utils import (
     get_worktree_head,
-    iter_submodules,
 )
 
 from .gitdiff import (
@@ -35,6 +34,7 @@ from .gitworktree import (
     GitTreeItem,
     GitTreeItemType,
     iter_gitworktree,
+    iter_submodules,
     lsfiles_untracked_args,
     _git_ls_files,
 )
