@@ -26,12 +26,6 @@ from os import pardir
 
 import datalad_next
 
-# this cheats sphinx into thinking that LeanGit repo is not
-# merely imported, and convinces it to document it
-import datalad_next.datasets as dnd
-dnd.LeanGitRepo.__module__ = dnd.__name__
-dnd.LeanGitRepo.__name__ = 'LeanGitRepo'
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.

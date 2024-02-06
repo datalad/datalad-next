@@ -1,6 +1,12 @@
 """Configuration query and manipulation
 
-This modules imports the central ``ConfigManager`` class from DataLad core.
+This modules provides the central ``ConfigManager`` class.
+
+.. currentmodule:: datalad_next.config
+.. autosummary::
+   :toctree: generated
+
+   ConfigManager
 """
 
 from datalad.config import ConfigManager

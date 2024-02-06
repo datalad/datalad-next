@@ -55,12 +55,15 @@ from .git import (
 )
 
 # runners
+# TODO REMOVE FOR V2.0
 from datalad.runner import (
     GitRunner,
     Runner,
 )
+# TODO REMOVE FOR V2.0
 from datalad.runner.nonasyncrunner import ThreadedRunner
 # protocols
+# TODO REMOVE FOR V2.0
 from datalad.runner import (
     KillOutput,
     NoCapture,
@@ -69,7 +72,9 @@ from datalad.runner import (
     StdErrCapture,
     StdOutErrCapture,
 )
+# TODO REMOVE FOR V2.0
 from datalad.runner.protocol import GeneratorMixIn
+# TODO REMOVE FOR V2.0
 from .protocols import (
     NoCaptureGeneratorProtocol,
     StdOutCaptureGeneratorProtocol,
@@ -81,13 +86,16 @@ from .protocols import (
 from datalad_next.exceptions import CommandError
 
 # utilities
+# TODO REMOVE FOR V2.0
 from datalad.runner.nonasyncrunner import (
     STDOUT_FILENO,
     STDERR_FILENO,
 )
+# TODO REMOVE FOR V2.0
 from datalad.runner.utils import (
     LineSplitter,
 )
+# TODO REMOVE FOR V2.0
 from subprocess import (
     DEVNULL,
 )
