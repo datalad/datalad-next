@@ -26,6 +26,7 @@ packages.
    iterable_subprocess
    itertools
    iter_collections
+   repo_utils
    runners
    tests
    tests.fixtures
