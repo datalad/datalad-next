@@ -12,6 +12,7 @@
    external_versions
    log_progress
    parse_www_authenticate
+   patched_env
    rmtree
    get_specialremote_param_dict
    get_specialremote_credential_properties
@@ -72,7 +73,7 @@ from .specialremote import (
     needs_specialremote_credential_envpatch,
     get_specialremote_credential_envpatch,
 )
-
+from .patch import patched_env
 
 # TODO REMOVE EVERYTHING BELOW FOR V2.0
 # https://github.com/datalad/datalad-next/issues/611
