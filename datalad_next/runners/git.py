@@ -18,6 +18,7 @@ def _call_git(
     cwd: Path | None = None,
     check: bool = False,
     text: bool | None = None,
+    input: str | bytes | None = None,
     # TODO
     #patch_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
@@ -39,6 +40,7 @@ def _call_git(
             cwd=cwd,
             check=check,
             text=text,
+            input=input,
         )
     except subprocess.CalledProcessError as e:
         # TODO we could support post-error forensics, but some client
@@ -77,6 +79,7 @@ def call_git_success(
     args: list[str],
     *,
     cwd: Path | None = None,
+    capture_output: bool = False,
 ) -> bool:
     """Call Git for a single line of output.
 
@@ -86,11 +89,14 @@ def call_git_success(
 
     If ``cwd`` is not None, the function changes the working directory to
     ``cwd`` before executing the command.
+
+    If ``capture_output`` is ``True``, process output is captured, but not
+    returned. By default process output is not captured.
     """
     try:
         _call_git(
             args,
-            capture_output=False,
+            capture_output=capture_output,
             cwd=cwd,
             check=True,
         )
@@ -104,7 +110,8 @@ def call_git_lines(
     args: list[str],
     *,
     cwd: Path | None = None,
-) -> bool:
+    input: str | None = None,
+) -> list[str]:
     """Call Git for any (small) number of lines of output.
 
     ``args`` is a list of arguments for the Git command. This list must not
@@ -113,6 +120,10 @@ def call_git_lines(
 
     If ``cwd`` is not None, the function changes the working directory to
     ``cwd`` before executing the command.
+
+    If ``input`` is not None, the argument becomes the subprocess’s stdin.
+    This is intended for small-scale inputs. For call that require processing
+    large inputs, ``iter_git_subproc()`` is to be preferred.
 
     Raises
     ------
@@ -124,6 +135,7 @@ def call_git_lines(
         cwd=cwd,
         check=True,
         text=True,
+        input=input,
     )
     return res.stdout.splitlines()
 
@@ -132,6 +144,7 @@ def call_git_oneline(
     args: list[str],
     *,
     cwd: Path | None = None,
+    input: str | None = None,
 ) -> str:
     """Call git for a single line of output.
 
@@ -143,7 +156,7 @@ def call_git_oneline(
     CommandError if the call exits with a non-zero status.
     AssertionError if there is more than one line of output.
     """
-    lines = call_git_lines(args, cwd=cwd)
+    lines = call_git_lines(args, cwd=cwd, input=input)
     if len(lines) > 1:
         raise AssertionError(
             f"Expected Git {args} to return a single line, but got {lines}"
