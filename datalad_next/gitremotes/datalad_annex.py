@@ -496,8 +496,9 @@ class RepoAnnexGitRemote(object):
         try:
             # send annex into private mode, if supported
             # this repo will never ever be shared
-            ra.call_git(['config', 'annex.private', 'true'])
-            ra.call_git(['annex', 'init'])
+            call_git_success(['config', 'annex.private', 'true'],
+                             cwd=ra.pathobj, capture_output=True)
+            call_git_success(['annex', 'init'], capture_output=True)
             ra = AnnexRepo(self._repoannexdir)
             if 'type=web' in self.initremote_params:
                 self._init_repoannex_type_web(ra)
@@ -622,8 +623,15 @@ class RepoAnnexGitRemote(object):
             # otherwise we can end up in a conflict situation where the mirror
             # points to 'master' (or something else) and the source actually
             # has 'main' (or something different)
-            src_head_ref = self.repo.call_git(['symbolic-ref', 'HEAD']).strip()
-            mr.call_git(['symbolic-ref', 'HEAD', src_head_ref])
+            src_head_ref = call_git_oneline(
+                ['symbolic-ref', 'HEAD'],
+                cwd=self.repo.pathobj,
+            ).strip()
+            call_git_success(
+                ['symbolic-ref', 'HEAD', src_head_ref],
+                cwd=mr.pathobj,
+                capture_output=True,
+            )
 
         self.log('Established mirror')
         self._mirrorrepo = mr
@@ -700,12 +708,15 @@ class RepoAnnexGitRemote(object):
                         for ref in post_refs:
                             # best MIH can think of is to leave behind another
                             # ref to indicate the unsuccessful upload
-                            self.repo.call_git([
+                            call_git_success([
                                 'update-ref',
                                 # strip 'refs/heads/' from refname
                                 f'refs/dlra-upload-failed/{self.remote_name}/'
                                 f'{ref["refname"][11:]}',
-                                ref['objectname']])
+                                ref['objectname']],
+                                cwd=self.repo.pathobj,
+                                capture_output=True,
+                            )
                         raise
 
                 # clean-up potential upload failure markers for this particular
@@ -714,7 +725,11 @@ class RepoAnnexGitRemote(object):
                 for ref in self.repo.for_each_ref_(
                         fields=('refname',),
                         pattern=f'refs/dlra-upload-failed/{self.remote_name}'):
-                    self.repo.call_git(['update-ref', '-d', ref['refname']])
+                    call_git_success(
+                        ['update-ref', '-d', ref['refname']],
+                        cwd=self.repo.pathobj,
+                        capture_output=True,
+                    )
                 # we do not need to update `self._cached_remote_refs`,
                 # because we end the remote-helper process here
                 # everything has worked, if we used a credential, update it
@@ -768,7 +783,7 @@ class RepoAnnexGitRemote(object):
         repoannex = self.repoannex
 
         # trim it down, as much as possible
-        mirrorrepo.call_git(['gc'])
+        call_git(['gc'], cwd=mirrorrepo.pathobj)
 
         # update the repo state keys
         # it is critical to drop the local keys first, otherwise
@@ -1049,7 +1064,10 @@ def _format_refs(repo, refs=None):
     if refstr:
         refstr += '\n'
     refstr += '@{} HEAD\n'.format(
-        repo.call_git(['symbolic-ref', 'HEAD']).strip()
+        call_git_oneline(
+            ['symbolic-ref', 'HEAD'],
+            cwd=repo.pathobj,
+        ).strip()
     )
     return refstr
 
