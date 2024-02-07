@@ -210,8 +210,8 @@ from datalad_next.datasets import (
 from datalad_next.exceptions import CapturedException
 from datalad_next.runners import (
     CommandError,
-    NoCapture,
     StdOutCapture,
+    call_git,
 )
 from datalad_next.uis import ui_switcher as ui
 from datalad_next.utils import (
@@ -669,9 +669,9 @@ class RepoAnnexGitRemote(object):
                 pre_refs = sorted(self.mirrorrepo.for_each_ref_(),
                                   key=lambda x: x['refname'])
                 # must not capture -- git is talking to it directly from here
-                self.mirrorrepo._git_runner.run(
-                    ['git', 'receive-pack', self.mirrorrepo.path],
-                    protocol=NoCapture,
+                call_git(
+                    ['receive-pack', self.mirrorrepo.path],
+                    cwd=self.mirrorrepo.pathobj,
                 )
                 post_refs = sorted(self.mirrorrepo.for_each_ref_(),
                                    key=lambda x: x['refname'])
@@ -724,9 +724,9 @@ class RepoAnnexGitRemote(object):
                 # must not capture -- git is talking to it directly from here.
                 # the `self.mirrorrepo` access will ensure that the mirror
                 # is up-to-date
-                self.mirrorrepo._git_runner.run(
-                    ['git', 'upload-pack', self.mirrorrepo.path],
-                    protocol=NoCapture,
+                call_git(
+                    ['upload-pack', self.mirrorrepo.path],
+                    cwd=self.mirrorrepo.pathobj,
                 )
                 # everything has worked, if we used a credential, update it
                 self._store_credential()
