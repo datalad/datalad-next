@@ -12,7 +12,6 @@
 
 from pathlib import Path
 from stat import S_IREAD, S_IRGRP, S_IROTH
-from unittest.mock import patch
 from urllib.parse import quote as urlquote
 
 from datalad.api import (
@@ -29,7 +28,10 @@ from datalad_next.tests import (
 )
 from datalad_next.consts import on_windows
 from datalad_next.exceptions import CommandError
-from datalad_next.utils import rmtree
+from datalad_next.utils import (
+    patched_env,
+    rmtree,
+)
 from ..datalad_annex import get_initremote_params_from_url
 
 
@@ -298,11 +300,11 @@ def _check_typeweb(pushtmpl, clonetmpl, ds, server, clonepath):
     ])
     ds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # must override git-annex security setting for localhost
-    with patch.dict(
-            "os.environ", {
-                "GIT_CONFIG_COUNT": "1",
-                "GIT_CONFIG_KEY_0": "annex.security.allowed-ip-addresses",
-                "GIT_CONFIG_VALUE_0": "127.0.0.1"}):
+    with patched_env(**{
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "annex.security.allowed-ip-addresses",
+        "GIT_CONFIG_VALUE_0": "127.0.0.1"}
+    ):
         dsclone = clone(
             clonetmpl.format(url=server.url),
             clonepath)
@@ -327,11 +329,11 @@ def test_submodule_url(tmp_path, existing_noannex_dataset, http_server,
     tobesubds.repo.call_git(['push', '-u', 'dla', DEFAULT_BRANCH])
     # create a superdataset to register the subds to
     super = Dataset(tmp_path / 'super').create()
-    with patch.dict(
-            "os.environ", {
-                "GIT_CONFIG_COUNT": "1",
-                "GIT_CONFIG_KEY_0": "annex.security.allowed-ip-addresses",
-                "GIT_CONFIG_VALUE_0": "127.0.0.1"}):
+    with patched_env(**{
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "annex.security.allowed-ip-addresses",
+        "GIT_CONFIG_VALUE_0": "127.0.0.1"}
+    ):
         # this is the URL that matters
         # we intentionally use something that leaves a placeholder behind
         # in the submodule record

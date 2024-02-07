@@ -8,7 +8,6 @@ import subprocess
 import pytest
 from tempfile import NamedTemporaryFile
 from time import sleep
-from unittest.mock import patch
 from urllib.request import urlopen
 
 from datalad_next.datasets import Dataset
@@ -16,6 +15,7 @@ from datalad_next.runners import (
     call_git_lines,
     call_git_success,
 )
+from datalad_next.utils import patched_env
 from .utils import (
     HTTPPath,
     WebDAVPath,
@@ -121,8 +121,7 @@ def tmp_keyring():
         # already when ConfigManager would open it for reading
         tf.close()
         backend.file_path = tf.name
-        with patch.dict(os.environ,
-                        {'DATALAD_TESTS_TMP_KEYRING_PATH': tf.name}):
+        with patched_env(DATALAD_TESTS_TMP_KEYRING_PATH=tf.name):
             yield backend
 
     backend.file_path = prev_fpath
@@ -179,7 +178,7 @@ def datalad_cfg():
         # we must close, because windows does not like the file being open
         # already when ConfigManager would open it for reading
         tf.close()
-        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': tf.name}):
+        with patched_env(GIT_CONFIG_GLOBAL=tf.name):
             cfg.reload(force=True)
             yield cfg
     # reload to put the previous config in effect again

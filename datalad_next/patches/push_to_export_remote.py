@@ -15,7 +15,6 @@ from typing import (
     Optional,
     Union,
 )
-from unittest.mock import patch
 
 import datalad.core.distributed.push as mod_push
 from datalad_next.constraints import EnsureChoice
@@ -30,6 +29,7 @@ from datalad_next.utils import (
     get_specialremote_credential_envpatch,
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
+    patched_env,
 )
 from . import apply_patch
 
@@ -224,7 +224,7 @@ def _transfer_data(repo: AnnexRepo,
 
     res_kwargs['target'] = target
 
-    with patch.dict('os.environ', env_patch):
+    with patched_env(**env_patch):
         try:
             for result in repo._call_annex_records_items_(
                 [
