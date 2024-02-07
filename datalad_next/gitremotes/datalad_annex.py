@@ -217,6 +217,7 @@ from datalad_next.runners import (
 from datalad_next.uis import ui_switcher as ui
 from datalad_next.utils import (
     external_versions,
+    patched_env,
     rmtree,
 )
 
@@ -504,7 +505,7 @@ class RepoAnnexGitRemote(object):
                 self._init_repoannex_type_web(ra)
             else:
                 # let git-annex-initremote take over
-                with patch.dict('os.environ', self.credential_env or {}):
+                with patched_env(**(self.credential_env or {})):
                     ra.call_annex(
                         ['initremote', 'origin'] + [
                             p for p in self.initremote_params

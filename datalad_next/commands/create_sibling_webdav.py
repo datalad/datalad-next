@@ -9,7 +9,6 @@
 """High-level interface for creating a combi-target on a WebDAV capable server
  """
 import logging
-from unittest.mock import patch
 from urllib.parse import (
     quote as urlquote,
     urlunparse,
@@ -45,6 +44,7 @@ from datalad_next.constraints import (
 from datalad_next.utils import CredentialManager
 from datalad_next.utils import (
     get_specialremote_credential_properties,
+    patched_env,
     update_specialremote_credential,
     _yield_ds_w_matching_siblings,
 )
@@ -647,10 +647,9 @@ def _create_storage_sibling(
     ]
     # Add a git-annex webdav special remote. This requires to set
     # the webdav environment variables accordingly.
-    with patch.dict('os.environ', {
-            'WEBDAV_USERNAME': credential[0],
-            'WEBDAV_PASSWORD': credential[1],
-    }):
+    with patched_env(WEBDAV_USERNAME=credential[0],
+                     WEBDAV_PASSWORD=credential[1],
+    ):
         ds.repo.call_annex(cmd_args)
     yield get_status_dict(
         ds=ds,
