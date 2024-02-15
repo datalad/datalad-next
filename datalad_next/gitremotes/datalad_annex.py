@@ -318,6 +318,11 @@ class RepoAnnexGitRemote(object):
         # https://www.git-scm.com/docs/gitremote-helpers#_options
         self.options = {}
 
+        # we want to go for verbose output whenever datalad's log level is
+        # debug or even more verbose. This makes it unnecessary to call
+        # git directly with multiple `-v` options
+        self.verbosity_threshold = 1 if lgr.getEffectiveLevel() > 10 else 10
+
         # ID of the tree to export, if needed
         self.exporttree = None
 
@@ -645,7 +650,7 @@ class RepoAnnexGitRemote(object):
         # 1 is the default level of verbosity,
         # and higher values of <n> correspond to the number of -v flags
         # passed on the command line
-        if self.options.get('verbosity', 1) >= level:
+        if self.options.get('verbosity', self.verbosity_threshold) >= level:
             print('[DATALAD-ANNEX]', *args, file=self.errstream)
 
     def send(self, msg):
