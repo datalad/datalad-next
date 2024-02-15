@@ -691,6 +691,9 @@ class RepoAnnexGitRemote(object):
                     '\n'
                 )
             elif line == 'connect git-receive-pack\n':
+                # "receive", because we are receiving at the local mirror repo
+                # from a `send-pack` process that is connected to the main local
+                # repo
                 self.log('Connecting git-receive-pack\n')
                 self.send('\n')
                 # we assume the mirror repo is in-sync with the remote at
@@ -755,6 +758,16 @@ class RepoAnnexGitRemote(object):
                 self._store_credential()
                 return
             elif line == 'connect git-upload-pack\n':
+                # "upload", because we are uploading from the local mirror repo
+                # to a `fetch-pack` process that is connected to the main local
+                # repo
+                try:
+                    self.get_remote_refs(raise_on_error=True)
+                except Exception as e:
+                    self.log("fatal: couldn't find remote refs (repository deposit does not exist, or is inaccessible", level=1)
+                    self.log(f"query error: {e!r}", level=2)
+                    return
+
                 self.log('Connecting git-upload-pack\n')
                 self.send('\n')
                 # must not capture -- git is talking to it directly from here.
@@ -957,7 +970,7 @@ class RepoAnnexGitRemote(object):
             for p in legacy_basedir.iterdir():
                 p.rename(self._mirrorrepodir / p.relative_to(legacy_basedir))
 
-    def get_remote_refs(self) -> str | None:
+    def get_remote_refs(self, raise_on_error: bool = False) -> str | None:
         """Report remote refs
 
         The underlying special remote is asked whether it has the key
@@ -967,8 +980,9 @@ class RepoAnnexGitRemote(object):
         Returns
         -------
         str or None
-          If the remote has refs, they are returned as a string, formatted like
-          a refs file in a Git directory. Otherwise, `None` is returned.
+          If the remote has a refs record, it is returned as a string,
+          formatted like a refs file in a Git directory.
+          Otherwise, `None` is returned.
         """
         if self._cached_remote_refs:
             # this process already queried them once, return cache
@@ -994,9 +1008,13 @@ class RepoAnnexGitRemote(object):
             ra.call_annex([
                 'transferkey', self.refs_key, f'--from={sremote_id}'])
         except CommandError as e:
+            if raise_on_error:
+                raise
             CapturedException(e)
             self.log("Remote appears to have no refs")
             # download failed, we have no refs
+            # this can happen for legit reasons (prior first push),
+            # but also with broken URLs or lack of permissions
             return None
 
         refskeyloc = ra.call_annex_oneline([
