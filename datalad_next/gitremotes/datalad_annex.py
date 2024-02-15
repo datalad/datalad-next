@@ -180,6 +180,7 @@ upload.
      mirror could they safely share git objects? If so, in which direction?
 """
 
+from __future__ import annotations
 
 __all__ = ['RepoAnnexGitRemote']
 
@@ -190,6 +191,9 @@ import sys
 import zipfile
 from pathlib import Path
 from shutil import make_archive
+from typing import (
+    IO,
+)
 from unittest.mock import patch
 from urllib.parse import (
     unquote,
@@ -266,13 +270,15 @@ class RepoAnnexGitRemote(object):
     # be relayed to `git annex initremote`
     internal_parameters = ('dladotgit=uncompressed', 'dlacredential=')
 
-    def __init__(self,
-                 gitdir,
-                 remote,
-                 url,
-                 instream=sys.stdin,
-                 outstream=sys.stdout,
-                 errstream=sys.stderr):
+    def __init__(
+        self,
+        gitdir: str,
+        remote: str,
+        url: str,
+        instream: IO = sys.stdin,
+        outstream: IO = sys.stdout,
+        errstream: IO = sys.stderr,
+    ):
         """
         Parameters
         ----------
@@ -308,7 +314,7 @@ class RepoAnnexGitRemote(object):
         self._mirrorrepo = None
 
         # cache for remote refs, to avoid repeated queries
-        self._cached_remote_refs = None
+        self._cached_remote_refs: None | str = None
 
         self.instream = instream
         self.outstream = outstream
@@ -316,7 +322,7 @@ class RepoAnnexGitRemote(object):
 
         # options communicated by Git
         # https://www.git-scm.com/docs/gitremote-helpers#_options
-        self.options = {}
+        self.options: dict[str, str] = {}
 
         # we want to go for verbose output whenever datalad's log level is
         # debug or even more verbose. This makes it unnecessary to call
@@ -324,7 +330,7 @@ class RepoAnnexGitRemote(object):
         self.verbosity_threshold = 1 if lgr.getEffectiveLevel() > 10 else 10
 
         # ID of the tree to export, if needed
-        self.exporttree = None
+        self.exporttree: None | str = None
 
         self.credman = None
         self.pending_credential = None
@@ -339,7 +345,7 @@ class RepoAnnexGitRemote(object):
                 level=1
             )
 
-    def _get_credential_env(self):
+    def _get_credential_env(self) -> dict[str, str] | None:
         """
         Returns
         -------
@@ -353,24 +359,25 @@ class RepoAnnexGitRemote(object):
           If a credential retrieval is requested for an unsupported special
           remote type.
         """
-        credential_name = [
+        credential_name = None
+        credential_names = [
             p[14:] for p in self.initremote_params
             if p.startswith('dlacredential=')
         ] or None
-        if credential_name:
-            credential_name = credential_name[0]
+        if credential_names:
+            credential_name = credential_names[0]
         remote_type = self._get_remote_type()
         supported_remote_type = remote_type in specialremote_credential_envmap
         if credential_name and not supported_remote_type:
             # we have no idea how to deploy credentials for this remote type
             raise ValueError(
-                f"Deploying credentials for type={remote_type[0]} special "
+                f"Deploying credentials for type={remote_type} special "
                 "remote is not supported. Remove dlacredential= parameter from "
                 "the remote URL and provide credentials according to the "
                 "documentation of this particular special remote.")
 
         if not needs_specialremote_credential_envpatch(remote_type):
-            return
+            return None
 
         cred = self._retrieve_credential(credential_name)
 
@@ -378,11 +385,14 @@ class RepoAnnexGitRemote(object):
             lgr.debug(
                 'Could not find a matching credential for special remote %s',
                 self.initremote_params)
-            return
+            return None
 
         return get_specialremote_credential_envpatch(remote_type, cred)
 
-    def _retrieve_credential(self, name):
+    def _retrieve_credential(
+            self,
+            name: str | None,
+    ) -> dict[str, str] | None:
         """Retrieve a credential
 
         Successfully retrieved credentials are also placed in
@@ -396,8 +406,10 @@ class RepoAnnexGitRemote(object):
         """
         if not self.credman:
             self.credman = CredentialManager(self.repo.config)
+        assert self.credman is not None
+
         cred = None
-        credprops = {}
+        credprops: dict[str, str] = {}
         if name:
             # we can ask blindly first, caller seems to know what to do
             cred = self.credman.get(
@@ -427,21 +439,21 @@ class RepoAnnexGitRemote(object):
             )
 
         if not cred:
-            return
+            return None
         # stage for eventual (re-)storage after having proven to work
         self.pending_credential = (name, cred)
         return {k: cred[k] for k in ('user', 'secret')}
 
-    def _get_remote_type(self):
+    def _get_remote_type(self) -> str | None:
         remote_type = [
             p[5:] for p in self.initremote_params
             if p.startswith('type=')
         ]
         if not remote_type:
-            return
+            return None
         return remote_type[0]
 
-    def _store_credential(self):
+    def _store_credential(self) -> None:
         """Look for a pending credential and store it
 
         Safe to call unconditionally.
@@ -462,11 +474,11 @@ class RepoAnnexGitRemote(object):
                     if 'realm' in cred else ''),
             )
 
-    def _ensure_workdir(self):
+    def _ensure_workdir(self) -> None:
         self.workdir.mkdir(parents=True, exist_ok=True)
 
     @property
-    def repoannex(self):
+    def repoannex(self) -> AnnexRepo:
         """Repo annex repository
 
         If accessed when there is no repo annex, as new one is created
@@ -533,7 +545,7 @@ class RepoAnnexGitRemote(object):
         self._repoannex = ra
         return ra
 
-    def _init_repoannex_type_web(self, repoannex):
+    def _init_repoannex_type_web(self, repoannex: AnnexRepo) -> None:
         """Uses registerurl to utilize the omnipresent type=web remote
 
         Raises
@@ -544,10 +556,10 @@ class RepoAnnexGitRemote(object):
           indicating an unsupported setup.
         """
         # for type=web we have to add URLs by hand
-        baseurl = [
+        baseurls = [
             v for v in self.initremote_params
             if v.startswith('url=')]
-        if not len(baseurl) == 1:
+        if not len(baseurls) == 1:
             raise ValueError(
                 "'web'-type remote requires 'url' parameter")
         # validate the rest of the params, essentially there
@@ -557,7 +569,7 @@ class RepoAnnexGitRemote(object):
             raise ValueError(
                 "'web'-type remote only supports 'url' "
                 "and 'exporttree' parameters")
-        baseurl = baseurl[0][4:]
+        baseurl = baseurls[0][4:]
         for key, kinfo in self.xdlra_key_locations.items():
             repoannex.call_annex([
                 'registerurl',
@@ -568,7 +580,7 @@ class RepoAnnexGitRemote(object):
             ])
 
     @property
-    def mirrorrepo(self):
+    def mirrorrepo(self) -> GitRepo:
         """Local remote mirror repository
 
         If accessed when there is no local mirror repo, as new one
@@ -643,21 +655,26 @@ class RepoAnnexGitRemote(object):
         self._mirrorrepo = mr
         return mr
 
-    def log(self, *args, level=2):
+    def log(
+        self,
+        *args,
+        level: int = 2,
+    ) -> None:
         """Send log messages to the errstream"""
         # A value of 0 for <n> means that processes operate quietly,
         # and the helper produces only error output.
         # 1 is the default level of verbosity,
         # and higher values of <n> correspond to the number of -v flags
         # passed on the command line
-        if self.options.get('verbosity', self.verbosity_threshold) >= level:
+        if int(self.options.get('verbosity',
+                                self.verbosity_threshold)) >= level:
             print('[DATALAD-ANNEX]', *args, file=self.errstream)
 
-    def send(self, msg):
+    def send(self, msg: str) -> None:
         """Communicate with Git"""
         print(msg, end='', file=self.outstream, flush=True)
 
-    def communicate(self):
+    def communicate(self) -> None:
         """Implement the necessary pieces of the git-remote-helper protocol
 
         Uses the input, output and error streams configured for the
@@ -776,7 +793,7 @@ class RepoAnnexGitRemote(object):
                 # unrecoverable error
                 return
 
-    def replace_remote_deposit_from_mirrorrepo(self):
+    def replace_remote_deposit_from_mirrorrepo(self) -> None:
         """Package the local mirrorrepo up, and copy to the special remote
 
         The mirror is assumed to be ready/complete. It will be cleaned with
@@ -866,13 +883,10 @@ class RepoAnnexGitRemote(object):
         # we just updated the remote from local
         self._cached_remote_refs = self.get_mirror_refs()
 
-    def replace_mirrorrepo_from_remote_deposit_if_needed(self):
+    def replace_mirrorrepo_from_remote_deposit_if_needed(
+            self,
+    ) -> tuple[str | None, str]:
         """Replace the mirror if the remote has refs and they differ
-
-        Parameters
-        ----------
-        mirror_refs: str, optional
-          If given, must be formatted like get_mirror_refs() would do.
         """
         self.log("Check if mirror needs to be replaced with remote state")
         remote_refs = self.get_remote_refs()
@@ -884,7 +898,7 @@ class RepoAnnexGitRemote(object):
             self.replace_mirrorrepo_from_remote_deposit()
         return remote_refs, mirror_refs
 
-    def replace_mirrorrepo_from_remote_deposit(self):
+    def replace_mirrorrepo_from_remote_deposit(self) -> None:
         """Replaces the local mirror repo with one obtained from the remote
 
         This method assumes that the remote does have one. This should be
@@ -947,7 +961,7 @@ class RepoAnnexGitRemote(object):
             for p in legacy_basedir.iterdir():
                 p.rename(self._mirrorrepodir / p.relative_to(legacy_basedir))
 
-    def get_remote_refs(self):
+    def get_remote_refs(self) -> str | None:
         """Report remote refs
 
         The underlying special remote is asked whether it has the key
@@ -987,7 +1001,7 @@ class RepoAnnexGitRemote(object):
             CapturedException(e)
             self.log("Remote appears to have no refs")
             # download failed, we have no refs
-            return
+            return None
 
         refskeyloc = ra.call_annex_oneline([
             'contentlocation', self.refs_key])
@@ -996,7 +1010,7 @@ class RepoAnnexGitRemote(object):
         self._cached_remote_refs = refs
         return refs
 
-    def get_mirror_refs(self):
+    def get_mirror_refs(self) -> str:
         """Return the refs of the current mirror repo
 
         Returns
@@ -1009,7 +1023,7 @@ class RepoAnnexGitRemote(object):
 
 # TODO propose as addition to AnnexRepo
 # https://github.com/datalad/datalad/issues/6316
-def call_annex_success(self, args, files=None):
+def call_annex_success(self, args, files=None) -> bool:
     """Call git-annex and return true if the call exit code of 0.
 
     All parameters match those described for `call_annex`.
@@ -1043,24 +1057,20 @@ class UncompressedZipFile(zipfile.ZipFile):
             *args, compression=zipfile.ZIP_STORED, **kwargs)
 
 
-def _format_refs(repo, refs=None):
+def _format_refs(repo: GitRepo) -> str:
     """Helper to format a standard refs list from for_each_ref() output
 
     Parameters
     ----------
     repo: GitRepo
       Repo which to query for the 'HEAD' symbolic ref
-    refs: iterable or None
-      If `None`, `repo.for_each_ref()` is called. Otherwise, an iterable
-      from a previous `for_each_ref()` call is expected.
 
     Returns
     -------
     str
       Formatted refs list
     """
-    if refs is None:
-        refs = repo.for_each_ref_()
+    refs = repo.for_each_ref_()
 
     # generate a list of refs
     refstr = '\n'.join(
@@ -1078,7 +1088,7 @@ def _format_refs(repo, refs=None):
     return refstr
 
 
-def get_initremote_params_from_url(url):
+def get_initremote_params_from_url(url: str) -> list[str]:
     """Parse a remote URL for initremote parameters
 
     Parameters are taken from a URL's query string. In the query
@@ -1143,7 +1153,7 @@ def get_initremote_params_from_url(url):
     return params
 
 
-def make_export_tree(repo):
+def make_export_tree(repo: GitRepo) -> str:
     """Create an exportable tree
 
     The function expects a clean (bare) repository. It requires no checkout,
@@ -1247,14 +1257,14 @@ def make_export_tree(repo):
     return exporttree
 
 
-def push_caused_change(operations):
+def push_caused_change(operations: list[str]) -> bool:
     ok_operations = (
         'new-tag', 'new-branch', 'forced-update', 'fast-forward', 'deleted'
     )
     return any(o in operations for o in ok_operations)
 
 
-def push_error(operations):
+def push_error(operations: list[str]) -> bool:
     error_operations = (
         'no-match', 'rejected', 'remote-rejected', 'remote-failure',
         'error',
