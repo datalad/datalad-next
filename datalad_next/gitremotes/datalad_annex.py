@@ -220,17 +220,13 @@ from datalad_next.runners import (
 )
 from datalad_next.uis import ui_switcher as ui
 from datalad_next.utils import (
-    external_versions,
-    patched_env,
-    rmtree,
-)
-
-from datalad_next.utils import (
     CredentialManager,
+    external_versions,
     get_specialremote_credential_envpatch,
     get_specialremote_credential_properties,
     needs_specialremote_credential_envpatch,
     patched_env,
+    rmtree,
     specialremote_credential_envmap,
     update_specialremote_credential,
 )
