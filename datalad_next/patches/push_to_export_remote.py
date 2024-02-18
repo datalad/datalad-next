@@ -98,6 +98,8 @@ def get_export_records(repo: AnnexRepo) -> Generator:
         all other values are strings.
     """
     try:
+        # XXX when this is changed to `call_git()`, make sure to use
+        # `force_c_locale=True`
         for line in repo.call_git_items_(["cat-file", "blob", "git-annex:export.log"]):
             result_dict = dict(zip(
                 [
