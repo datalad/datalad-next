@@ -18,6 +18,9 @@ def get_worktree_head(
             # (and we only report the first item below, to take it off again)
             ['rev-parse', '-q', '--symbolic-full-name', 'HEAD', '--'],
             cwd=path,
+            # we are doing error message parsing below, fix the language
+            # to avoid making it even more fragile
+            force_c_locale=True,
         )[0]
     except (NotADirectoryError, FileNotFoundError) as e:
         raise ValueError('path not found') from e

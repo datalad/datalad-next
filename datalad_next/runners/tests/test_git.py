@@ -27,6 +27,10 @@ def test_call_git_lines():
     lines = call_git_lines(['--version'])
     assert len(lines) == 1
     assert lines[0].startswith('git version')
+    # check that we can force Git into LC_ALL mode.
+    # this test is only meaningful on systems that
+    # run with some other locale
+    call_git_lines(['-h'])[0].casefold().startswith('usage')
 
 
 def test_call_git_oneline():

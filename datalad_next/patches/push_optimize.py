@@ -433,6 +433,8 @@ def _sync_remote_annex_branch(repo, target, is_annex_repo):
             lgr.debug(
                 "Sync local annex branch from pushurl after remote "
                 'availability update.')
+        # XXX when this is changed to `call_git()`,
+        # make sure to `force_c_locale=True`
         repo.call_git(fetch_cmd)
         # If no CommandError was raised, it means that remote has git-annex
         # but local repo might not be an annex yet. Since there is nothing to "sync"
