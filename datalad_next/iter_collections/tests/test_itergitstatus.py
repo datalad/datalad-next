@@ -185,14 +185,19 @@ def test_status_norec(modified_dataset):
     _assert_testcases(st, test_cases)
 
 
-def test_status_smrec(modified_dataset):
-    st = {
-        item.name: item
-        for item in iter_gitstatus(
-            path=modified_dataset.pathobj, recursive='submodules',
-            eval_submodule_state='full', untracked='all',
-        )
-    }
+def test_status_smrec(modified_dataset, benchmark):
+    def _benchmark():
+        return list(iter_gitstatus(
+            path=modified_dataset.pathobj,
+            recursive='submodules',
+            eval_submodule_state='full',
+            untracked='all',
+        ))
+
+    # first exec the key function as a benchmark
+    items = benchmark(_benchmark)
+
+    st = {item.name: item for item in items}
     # in this mode we expect ALL results of a 'repository' mode recursion,
     # including the submodule-type items, plus additional ones from within
     # the submodules
@@ -200,14 +205,19 @@ def test_status_smrec(modified_dataset):
                                 test_cases_submodule_recursion))
 
 
-def test_status_monorec(modified_dataset):
-    st = {
-        item.name: item
-        for item in iter_gitstatus(
-            path=modified_dataset.pathobj, recursive='monolithic',
-            eval_submodule_state='full', untracked='all',
-        )
-    }
+def test_status_monorec(modified_dataset, benchmark):
+    def _benchmark():
+        return list(iter_gitstatus(
+            path=modified_dataset.pathobj,
+            recursive='monolithic',
+            eval_submodule_state='full',
+            untracked='all',
+        ))
+
+    # first exec the key function as a benchmark
+    items = benchmark(_benchmark)
+
+    st = {item.name: item for item in items}
     # in this mode we expect ALL results of a 'repository' mode recursion,
     # including the submodule-type items, plus additional ones from within
     # the submodules
