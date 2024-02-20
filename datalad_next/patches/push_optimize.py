@@ -444,9 +444,17 @@ def _sync_remote_annex_branch(repo, target, is_annex_repo):
     except mod_push.CommandError as e:
         # it is OK if the remote doesn't have a git-annex branch yet
         # (e.g. fresh repo)
-        # TODO is this possible? we just copied? Maybe check if anything
+        # Is this even possible? we just copied? Maybe check if anything
         # was actually copied?
-        if "fatal: couldn't find remote ref git-annex" not in e.stderr.lower():
+        # Yes, this is possible. The current implementation of the datalad-annex
+        # special remote would run into this situation. It would copy annex objects
+        # to a new location just fine, but until a repository deposit was made
+        # (and this implementation of push only does this as a second step), it
+        # could not retrieve any refs from the remote.
+        # the following conditional tests for the common prefix of the respective
+        # error message by Git and the Git-channeled error message from the
+        # datalad-annex remote helper.
+        if "fatal: couldn't find remote ref" not in e.stderr.lower():
             raise
         lgr.debug('Remote does not have a git-annex branch: %s', e)
 
