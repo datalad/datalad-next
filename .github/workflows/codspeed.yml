@@ -1,0 +1,59 @@
+name: codspeed-benchmarks
+
+on:
+  # Run on pushes to the main branch
+  push:
+    branches:
+      - "main"
+  # Run on pull requests
+  pull_request:
+  # `workflow_dispatch` allows CodSpeed to trigger backtest
+  # performance analysis in order to generate initial data.
+  workflow_dispatch:
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          # codspeed needs 3.12 for trace generation
+          python-version: 3.12
+      - name: Set up environment
+        run: |
+          git config --global user.email "test@github.land"
+          git config --global user.name "GitHub Almighty"
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+      - name: Install git-annex
+        id: gitannex
+        run: |
+          python -m pip install datalad-installer
+          datalad-installer -E ${HOME}/dlinstaller_env.sh --sudo ok git-annex -m snapshot
+          . "${HOME}/dlinstaller_env.sh"
+          # make the PATH modification available to the following steps of the
+          # workflow
+          echo "PATH=$PATH" >> "$GITHUB_OUTPUT"
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements-devel.txt
+          python -m pip install pytest-codspeed
+      - name: Debug
+        env:
+          PATH: ${{ steps.gitannex.outputs.PATH }}
+        run: |
+          git annex version
+          python -m pytest --codspeed datalad_next
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v2
+        env:
+          CODSPEED_LOG: debug 
+          PATH: ${{ steps.gitannex.outputs.PATH }}
+        with:
+          # a token is not needed for public projects, but we leave it here
+          # until things are working
+          token: ${{ secrets.CODSPEED_TOKEN }}
+          run: |
+            bash -c ". ${HOME}/dlinstaller_env.sh; python -m pytest --codspeed datalad_next"

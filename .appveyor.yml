@@ -303,7 +303,7 @@ for:
       # run tests on installed module, not source tree files
       - |
         cd __testhome__
-        python -m pytest -s -v --durations 20 -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --pyargs ${DTS}
+        python -m pytest -s -v --durations 20 -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --benchmark-disable --pyargs ${DTS}
 
     after_test:
       - python -m coverage xml
@@ -370,7 +370,7 @@ for:
       - cmd: md __testhome__
       - cmd: cd __testhome__
         # run test selecion (--traverse-namespace needed from Python 3.8 onwards)
-      - cmd: python -m pytest -s -v --durations 20 -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --cov-config=..\.coveragerc --pyargs %DTS%
+      - cmd: python -m pytest -s -v --durations 20 -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --cov-config=..\.coveragerc --benchmark-disable --pyargs %DTS%
 
     after_test:
       - cmd: python -m coverage xml
