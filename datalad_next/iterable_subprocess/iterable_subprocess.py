@@ -8,12 +8,30 @@ from threading import Thread
 from datalad_next.exceptions import CommandError
 
 
+class OutputFrom(Generator):
+    def __init__(self, stdout, stderr_deque, chunk_size=65536):
+        self.stdout = stdout
+        self.stderr_deque = stderr_deque
+        self.chunk_size = chunk_size
+        self.returncode = None
+
+    def send(self, _):
+        chunk = self.stdout.read(self.chunk_size)
+        if not chunk:
+            raise StopIteration
+        return chunk
+
+    def throw(self, typ, value=None, traceback=None):
+        return super().throw(typ, value, traceback)
+
+
 @contextmanager
 def iterable_subprocess(
     program,
     input_chunks,
     chunk_size=65536,
     cwd=None,
+    bufsize=-1,
 ):
     # This context starts a thread that populates the subprocess's standard input. It
     # also starts a threads that reads the process's standard error. Otherwise we risk
@@ -105,20 +123,6 @@ def iterable_subprocess(
                 if e.errno != 22:
                     raise
 
-    class OutputFrom(Generator):
-        def __init__(self, stdout):
-            self.stdout = stdout
-            self.returncode = None
-
-        def send(self, _):
-            chunk = self.stdout.read(chunk_size)
-            if not chunk:
-                raise StopIteration
-            return chunk
-
-        def throw(self, typ, value=None, traceback=None):
-            return super().throw(typ, value, traceback)
-
     def keep_only_most_recent(stderr, stderr_deque):
         total_length = 0
         while True:
@@ -144,12 +148,13 @@ def iterable_subprocess(
     try:
 
         with \
-                Popen(
+                Popen(  # nosec - all arguments are controlled by the caller
                     program,
                     stdin=PIPE,
                     stdout=PIPE,
                     stderr=PIPE,
                     cwd=cwd,
+                    bufsize=bufsize,
                 ) as proc, \
                 thread(
                     keep_only_most_recent,
@@ -164,7 +169,11 @@ def iterable_subprocess(
             try:
                 start_t_stderr()
                 start_t_stdin()
-                chunk_generator = OutputFrom(proc.stdout)
+                chunk_generator = OutputFrom(
+                    proc.stdout,
+                    stderr_deque,
+                    chunk_size
+                )
                 yield chunk_generator
             except BaseException:
                 proc.terminate()
