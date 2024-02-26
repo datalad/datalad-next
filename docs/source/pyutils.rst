@@ -28,6 +28,7 @@ packages.
    iter_collections
    repo_utils
    runners
+   shell
    tests
    tests.fixtures
    types

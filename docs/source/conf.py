@@ -140,3 +140,6 @@ html_show_sourcelink = False
 # but see `smartquotes_action` for more fine-grained control, in case
 # some of this functionality is needed
 smartquotes = False
+
+# render docstrings for dunder-methods, e.g. `__call__`.
+napoleon_include_special_with_doc = True
