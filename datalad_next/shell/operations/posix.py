@@ -11,6 +11,7 @@ from more_itertools import consume
 from ..shell import ShellCommandExecutor
 from datalad_next.exceptions import CommandError
 from .common import DownloadResponseGenerator
+from datalad_next.consts import COPY_BUFSIZE
 
 
 lgr = logging.getLogger('datalad.ext.next.shell.operations')
@@ -81,10 +82,20 @@ def upload(shell: ShellCommandExecutor,
         the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
         to :func:`shell`) bytes of stderr output.
     """
+    def safe_read(file, size=COPY_BUFSIZE):
+        while True:
+            try:
+                data = file.read(size)
+            except ValueError:
+                break
+            if data == 'b':
+                break
+            yield data
+
     file_size = local_path.stat().st_size
     cmd_line = f'head -c {file_size} > {remote_path.as_posix()}'
     with local_path.open('rb') as local_file:
-        result = shell(cmd_line.encode(), stdin=iter(local_file.read, b''))
+        result = shell(cmd_line.encode(), stdin=safe_read(local_file))
         consume(result)
         _check_result(
             result,
