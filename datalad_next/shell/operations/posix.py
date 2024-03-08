@@ -83,18 +83,38 @@ def upload(shell: ShellCommandExecutor,
         to :func:`shell`) bytes of stderr output.
     """
     def safe_read(file, size=COPY_BUFSIZE):
+        """iterator that reads from a file and gracefully handles closed files
+
+        This iterator is used to deal with the situation where a file that
+        should be uploaded is completely read and uploaded, but the final
+        EOF-triggering `read()` call has not yet been made. In this case it can
+        happen that the server provides an answer, and the calling code assumes
+        that it can close all file handles associated with the operation. This
+        can lead to the final `read()` call being performed on a closed files.
+        That raises a `ValueError`. We capture that in `safe_read` and treat
+        it like an EOF.
+        """
         while True:
             try:
                 data = file.read(size)
             except ValueError:
                 break
-            if data == 'b':
+            if data == b'':
                 break
             yield data
 
     file_size = local_path.stat().st_size
     cmd_line = f'head -c {file_size} > {remote_path.as_posix()}'
     with local_path.open('rb') as local_file:
+        # We use the `safe_read` iterator to deal with the situation where the
+        # content of a file that should be uploaded is completely read and
+        # uploaded, but the final EOF-triggering `read()` call has not yet been
+        # made. In this case it can happen that the server provides an answer
+        # and we leave the context, thereby closing the file. When the
+        # `iterable_subprocess.<locals>.input_to`-thread then tries to read
+        # from the file, a `ValueError` would be raised (unless we use
+        # `safe_read`). This exception would in turn lead to the closing of
+        # stdin of the `shell`-subprocess and render it unusable.
         result = shell(cmd_line.encode(), stdin=safe_read(local_file))
         consume(result)
         _check_result(
