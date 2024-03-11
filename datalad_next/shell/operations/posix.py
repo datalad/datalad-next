@@ -5,6 +5,10 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
+from typing import (
+    BinaryIO,
+    Callable,
+)
 
 from more_itertools import consume
 
@@ -53,6 +57,7 @@ class DownloadResponseGeneratorOSX(DownloadResponseGenerator):
 def upload(shell: ShellCommandExecutor,
            local_path: Path,
            remote_path: PurePosixPath,
+           progress_callback: Callable[[int, int], None] = None
            ) -> None:
     """Upload a local file to a named file in the connected shell
 
@@ -74,6 +79,9 @@ def upload(shell: ShellCommandExecutor,
     remote_path : PurePosixPath
         The name of the file on the connected shell that will contain the
         uploaded content.
+    progress_callback : callable[[int, int], None], optional, default: None
+        If given, the callback is called with the number of bytes that have
+        been sent and the total number of bytes that should be sent.
     Raises
     -------
     CommandError:
@@ -82,7 +90,10 @@ def upload(shell: ShellCommandExecutor,
         the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
         to :func:`shell`) bytes of stderr output.
     """
-    def safe_read(file, size=COPY_BUFSIZE):
+    def safe_read(file: BinaryIO,
+                  size: int,
+                  chunk_size: int = COPY_BUFSIZE
+                  ):
         """iterator that reads from a file and gracefully handles closed files
 
         This iterator is used to deal with the situation where a file that
@@ -94,14 +105,18 @@ def upload(shell: ShellCommandExecutor,
         That raises a `ValueError`. We capture that in `safe_read` and treat
         it like an EOF.
         """
+        processed = 0
         while True:
             try:
-                data = file.read(size)
+                data = file.read(chunk_size)
             except ValueError:
                 break
             if data == b'':
                 break
             yield data
+            processed += len(data)
+            if progress_callback:
+                progress_callback(processed, size)
 
     file_size = local_path.stat().st_size
     cmd_line = f'head -c {file_size} > {remote_path.as_posix()}'
@@ -115,7 +130,7 @@ def upload(shell: ShellCommandExecutor,
         # from the file, a `ValueError` would be raised (unless we use
         # `safe_read`). This exception would in turn lead to the closing of
         # stdin of the `shell`-subprocess and render it unusable.
-        result = shell(cmd_line.encode(), stdin=safe_read(local_file))
+        result = shell(cmd_line.encode(), stdin=safe_read(local_file, file_size))
         consume(result)
         _check_result(
             result,
