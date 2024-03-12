@@ -65,7 +65,8 @@ def test_return_code_functionality(sshserver):
     ssh_url = sshserver[0]
     with shell(_get_cmdline(ssh_url)[0]) as ssh:
         results = ssh(b'bash -c "exit 123"')
-        consume(results)
+        with pytest.raises(CommandError) as e:
+            consume(results)
         assert results.returncode == 123
 
 
@@ -398,7 +399,8 @@ def test_download_length_error():
         else:
             response_generator = posix.DownloadResponseGeneratorPosix(bash.stdout)
         result = bash(b'unknown_file', response_generator=response_generator)
-        assert tuple(result) == ()
+        with pytest.raises(CommandError):
+            assert tuple(result) == ()
         assert result.returncode == 23
 
         # perform another operation on the remote shell to ensure functionality

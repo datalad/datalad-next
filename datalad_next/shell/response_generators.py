@@ -9,6 +9,7 @@ from collections import deque
 from collections.abc import Generator
 from random import randint
 
+from datalad_next.exceptions import CommandError
 from datalad_next.itertools import align_pattern
 from datalad_next.runners.iter_subproc import OutputFrom
 
@@ -44,7 +45,16 @@ class ShellCommandResponseGenerator(Generator, metaclass=ABCMeta):
         self.state: str | int = 'output'
         self.returncode_chunk = b''
         self.returncode: int | None = None
-        self.stdout = b''
+        self.current_command_list: list[bytes] = []
+
+    def check_result(self, message=''):
+        if self.returncode != 0:
+            raise CommandError(
+                cmd=[x.decode() for x in self.current_command_list],
+                msg=message,
+                code=self.returncode,
+                stderr=b''.join(self.stderr_deque)
+            )
 
     @staticmethod
     def get_number_and_newline(chunk, iterable) -> tuple[int, bytes]:
@@ -139,6 +149,7 @@ class VariableLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=A
 
         if self.state == 'exhausted':
             self.state = 'output'
+            self.check_result()
             raise StopIteration()
 
         raise RuntimeError(f'unknown state: {self.state}')
@@ -271,6 +282,7 @@ class FixedLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCM
 
         if self.state == 'exhausted':
             self.state = 'output'
+            self.check_result()
             raise StopIteration()
 
         raise RuntimeError(f'unknown state: {self.state}')

@@ -12,9 +12,8 @@ from typing import (
 
 from more_itertools import consume
 
-from ..shell import ShellCommandExecutor
-from datalad_next.exceptions import CommandError
 from .common import DownloadResponseGenerator
+from ..shell import ShellCommandExecutor
 from datalad_next.consts import COPY_BUFSIZE
 
 
@@ -132,11 +131,6 @@ def upload(shell: ShellCommandExecutor,
         # stdin of the `shell`-subprocess and render it unusable.
         result = shell(cmd_line.encode(), stdin=safe_read(local_file, file_size))
         consume(result)
-        _check_result(
-            result,
-            cmd_line,
-            f'failed: upload({shell!r}, {local_path!r}, {remote_path!r})'
-        )
 
 
 def download(shell: ShellCommandExecutor,
@@ -182,9 +176,6 @@ def download(shell: ShellCommandExecutor,
         :class:`CommandError` is raised. It will contain the exit code and
         the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
         to :func:`shell`) bytes of stderr output.
-    TimeoutError:
-        If ``timeout`` is not ``None`` and data is received after ``timeout``
-        seconds.
     """
     result = shell(
         remote_path.as_posix().encode(),
@@ -193,11 +184,6 @@ def download(shell: ShellCommandExecutor,
     with local_path.open('wb') as local_file:
         for chunk in result:
             local_file.write(chunk)
-    _check_result(
-        result,
-        f'download {remote_path} {local_path}',
-        f'failed: download({shell!r}, {remote_path!r}, {local_path!r})'
-    )
 
 
 def delete(shell: ShellCommandExecutor,
@@ -236,15 +222,3 @@ def delete(shell: ShellCommandExecutor,
         + ' '.join(f'{f.as_posix()}' for f in files)
     result = shell(cmd_line.encode())
     consume(result)
-    _check_result(result, cmd_line, f'delete failed: {files!r}')
-
-
-def _check_result(result, cmd_line, message):
-    if result.returncode != 0:
-        raise CommandError(
-            cmd=cmd_line,
-            msg=message,
-            code=result.returncode,
-            stdout=result.stdout,
-            stderr=b''.join(result.stderr_deque)
-        )

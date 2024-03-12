@@ -214,7 +214,12 @@ class ShellCommandExecutor:
         if response_generator is None:
             response_generator = self.default_rg_class(self.stdout)
 
-        self.process_inputs.put(response_generator.get_command_list(command))
+        command_list = response_generator.get_command_list(command)
+        # Store the command list to report it in `CommandError`-exceptions.
+        # This is done here to relieve the response generator classes from
+        # this task.
+        response_generator.current_command_list = command_list
+        self.process_inputs.put(command_list)
         if stdin is not None:
             self.process_inputs.put(stdin)
         return response_generator
@@ -243,8 +248,3 @@ class ShellCommandExecutor:
         )
         for line in result_zero:
             lgr.debug('skipped login message line: %s', line)
-        if result_zero.returncode != 0:
-            raise RuntimeError(
-                'unexpected return code from command '
-                f'{response_generator.zero_command!r}: {result_zero.returncode}, '
-                f'stderr: {b"".join(result_zero.stderr_deque).decode()}')
