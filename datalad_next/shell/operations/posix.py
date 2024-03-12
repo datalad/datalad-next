@@ -151,9 +151,11 @@ def download(shell: ShellCommandExecutor,
     end-marker is significant, i.e. not contained in the transferred file
     content, and to ensure that no control-sequences are sent.
 
-    The requirements for upload are:
-    - The connected shell must be a POSIX shell.
-    - ``base64`` must be installed in the remote shell.
+    The requirements for download via instances of class
+    :class:`DownloadResponseGeneratorPosix` are:
+    - The connected shell must support `stat -c`.
+    - The connected shell must support `echo -e`.
+    - The connected shell must support `cat`.
 
     Parameters
     ----------
