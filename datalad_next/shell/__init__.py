@@ -136,7 +136,7 @@ per-call basis by providing a different response generator class in the
    VariableLengthResponseGeneratorPowerShell
    FixedLengthResponseGenerator
    FixedLengthResponseGeneratorPosix
-   FixedLengthResponseGeneratorPowershell
+   FixedLengthResponseGeneratorPowerShell
    DownloadResponseGenerator
    DownloadResponseGeneratorPosix
    DownloadResponseGeneratorOSX
@@ -163,11 +163,11 @@ from .operations.posix import (
     DownloadResponseGeneratorPosix,
 )
 from .response_generators import (
+    FixedLengthResponseGenerator,
+    FixedLengthResponseGeneratorPosix,
+    FixedLengthResponseGeneratorPowerShell,
     ShellCommandResponseGenerator,
     VariableLengthResponseGenerator,
     VariableLengthResponseGeneratorPosix,
     VariableLengthResponseGeneratorPowerShell,
-    FixedLengthResponseGenerator,
-    FixedLengthResponseGeneratorPosix,
-    FixedLengthResponseGeneratorPowershell,
 )

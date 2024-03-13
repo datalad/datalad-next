@@ -8,6 +8,7 @@ from more_itertools import consume
 
 import datalad
 from datalad.tests.utils_pytest import (
+    on_linux,
     on_osx,
     on_windows,
     skip_if,
@@ -19,6 +20,7 @@ from datalad_next.runners import (
 from datalad_next.url_operations.ssh import ssh_url2openargs
 from ..response_generators import (
     FixedLengthResponseGeneratorPosix,
+    FixedLengthResponseGeneratorPowerShell,
     VariableLengthResponseGeneratorPosix,
     VariableLengthResponseGeneratorPowerShell,
     lgr as response_generator_lgr
@@ -58,7 +60,6 @@ def test_basic_functionality_multi(sshserver):
 def _check_ls_result(ssh_executor, file_name: bytes):
     results = ssh_executor(b'ls ' + file_name)
     assert b''.join(results) == file_name + b'\n'
-    assert results.returncode == 0
 
 
 def test_return_code_functionality(sshserver):
@@ -93,7 +94,6 @@ def test_stdout_forwarding_multi(sshserver):
 def _check_echo_result(ssh: ShellCommandExecutor, cmd: bytes, expected: bytes):
     results = ssh(cmd)
     assert b''.join(results) == expected
-    assert results.returncode == 0
 
 
 def test_exit_if_unlimited_stdin_is_closed(sshserver):
@@ -111,7 +111,6 @@ def test_exit_if_unlimited_stdin_is_closed(sshserver):
         results = ssh_executor(b'cat >' + ssh_path, stdin=cat_feed)
         ssh_executor.close()
         consume(results)
-        assert results.returncode == 0
         assert (local_path / test_file_name).read_text() == '0123456789\n'
 
 
@@ -134,7 +133,6 @@ def test_continuation_after_stdin_reading(sshserver):
                 stdin=feed
             )
             consume(results)
-            assert results.returncode == 0
             assert (local_path / file_name).read_text() == '0123456789'
 
         _check_ls_result(ssh_executor, common_files[0])
@@ -200,7 +198,7 @@ def test_download_ssh(sshserver, tmp_path):
 # This test only works on Posix-like systems because it executes a local
 # bash command. It does not work on OSX, because the `stat` command has a
 # different interface.
-@skip_if(on_windows or on_osx)
+@skip_if(not on_linux)
 def test_download_local_bash(tmp_path):
     content = '0123456789'
     download_file = tmp_path / 'download_123'
@@ -276,20 +274,8 @@ def test_powershell_basic():
     ) as pwsh:
         r = pwsh(b'Get-ChildItem')
         consume(r)
-        if r.returncode != 0:
-            print(
-                'powershell_basic stderr output:',
-                repr(b''.join(r.stderr_deque)),
-                file=sys.stderr)
-        assert r.returncode == 0
         r = pwsh(b'Get-ChildItem -Path C:\\')
         consume(r)
-        if r.returncode != 0:
-            print(
-                'powershell_basic stderr output:',
-                repr(b''.join(r.stderr_deque)),
-                file=sys.stderr)
-        assert r.returncode == 0
         pwsh.close()
 
 
@@ -342,7 +328,6 @@ def test_variable_length_reuse(monkeypatch):
             response_generator=response_generator
         )
         assert tuple(result) == (b'hello\n',)
-        assert result.returncode == 0
         assert all(
             msg.startswith('unexpected output after return code: ')
             for msg in log_messages
@@ -363,7 +348,9 @@ def test_bad_zero_command(monkeypatch):
             pass
 
 
-def test_fixed_length_response_generator():
+# This test only works on Unix-like systems because it executes a local bash.
+@skip_if(on_windows)
+def test_fixed_length_response_generator_bash():
     with shell(['bash']) as bash:
         response_generator = FixedLengthResponseGeneratorPosix(
             bash.stdout,
@@ -374,13 +361,36 @@ def test_fixed_length_response_generator():
             response_generator=response_generator
         )
         assert tuple(result) == (b'0123456789',)
-        assert result.returncode == 0
 
         # Check that only 10 bytes are consumed and any excess bytes show up
         # in the return code.
         with pytest.raises(ValueError):
             result = bash(
                 b'echo -n 0123456789abc',
+                response_generator=response_generator
+            )
+            tuple(result)
+
+
+# This test mostly works on Windows systems because it executes a local powershell.
+@skip_if(not on_windows)
+def test_fixed_length_response_generator_powershell():
+    with shell(
+            ['powershell', '-Command', '-'],
+            zero_command_rg_class=VariableLengthResponseGeneratorPowerShell,
+    ) as powershell:
+        response_generator = FixedLengthResponseGeneratorPowerShell(
+            powershell.stdout,
+            length=10
+        )
+        result = powershell(b'Write-Host -NoNewline 0123456789')
+        tuple(result)
+
+        # Check that only 10 bytes are consumed and any excess bytes show up
+        # in the return code.
+        with pytest.raises(ValueError):
+            result = powershell(
+                b'Write-Host -NoNewline 0123456789abc',
                 response_generator=response_generator
             )
             tuple(result)
@@ -409,7 +419,7 @@ def test_download_length_error():
 
 # This test only works on Linux systems because it executes a local bash and
 # uses a version of `stat` that is not available on OSX.
-@skip_if(on_windows or on_osx)
+@skip_if(not on_linux)
 def test_download_error(tmp_path):
     with shell(['bash']) as bash:
         with pytest.raises(CommandError):

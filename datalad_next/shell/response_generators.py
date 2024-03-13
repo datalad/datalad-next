@@ -15,13 +15,13 @@ from datalad_next.runners.iter_subproc import OutputFrom
 
 
 __all__ = [
+    'FixedLengthResponseGenerator',
+    'FixedLengthResponseGeneratorPosix',
+    'FixedLengthResponseGeneratorPowerShell',
     'ShellCommandResponseGenerator',
     'VariableLengthResponseGenerator',
     'VariableLengthResponseGeneratorPosix',
     'VariableLengthResponseGeneratorPowerShell',
-    'FixedLengthResponseGenerator',
-    'FixedLengthResponseGeneratorPosix',
-    'FixedLengthResponseGeneratorPowershell',
 ]
 
 
@@ -303,7 +303,7 @@ class FixedLengthResponseGeneratorPosix(FixedLengthResponseGenerator):
         return [command + b' ; echo $?\n']
 
 
-class FixedLengthResponseGeneratorPowershell(FixedLengthResponseGenerator):
+class FixedLengthResponseGeneratorPowerShell(FixedLengthResponseGenerator):
     def get_command_list(self, command: bytes) -> list[bytes]:
         """Return a final command list for a command with a fixed length output
 
