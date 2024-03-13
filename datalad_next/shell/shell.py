@@ -169,17 +169,19 @@ class ShellCommandExecutor:
         self.default_rg_class = default_rg_class
 
     def __call__(self,
-                 command: bytes,
+                 command: bytes | str,
                  *,
                  stdin: Iterable[bytes] | None = None,
                  response_generator: ShellCommandResponseGenerator | None = None,
+                 encoding: str = 'utf-8',
                  ) -> ShellCommandResponseGenerator:
         """Execute a command in the connected shell
 
         Parameters
         ----------
-        command : bytes
-            The command to execute.
+        command : bytes | str
+            The command to execute. If the command is given as a string, it
+            will be encoded to bytes using the encoding given in `encoding`.
         stdin : Iterable[byte] | None, optional, default: None
             If given, the bytes are sent to stdin of the command.
 
@@ -197,6 +199,10 @@ class ShellCommandExecutor:
             of ``ShellCommandResponseGenerator``), that is used to generate the
             command line and to parse the output of the command. This can be
             used to implement, for example, fixed length output processing.
+        encoding : str, optional, default: 'utf-8'
+            The encoding that is used to encode the command if it is given as a
+            string. Note: the encoding should match the decoding the is used in
+            the connected shell.
 
         Yields
         ------
@@ -213,6 +219,9 @@ class ShellCommandExecutor:
         # content response generator.
         if response_generator is None:
             response_generator = self.default_rg_class(self.stdout)
+
+        if isinstance(command, str):
+            command = command.endswith(encoding)
 
         command_list = response_generator.get_command_list(command)
         # Store the command list to report it in `CommandError`-exceptions.
