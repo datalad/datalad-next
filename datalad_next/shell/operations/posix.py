@@ -56,7 +56,7 @@ class DownloadResponseGeneratorOSX(DownloadResponseGenerator):
 def upload(shell: ShellCommandExecutor,
            local_path: Path,
            remote_path: PurePosixPath,
-           progress_callback: Callable[[int, int], None] = None
+           progress_callback: Callable[[int, int], None] | None = None
            ) -> None:
     """Upload a local file to a named file in the connected shell
 
@@ -114,7 +114,7 @@ def upload(shell: ShellCommandExecutor,
                 break
             yield data
             processed += len(data)
-            if progress_callback:
+            if progress_callback is not None:
                 progress_callback(processed, size)
 
     file_size = local_path.stat().st_size
