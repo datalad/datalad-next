@@ -221,7 +221,7 @@ class ShellCommandExecutor:
             response_generator = self.default_rg_class(self.stdout)
 
         if isinstance(command, str):
-            command = command.endswith(encoding)
+            command = command.encode(encoding)
 
         final_command = response_generator.get_final_command(command)
         # Store the command list to report it in `CommandError`-exceptions.

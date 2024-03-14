@@ -60,6 +60,8 @@ def test_basic_functionality_multi(sshserver):
 def _check_ls_result(ssh_executor, file_name: bytes):
     results = ssh_executor(b'ls ' + file_name)
     assert b''.join(results) == file_name + b'\n'
+    results = ssh_executor('ls ' + file_name.decode())
+    assert b''.join(results) == file_name + b'\n'
 
 
 def test_return_code_functionality(sshserver):
