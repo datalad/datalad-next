@@ -70,6 +70,7 @@ def test_return_code_functionality(sshserver):
         results = ssh(b'bash -c "exit 123"')
         with pytest.raises(CommandError) as e:
             consume(results)
+        assert e.value.code == 123
         assert results.returncode == 123
 
 

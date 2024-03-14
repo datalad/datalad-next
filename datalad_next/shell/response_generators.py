@@ -301,7 +301,7 @@ class FixedLengthResponseGeneratorPosix(FixedLengthResponseGenerator):
 
 
 class FixedLengthResponseGeneratorPowerShell(FixedLengthResponseGenerator):
-    def get_comma_get_final_commandnd_list(self, command: bytes) -> bytes:
+    def get_final_command(self, command: bytes) -> bytes:
         """Return a final command list for a command with a fixed length output
 
         The PowerShell version for fixed length response generators.
