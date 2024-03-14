@@ -45,19 +45,19 @@ class ShellCommandResponseGenerator(Generator, metaclass=ABCMeta):
         self.state: str | int = 'output'
         self.returncode_chunk = b''
         self.returncode: int | None = None
-        self.current_command_list: list[bytes] = []
+        self.current_final_command: bytes = b''
 
     def check_result(self, message=''):
         if self.returncode != 0:
             raise CommandError(
-                cmd=[x.decode() for x in self.current_command_list],
+                cmd=self.current_final_command.decode(),
                 msg=message,
                 code=self.returncode,
                 stderr=b''.join(self.stderr_deque)
             )
 
     @staticmethod
-    def get_number_and_newline(chunk, iterable) -> tuple[int, bytes]:
+    def _get_number_and_newline(chunk, iterable) -> tuple[int, bytes]:
         """Help that reads a trailing number and a newline from a chunk
 
         Parameters
@@ -91,11 +91,11 @@ class ShellCommandResponseGenerator(Generator, metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def get_command_list(self, command: bytes) -> list[bytes]:
-        """Return a command list that executes ``command``
+    def get_final_command(self, command: bytes) -> bytes:
+        """Return a final command list that executes ``command``
 
-        This method should return a list of "final" commands that execute
-        ``command`` and generate the output structure that the response
+        This method should return a "final" command-pipeline that executes
+        ``command`` and generates the output structure that the response
         generator expects. This structure will typically be parsed in the
         implementation of :meth:`send`.
 
@@ -103,6 +103,9 @@ class ShellCommandResponseGenerator(Generator, metaclass=ABCMeta):
         :meth:`ShellCommandExecutor.__call__`.
         """
         raise NotImplementedError
+
+    def throw(self, typ, val=..., tb=...):  # pragma: no cover
+        return super().throw(typ, val, tb)
 
 
 class VariableLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCMeta):
@@ -137,7 +140,7 @@ class VariableLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=A
                 return chunk
 
         if self.state == 'returncode':
-            self.returncode, trailing = self.get_number_and_newline(
+            self.returncode, trailing = self._get_number_and_newline(
                 self.returncode_chunk,
                 self.plain_stdout,
             )
@@ -153,9 +156,6 @@ class VariableLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=A
             raise StopIteration()
 
         raise RuntimeError(f'unknown state: {self.state}')
-
-    def throw(self, typ, val=..., tb=...):  # pragma: no cover
-        return super().throw(typ, val, tb)
 
     @property
     @abstractmethod
@@ -176,7 +176,7 @@ class VariableLengthResponseGeneratorPosix(VariableLengthResponseGenerator):
         """
         super().__init__(stdout)
 
-    def get_command_list(self, command: bytes) -> list[bytes]:
+    def get_final_command(self, command: bytes) -> bytes:
         """Return a command list that executes ``command`` and prints the end-marker
 
         The POSIX version for variable length response generators.
@@ -184,9 +184,9 @@ class VariableLengthResponseGeneratorPosix(VariableLengthResponseGenerator):
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
         """
-        return [
+        return (
             command + b' ; x=$?; echo -e -n "' + self.end_marker + b'\\n"; echo $x\n'
-        ]
+        )
 
     @property
     def zero_command(self) -> bytes:
@@ -205,7 +205,7 @@ class VariableLengthResponseGeneratorPowerShell(VariableLengthResponseGenerator)
         """
         super().__init__(stdout)
 
-    def get_command_list(self, command: bytes) -> list[bytes]:
+    def get_final_command(self, command: bytes) -> bytes:
         """Return a command list that executes ``command`` and prints the end-marker
 
         The PowerShell version for variable length response generators.
@@ -215,10 +215,10 @@ class VariableLengthResponseGeneratorPowerShell(VariableLengthResponseGenerator)
         """
         # TODO: check whether `command` sets `$LASTEXITCODE` and assign that
         #  to `$x`, iff set.
-        return [
+        return (
             b'$x=0; try {' + command + b'} catch { $x=1 }\n'
             + b'Write-Host -NoNewline ' + self.end_marker + b'`n$x`n\n'
-        ]
+        )
 
     @property
     def zero_command(self) -> bytes:
@@ -270,7 +270,7 @@ class FixedLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCM
                 return chunk
 
         if self.state == 'returncode':
-            self.returncode, trailing = self.get_number_and_newline(
+            self.returncode, trailing = self._get_number_and_newline(
                 self.returncode_chunk,
                 self.stdout_gen,
             )
@@ -287,12 +287,9 @@ class FixedLengthResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCM
 
         raise RuntimeError(f'unknown state: {self.state}')
 
-    def throw(self, typ, val=..., tb=...):  # pragma: no cover
-        return super().throw(typ, val, tb)
-
 
 class FixedLengthResponseGeneratorPosix(FixedLengthResponseGenerator):
-    def get_command_list(self, command: bytes) -> list[bytes]:
+    def get_final_command(self, command: bytes) -> bytes:
         """Return a final command list for a command with a fixed length output
 
         The POSIX version for fixed length response generators.
@@ -300,11 +297,11 @@ class FixedLengthResponseGeneratorPosix(FixedLengthResponseGenerator):
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
         """
-        return [command + b' ; echo $?\n']
+        return command + b' ; echo $?\n'
 
 
 class FixedLengthResponseGeneratorPowerShell(FixedLengthResponseGenerator):
-    def get_command_list(self, command: bytes) -> list[bytes]:
+    def get_comma_get_final_commandnd_list(self, command: bytes) -> bytes:
         """Return a final command list for a command with a fixed length output
 
         The PowerShell version for fixed length response generators.
@@ -312,10 +309,10 @@ class FixedLengthResponseGeneratorPowerShell(FixedLengthResponseGenerator):
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
         """
-        return [
+        return (
             b'$x=0; try {' + command + b'} catch { $x=1 }\n'
             + b'Write-Host -NoNewline $x`n\n'
-        ]
+        )
 
 
 def _create_end_marker() -> bytes:

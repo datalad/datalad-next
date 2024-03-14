@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from abc import (
-    ABCMeta,
-    abstractmethod,
-)
+from abc import ABCMeta
 from logging import getLogger
 
 from datalad_next.runners.iter_subproc import OutputFrom
@@ -55,7 +52,7 @@ class DownloadResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCMeta
                     return chunk
 
             if self.state == 1:
-                self.length, chunk = self.get_number_and_newline(
+                self.length, chunk = self._get_number_and_newline(
                     b'',
                     self.stdout_gen,
                 )
@@ -70,7 +67,7 @@ class DownloadResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCMeta
                 continue
 
             if self.state == 3:
-                self.returncode, trailing = self.get_number_and_newline(
+                self.returncode, trailing = self._get_number_and_newline(
                     self.returncode_chunk,
                     self.stdout_gen,
                 )
@@ -86,23 +83,3 @@ class DownloadResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCMeta
                 raise StopIteration
 
             raise RuntimeError(f'unknown state: {self.state}')
-
-    def throw(self, typ, val=..., tb=...):  # pragma: no cover
-        return super().throw(typ, val, tb)
-
-    @abstractmethod
-    def get_command_list(self, remote_file_name: bytes) -> list[bytes]:
-        """Return a command list to download to remote file
-
-        The generated command list will print the length of the file and
-        then emit the file content, followed by the exit value if the command
-        pipeline. If length printing fails a negative number, i.e. ``-1`` is
-        printed and no return code is printed. The negative number serves as
-        indicator to :meth:`DownloadResponseGenerator.send` that nothing will
-        be sent. In this case :meth:`DownloadResponseGenerator.send` will set
-        the return code to `23`.
-
-        This method is usually only called by
-        :meth:`ShellCommandExecutor.__call__`.
-        """
-        raise NotImplementedError

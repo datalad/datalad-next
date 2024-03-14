@@ -303,12 +303,12 @@ def test_variable_length_reuse(monkeypatch):
     # This test ensures that the `VariableLengthResponseGenerator` can be
     # reused, e.g. after it was used for command zero, even if there is
     # unexpected output after the return code.
-    def mocked_get_command_list(command: bytes) -> list[bytes]:
-        return [
+    def mocked_get_final_command(command: bytes) -> bytes:
+        return (
             command + b' ; x=$?; echo -e -n "'
             + response_generator.end_marker
             + b'\\n"; echo -e "$x\\nsome stuff"\n'
-        ]
+        )
 
     log_messages = []
 
@@ -319,8 +319,8 @@ def test_variable_length_reuse(monkeypatch):
         response_generator = VariableLengthResponseGeneratorPosix(bash.stdout)
         monkeypatch.setattr(
             response_generator,
-            'get_command_list',
-            mocked_get_command_list
+            'get_final_command',
+            mocked_get_final_command
         )
         monkeypatch.setattr(response_generator_lgr, 'warning', mocked_log)
         result = bash(

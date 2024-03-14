@@ -223,12 +223,12 @@ class ShellCommandExecutor:
         if isinstance(command, str):
             command = command.endswith(encoding)
 
-        command_list = response_generator.get_command_list(command)
+        final_command = response_generator.get_final_command(command)
         # Store the command list to report it in `CommandError`-exceptions.
         # This is done here to relieve the response generator classes from
         # this task.
-        response_generator.current_command_list = command_list
-        self.process_inputs.put(command_list)
+        response_generator.current_final_command = final_command
+        self.process_inputs.put([final_command])
         if stdin is not None:
             self.process_inputs.put(stdin)
         return response_generator

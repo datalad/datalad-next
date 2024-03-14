@@ -22,7 +22,7 @@ lgr = logging.getLogger('datalad.ext.next.shell.operations')
 
 class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
     """A response generator for efficient download commands on Linux systems"""
-    def get_command_list(self, remote_file_name: bytes) -> list[bytes]:
+    def get_final_command(self, remote_file_name: bytes) -> bytes:
         """Return a final command list for the download of ``remote_file_name``
 
         The Linux version for download response generators.
@@ -30,15 +30,15 @@ class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
         """
-        return [
+        return (
             b'(stat -c %s ' + remote_file_name + b'|| echo -e -1)'
             + b'&& cat ' + remote_file_name
             + b'&& echo $?\n'
-        ]
+        )
 
 
 class DownloadResponseGeneratorOSX(DownloadResponseGenerator):
-    def get_command_list(self, remote_file_name: bytes) -> list[bytes]:
+    def get_final_command(self, remote_file_name: bytes) -> bytes:
         """Return a final command list for the download of ``remote_file_name``
 
         The OSX version for download response generators.
@@ -46,11 +46,11 @@ class DownloadResponseGeneratorOSX(DownloadResponseGenerator):
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
         """
-        return [
+        return (
             b'(stat -f %z ' + remote_file_name + b'|| echo -e -1)'
             + b'&& cat ' + remote_file_name
             + b'&& echo $?\n'
-        ]
+        )
 
 
 def upload(shell: ShellCommandExecutor,
