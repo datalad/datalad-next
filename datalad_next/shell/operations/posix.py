@@ -5,6 +5,7 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
+from queue import Queue
 from typing import (
     BinaryIO,
     Callable,
@@ -17,11 +18,12 @@ from ..shell import ShellCommandExecutor
 from datalad_next.consts import COPY_BUFSIZE
 
 
-lgr = logging.getLogger('datalad.ext.next.shell.operations')
+lgr = logging.getLogger("datalad.ext.next.shell.operations")
 
 
 class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
     """A response generator for efficient download commands on Linux systems"""
+
     def get_final_command(self, remote_file_name: bytes) -> bytes:
         """Return a final command list for the download of ``remote_file_name``
 
@@ -31,9 +33,12 @@ class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
         :meth:`ShellCommandExecutor.__call__`.
         """
         return (
-            b'(stat -c %s ' + remote_file_name + b'|| echo -e -1)'
-            + b'&& cat ' + remote_file_name
-            + b'&& echo $?\n'
+            b"(stat -c %s "
+            + remote_file_name
+            + b"|| echo -e -1)"
+            + b"&& cat "
+            + remote_file_name
+            + b"&& echo $?\n"
         )
 
 
@@ -47,27 +52,31 @@ class DownloadResponseGeneratorOSX(DownloadResponseGenerator):
         :meth:`ShellCommandExecutor.__call__`.
         """
         return (
-            b'(stat -f %z ' + remote_file_name + b'|| echo -e -1)'
-            + b'&& cat ' + remote_file_name
-            + b'&& echo $?\n'
+            b"(stat -f %z "
+            + remote_file_name
+            + b"|| echo -e -1)"
+            + b"&& cat "
+            + remote_file_name
+            + b"&& echo $?\n"
         )
 
 
-def upload(shell: ShellCommandExecutor,
-           local_path: Path,
-           remote_path: PurePosixPath,
-           progress_callback: Callable[[int, int], None] | None = None
-           ) -> None:
+def upload(
+    shell: ShellCommandExecutor,
+    local_path: Path,
+    remote_path: PurePosixPath,
+    progress_callback: Callable[[int, int], None] | None = None,
+) -> None:
     """Upload a local file to a named file in the connected shell
 
     This function uploads a file to the connected shell ``shell``. It uses
     ``head`` to limit the number of bytes that the remote shell will read.
-    This ensures that the upload is terminated..
+    This ensures that the upload is terminated.
 
     The requirements for upload are:
     - The connected shell must be a POSIX shell.
     - ``head`` must be installed in the remote shell.
-    - ``base64`` must be installed in the remote shell.
+    - ``cat`` must be installed in the remote shell.
 
     Parameters
     ----------
@@ -89,55 +98,64 @@ def upload(shell: ShellCommandExecutor,
         the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
         to :func:`shell`) bytes of stderr output.
     """
-    def safe_read(file: BinaryIO,
-                  size: int,
-                  chunk_size: int = COPY_BUFSIZE
-                  ):
-        """iterator that reads from a file and gracefully handles closed files
 
-        This iterator is used to deal with the situation where a file that
+    def signaling_read(
+        file: BinaryIO, size: int, queue: Queue, chunk_size: int = COPY_BUFSIZE
+    ):
+        """iterator that reads from a file and signals EOF via a queue
+
+        This iterator is used to prevent the situation where a file that
         should be uploaded is completely read and uploaded, but the final
         EOF-triggering `read()` call has not yet been made. In this case it can
-        happen that the server provides an answer, and the calling code assumes
+        happen that the server provides an answer. If the answer is interpreted
+        as indicator for a completed operation, the calling code assumes
         that it can close all file handles associated with the operation. This
-        can lead to the final `read()` call being performed on a closed files.
-        That raises a `ValueError`. We capture that in `safe_read` and treat
-        it like an EOF.
+        can lead to the final `read()` call being performed on a closed file,
+        which would raise a `ValueError`. To prevent this, ``signaling_read``
+        signals the end of the read-operation, i.e. an EOF was read, by
+        enqueuing ``Ǹone`` into the signaling queue. The caller can wait for
+        that event to ensure that the read operation is really done.
         """
         processed = 0
         while True:
-            try:
-                data = file.read(chunk_size)
-            except ValueError:
-                break
-            if data == b'':
+            data = file.read(chunk_size)
+            if data == b"":
                 break
             yield data
             processed += len(data)
             if progress_callback is not None:
                 progress_callback(processed, size)
+        queue.put(None)
 
     file_size = local_path.stat().st_size
-    cmd_line = f'head -c {file_size} > {remote_path.as_posix()}'
-    with local_path.open('rb') as local_file:
-        # We use the `safe_read` iterator to deal with the situation where the
-        # content of a file that should be uploaded is completely read and
+    signal_queue = Queue()
+    cmd_line = f"head -c {file_size} > {remote_path.as_posix()}"
+    with local_path.open("rb") as local_file:
+        # We use the `signaling_read` iterator to deal with the situation where
+        # the content of a file that should be uploaded is completely read and
         # uploaded, but the final EOF-triggering `read()` call has not yet been
-        # made. In this case it can happen that the server provides an answer
+        # made. In this case it can happen that the server provides an answer,
         # and we leave the context, thereby closing the file. When the
         # `iterable_subprocess.<locals>.input_to`-thread then tries to read
-        # from the file, a `ValueError` would be raised (unless we use
-        # `safe_read`). This exception would in turn lead to the closing of
-        # stdin of the `shell`-subprocess and render it unusable.
-        result = shell(cmd_line.encode(), stdin=safe_read(local_file, file_size))
+        # from the file, a `ValueError` would be raised. This exception would
+        # in turn lead to the closing of stdin of the `shell`-subprocess and
+        # render it unusable.`signaling_read` allows us to wait for a completed
+        # read, including the EOF reading.
+        result = shell(
+            cmd_line, stdin=signaling_read(local_file, file_size, signal_queue)
+        )
         consume(result)
+        signal_queue.get()
 
 
-def download(shell: ShellCommandExecutor,
-             remote_path: PurePosixPath,
-             local_path: Path,
-             response_generator_class: type[DownloadResponseGenerator] = DownloadResponseGeneratorPosix
-             ) -> None:
+def download(
+    shell: ShellCommandExecutor,
+    remote_path: PurePosixPath,
+    local_path: Path,
+    response_generator_class: type[
+        DownloadResponseGenerator
+    ] = DownloadResponseGeneratorPosix,
+) -> None:
     """Download a file from the connected shell
 
     This method downloads a file from the connected shell. It uses ``base64`` in
@@ -179,18 +197,19 @@ def download(shell: ShellCommandExecutor,
     """
     result = shell(
         remote_path.as_posix().encode(),
-        response_generator=response_generator_class(shell.stdout)
+        response_generator=response_generator_class(shell.stdout),
     )
-    with local_path.open('wb') as local_file:
+    with local_path.open("wb") as local_file:
         for chunk in result:
             local_file.write(chunk)
 
 
-def delete(shell: ShellCommandExecutor,
-           files: list[PurePosixPath],
-           *,
-           force: bool = False,
-           ) -> None:
+def delete(
+    shell: ShellCommandExecutor,
+    files: list[PurePosixPath],
+    *,
+    force: bool = False,
+) -> None:
     """Delete files on the connected shell
 
     The requirements for delete are:
@@ -216,9 +235,8 @@ def delete(shell: ShellCommandExecutor,
         the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
         to :func:`shell`) bytes of stderr output.
     """
-    cmd_line = \
-        'rm ' \
-        + ('-f ' if force else '') \
-        + ' '.join(f'{f.as_posix()}' for f in files)
+    cmd_line = (
+        "rm " + ("-f " if force else "") + " ".join(f"{f.as_posix()}" for f in files)
+    )
     result = shell(cmd_line.encode())
     consume(result)
