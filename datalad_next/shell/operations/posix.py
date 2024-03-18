@@ -33,28 +33,9 @@ class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
         :meth:`ShellCommandExecutor.__call__`.
         """
         return (
-            b"(stat -c %s "
+            b"((LC_ALL=C ls -dln -- "
             + remote_file_name
-            + b"|| echo -e -1)"
-            + b"&& cat "
-            + remote_file_name
-            + b"&& echo $?\n"
-        )
-
-
-class DownloadResponseGeneratorOSX(DownloadResponseGenerator):
-    def get_final_command(self, remote_file_name: bytes) -> bytes:
-        """Return a final command list for the download of ``remote_file_name``
-
-        The OSX version for download response generators.
-
-        This method is usually only called by
-        :meth:`ShellCommandExecutor.__call__`.
-        """
-        return (
-            b"(stat -f %z "
-            + remote_file_name
-            + b"|| echo -e -1)"
+            + b"|| echo -e 1 2 3 4 -1)| awk '{print $5; exit}')"
             + b"&& cat "
             + remote_file_name
             + b"&& echo $?\n"
@@ -165,8 +146,9 @@ def download(
 
     The requirements for download via instances of class
     :class:`DownloadResponseGeneratorPosix` are:
-    - The connected shell must support `stat -c`.
+    - The connected shell must support `ls -dln`.
     - The connected shell must support `echo -e`.
+    - The connected shell must support `awk`.
     - The connected shell must support `cat`.
 
     Parameters
@@ -181,11 +163,8 @@ def download(
     response_generator_class : type[DownloadResponseGenerator], optional, default: DownloadResponseGeneratorPosix
         The response generator that should be used to handle the download
         output. It must be a subclass of :class:`DownloadResponseGenerator`.
-        The default works if the connected shell runs on a ``Linux`` system.
-        On ``OSX`` systems, the response generator should be
-        :class:`DownloadResponseGeneratorOSX`. The two classes only differ in
-        the command line arguments that they provide to ``stat``. Those are
-        different on ``Linux`` and ``OSX``.
+        The default works if the connected shell runs on a Unix-like system that
+        provides `ls -dln` and `awk`, e.g. ``Linux`` or ``OSX``.
 
     Raises
     -------

@@ -8,8 +8,6 @@ from more_itertools import consume
 
 import datalad
 from datalad.tests.utils_pytest import (
-    on_linux,
-    on_osx,
     on_windows,
     skip_if,
 )
@@ -176,21 +174,11 @@ def test_download_ssh(sshserver, tmp_path):
         # perform an operation on the remote shell
         _check_ls_result(ssh_executor, common_files[0])
 
-        if on_osx:
-            # The OSX CI image uses localhost as ssh-server, on OSX that
-            # provides a `stat`-command that does not work with
-            # `DownloadResponseGeneratorPosix`, therefore we added a new
-            # response generator, that works with the ``stat``-command on OSX.
-            rp_class = posix.DownloadResponseGeneratorOSX
-        else:
-            rp_class = posix.DownloadResponseGeneratorPosix
-
         # download file from server and verify its content
         posix.download(
             ssh_executor,
             PurePosixPath(ssh_path + '/' + test_file_name),
             download_file,
-            rp_class,
         )
         assert download_file.read_text() == content
 
@@ -199,9 +187,8 @@ def test_download_ssh(sshserver, tmp_path):
 
 
 # This test only works on Posix-like systems because it executes a local
-# bash command. It does not work on OSX, because the `stat` command has a
-# different interface.
-@skip_if(not on_linux)
+# bash command.
+@skip_if(on_windows)
 def test_download_local_bash(tmp_path):
     content = '0123456789'
     download_file = tmp_path / 'download_123'
@@ -403,14 +390,7 @@ def test_fixed_length_response_generator_powershell():
 @skip_if(on_windows)
 def test_download_length_error():
     with shell(['bash']) as bash:
-        if on_osx:
-            # The OSX CI image uses localhost as ssh-server, on OSX that
-            # provides a `stat`-command that does not work with
-            # `DownloadResponseGeneratorPosix`, therefore we added a new
-            # response generator, that works with the ``stat``-command on OSX.
-            response_generator = posix.DownloadResponseGeneratorOSX(bash.stdout)
-        else:
-            response_generator = posix.DownloadResponseGeneratorPosix(bash.stdout)
+        response_generator = posix.DownloadResponseGeneratorPosix(bash.stdout)
         result = bash(b'unknown_file', response_generator=response_generator)
         with pytest.raises(CommandError):
             assert tuple(result) == ()
@@ -420,9 +400,8 @@ def test_download_length_error():
         _check_ls_result(bash, common_files[0])
 
 
-# This test only works on Linux systems because it executes a local bash and
-# uses a version of `stat` that is not available on OSX.
-@skip_if(not on_linux)
+# This test does not work on Windows systems because it executes a local bash.
+@skip_if(on_windows)
 def test_download_error(tmp_path):
     with shell(['bash']) as bash:
         with pytest.raises(CommandError):

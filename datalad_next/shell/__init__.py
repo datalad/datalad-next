@@ -139,7 +139,6 @@ per-call basis by providing a different response generator class in the
    FixedLengthResponseGeneratorPowerShell
    DownloadResponseGenerator
    DownloadResponseGeneratorPosix
-   DownloadResponseGeneratorOSX
    operations.posix.upload
    operations.posix.download
    operations.posix.delete
@@ -159,7 +158,6 @@ from .shell import (
 from .operations import posix
 from .operations.posix import (
     DownloadResponseGenerator,
-    DownloadResponseGeneratorOSX,
     DownloadResponseGeneratorPosix,
 )
 from .response_generators import (
