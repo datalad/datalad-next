@@ -31,6 +31,9 @@ std_initargs = [
 
 
 class NoOpAnnex:
+    def __init__(self, gitdir: Path):
+        self._gitdir = gitdir
+
     def error(*args, **kwargs):
         pass
 
@@ -40,8 +43,20 @@ class NoOpAnnex:
     def debug(*args, **kwargs):
         pass
 
+    def getgitdir(self):
+        return str(self._gitdir)
 
-def test_uncurl_remove_no_tmpl(tmp_path):
+    def getgitremotename(self):
+        return 'origin'
+
+    def getconfig(self, key):
+        return None
+
+    def getuuid(self):
+        return '2d0660ae-e5bf-11ee-b6f2-37ba632b6dd3'
+
+
+def test_uncurl_remove_no_tmpl(existing_dataset):
     # without a template configured we refuse to remove anything
     # for the simple reason that it may not be clear what is being
     # removed at all. We could only iterate over all recorded URLs
@@ -51,20 +66,21 @@ def test_uncurl_remove_no_tmpl(tmp_path):
     # to be removed. The best proxy we have for this expectation
     # is a URL tmpl being configured, pointing to such a single
     # location
-    r = UncurlRemote(NoOpAnnex())
+    r = UncurlRemote(NoOpAnnex(existing_dataset.pathobj))
+    r.prepare()
     with pytest.raises(RemoteError):
         r.remove(None)
 
 
-def test_uncurl_transfer_store_no_tmpl():
-    r = UncurlRemote(NoOpAnnex())
+def test_uncurl_transfer_store_no_tmpl(existing_dataset):
+    r = UncurlRemote(NoOpAnnex(existing_dataset.pathobj))
     r.url_handler = AnyUrlOperations()
     # whenever there is not template configured
     with pytest.raises(RemoteError):
         r.transfer_store(None, '')
 
 
-def test_uncurl_checktretrieve():
+def test_uncurl_checkretrieve(existing_dataset):
 
     def handler(url):
         raise UrlOperationsRemoteError(url)
@@ -72,7 +88,8 @@ def test_uncurl_checktretrieve():
     def get_urls(key):
         return 'some'
 
-    r = UncurlRemote(NoOpAnnex())
+    r = UncurlRemote(NoOpAnnex(existing_dataset.pathobj))
+    r.prepare()
     r.get_key_urls = get_urls
 
     # we raise the correct RemoteError and not the underlying
@@ -81,8 +98,9 @@ def test_uncurl_checktretrieve():
         r._check_retrieve('somekey', handler, ('blow', 'here'))
 
 
-def test_uncurl_claimurl(tmp_path):
-    r = UncurlRemote(NoOpAnnex())
+def test_uncurl_claimurl(existing_dataset):
+    r = UncurlRemote(NoOpAnnex(existing_dataset.pathobj))
+    r.prepare()
     # if we have a match expression defined, this determines claim or noclaim
     r.match = [re.compile('bongo.*')]
     assert r.claimurl('bongo://joe')
@@ -98,7 +116,7 @@ def test_uncurl_claimurl(tmp_path):
     assert not r.claimurl('bongo://joe')
 
 
-def test_uncurl_checkurl(httpbin, tmp_path):
+def test_uncurl_checkurl(httpbin, tmp_path, existing_dataset):
     # this is the URL against which the httpbin calls will be made
     hbsurl = httpbin['standard']
 
@@ -112,8 +130,8 @@ def test_uncurl_checkurl(httpbin, tmp_path):
     # of instantiating the URL template based on all properties
     # extractable from the URL alone (via any configured match
     # expressions)
-    r = UncurlRemote(NoOpAnnex())
-    r.url_handler = AnyUrlOperations()
+    r = UncurlRemote(NoOpAnnex(existing_dataset.pathobj))
+    r.prepare()
     # no match and no template defined
     assert not r.checkurl(no_exists_url)
     assert r.checkurl(exists_url)

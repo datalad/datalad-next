@@ -338,7 +338,7 @@ class UncurlRemote(SpecialRemote):
         returned is sufficient to make git-annex call `TRANSFER RETRIEVE`.
         """
         assert self.url_handler
-        assert self.url_tmpl
+        url_tmpl = self.url_tmpl or ''
         # try-except, because a URL template might need something
         # that cannot be extracted from this very URL.
         # we cannot consult a key that may already point to the same
@@ -347,9 +347,9 @@ class UncurlRemote(SpecialRemote):
         try:
             mangled_url = self.get_mangled_url(
                 url,
-                self.url_tmpl,
+                url_tmpl,
                 self.extract_tmpl_props(
-                    tmpl=self.url_tmpl,
+                    tmpl=url_tmpl,
                     urls=[url],
                 ),
             )
@@ -361,6 +361,7 @@ class UncurlRemote(SpecialRemote):
             )
             # otherwise go ahead with the original URL. the template might
             # just be here to aid structured uploads
+            mangled_url = url
         try:
             self.url_handler.stat(mangled_url)
             return True
