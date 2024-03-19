@@ -219,9 +219,14 @@ names for each match-group to avoid collisions.
 """
 from __future__ import annotations
 
+from annexremote import Master
 from functools import partial
 from pathlib import Path
 import re
+from typing import (
+    Callable,
+    Pattern,
+)
 
 from datalad_next.exceptions import (
     CapturedException,
@@ -240,25 +245,25 @@ from . import (
 
 class UncurlRemote(SpecialRemote):
     """ """
-    def __init__(self, annex):
+    def __init__(self, annex: Master):
         super().__init__(annex)
         self.configs.update(
             url='Python format language template composing an access URL',
             match='(whitespace-separated list of) regular expression(s) to match particular components in supported URL via named groups',
         )
-        self.url_tmpl = None
-        self.match = None
-        self.url_handler = None
+        self.url_tmpl: str | None = None
+        self.match: list[Pattern[str]] | None = None
+        self.url_handler: AnyUrlOperations | None = None
         # cache of properties that do not vary within a session
         # or across annex keys
-        self.persistent_tmpl_props = {}
+        self.persistent_tmpl_props: dict[str, str] = {}
 
-    def initremote(self):
+    def initremote(self) -> None:
         # at present there is nothing that needs to be done on init/enable.
         # the remote is designed to work without any specific setup too
         pass
 
-    def prepare(self):
+    def prepare(self) -> None:
         # we need the git remote name to be able to look up config about
         # that remote
         # check the config for a URL template setting
@@ -274,14 +279,15 @@ class UncurlRemote(SpecialRemote):
 
         # unconditionally ask git-annex for a match-url setting, any local
         # config amends, and does not override
-        self.match = self.annex.getconfig('match')
-        if self.match:
-            self.match = self.match.split()
+        match_spec: str = self.annex.getconfig('match')
+        if match_spec:
             # TODO implement sanity checks, but running it through re.compile()
             # might just be enough
-            self.match = [re.compile(m) for m in self.match]
+            matches = [re.compile(m) for m in match_spec.split()]
+        else:
+            matches = []
         # extend with additional matchers from local config
-        self.match = (self.match or []) + [
+        self.match = matches + [
             re.compile(m)
             for m in ensure_list(self.get_remote_gitcfg(
                 'uncurl', 'match', default=[], get_all=True))
@@ -305,7 +311,7 @@ class UncurlRemote(SpecialRemote):
             annex_remoteuuid=self.annex.getuuid(),
         )
 
-    def claimurl(self, url):
+    def claimurl(self, url: str) -> bool:
         """Needs to check if want to handle a given URL
 
         If match expressions are configured, matches the URL against all known
@@ -315,12 +321,13 @@ class UncurlRemote(SpecialRemote):
         If no match expressions are configured, return `True` of the URL
         scheme is supported, or `False` otherwise.
         """
+        assert self.url_handler
         if self.match:
             return self.is_recognized_url(url)
         else:
             return self.url_handler.is_supported_url(url)
 
-    def checkurl(self, url):
+    def checkurl(self, url: str) -> bool:
         """
         When running `git-annex addurl`, this is called after CLAIMURL
         indicated that we could handle a URL. It can return information
@@ -330,17 +337,19 @@ class UncurlRemote(SpecialRemote):
         given URL. However, all of that is optional, and a simple `True`
         returned is sufficient to make git-annex call `TRANSFER RETRIEVE`.
         """
+        assert self.url_handler
+        url_tmpl = self.url_tmpl or ''
         # try-except, because a URL template might need something
         # that cannot be extracted from this very URL.
         # we cannot consult a key that may already point to the same
         # content as the URL, and may have other information --
         # we simply dont have it at this point
         try:
-            url = self.get_mangled_url(
+            mangled_url = self.get_mangled_url(
                 url,
-                self.url_tmpl,
+                url_tmpl,
                 self.extract_tmpl_props(
-                    tmpl=self.url_tmpl,
+                    tmpl=url_tmpl,
                     urls=[url],
                 ),
             )
@@ -352,8 +361,9 @@ class UncurlRemote(SpecialRemote):
             )
             # otherwise go ahead with the original URL. the template might
             # just be here to aid structured uploads
+            mangled_url = url
         try:
-            urlprops = self.url_handler.stat(url)
+            self.url_handler.stat(mangled_url)
             return True
         except UrlOperationsRemoteError as e:
             # leave a trace in the logs
@@ -371,36 +381,44 @@ class UncurlRemote(SpecialRemote):
         # of git-annex insisting to write into a dedicated directory for this
         # download.
 
-    def transfer_retrieve(self, key, filename):
+    def transfer_retrieve(self, key: str, filename: str) -> None:
+        assert self.url_handler
         self._check_retrieve(
             key,
             partial(self.url_handler.download, to_path=Path(filename)),
             ('download', 'from'),
         )
 
-    def checkpresent(self, key):
+    def checkpresent(self, key: str) -> bool:
+        assert self.url_handler
         return self._check_retrieve(
             key,
             self.url_handler.stat,
             ('find', 'at'),
         )
 
-    def transfer_store(self, key, filename):
-        return self._store_delete(
+    def transfer_store(self, key: str, filename: str) -> None:
+        assert self.url_handler
+        self._store_delete(
             key,
             partial(self.url_handler.upload, from_path=Path(filename)),
             'cannot store',
         )
 
-    def remove(self, key):
+    def remove(self, key: str) -> None:
+        def _delete(to_url: str) -> None:
+            # we have to map parameter names to be able to use a common
+            # helper with transfer_store(), because UrlOperations.upload()
+            # needs to get the URL as a second argument, hence we need
+            # to pass parameters as keyword-args
+            assert self.url_handler
+            self.url_handler.delete(url=to_url)
+            return
+
         try:
-            return self._store_delete(
+            self._store_delete(
                 key,
-                # we have to map parameter names to be able to use a common
-                # helper with transfer_store(), because UrlOperations.upload()
-                # needs to get the URL as a second argument, hence we need
-                # to pass parameters as keyword-args
-                lambda to_url: self.url_handler.delete(url=to_url),
+                _delete,
                 'refuses to delete',
             )
         except UrlOperationsResourceUnknown:
@@ -410,10 +428,10 @@ class UncurlRemote(SpecialRemote):
     #
     # helpers
     #
-    def is_recognized_url(self, url):
+    def is_recognized_url(self, url: str) -> bool:
         return any(m.match(url) for m in self.match or [])
 
-    def get_key_urls(self, key) -> list[str]:
+    def get_key_urls(self, key: str) -> list[str]:
         # ask git-annex for the URLs it has on record for the key.
         # this will also work within checkurl() for a temporary key
         # generated by git-annex after claimurl()
@@ -433,12 +451,17 @@ class UncurlRemote(SpecialRemote):
                 tmpl=self.url_tmpl,
                 tmpl_props=props,
             )
-            return [url]
+            return [url] if url else []
         # we have no rewriting template, and must return all URLs we know
         # to let the caller sort it out
         return urls
 
-    def get_mangled_url(self, fallback_url, tmpl, tmpl_props):
+    def get_mangled_url(
+        self,
+        fallback_url: str | None,
+        tmpl: str,
+        tmpl_props: dict[str, str],
+    ) -> str | None:
         if not tmpl:
             # the best thing we can do without a URL template is to
             # return the URL itself
@@ -446,7 +469,13 @@ class UncurlRemote(SpecialRemote):
         url = tmpl.format(**tmpl_props)
         return url
 
-    def extract_tmpl_props(self, tmpl, *, urls=None, key=None):
+    def extract_tmpl_props(
+        self,
+        tmpl: str,
+        *,
+        urls: list[str] | None = None,
+        key: str | None = None,
+    ) -> dict[str, str]:
         # look up all the standard
         allprops = dict(self.persistent_tmpl_props)
         if key:
@@ -477,7 +506,12 @@ class UncurlRemote(SpecialRemote):
                 allprops.update(props)
         return allprops
 
-    def _check_retrieve(self, key, handler, action: tuple):
+    def _check_retrieve(
+        self,
+        key: str,
+        handler: Callable,
+        action: tuple[str, str],
+    ) -> bool:
         urls = self.get_key_urls(key)
         # depending on the configuration (rewriting template or not)
         # we could have one or more URLs to try
@@ -493,21 +527,26 @@ class UncurlRemote(SpecialRemote):
             except UrlOperationsRemoteError as e:
                 # return False only if we could be sure that the remote
                 # system works properly and just the key is not around
-                ce = CapturedException(e)
+                CapturedException(e)
                 self.message(
                     f'Failed to {action[0]} key {key!r} {action[1]} {url!r}',
                     type='debug')
         raise RemoteError(
             f'Failed to {action[0]} {key!r} {action[1]} any of {urls!r}')
 
-    def _store_delete(self, key, handler, action: str):
+    def _store_delete(
+        self,
+        key: str,
+        handler: Callable,
+        action: str,
+    ) -> None:
         if not self.url_tmpl:
             raise RemoteError(
                 f'Remote {action} content without a configured URL template')
-        url = self.get_key_urls(key)
+        urls = self.get_key_urls(key)
         # we have a rewriting template, so we expect exactly one URL
-        assert len(url) == 1
-        url = url[0]
+        assert len(urls) == 1
+        url = urls[0]
         try:
             handler(to_url=url)
         except UrlOperationsResourceUnknown:
