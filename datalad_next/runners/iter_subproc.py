@@ -6,7 +6,10 @@ from typing import (
     List,
 )
 
-from datalad_next.iterable_subprocess import iterable_subprocess
+from datalad_next.iterable_subprocess.iterable_subprocess import (
+    iterable_subprocess,
+    OutputFrom,
+)
 from datalad_next.exceptions import CommandError
 from datalad_next.consts import COPY_BUFSIZE
 
@@ -19,6 +22,7 @@ def iter_subproc(
     input: Iterable[bytes] | None = None,
     chunk_size: int = COPY_BUFSIZE,
     cwd: Path | None = None,
+    bufsize: int = -1,
 ):
     """Context manager to communicate with a subprocess using iterables
 
@@ -88,6 +92,9 @@ def iter_subproc(
       Size of chunks to read from the subprocess's stdout/stderr in bytes.
     cwd: Path
       Working directory for the subprocess, passed to ``subprocess.Popen``.
+    bufsize: int, optional
+      Buffer size to use for the subprocess's ``stdin``, ``stdout``, and
+      ``stderr``. See ``subprocess.Popen`` for details.
 
     Returns
     -------
@@ -98,4 +105,5 @@ def iter_subproc(
         tuple() if input is None else input,
         chunk_size=chunk_size,
         cwd=cwd,
+        bufsize=bufsize,
     )

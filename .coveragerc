@@ -14,3 +14,5 @@ source =
 [report]
 # show lines missing coverage in output
 show_missing = True
+exclude_also =
+    raise NotImplementedError

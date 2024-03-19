@@ -11,6 +11,7 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
+from __future__ import annotations
 
 import sys
 import subprocess
@@ -107,7 +108,7 @@ language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = []
+exclude_patterns: list[str] = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -140,3 +141,6 @@ html_show_sourcelink = False
 # but see `smartquotes_action` for more fine-grained control, in case
 # some of this functionality is needed
 smartquotes = False
+
+# render docstrings for dunder-methods, e.g. `__call__`.
+napoleon_include_special_with_doc = True
