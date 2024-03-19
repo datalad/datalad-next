@@ -1,3 +1,72 @@
+# 1.3.0 (2024-03-19)
+
+## 💫 Enhancements and new features
+
+- Code organization is adjusted to clearly indicate what is part of the
+  package's public Python API. Anything that can be imported directly from
+  the top-level of any sub-package is part of the public API.
+  As an example: `from datalad_next.runners import iter_git_subproc`
+  imports a part of the public API, but
+  `from datalad_next.runners.git import iter_git_subproc` does not.
+  See `README.md` for more information.
+  Fixes https://github.com/datalad/datalad-next/issues/613 via
+  https://github.com/datalad/datalad-next/pull/615 (by @mih)
+  https://github.com/datalad/datalad-next/pull/617 (by @mih)
+  https://github.com/datalad/datalad-next/pull/618 (by @mih)
+  https://github.com/datalad/datalad-next/pull/619 (by @mih)
+  https://github.com/datalad/datalad-next/pull/620 (by @mih)
+  https://github.com/datalad/datalad-next/pull/621 (by @mih)
+  https://github.com/datalad/datalad-next/pull/622 (by @mih)
+  https://github.com/datalad/datalad-next/pull/623 (by @mih)
+
+- New `patched_env` context manager for patching a process'
+  environment. This avoids the for importing `unittest` outside
+  test implementations.
+  Via https://github.com/datalad/datalad-next/pull/633 (by @mih)
+
+- `call_git...()` functions received a new `force_c_locale`
+  parameter. This can be set whenever Git output needs to be parsed
+  to force running the command with `LC_ALL=C`. Such an environment
+  manipulation is off by default and not done unconditionally to
+  let localized messaging through in a user's normal locale.
+
+## 🐛 Bug Fixes
+
+- `datalad-annex::` Git remote helper now tests for a repository
+  deposit, and distinguishes an absent remote repository deposit
+  vs cloning from an empty repository deposit. This rectifies
+  confusing behavior (successful clones of empty repositories
+  from broken URLs), but also fixes handling of subdataset clone
+  candidate handling in `get` (which failed to skip inaccessible
+  `datalad-annex::` URLs for the same reason).
+  Fixes https://github.com/datalad/datalad-next/issues/636 via
+  https://github.com/datalad/datalad-next/pull/638 (by @mih)
+
+## 📝 Documentation
+
+- API docs have been updated to include all top-level symbols
+  of any sub-package, or in other words: the public API.
+  See https://github.com/datalad/datalad-next/pull/627 (by @mih)
+
+## 🏠 Internal
+
+- The `tree` command no longer uses the `subdatasets` command
+  for queries, but employs the recently introduced `iter_submodules()`
+  for leaner operations.
+  See https://github.com/datalad/datalad-next/pull/628 (by @mih)
+
+- `call_git...()` functions are established as the only used abstraction
+  to interface with Git and git-annex commands outside the use in
+  DataLad's `Repo` classes. Any usage of DataLad's traditional
+  `Runner` functionality is discontinued.
+  Fixes https://github.com/datalad/datalad-next/issues/541 via
+  https://github.com/datalad/datalad-next/pull/632 (by @mih)
+
+- Type annotations have been added to the implementation of the
+  `uncurl` git-annex remote. A number of unhandled conditions have
+  been discovered and were rectified.
+
+
 # 1.2.0 (2024-02-02)
 
 ## 🐛 Bug Fixes
