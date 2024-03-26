@@ -38,6 +38,7 @@ lgr = logging.getLogger('datalad.ext.next.shell')
 @contextmanager
 def shell(shell_cmd: list[str],
           *,
+          credential: str | None = None,
           chunk_size: int = COPY_BUFSIZE,
           zero_command_rg_class: type[VariableLengthResponseGenerator] = VariableLengthResponseGeneratorPosix,
           ) -> Generator[ShellCommandExecutor, None, None]:
