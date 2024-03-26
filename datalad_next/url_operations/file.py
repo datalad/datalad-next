@@ -175,11 +175,11 @@ class FileUrlOperations(UrlOperations):
                 ))
                 return props
         except FileNotFoundError as e:
-            raise UrlOperationsResourceUnknown(url) from e
+            raise UrlOperationsResourceUnknown(from_path) from e
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
-            raise UrlOperationsRemoteError(from_url, message=str(e)) from e
+            raise UrlOperationsRemoteError(to_url, message=str(e)) from e
         finally:
             if src_fp and from_path is not None:
                 src_fp.close()

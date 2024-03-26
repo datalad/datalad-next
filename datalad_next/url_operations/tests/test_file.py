@@ -1,8 +1,8 @@
 import io
-import locale
 import pytest
 import sys
 
+from datalad_next.tests import skip_if_on_windows
 from datalad_next.utils import on_linux
 
 from ..file import (
@@ -100,3 +100,12 @@ def test_file_url_delete(tmp_path):
         assert not list(test_path.parent.iterdir())
         ops.delete(test_path.parent.as_uri())
         assert not test_path.parent.exists()
+
+
+@skip_if_on_windows
+def test_file_url_upload_errors(tmp_path):
+    source = tmp_path / 'source'
+    source.write_text('Some content\n')
+    fops = FileUrlOperations()
+    with pytest.raises(UrlOperationsRemoteError) as e:
+        fops.upload(source, 'file:///tmp//')
