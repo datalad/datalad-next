@@ -27,7 +27,7 @@ class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
     def get_final_command(self, remote_file_name: bytes) -> bytes:
         """Return a final command list for the download of ``remote_file_name``
 
-        The Linux version for download response generators.
+        The Unix version for download response generators.
 
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
