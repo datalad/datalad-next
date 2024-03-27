@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import sys
 from functools import partial
 from itertools import chain
@@ -34,17 +35,18 @@ from datalad_next.runners import (
     CommandError,
 )
 
-
 from .base import UrlOperations
 from .exceptions import (
     UrlOperationsRemoteError,
     UrlOperationsResourceUnknown,
 )
 
+
 lgr = logging.getLogger('datalad.ext.next.ssh_url_operations')
 
-
 __all__ = ['SshUrlOperations']
+
+random.seed()
 
 
 class SshUrlOperations(UrlOperations):
@@ -235,7 +237,8 @@ class SshUrlOperations(UrlOperations):
                *,
                credential: str | None = None,
                hash: list[str] | None = None,
-               timeout: float | None = None) -> Dict:
+               timeout: float | None = None,
+               atomic: bool = False) -> Dict:
         """Upload a file by streaming it through an SSH connection.
 
         It, more or less, runs `ssh <host> 'cat > <path>'`.
@@ -253,6 +256,7 @@ class SshUrlOperations(UrlOperations):
                 hash_names=hash,
                 expected_size=None,
                 timeout=timeout,
+                atomic=atomic,
             )
         else:
             # die right away, if we lack read permissions or there is no file
@@ -264,6 +268,7 @@ class SshUrlOperations(UrlOperations):
                     hash_names=hash,
                     expected_size=from_path.stat().st_size,
                     timeout=timeout,
+                    atomic=atomic,
                 )
 
     def _perform_upload(self,
@@ -272,7 +277,8 @@ class SshUrlOperations(UrlOperations):
                         to_url: str,
                         hash_names: list[str] | None,
                         expected_size: int | None,
-                        timeout: float | None) -> dict:
+                        timeout: float | None,
+                        atomic: bool = False) -> dict:
 
         hasher = self._get_hasher(hash_names)
 
@@ -289,11 +295,23 @@ class SshUrlOperations(UrlOperations):
         #
         upload_queue: Queue = Queue(maxsize=2)
 
-        cmd = _SshCommandBuilder(to_url, self.cfg).get_cmd(
-            # leave special exit code when writing fails, but not the
-            # general SSH access
-            "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244"
-        )
+        if atomic:
+            cmd = _SshCommandBuilder(to_url, self.cfg).get_cmd(
+                # copy the file to its destination location with a randomized
+                # name, and move it to its final location after upload. This
+                # way, upload appears atomic, i.e. no half uploaded file will
+                # be seen at the destination URL
+                # leave special exit code when writing or moving fails, but not
+                # the general SSH access
+                "( mkdir -p '{fdir}' && cat > '{fpath}.transfer-{nonce}'"
+                " && mv '{fpath}.transfer-{nonce}' '{fpath}' ) || exit 243"
+            )
+        else:
+            cmd = _SshCommandBuilder(to_url, self.cfg).get_cmd(
+                # leave special exit code when writing fails, but not the
+                # general SSH access
+                "( mkdir -p '{fdir}' && cat > '{fpath}' ) || exit 244"
+            )
 
         progress_id = self._get_progress_id(source_name, to_url)
         try:
@@ -329,7 +347,7 @@ class SshUrlOperations(UrlOperations):
         except Full:
             if chunk != b'':
                 # we had a timeout while uploading
-                raise TimeoutError
+                raise TimeoutError(f'timeout while executing: {cmd}')
 
         return {
             **hasher.get_hexdigest(),
@@ -353,6 +371,7 @@ class _SshCommandBuilder:
         self.substitutions = dict(
             fdir=str(PurePosixPath(self._parsed.path).parent),
             fpath=self._parsed.path,
+            nonce=random.randint(1000000000, 9999999999),
         )
 
     def get_cmd(self,

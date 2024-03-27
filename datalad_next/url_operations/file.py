@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+import random
 import sys
-from typing import Dict
+from io import IOBase
+from pathlib import Path
+from typing import (
+    BinaryIO,
+    Dict,
+)
 from urllib import (
     request,
     parse,
@@ -21,6 +26,7 @@ from .exceptions import (
 )
 
 lgr = logging.getLogger('datalad.ext.next.file_url_operations')
+random.seed()
 
 
 __all__ = ['FileUrlOperations']
@@ -134,7 +140,8 @@ class FileUrlOperations(UrlOperations):
                *,
                credential: str | None = None,
                hash: list[str] | None = None,
-               timeout: float | None = None) -> Dict:
+               timeout: float | None = None,
+               atomic: bool = False) -> Dict:
         """Copy a local file to a file:// URL target
 
         Any missing parent directories of the URL target are created as
@@ -156,6 +163,14 @@ class FileUrlOperations(UrlOperations):
         else:
             expected_size = None
         to_path = self._file_url_to_path(to_url)
+        if atomic:
+            final_path = to_path
+            # added a `nosec` below because we don't need a cryptographically
+            # secure random number here.
+            to_path = to_path.with_suffix(   # nosec
+                to_path.suffix
+                + f'.transfer-{random.randint(1000000000, 9999999999)}'
+            )
         # create parent dir(s) as necessary
         to_path.parent.mkdir(exist_ok=True, parents=True)
         src_fp = None
@@ -173,13 +188,15 @@ class FileUrlOperations(UrlOperations):
                     finish_log=('Finished upload',),
                     progress_label='uploading',
                 ))
-                return props
+            if atomic:
+                to_path.replace(final_path)
+            return props
         except FileNotFoundError as e:
-            raise UrlOperationsResourceUnknown(url) from e
+            raise UrlOperationsResourceUnknown(from_path) from e
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
-            raise UrlOperationsRemoteError(from_url, message=str(e)) from e
+            raise UrlOperationsRemoteError(to_url, message=str(e)) from e
         finally:
             if src_fp and from_path is not None:
                 src_fp.close()
@@ -218,9 +235,9 @@ class FileUrlOperations(UrlOperations):
             raise UrlOperationsRemoteError(url, message=str(e)) from e
 
     def _copyfp(self,
-                src_fp: file,
-                dst_fp: file,
-                expected_size: int,
+                src_fp: IOBase | BinaryIO,
+                dst_fp: IOBase | BinaryIO,
+                expected_size: int | None,
                 hash: list[str] | None,
                 start_log: tuple,
                 update_log: tuple,
@@ -230,7 +247,7 @@ class FileUrlOperations(UrlOperations):
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
         hasher = self._get_hasher(hash)
-        progress_id = self._get_progress_id(id(src_fp), id(src_fp))
+        progress_id = self._get_progress_id(str(id(src_fp)), str(id(dst_fp)))
 
         # Localize variable access to minimize overhead
         src_fp_read = src_fp.read
