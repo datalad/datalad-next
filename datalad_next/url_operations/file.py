@@ -6,8 +6,12 @@ from __future__ import annotations
 import logging
 import random
 import sys
+from io import IOBase
 from pathlib import Path
-from typing import Dict
+from typing import (
+    BinaryIO,
+    Dict,
+)
 from urllib import (
     request,
     parse,
@@ -161,7 +165,9 @@ class FileUrlOperations(UrlOperations):
         to_path = self._file_url_to_path(to_url)
         if atomic:
             final_path = to_path
-            to_path = to_path.with_suffix(
+            # added a `nosec` below because we don't need a cryptographically
+            # secure random number here.
+            to_path = to_path.with_suffix(   # nosec
                 to_path.suffix
                 + f'.transfer-{random.randint(1000000000, 9999999999)}'
             )
@@ -229,9 +235,9 @@ class FileUrlOperations(UrlOperations):
             raise UrlOperationsRemoteError(url, message=str(e)) from e
 
     def _copyfp(self,
-                src_fp: file,
-                dst_fp: file,
-                expected_size: int,
+                src_fp: IOBase | BinaryIO,
+                dst_fp: IOBase | BinaryIO,
+                expected_size: int | None,
                 hash: list[str] | None,
                 start_log: tuple,
                 update_log: tuple,
@@ -241,7 +247,7 @@ class FileUrlOperations(UrlOperations):
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
         hasher = self._get_hasher(hash)
-        progress_id = self._get_progress_id(id(src_fp), id(src_fp))
+        progress_id = self._get_progress_id(str(id(src_fp)), str(id(dst_fp)))
 
         # Localize variable access to minimize overhead
         src_fp_read = src_fp.read
