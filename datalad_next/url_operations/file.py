@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+import random
 import sys
+from pathlib import Path
 from typing import Dict
 from urllib import (
     request,
@@ -21,6 +22,7 @@ from .exceptions import (
 )
 
 lgr = logging.getLogger('datalad.ext.next.file_url_operations')
+random.seed()
 
 
 __all__ = ['FileUrlOperations']
@@ -134,7 +136,8 @@ class FileUrlOperations(UrlOperations):
                *,
                credential: str | None = None,
                hash: list[str] | None = None,
-               timeout: float | None = None) -> Dict:
+               timeout: float | None = None,
+               atomic: bool = False) -> Dict:
         """Copy a local file to a file:// URL target
 
         Any missing parent directories of the URL target are created as
@@ -156,6 +159,12 @@ class FileUrlOperations(UrlOperations):
         else:
             expected_size = None
         to_path = self._file_url_to_path(to_url)
+        if atomic:
+            final_path = to_path
+            to_path = to_path.with_suffix(
+                to_path.suffix
+                + f'.transfer-{random.randint(1000000000, 9999999999)}'
+            )
         # create parent dir(s) as necessary
         to_path.parent.mkdir(exist_ok=True, parents=True)
         src_fp = None
@@ -173,7 +182,9 @@ class FileUrlOperations(UrlOperations):
                     finish_log=('Finished upload',),
                     progress_label='uploading',
                 ))
-                return props
+            if atomic:
+                to_path.replace(final_path)
+            return props
         except FileNotFoundError as e:
             raise UrlOperationsResourceUnknown(from_path) from e
         except Exception as e:
