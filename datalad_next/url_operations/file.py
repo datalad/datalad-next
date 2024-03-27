@@ -4,9 +4,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+import random
 import sys
-from typing import Dict
+import time
+from io import IOBase
+from math import floor
+from pathlib import Path
+from typing import (
+    BinaryIO,
+    Dict,
+)
 from urllib import (
     request,
     parse,
@@ -155,7 +162,15 @@ class FileUrlOperations(UrlOperations):
             props['content-length'] = expected_size
         else:
             expected_size = None
-        to_path = self._file_url_to_path(to_url)
+        final_path = self._file_url_to_path(to_url)
+        # added a `nosec` below because we don't need a cryptographically
+        # secure random number here.
+        time_stamp = time.time()
+        to_path = final_path.with_suffix(   # nosec
+            final_path.suffix
+            + f'.transfer-{random.randint(1000000000, 9999999999)}'
+            + f'_{str(time_stamp - floor(time_stamp))[2:]}'
+        )
         # create parent dir(s) as necessary
         to_path.parent.mkdir(exist_ok=True, parents=True)
         src_fp = None
@@ -173,7 +188,8 @@ class FileUrlOperations(UrlOperations):
                     finish_log=('Finished upload',),
                     progress_label='uploading',
                 ))
-                return props
+            to_path.replace(final_path)
+            return props
         except FileNotFoundError as e:
             raise UrlOperationsResourceUnknown(from_path) from e
         except Exception as e:
@@ -216,11 +232,12 @@ class FileUrlOperations(UrlOperations):
             # wrap this into the datalad-standard, but keep the
             # original exception linked
             raise UrlOperationsRemoteError(url, message=str(e)) from e
+        return {}
 
     def _copyfp(self,
-                src_fp: file,
-                dst_fp: file,
-                expected_size: int,
+                src_fp: IOBase | BinaryIO,
+                dst_fp: IOBase | BinaryIO,
+                expected_size: int | None,
                 hash: list[str] | None,
                 start_log: tuple,
                 update_log: tuple,
@@ -230,7 +247,7 @@ class FileUrlOperations(UrlOperations):
         # this is pretty much shutil.copyfileobj() with the necessary
         # wrapping to perform hashing and progress reporting
         hasher = self._get_hasher(hash)
-        progress_id = self._get_progress_id(id(src_fp), id(src_fp))
+        progress_id = self._get_progress_id(str(id(src_fp)), str(id(dst_fp)))
 
         # Localize variable access to minimize overhead
         src_fp_read = src_fp.read

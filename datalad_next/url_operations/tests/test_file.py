@@ -38,7 +38,8 @@ def test_file_url_download(tmp_path):
         ops.download(test_url, download_path)
 
 
-def test_file_url_upload(tmp_path, monkeypatch):
+@pytest.mark.parametrize('atomic', [True, False])
+def test_file_url_upload(tmp_path, monkeypatch, atomic):
     payload = 'payload'
     payload_file = tmp_path / 'payload'
     test_upload_path = tmp_path / 'myfile'
@@ -47,13 +48,13 @@ def test_file_url_upload(tmp_path, monkeypatch):
     # missing source file
     # standard exception, makes no sense to go custom thinks mih
     with pytest.raises(FileNotFoundError):
-        ops.upload(payload_file, test_upload_url)
+        ops.upload(payload_file, test_upload_url, atomic=atomic)
     # no empty targets lying around
     assert not test_upload_path.exists()
 
     # now again
     payload_file.write_text(payload)
-    props = ops.upload(payload_file, test_upload_url, hash=['md5'])
+    props = ops.upload(payload_file, test_upload_url, hash=['md5'], atomic=atomic)
     assert test_upload_path.read_text() == 'payload'
     assert props['content-length'] == len(payload)
     assert props['md5'] == '321c3cf486ed509164edec1e1981fec8'
@@ -64,7 +65,7 @@ def test_file_url_upload(tmp_path, monkeypatch):
         m.setattr(sys, 'stdin',
                   io.TextIOWrapper(io.BytesIO(
                       bytes(payload, encoding='utf-8'))))
-        props = ops.upload(None, from_stdin_url, hash=['md5'])
+        props = ops.upload(None, from_stdin_url, hash=['md5'], atomic=atomic)
         assert props['md5'] == '321c3cf486ed509164edec1e1981fec8'
         assert props['content-length'] == len(payload)
 
