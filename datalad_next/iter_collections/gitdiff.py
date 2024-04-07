@@ -23,7 +23,10 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-from datalad_next.runners import call_git_oneline
+from datalad_next.runners import (
+    call_git,
+    call_git_oneline,
+)
 
 from .gittree import (
     GitTreeItem,
@@ -84,7 +87,7 @@ class GitDiffItem(GitTreeItem):
     """This is the percentage of similarity for copy-status and
     rename-status diff items, and the percentage of dissimilarity
     for modifications."""
-    modification_types: tuple[GitContainerModificationType] | None = None
+    modification_types: tuple[GitContainerModificationType, ...] | None = None
     """Qualifiers for modification types of container-type
     items (directories, submodules)."""
 
@@ -209,6 +212,19 @@ def iter_gitdiff(
     )
 
     cmd = _build_cmd(**kwargs)
+
+    if cmd[0] == 'diff-index':
+        # when we compare to the index, we need a refresh run to not have
+        # something like plain mtime changes trigger modification reports
+        # https://github.com/datalad/datalad-next/issues/639
+        call_git([
+            'update-index',
+            # must come first, we recurse ourselves
+            '--ignore-submodules',
+            # we want to continue the refresh when the index need updating
+            '-q',
+            '--refresh',
+        ])
 
     # when do we need to condense subdir reports into a single dir-report
     reported_dirs: set[str] = set()
