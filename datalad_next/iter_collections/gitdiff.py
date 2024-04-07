@@ -87,7 +87,7 @@ class GitDiffItem(GitTreeItem):
     """This is the percentage of similarity for copy-status and
     rename-status diff items, and the percentage of dissimilarity
     for modifications."""
-    modification_types: tuple[GitContainerModificationType] | None = None
+    modification_types: tuple[GitContainerModificationType, ...] | None = None
     """Qualifiers for modification types of container-type
     items (directories, submodules)."""
 
