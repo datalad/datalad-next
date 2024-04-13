@@ -57,7 +57,6 @@ def upload(
     The requirements for upload are:
     - The connected shell must be a POSIX shell.
     - ``head`` must be installed in the remote shell.
-    - ``cat`` must be installed in the remote shell.
 
     Parameters
     ----------
@@ -114,7 +113,7 @@ def upload(
     with local_path.open("rb") as local_file:
         # We use the `signaling_read` iterator to deal with the situation where
         # the content of a file that should be uploaded is completely read and
-        # uploaded, but the final EOF-triggering `read()` call has not yet been
+        # uploaded, but the final, EOF-triggering, `read()` call has not yet been
         # made. In this case it can happen that the server provides an answer,
         # and we leave the context, thereby closing the file. When the
         # `iterable_subprocess.<locals>.input_to`-thread then tries to read
