@@ -19,4 +19,7 @@ from . import (
     ssh_exec,
     sshremoteio,
     sshconnector,
+    # this replaces SSHRemoteIO entirely, consolidate with patches
+    # above
+    replace_sshremoteio,
 )
