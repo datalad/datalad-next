@@ -97,8 +97,7 @@ def shell(shell_cmd: list[str],
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
-        ...     result = ssh(b'head -1 /etc/passwd')
-        ...     print(result.stdout)
+        ...     print(ssh(b'head -1 /etc/passwd').stdout)
         ...     result = ssh(b'ls /no-such-file')
         ...     print(result.stdout)
         ...     print(result.returncode)
@@ -108,6 +107,47 @@ def shell(shell_cmd: list[str],
         b''
         2
         b"Pseudo-terminal will not be allocated because stdin is not a terminal.\\r\\nls: cannot access '/no-such-file': No such file or directory\\n"
+
+    The following example demonstrates how to use the ``check``-parameter to
+    raise a :class:`CommandError`-exception if the return code of the command is
+    not zero. This delegates error handling to the calling code and help to keep
+    the code clean::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     print(ssh(b'ls /no-such-file', check=True).stdout)
+        ...
+        Traceback (most recent call last):
+          File "<stdin>", line 2, in <module>
+          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 279, in __call__
+            return create_result(
+          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 349, in create_result
+            result.to_exception(command, error_message)
+          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 52, in to_exception
+            raise CommandError(
+        datalad.runner.exception.CommandError: CommandError: 'ls /no-such-file' failed with exitcode 2 [err: 'cannot access '/no-such-file': No such file or directory']
+
+    Manual checking of the return code::
+
+        >>> from datalad_next.shell import shell
+        >>> def file_exists(file_name):
+        ...     with shell(['ssh', 'localhost']) as ssh:
+        ...         result = ssh(f'ls {file_name}')
+        ...         return result.returncode == 0
+        ... print(file_exists('/etc/passwd'))
+        True
+        ... print(file_exists('/no-such-file'))
+        False
+
+    An example for result content checking::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result = ssh(f'grep root /etc/passwd', check=True).stdout
+        ...     if len(result.splitlines()) != 1:
+        ...         raise ValueError('Expected exactly one line')
+
+
 
     Parameters
     ----------
