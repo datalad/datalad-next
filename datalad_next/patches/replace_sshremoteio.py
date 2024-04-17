@@ -1,3 +1,8 @@
+import logging
+
+from urllib.parse import urlparse
+from urllib.request import unquote
+
 from datalad.distributed.ora_remote import (
     DEFAULT_BUFFER_SIZE,
     IOBase,
@@ -13,6 +18,7 @@ from datalad.distributed.ora_remote import (
     subprocess,
 )
 
+from datalad_next.exceptions import CapturedException
 from datalad_next.patches import apply_patch
 
 
@@ -27,18 +33,20 @@ class SSHRemoteIO(IOBase):
     REMOTE_CMD_FAIL = "ora-remote: end - fail"
     REMOTE_CMD_OK = "ora-remote: end - ok"
 
-    def __init__(self, host, buffer_size=DEFAULT_BUFFER_SIZE):
+    def __init__(self, ssh_url, buffer_size=DEFAULT_BUFFER_SIZE):
         """
         Parameters
         ----------
-        host : str
+        ssh_url : str
           SSH-accessible host(name) to perform remote IO operations
           on.
         """
+        parsed_url = urlparse(ssh_url)
+
         # the connection to the remote
         # we don't open it yet, not yet clear if needed
         self.ssh = ssh_manager.get_connection(
-            host,
+            ssh_url,
             use_remote_annex_bundle=False,
         )
         self.ssh.open()
@@ -59,6 +67,21 @@ class SSHRemoteIO(IOBase):
 
         # make sure default is used when None was passed, too.
         self.buffer_size = buffer_size if buffer_size else DEFAULT_BUFFER_SIZE
+
+        # if the URL had a path, we try to 'cd' into it to make operations on
+        # relative paths intelligible
+        if parsed_url.path:
+            # unquote path
+            real_path = unquote(parsed_url.path)
+            try:
+                self._run(
+                    f'cd {sh_quote(real_path)}',
+                    check=True,
+                )
+            except Exception as e:
+                # it may be a legit use case to point to a directory that is
+                # not yet existing. Log and continue
+                CapturedException(e)
 
     def close(self):
         # try exiting shell clean first
