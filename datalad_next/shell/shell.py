@@ -340,7 +340,9 @@ class ShellCommandExecutor:
         """Execute a command in the connected shell
 
         Execute a command in the connected shell and return a generator that
-        provides the content written to stdout of the command.
+        provides the content written to stdout of the command. After the
+        generator is exhausted, the return code of the command is availble
+        in the ``returncode``-attribute of the generator.
 
         Parameters
         ----------
@@ -375,10 +377,13 @@ class ShellCommandExecutor:
 
             A generator that yields the output of ``stdout`` of the command.
             The generator is exhausted when all output is read. After that,
-            the return code of the command execution and the stderr-output
-            is available in the ``code``-attribute of the generator. If a
-            response generator was passed in via the
-            ``response_generator``-parameter, the same instance will be yielded.
+            the return code of the command execution
+            is available in the ``returncode``-attribute of the generator,
+            and the stderr-output is available in the ``stderr_deque``-attribute
+            of the response generator.
+            If a response generator was passed in via the
+            ``response_generator``-parameter, the same instance will be
+            returned.
         """
         if response_generator is None:
             response_generator = self.default_rg_class(self.stdout)

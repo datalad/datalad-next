@@ -44,7 +44,6 @@ class ShellCommandResponseGenerator(Generator, metaclass=ABCMeta):
         self.state: str | int = 'output'
         self.returncode_chunk = b''
         self.returncode: int | None = None
-        self.current_final_command: bytes = b''
 
     @staticmethod
     def _get_number_and_newline(chunk, iterable) -> tuple[int, bytes]:
