@@ -45,6 +45,7 @@ from datalad.utils import (
     create_tree,
     md5sum,
 )
+from datalad_next.shell import shell
 from datalad_next.utils import (
     CredentialManager,
 )
@@ -277,27 +278,27 @@ def assert_ssh_access(
     # we can only handle openssh
     ssh_bin = os.environ.get('DATALAD_SSH_EXECUTABLE', 'ssh')
 
-    ssh_call = [
+    ssh_bash_call = [
         ssh_bin,
         '-i', seckey,
         '-p', port,
         f'{login}@{host}',
+        'bash',
     ]
     # now try if this is a viable configuration
     # verify execute and write permissions (implicitly also POSIX path handling
-    subprocess.run(
-        ssh_call + [
-            f"bash -c 'mkdir -p {path} && touch {path}/datalad-tests-probe'"],
-        stdin=subprocess.PIPE,
-        check=True,
-    )
-    if localpath:
-        # check if a given
-        assert (Path(localpath) / 'datalad-tests-probe').exists()
-    subprocess.run(
-        ssh_call + [f"bash -c 'rm {path}/datalad-tests-probe'"],
-        stdin=subprocess.PIPE,
-        check=True,
-    )
+    from more_itertools import consume
+    with shell(ssh_bash_call) as ssh:
+        # each call here will crash with CommandError, if it does not work
+        consume(ssh(f'mkdir -p {path}'))
+        consume(ssh(f'touch {path}/datalad-tests-probe'))
+
+        if localpath:
+            # we should see the probe file locally
+            assert (Path(localpath) / 'datalad-tests-probe').exists()
+
+        # cleanup
+        consume(ssh(f'rm {path}/datalad-tests-probe'))
+
     if localpath:
         assert not (Path(localpath) / 'datalad-tests-probe').exists()
