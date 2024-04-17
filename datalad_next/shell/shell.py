@@ -147,7 +147,27 @@ def shell(shell_cmd: list[str],
         ...     if len(result.splitlines()) != 1:
         ...         raise ValueError('Expected exactly one line')
 
+    For long running commands a generator-based result fetching can be used.
+    To use generator-based output the command has to be executed with the method
+    :meth:`ShellCommandExecutor.start`. This method returns a generator that
+    provides command output as soon as it is available::
 
+        >>> import time
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result_generator = ssh.start(b'c=0; while [ $c -lt 6 ]; do head -2 /etc/passwd; sleep 2; c=$(( $c + 1 )); done')
+        ...     for result in result_generator:
+        ...         print(time.time(), result)
+        ...     assert result_generator.returncode == 0
+        1713358098.82588 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+        1713358100.8315682 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+        1713358102.8402972 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+        1713358104.8490314 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+        1713358106.8577306 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+        1713358108.866439 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+
+    (The exact output of the above example might differ, depending on the
+    length of the first two entries in the ``/etc/passwd``-file.)
 
     Parameters
     ----------
@@ -241,7 +261,15 @@ class ShellCommandExecutor:
                  encoding: str = 'utf-8',
                  check: bool = False
                  ) -> ExecutionResult:
-        """Execute a command in the connected shell
+        """Execute a command in the connected shell and return the result
+
+        This method executes the given command in the connected shell. It
+        assembles all output on stdout, all output on stderr that was
+        written during the execution of the command, and the return
+        code of the command.
+        (The response generator defines when the command output is considered
+        complete. Usually that is done by checking for a random end-of-output
+        marker.)
 
         Parameters
         ----------
@@ -309,6 +337,49 @@ class ShellCommandExecutor:
               response_generator: ShellCommandResponseGenerator | None = None,
               encoding: str = 'utf-8',
               ) -> ShellCommandResponseGenerator:
+        """Execute a command in the connected shell
+
+        Execute a command in the connected shell and return a generator that
+        provides the content written to stdout of the command.
+
+        Parameters
+        ----------
+        command : bytes | str
+            The command to execute. If the command is given as a string, it
+            will be encoded to bytes using the encoding given in `encoding`.
+        stdin : Iterable[byte] | None, optional, default: None
+            If given, the bytes are sent to stdin of the command.
+
+            Note: If the command reads its ``stdin`` until EOF, you have to use
+            :meth:`self.close` to close ``stdin`` of the command. Otherwise,
+            the command will usually not terminate. Once :meth:`self.close` is
+            called, no more commands can be executed with this
+            :class:`ShellCommandExecutor`-instance. If you want to execute
+            further commands in the same :class:`ShellCommandExecutor`-instance,
+            you must ensure
+            that commands consume a fixed amount of input, for example,
+            by using `head -c <byte-count> | <command>`.
+        response_generator : ShellCommandResponseGenerator | None, optional, default: None
+            If given, the responder generator (usually an instance of a subclass
+            of ``ShellCommandResponseGenerator``), that is used to generate the
+            command line and to parse the output of the command. This can be
+            used to implement, for example, fixed length output processing.
+        encoding : str, optional, default: 'utf-8'
+            The encoding that is used to encode the command if it is given as a
+            string. Note: the encoding should match the decoding the is used in
+            the connected shell.
+
+        Returns
+        -------
+        :class:`ShellCommandResponseGenerator`
+
+            A generator that yields the output of ``stdout`` of the command.
+            The generator is exhausted when all output is read. After that,
+            the return code of the command execution and the stderr-output
+            is available in the ``code``-attribute of the generator. If a
+            response generator was passed in via the
+            ``response_generator``-parameter, the same instance will be yielded.
+        """
         if response_generator is None:
             response_generator = self.default_rg_class(self.stdout)
 
