@@ -231,6 +231,8 @@ def test_upload_local_bash(tmp_path):
         _check_ls_result(bash, common_files[0])
 
 
+# This test only works on Posix-like systems because it executes a local bash
+@skip_if(on_windows)
 def test_upload_local_bash_error(tmp_path):
     content = '0123456789'
     source_file = tmp_path / 'upload_123'
@@ -336,9 +338,9 @@ def test_powershell_basic():
             zero_command_rg_class=VariableLengthResponseGeneratorPowerShell,
     ) as pwsh:
         r = pwsh(b'Get-ChildItem')
-        consume(r)
+        assert r.returncode == 0
         r = pwsh(b'Get-ChildItem -Path C:\\')
-        consume(r)
+        assert r.returncode == 0
         pwsh.close()
 
 
@@ -446,16 +448,17 @@ def test_fixed_length_response_generator_powershell():
             length=10
         )
         result = powershell(b'Write-Host -NoNewline 0123456789')
-        tuple(result)
+        assert result.returncode == 0
+        assert result.stdout == b'0123456789'
 
         # Check that only 10 bytes are consumed and any excess bytes show up
-        # in the return code.
+        # in the return code. Because the extra bytes are `'abc'`, the return
+        # code is invalid, which leads to a `ValueError`.
         with pytest.raises(ValueError):
-            result = powershell(
+            powershell(
                 b'Write-Host -NoNewline 0123456789abc',
                 response_generator=response_generator
             )
-            tuple(result)
 
 
 # This test only works on Unix-like systems because it executes a local bash.
