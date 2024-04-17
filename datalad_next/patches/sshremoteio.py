@@ -53,7 +53,7 @@ from datalad.distributed.ora_remote import (
     RemoteCommandFailedError,
     RIARemoteError,
 )
-# we need to get this from elsewhere, the orginal code does local imports
+# we need to get this from elsewhere, the original code does local imports
 from datalad.support.exceptions import CommandError
 # we need this for a conditional that is not part of the original code
 from datalad.support.sshconnector import NoMultiplexSSHConnection
@@ -179,7 +179,7 @@ def SSHRemoteIO_run(self, cmd, no_output=True, check=False):
                 )
             else:
                 break
-        # PATCH add line only here, to skip end markers alltogether
+        # PATCH add line only here, to skip end markers all together
         lines.append(line)
     if no_output and len(lines) > 1:
         raise RIARemoteError("{}: {}".format(call, "".join(lines)))
