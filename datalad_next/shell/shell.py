@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
+from dataclasses import dataclass
 from queue import Queue
 from typing import (
     Generator,
@@ -20,6 +21,7 @@ from .response_generators import (
     VariableLengthResponseGeneratorPosix,
 )
 from datalad_next.consts import COPY_BUFSIZE
+from datalad_next.exceptions import CommandError
 from datalad_next.runners.iter_subproc import (
     OutputFrom,
     iter_subproc,
@@ -28,11 +30,32 @@ from datalad_next.runners.iter_subproc import (
 
 __all__ = [
     'shell',
+    'ExecutionResult',
     'ShellCommandExecutor',
 ]
 
 
 lgr = logging.getLogger('datalad.ext.next.shell')
+
+
+@dataclass
+class ExecutionResult:
+    stdout: bytes
+    stderr: bytes
+    returncode: int
+
+    def to_exception(self,
+                     command: bytes | str | list[str],
+                     message: str = ''
+                     ):
+        if self.returncode != 0:
+            raise CommandError(
+                cmd=command.decode() if isinstance(command, bytes) else command,
+                msg=message,
+                code=self.returncode,
+                stdout=self.stdout,
+                stderr=self.stderr,
+            )
 
 
 @contextmanager
@@ -50,40 +73,41 @@ def shell(shell_cmd: list[str],
 
     :func:`shell` returns an instance of :class:`ShellCommandExecutor` in the
     ``as``-variable. This instance can be used to interact with the shell. That
-    means, it can be used to execute commands to the shell, receive the data
-    that the commands write to their ``stdout``, and retrieve the return code
-    of the executed commands. All commands that are executed via the returned
-    instance of :class:`ShellCommandExecutor` are executed in the same shell.
+    means, it can be used to execute commands in the shell, receive the data
+    that the commands write to their ``stdout`` and ``stderr``, and retrieve
+    the return code of the executed commands. All commands that are executed
+    via the returned instance of :class:`ShellCommandExecutor` are executed in
+    the same shell instance.
 
     Simple example that invokes a single command::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
         ...     result = ssh(b'ls -l /etc/passwd')
-        ...     print(b''.join(result))
+        ...     print(result.stdout)
         ...     print(result.returncode)
         ...
         b'-rw-r--r-- 1 root root 2773 Nov 14 10:05 /etc/passwd\\n'
         0
 
     Example that invokes two commands, the second of which exits with a non-zero
-    return code. The error output is retrieved from ``results.stderr_deque``::
+    return code. The error output is retrieved from ``result.stderr``, which
+    contains all ``stderr`` data that was written since the last command was
+    executed::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
         ...     result = ssh(b'head -1 /etc/passwd')
-        ...     print(b''.join(result))
+        ...     print(result.stdout)
         ...     result = ssh(b'ls /no-such-file')
-        ...     print(b''.join(result))
+        ...     print(result.stdout)
         ...     print(result.returncode)
-        ...     print(b''.join(result.stderr_deque))
+        ...     print(result.stderr)
         ...
         b'root:x:0:0:root:/root:/bin/bash\\n'
         b''
         2
         b"Pseudo-terminal will not be allocated because stdin is not a terminal.\\r\\nls: cannot access '/no-such-file': No such file or directory\\n"
-
-
 
     Parameters
     ----------
@@ -175,7 +199,8 @@ class ShellCommandExecutor:
                  stdin: Iterable[bytes] | None = None,
                  response_generator: ShellCommandResponseGenerator | None = None,
                  encoding: str = 'utf-8',
-                 ) -> ShellCommandResponseGenerator:
+                 check: bool = False
+                 ) -> ExecutionResult:
         """Execute a command in the connected shell
 
         Parameters
@@ -204,20 +229,46 @@ class ShellCommandExecutor:
             The encoding that is used to encode the command if it is given as a
             string. Note: the encoding should match the decoding the is used in
             the connected shell.
+        check : bool, optional, default: False
+            If True, a :class:`CommandError`-exception is raised if the return
+            code of the command is not zero.
 
-        Yields
+        Returns
+        -------
+        :class:`ExecutionResult`
+            An instance of :class:`ExecutionResult` that contains the
+            ``stdout``-output, the ``stderr``-output, and the return code of
+            the command.
+
+        Raises
         ------
-        :class:`ShellCommandResponseGenerator`
-
-            A generator that yields the output of ``stdout`` of the command.
-            The generator is exhausted when all output is read. After that,
-            the return code of the command execution and the stderr-output
-            is available in the ``code``-attribute of the generator. If a
-            response generator was passed in via the
-            ``response_generator``-parameter, the same instance will be yielded.
+        :class:`CommandError`
+            If the return code of the command is not zero and `check` is True.
         """
-        # If no response generator is provided, we use the standard, variable
-        # content response generator.
+        response_generator = self.start(
+            command,
+            stdin=stdin,
+            response_generator=response_generator,
+            encoding=encoding,
+        )
+        stdout = b''.join(response_generator)
+        stderr = b''.join(self.stdout.stderr_deque)
+        self.stdout.stderr_deque.clear()
+        return create_result(
+            response_generator,
+            command,
+            stdout,
+            stderr,
+            check=check
+        )
+
+    def start(self,
+              command: bytes | str,
+              *,
+              stdin: Iterable[bytes] | None = None,
+              response_generator: ShellCommandResponseGenerator | None = None,
+              encoding: str = 'utf-8',
+              ) -> ShellCommandResponseGenerator:
         if response_generator is None:
             response_generator = self.default_rg_class(self.stdout)
 
@@ -228,11 +279,11 @@ class ShellCommandExecutor:
         # Store the command list to report it in `CommandError`-exceptions.
         # This is done here to relieve the response generator classes from
         # this task.
-        response_generator.current_final_command = final_command
         self.process_inputs.put([final_command])
         if stdin is not None:
             self.process_inputs.put(stdin)
         return response_generator
+
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.shell_cmd!r})'
@@ -254,7 +305,24 @@ class ShellCommandExecutor:
         """
         result_zero = self(
             response_generator.zero_command,
-            response_generator=response_generator
+            response_generator=response_generator,
+            check=True,
         )
-        for line in result_zero:
-            lgr.debug('skipped login message line: %s', line)
+        lgr.debug('skipped login message: %s', result_zero.stdout)
+
+
+def create_result(response_generator: ShellCommandResponseGenerator,
+                  command: bytes,
+                  stdout: bytes,
+                  stderr: bytes,
+                  error_message: str = '',
+                  check: bool = False) -> ExecutionResult:
+
+    result = ExecutionResult(
+        stdout=stdout,
+        stderr=stderr,
+        returncode=response_generator.returncode
+    )
+    if check is True:
+        result.to_exception(command, error_message)
+    return result

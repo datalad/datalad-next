@@ -11,10 +11,12 @@ from typing import (
     Callable,
 )
 
-from more_itertools import consume
-
 from .common import DownloadResponseGenerator
-from ..shell import ShellCommandExecutor
+from ..shell import (
+    ExecutionResult,
+    ShellCommandExecutor,
+    create_result,
+)
 from datalad_next.consts import COPY_BUFSIZE
 
 
@@ -27,19 +29,22 @@ class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
     def get_final_command(self, remote_file_name: bytes) -> bytes:
         """Return a final command list for the download of ``remote_file_name``
 
-        The Unix version for download response generators.
+        The POSIX version for download response generators.
 
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
         """
-        return (
-            b"((LC_ALL=C ls -dln -- "
-            + remote_file_name
-            + b"|| echo -e 1 2 3 4 -1)| awk '{print $5; exit}')"
-            + b"&& cat "
-            + remote_file_name
-            + b"&& echo $?\n"
-        )
+        command = b"""
+            test -r {remote_file_name}
+            if [ $? -eq 0 ]; then
+                LC_ALL=C ls -dln -- {remote_file_name} | awk '{print $5; exit}'
+                cat {remote_file_name}
+                echo $?
+            else
+                echo -1;
+            fi
+        """.replace(b'{remote_file_name}', remote_file_name)
+        return command
 
 
 def upload(
@@ -47,7 +52,8 @@ def upload(
     local_path: Path,
     remote_path: PurePosixPath,
     progress_callback: Callable[[int, int], None] | None = None,
-) -> None:
+    check: bool = False,
+) -> ExecutionResult:
     """Upload a local file to a named file in the connected shell
 
     This function uploads a file to the connected shell ``shell``. It uses
@@ -70,13 +76,23 @@ def upload(
     progress_callback : callable[[int, int], None], optional, default: None
         If given, the callback is called with the number of bytes that have
         been sent and the total number of bytes that should be sent.
+    check : bool, optional, default: False
+        If ``True``, raise a :class:`CommandError` if the remote operation does
+        not exit with a ``0`` as return code.
+
+    Returns
+    -------
+    ExecutionResult
+        The result of the upload operation.
+
     Raises
     -------
     CommandError:
-        If the remote operation does not exit with a ``0`` as return code, a
-        :class:`CommandError` is raised. It will contain the exit code and
-        the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
-        to :func:`shell`) bytes of stderr output.
+        If the remote operation does not exit with a ``0`` as return code, and
+        ``check`` is ``True``, a :class:`CommandError` is raised. It will
+        contain the exit code and the last (up to ``chunk_size`` (defined by the
+        ``chunk_size`` keyword argument to :func:`shell`)) bytes of stderr
+        output.
     """
 
     def signaling_read(
@@ -107,9 +123,16 @@ def upload(
                 progress_callback(processed, size)
         queue.put(None)
 
+    # The following command line ensures that content that we send to the shell
+    # either goes to the destination file or into `/dev/null`, but not into the
+    # stdin of the shell. In the latter case it would be interpreted as the
+    # next command, and that which might be bad, e.g. if the uploaded content
+    # was `rm -rf $HOME`.
     file_size = local_path.stat().st_size
-    signal_queue = Queue()
-    cmd_line = f"head -c {file_size} > {remote_path.as_posix()}"
+    cmd_line = (
+        f"head -c {file_size} > {remote_path.as_posix()} "
+        f"|| (head -c {file_size} > /dev/null; test 1 == 2)"
+    )
     with local_path.open("rb") as local_file:
         # We use the `signaling_read` iterator to deal with the situation where
         # the content of a file that should be uploaded is completely read and
@@ -121,21 +144,26 @@ def upload(
         # in turn lead to the closing of stdin of the `shell`-subprocess and
         # render it unusable.`signaling_read` allows us to wait for a completed
         # read, including the EOF reading.
+        signal_queue = Queue()
         result = shell(
             cmd_line, stdin=signaling_read(local_file, file_size, signal_queue)
         )
-        consume(result)
         signal_queue.get()
+    if check:
+        result.to_exception(cmd_line, 'upload failed')
+    return result
 
 
 def download(
     shell: ShellCommandExecutor,
     remote_path: PurePosixPath,
     local_path: Path,
+    *,
     response_generator_class: type[
         DownloadResponseGenerator
     ] = DownloadResponseGeneratorPosix,
-) -> None:
+    check: bool = False,
+) -> ExecutionResult:
     """Download a file from the connected shell
 
     This method downloads a file from the connected shell. It uses ``base64`` in
@@ -164,22 +192,42 @@ def download(
         output. It must be a subclass of :class:`DownloadResponseGenerator`.
         The default works if the connected shell runs on a Unix-like system that
         provides `ls -dln` and `awk`, e.g. ``Linux`` or ``OSX``.
+    check : bool, optional, default: False
+        If ``True``, raise a :class:`CommandError` if the remote operation does
+        not exit with a ``0`` as return code.
+
+    Returns
+    -------
+    ExecutionResult
+        The result of the download operation.
 
     Raises
     -------
     CommandError:
-        If the remote operation does not exit with a ``0`` as return code, a
-        :class:`CommandError` is raised. It will contain the exit code and
-        the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
-        to :func:`shell`) bytes of stderr output.
+        If the remote operation does not exit with a ``0`` as return code, and
+        ``check`` is ``True``, a :class:`CommandError` is raised. It will
+        contain the exit code and the last (up to ``chunk_size`` (defined by the
+        ``chunk_size`` keyword argument to :func:`shell`)) bytes of stderr
+        output.
     """
-    result = shell(
-        remote_path.as_posix().encode(),
+    command = remote_path.as_posix().encode()
+    response_generator = shell.start(
+        command,
         response_generator=response_generator_class(shell.stdout),
     )
     with local_path.open("wb") as local_file:
-        for chunk in result:
+        for chunk in response_generator:
             local_file.write(chunk)
+    stderr = b''.join(response_generator.stderr_deque)
+    response_generator.stderr_deque.clear()
+    return create_result(
+        response_generator,
+        command,
+        stdout=b'',
+        stderr=stderr,
+        check=check,
+        error_message='download failed',
+    )
 
 
 def delete(
@@ -187,7 +235,8 @@ def delete(
     files: list[PurePosixPath],
     *,
     force: bool = False,
-) -> None:
+    check: bool = False,
+) -> ExecutionResult:
     """Delete files on the connected shell
 
     The requirements for delete are:
@@ -204,17 +253,23 @@ def delete(
         If ``True``, enforce removal, if possible. For example, the command
         could change the permissions of the files to be deleted to ensure
         their removal.
+    check : bool, optional, default: False
+        If ``True``, raise a :class:`CommandError` if the remote operation does
+        not exit with a ``0`` as return code.
 
     Raises
     -------
     CommandError:
-        If the remote operation does not exit with a ``0`` as return code, a
-        :class:`CommandError` is raised. It will contain the exit code and
-        the last ``chunk_size`` (defined by the ``chunk_size`` keyword argument
-        to :func:`shell`) bytes of stderr output.
+        If the remote operation does not exit with a ``0`` as return code, and
+        ``check`` is ``True``, a :class:`CommandError` is raised. It will
+        contain the exit code and the last (up to ``chunk_size`` (defined by the
+        ``chunk_size`` keyword argument to :func:`shell`)) bytes of stderr
+        output.
     """
     cmd_line = (
         "rm " + ("-f " if force else "") + " ".join(f"{f.as_posix()}" for f in files)
     )
     result = shell(cmd_line.encode())
-    consume(result)
+    if check:
+        result.to_exception(cmd_line, 'delete failed')
+    return result

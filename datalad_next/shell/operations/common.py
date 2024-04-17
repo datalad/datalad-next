@@ -61,7 +61,6 @@ class DownloadResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCMeta
                 if self.length < 0:
                     self.state = 1
                     self.returncode = 23
-                    self.check_result()
                     raise StopIteration
                 self.state = 2
                 continue
@@ -79,7 +78,6 @@ class DownloadResponseGenerator(ShellCommandResponseGenerator, metaclass=ABCMeta
 
             if self.state == 4:
                 self.state = 1
-                self.check_result()
                 raise StopIteration
 
             raise RuntimeError(f'unknown state: {self.state}')

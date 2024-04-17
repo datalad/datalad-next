@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import sys
-from pathlib import PurePosixPath
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 
 import pytest
 from more_itertools import consume
@@ -56,20 +59,17 @@ def test_basic_functionality_multi(sshserver):
 
 
 def _check_ls_result(ssh_executor, file_name: bytes):
-    results = ssh_executor(b'ls ' + file_name)
-    assert b''.join(results) == file_name + b'\n'
-    results = ssh_executor('ls ' + file_name.decode())
-    assert b''.join(results) == file_name + b'\n'
+    result = ssh_executor(b'ls ' + file_name)
+    assert result.stdout == file_name + b'\n'
+    result = ssh_executor('ls ' + file_name.decode())
+    assert result.stdout == file_name + b'\n'
 
 
 def test_return_code_functionality(sshserver):
     ssh_url = sshserver[0]
     with shell(_get_cmdline(ssh_url)[0]) as ssh:
-        results = ssh(b'bash -c "exit 123"')
-        with pytest.raises(CommandError) as e:
-            consume(results)
-        assert e.value.code == 123
-        assert results.returncode == 123
+        result = ssh(b'bash -c "exit 123"')
+        assert result.returncode == 123
 
 
 @pytest.mark.parametrize('cmd,expected', [
@@ -93,8 +93,9 @@ def test_stdout_forwarding_multi(sshserver):
 
 
 def _check_echo_result(ssh: ShellCommandExecutor, cmd: bytes, expected: bytes):
-    results = ssh(cmd)
-    assert b''.join(results) == expected
+    result = ssh(cmd)
+    assert result.stdout == expected
+    assert result.returncode == 0
 
 
 def test_exit_if_unlimited_stdin_is_closed(sshserver):
@@ -109,9 +110,10 @@ def test_exit_if_unlimited_stdin_is_closed(sshserver):
             shell(ssh_args) as ssh_executor, \
             iter_subproc([sys.executable, '-c', 'print("0123456789")']) as cat_feed:
 
-        results = ssh_executor(b'cat >' + ssh_path, stdin=cat_feed)
+        response_generator = ssh_executor.start(b'cat >' + ssh_path, stdin=cat_feed)
         ssh_executor.close()
-        consume(results)
+        consume(response_generator)
+        assert response_generator.returncode == 0
         assert (local_path / test_file_name).read_text() == '0123456789\n'
 
 
@@ -129,11 +131,11 @@ def test_continuation_after_stdin_reading(sshserver):
 
         for file_name, feed in (('dd-123', dd_feed_1), ('dd-456', dd_feed_2)):
             server_path = (ssh_path + '/' + file_name).encode()
-            results = ssh_executor(
+            result = ssh_executor(
                 b'dd bs=1 count=10 of=' + server_path,
                 stdin=feed
             )
-            consume(results)
+            assert result.returncode == 0
             assert (local_path / file_name).read_text() == '0123456789'
 
         _check_ls_result(ssh_executor, common_files[0])
@@ -151,11 +153,12 @@ def test_upload(sshserver, tmp_path):
         _check_ls_result(ssh_executor, common_files[0])
 
         # upload file to server and verify its content
-        posix.upload(
+        result = posix.upload(
             ssh_executor,
             upload_file,
             PurePosixPath(ssh_path + '/' + test_file_name)
         )
+        assert result.returncode == 0
         assert (local_path / test_file_name).read_text() == content
 
         # perform another operation on the remote shell to ensure functionality
@@ -175,11 +178,12 @@ def test_download_ssh(sshserver, tmp_path):
         _check_ls_result(ssh_executor, common_files[0])
 
         # download file from server and verify its content
-        posix.download(
+        result = posix.download(
             ssh_executor,
             PurePosixPath(ssh_path + '/' + test_file_name),
             download_file,
         )
+        assert result.returncode == 0
         assert download_file.read_text() == content
 
         # perform another operation on the remote shell to ensure functionality
@@ -227,6 +231,28 @@ def test_upload_local_bash(tmp_path):
         _check_ls_result(bash, common_files[0])
 
 
+def test_upload_local_bash_error(tmp_path):
+    content = '0123456789'
+    source_file = tmp_path / 'upload_123'
+    source_file.write_text(content)
+    destination_file = PurePosixPath('/result_123')
+    with shell(['bash']) as bash:
+        _check_ls_result(bash, common_files[0])
+
+        # upload file to a root on the server
+        result = posix.upload(bash, source_file, destination_file)
+        assert result.returncode != 0
+
+        # perform another operation on the remote shell to ensure functionality
+        _check_ls_result(bash, common_files[0])
+
+        with pytest.raises(CommandError):
+            posix.upload(bash, source_file, destination_file, check=True)
+
+        # perform another operation on the remote shell to ensure functionality
+        _check_ls_result(bash, common_files[0])
+
+
 def test_delete(sshserver):
     ssh_url, local_path = sshserver
     ssh_args, ssh_path = _get_cmdline(ssh_url)
@@ -248,6 +274,53 @@ def test_delete(sshserver):
         # verify that the remote files were deleted
         for file in files_to_delete:
             assert not (local_path / file).exists()
+
+
+def test_delete_error(sshserver):
+    ssh_url, local_path = sshserver
+    ssh_args, ssh_path = _get_cmdline(ssh_url)
+
+    with shell(ssh_args) as ssh_executor:
+
+        _check_ls_result(ssh_executor, common_files[0])
+
+        # Try to delete a non-existing file
+        result = posix.delete(
+            ssh_executor,
+            [PurePosixPath('/no-such-file')],
+            force=False,
+        )
+        assert result.returncode != 0
+
+        _check_ls_result(ssh_executor, common_files[0])
+
+        with pytest.raises(CommandError):
+            posix.delete(
+                ssh_executor,
+                [PurePosixPath('/no-such-file')],
+                force=False,
+                check=True,
+            )
+        _check_ls_result(ssh_executor, common_files[0])
+
+        # Try to delete an existing file for which we are not authorized
+        # Try to delete a non-existing file
+        result = posix.delete(
+            ssh_executor,
+            [PurePosixPath('/etc/passwd')],
+            force=False,
+        )
+        assert result.returncode != 0
+        _check_ls_result(ssh_executor, common_files[0])
+
+        with pytest.raises(CommandError):
+            posix.delete(
+                ssh_executor,
+                [PurePosixPath('/etc/passwd')],
+                force=False,
+                check=True,
+            )
+        _check_ls_result(ssh_executor, common_files[0])
 
 
 def test_returncode():
@@ -317,7 +390,7 @@ def test_variable_length_reuse(monkeypatch):
             b'echo hello',
             response_generator=response_generator
         )
-        assert tuple(result) == (b'hello\n',)
+        assert result.stdout == b'hello\n'
         assert all(
             msg.startswith('unexpected output after return code: ')
             for msg in log_messages
@@ -350,7 +423,7 @@ def test_fixed_length_response_generator_bash():
             b'echo -n 0123456789',
             response_generator=response_generator
         )
-        assert tuple(result) == (b'0123456789',)
+        assert result.stdout == b'0123456789'
 
         # Check that only 10 bytes are consumed and any excess bytes show up
         # in the return code.
@@ -359,7 +432,6 @@ def test_fixed_length_response_generator_bash():
                 b'echo -n 0123456789abc',
                 response_generator=response_generator
             )
-            tuple(result)
 
 
 # This test mostly works on Windows systems because it executes a local powershell.
@@ -392,8 +464,7 @@ def test_download_length_error():
     with shell(['bash']) as bash:
         response_generator = posix.DownloadResponseGeneratorPosix(bash.stdout)
         result = bash(b'unknown_file', response_generator=response_generator)
-        with pytest.raises(CommandError):
-            assert tuple(result) == ()
+        assert result.stdout == b''
         assert result.returncode == 23
 
         # perform another operation on the remote shell to ensure functionality
@@ -409,7 +480,15 @@ def test_download_error(tmp_path):
                 bash,
                 PurePosixPath('/thisdoesnotexist'),
                 tmp_path / 'downloaded_file',
+                check=True
             )
+        _check_ls_result(bash, common_files[0])
 
-        # perform another operation on the remote shell to ensure functionality
+        result = posix.download(
+            bash,
+            PurePosixPath('/thisdoesnotexist'),
+             tmp_path / 'downloaded_file',
+             check=False
+        )
+        assert result.returncode not in (0, None)
         _check_ls_result(bash, common_files[0])
