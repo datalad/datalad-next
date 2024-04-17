@@ -159,12 +159,12 @@ def shell(shell_cmd: list[str],
         ...     for result in result_generator:
         ...         print(time.time(), result)
         ...     assert result_generator.returncode == 0
-        1713358098.82588 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
-        1713358100.8315682 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
-        1713358102.8402972 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
-        1713358104.8490314 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
-        1713358106.8577306 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
-        1713358108.866439 b'root:x:0:0:root:/root:/bin/bash\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\n'
+        1713358098.82588 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358100.8315682 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358102.8402972 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358104.8490314 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358106.8577306 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358108.866439 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
 
     (The exact output of the above example might differ, depending on the
     length of the first two entries in the ``/etc/passwd``-file.)
