@@ -664,10 +664,13 @@ def sshserver_setup(tmp_path_factory):
 
 @pytest.fixture(autouse=False, scope="function")
 def sshserver(sshserver_setup, datalad_cfg, monkeypatch):
+    # strip any leading / from the path, we add one, and
+    # only one below
+    sshserver_path = sshserver_setup['SSH_PATH'].lstrip('/')
     baseurl = f"ssh://{sshserver_setup['SSH_LOGIN']}" \
         f"@{sshserver_setup['HOST']}" \
         f":{sshserver_setup['SSH_PORT']}" \
-        f"/{sshserver_setup['SSH_PATH']}"
+        f"/{sshserver_path}"
     with monkeypatch.context() as m:
         m.setenv("DATALAD_SSH_IDENTITYFILE", sshserver_setup['SSH_SECKEY'])
         # force reload the config manager, to ensure the private key setting
