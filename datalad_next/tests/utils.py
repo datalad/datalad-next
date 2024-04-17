@@ -290,15 +290,15 @@ def assert_ssh_access(
     from more_itertools import consume
     with shell(ssh_bash_call) as ssh:
         # each call here will crash with CommandError, if it does not work
-        consume(ssh(f'mkdir -p {path}'))
-        consume(ssh(f'touch {path}/datalad-tests-probe'))
+        ssh(f'mkdir -p {path}', check=True)
+        ssh(f'touch {path}/datalad-tests-probe', check=True)
 
         if localpath:
             # we should see the probe file locally
             assert (Path(localpath) / 'datalad-tests-probe').exists()
 
         # cleanup
-        consume(ssh(f'rm {path}/datalad-tests-probe'))
+        ssh(f'rm {path}/datalad-tests-probe', check=True)
 
     if localpath:
         assert not (Path(localpath) / 'datalad-tests-probe').exists()
