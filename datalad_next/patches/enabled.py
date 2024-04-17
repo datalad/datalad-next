@@ -14,4 +14,9 @@ from . import (
     create_sibling_gitlab,
     run,
     update,
+    ora_remote,
+    # the following patches have been taken verbatim from datalad-ria
+    ssh_exec,
+    sshremoteio,
+    sshconnector,
 )
