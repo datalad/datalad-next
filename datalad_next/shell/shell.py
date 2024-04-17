@@ -42,7 +42,7 @@ lgr = logging.getLogger('datalad.ext.next.shell')
 class ExecutionResult:
     stdout: bytes
     stderr: bytes
-    returncode: int
+    returncode: int | None
 
     def to_exception(self,
                      command: bytes | str | list[str],
@@ -50,7 +50,9 @@ class ExecutionResult:
                      ):
         if self.returncode != 0:
             raise CommandError(
-                cmd=command.decode() if isinstance(command, bytes) else command,
+                cmd=command.decode()
+                    if isinstance(command, bytes)
+                    else str(command),
                 msg=message,
                 code=self.returncode,
                 stdout=self.stdout,
@@ -428,7 +430,7 @@ class ShellCommandExecutor:
 
 
 def create_result(response_generator: ShellCommandResponseGenerator,
-                  command: bytes,
+                  command: bytes | str | list[str],
                   stdout: bytes,
                   stderr: bytes,
                   error_message: str = '',

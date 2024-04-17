@@ -126,8 +126,8 @@ def upload(
     # The following command line ensures that content that we send to the shell
     # either goes to the destination file or into `/dev/null`, but not into the
     # stdin of the shell. In the latter case it would be interpreted as the
-    # next command, and that which might be bad, e.g. if the uploaded content
-    # was `rm -rf $HOME`.
+    # next command, and that might be bad, e.g. if the uploaded content was
+    # `rm -rf $HOME`.
     file_size = local_path.stat().st_size
     cmd_line = (
         f"head -c {file_size} > {remote_path.as_posix()} "
@@ -144,7 +144,7 @@ def upload(
         # in turn lead to the closing of stdin of the `shell`-subprocess and
         # render it unusable.`signaling_read` allows us to wait for a completed
         # read, including the EOF reading.
-        signal_queue = Queue()
+        signal_queue: Queue = Queue()
         result = shell(
             cmd_line, stdin=signaling_read(local_file, file_size, signal_queue)
         )
