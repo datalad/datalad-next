@@ -341,7 +341,7 @@ class ShellCommandExecutor:
 
         Execute a command in the connected shell and return a generator that
         provides the content written to stdout of the command. After the
-        generator is exhausted, the return code of the command is availble
+        generator is exhausted, the return code of the command is available
         in the ``returncode``-attribute of the generator.
 
         Parameters
