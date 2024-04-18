@@ -1,3 +1,22 @@
+"""Provide a full replacement of `SSHRemoteIO`
+
+First and foremost, this replacement no longer uses the remote shell
+implementation of the previous version, but is based on `datalad_next.shell`.
+
+Moreover, the ``cmd``-argument for the shell ssh-process, is not correct, if
+``self.ssh`` is an instance of ``NoMultiplexSSHConnection``.
+
+The changes in this patch build the correct ``cmd``-argument by adding
+additional arguments to ``cmd``, if `self.ssh` is an instance of
+``NoMultiplexSSHConnection``. More precisely, the arguments that are
+required to open a "shell" in a ``NoMultiplexSSHConnection`` are stored in
+``NoMultiplexSSHConnection._ssh_open_args`` and not in
+``NoMultiplexSSHConnection._ssh_args``. This patch therefore provides
+arguments from both lists, i.e. from ``_ssh_args`` and ``_ssh_open_args`` in
+the call that opens a "shell", if ``self.ssh`` is an instance of
+``NoMultiplexSSHConnection``.
+"""
+
 from urllib.parse import urlparse
 from urllib.request import unquote
 
@@ -13,6 +32,7 @@ from datalad.distributed.ora_remote import (
     ssh_manager,
     stat,
 )
+from datalad.support.sshconnector import NoMultiplexSSHConnection
 
 from datalad_next.exceptions import CapturedException
 from datalad_next.patches import apply_patch
@@ -32,6 +52,9 @@ class SSHRemoteIO(IOBase):
         ssh_url : str
           SSH-accessible host(name) to perform remote IO operations
           on.
+        buffer_size: int or None
+          The buffer size to be used as the `chunk_size` for communication
+          with the remote shell.
         """
         parsed_url = urlparse(ssh_url)
 
@@ -43,11 +66,16 @@ class SSHRemoteIO(IOBase):
             use_remote_annex_bundle=False,
         )
         self.ssh.open()
-        # open a remote shell
-        cmd = ['ssh'] + self.ssh._ssh_args + [self.ssh.sshri.as_str()]
+
+        ssh_args = self.ssh._ssh_args
+        if isinstance(self.ssh, NoMultiplexSSHConnection):
+            ssh_args.extend(self.ssh._ssh_open_args)
+        cmd = ['ssh'] + ssh_args + [self.ssh.sshri.as_str()]
+
         # we settle on `bash` as a shell. It should be around and then we
         # can count on it
         cmd.append('bash')
+        # open the remote shell
         self.servershell_context = shell(
             cmd,
             chunk_size=buffer_size,

@@ -15,11 +15,9 @@ from . import (
     run,
     update,
     ora_remote,
-    # the following patches have been taken verbatim from datalad-ria
+    # the following two patches have been taken verbatim from datalad-ria
     ssh_exec,
-    sshremoteio,
     sshconnector,
-    # this replaces SSHRemoteIO entirely, consolidate with patches
-    # above
+    # this replaces SSHRemoteIO entirely
     replace_sshremoteio,
 )
