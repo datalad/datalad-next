@@ -192,11 +192,13 @@ class SSHRemoteIO(IOBase):
         )
 
     def get(self, src, dst, progress_cb):
-        # TODO we need to be able to pass a progress callback
         posix_ops.download(
             self.servershell,
             PurePosixPath(src),
             dst,
+            # the given callback only takes a single int, but posix.upload
+            # gives two (cur, target) -> have an addaptor
+            lambda c, m: progress_cb(c),
             check=True,
         )
 
