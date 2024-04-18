@@ -38,6 +38,7 @@ from datalad_next.exceptions import CapturedException
 from datalad_next.patches import apply_patch
 from datalad_next.runners import CommandError
 from datalad_next.shell import (
+    FixedLengthResponseGeneratorPosix,
     shell,
     posix as posix_ops,
 )
@@ -102,59 +103,6 @@ class SSHRemoteIO(IOBase):
 
     def close(self):
         self.servershell_context.__exit__(None, None, None)
-
-    def _get_download_size_from_key(self, key):
-        """Get the size of an annex object file from it's key
-
-        Note, that this is not necessarily the size of the annexed file, but
-        possibly only a chunk of it.
-
-        Parameter
-        ---------
-        key: str
-          annex key of the filte
-
-        Returns
-        -------
-        int
-          size in bytes
-        """
-        # TODO: datalad's AnnexRepo.get_size_from_key() is not correct/not
-        #       fitting. Incorporate the wisdom there, too.
-        #       We prob. don't want to actually move this method there, since
-        #       AnnexRepo would be quite an expensive import. Startup time for
-        #       special remote matters.
-        # TODO: this method can be more compact. we don't need particularly
-        #       elaborated error distinction
-
-        # see: https://git-annex.branchable.com/internals/key_format/
-        key_parts = key.split('--')
-        key_fields = key_parts[0].split('-')
-
-        s = S = C = None
-
-        for field in key_fields[1:]:  # note: first has to be backend -> ignore
-            if field.startswith('s'):
-                # size of the annexed file content:
-                s = int(field[1:]) if field[1:].isdigit() else None
-            elif field.startswith('S'):
-                # we have a chunk and that's the chunksize:
-                S = int(field[1:]) if field[1:].isdigit() else None
-            elif field.startswith('C'):
-                # we have a chunk, this is it's number:
-                C = int(field[1:]) if field[1:].isdigit() else None
-
-        if s is None:
-            return None
-        elif S is None and C is None:
-            return s
-        elif S and C:
-            if C <= int(s / S):
-                return S
-            else:
-                return s % S
-        else:
-            raise RIARemoteError("invalid key: {}".format(key))
 
     @contextmanager
     def ensure_writeable(self, path):
@@ -296,43 +244,57 @@ class SSHRemoteIO(IOBase):
         return loc in out
 
     def get_from_archive(self, archive, src, dst, progress_cb):
-
         # Note, that as we are in blocking mode, we can't easily fail on the
         # actual get (that is 'cat'). Therefore check beforehand.
         if not self.exists(archive):
             raise RIARemoteError("archive {arc} does not exist."
                                  "".format(arc=archive))
 
-        # TODO: We probably need to check exitcode on stderr (via marker). If
-        #       archive or content is missing we will otherwise hang forever
-        #       waiting for stdout to fill `size`.
+        # with `7z -slt` we get an info block per file like this
+        #
+        #    Path = some.txt
+        #    Size = 4
+        #    Packed Size = 8
+        #    Modified = 2024-04-18 14:55:39.2376272
+        #    Attributes = A -rw-rw-r--
+        #    CRC = 5A82FD08
+        #    Encrypted = -
+        #    Method = LZMA2:12
+        #    Block = 0
+        #
+        # we use -scsUTF-8 to be able to match an UTF filename properly,
+        # and otherwise use basic grep/cut to get the integer byte size of
+        # the file to be extracted
+        #
+        size_cmd = \
+            f'7z -slt -scsUTF-8 l "{archive}" | grep -A9 "Path = {src}" ' \
+            '| grep "^Size =" | cut -d " " -f 3'
+        res = self.servershell(size_cmd, check=True)
+        nbytes = res.stdout.strip().decode()
+        if not nbytes:
+            raise RIARemoteError(
+                'Cannot determine archive member size. Invalid name?')
+        member_size = int(res.stdout.strip().decode())
 
-        cmd = '7z x -so {} {}\n'.format(
-            sh_quote(str(archive)),
-            sh_quote(str(src)))
-        self.shell.stdin.write(cmd.encode())
-        self.shell.stdin.flush()
-
-        # TODO: - size needs double-check and some robustness
-        #       - can we assume src to be a posixpath?
-        #       - RF: Apart from the executed command this should be pretty much
-        #         identical to self.get(), so move that code into a common
-        #         function
-
-        from os.path import basename
-        size = self._get_download_size_from_key(basename(str(src)))
-
+        cmd = f'7z x -so -- {sh_quote(str(archive))} {sh_quote(str(src))}'
+        resgen = self.servershell.start(
+            cmd,
+            response_generator=FixedLengthResponseGeneratorPosix(
+                self.servershell.stdout,
+                member_size,
+            ),
+        )
+        bytes_received = 0
         with open(dst, 'wb') as target_file:
-            bytes_received = 0
-            while bytes_received < size:
-                c = self.shell.stdout.read1(self.buffer_size)
-                if c:
-                    bytes_received += len(c)
-                    target_file.write(c)
-                    progress_cb(bytes_received)
+            for chunk in resgen:
+                bytes_received += len(chunk)
+                target_file.write(chunk)
+                progress_cb(bytes_received)
+            assert resgen.returncode == 0
+        if member_size:
+            assert member_size == bytes_received
 
     def read_file(self, file_path):
-
         cmd = f"cat {sh_quote(str(file_path))}"
         try:
             out = self.servershell(

@@ -1,5 +1,11 @@
 from pathlib import PurePosixPath
-from datalad.distributed.ora_remote import SSHRemoteIO
+import pytest
+import subprocess
+
+from datalad.distributed.ora_remote import (
+    RIARemoteError,
+    SSHRemoteIO,
+)
 
 
 def test_sshremoteio(sshserver, tmp_path):
@@ -59,3 +65,38 @@ def test_sshremoteio(sshserver, tmp_path):
     io.remove_dir(PurePosixPath(testdirpath))
     assert not io.exists(testdirpath)
 
+
+def test_sshremoteio_7z(sshserver, tmp_path):
+    sshurl, sshlocalpath = sshserver
+    io = SSHRemoteIO(sshurl)
+    # ensure we have a remote 7z
+    if not io.get_7z():
+        raise pytest.skip("No 7z available on SSH server target")
+
+    testarchivefpath = 'my.7z'
+    testfpath = 'dummy space.txt'
+    testcontent = 'two\nlines\n'
+    io.write_file(testfpath, testcontent)
+
+    io.servershell(
+        f'7z a "{testarchivefpath}" "{testfpath}"',
+        check=True,
+    )
+    # we have an archive
+    assert io.exists(testarchivefpath)
+    # we have the test file in it
+    assert io.in_archive(testarchivefpath, testfpath)
+    # the "in" test means something
+    assert not io.in_archive(testarchivefpath, "random_name")
+
+    # we can pull from the archive
+    extractfpath = tmp_path / 'extracted.txt'
+    io.get_from_archive(testarchivefpath, testfpath, extractfpath, lambda x: x)
+    assert extractfpath.read_text() == testcontent
+
+    with pytest.raises(RIARemoteError):
+        io.get_from_archive(
+            'invalid_archive', testfpath, extractfpath, lambda x: x)
+    with pytest.raises(RIARemoteError):
+        io.get_from_archive(
+            testarchivefpath, 'invalid_member', extractfpath, lambda x: x)
