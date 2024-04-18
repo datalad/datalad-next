@@ -16,7 +16,7 @@ arguments from both lists, i.e. from ``_ssh_args`` and ``_ssh_open_args`` in
 the call that opens a "shell", if ``self.ssh`` is an instance of
 ``NoMultiplexSSHConnection``.
 """
-
+from pathlib import PurePosixPath
 from urllib.parse import urlparse
 from urllib.request import unquote
 
@@ -37,7 +37,10 @@ from datalad.support.sshconnector import NoMultiplexSSHConnection
 from datalad_next.exceptions import CapturedException
 from datalad_next.patches import apply_patch
 from datalad_next.runners import CommandError
-from datalad_next.shell import shell
+from datalad_next.shell import (
+    shell,
+    posix as posix_ops,
+)
 
 
 class SSHRemoteIO(IOBase):
@@ -217,7 +220,15 @@ class SSHRemoteIO(IOBase):
         )
 
     def put(self, src, dst, progress_cb):
-        self.ssh.put(str(src), str(dst))
+        # the given callback only takes a single int, but posix.upload
+        # gives two (cur, target) -> have an addaptor
+        posix_ops.upload(
+            self.servershell,
+            src,
+            PurePosixPath(dst),
+            lambda c, m: progress_cb(c),
+            check=True,
+        )
 
     def get(self, src, dst, progress_cb):
 
