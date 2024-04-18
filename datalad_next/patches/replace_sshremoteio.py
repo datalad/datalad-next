@@ -15,6 +15,10 @@ required to open a "shell" in a ``NoMultiplexSSHConnection`` are stored in
 arguments from both lists, i.e. from ``_ssh_args`` and ``_ssh_open_args`` in
 the call that opens a "shell", if ``self.ssh`` is an instance of
 ``NoMultiplexSSHConnection``.
+
+The implementation also no longer assumes that local and remote platform are
+identical. This patch introduces an actual remote platform/system
+determination.
 """
 from pathlib import PurePosixPath
 from urllib.parse import urlparse
@@ -63,6 +67,7 @@ class SSHRemoteIO(IOBase):
         parsed_url = urlparse(ssh_url)
 
         self.url = ssh_url
+        self._remote_system = None
         # the connection to the remote
         # we don't open it yet, not yet clear if needed
         self.ssh = ssh_manager.get_connection(
@@ -104,6 +109,15 @@ class SSHRemoteIO(IOBase):
     def close(self):
         self.servershell_context.__exit__(None, None, None)
 
+    @property
+    def remote_system(self):
+        if self._remote_system is None:
+            self._remote_system = self.servershell(
+                "uname -s",
+                check=True
+            ).stdout.strip().decode().casefold()
+        return self._remote_system
+
     @contextmanager
     def ensure_writeable(self, path):
         """Context manager to get write permission on `path` and restore
@@ -117,11 +131,10 @@ class SSHRemoteIO(IOBase):
         path: Path
           path to the target file
         """
-
         path = sh_quote(str(path))
         # remember original mode -- better than to prescribe a fixed mode
 
-        if on_osx:
+        if self.remote_system == 'darwin':
             format_option = "-f%Dp"
             # on macOS this would return decimal representation of mode (same
             # as python's stat().st_mode
