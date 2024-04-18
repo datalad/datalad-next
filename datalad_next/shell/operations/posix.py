@@ -24,7 +24,7 @@ lgr = logging.getLogger("datalad.ext.next.shell.operations")
 
 
 class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
-    """A response generator for efficient download commands on Linux systems"""
+    """A response generator for efficient download commands from Linux systems"""
 
     def get_final_command(self, remote_file_name: bytes) -> bytes:
         """Return a final command list for the download of ``remote_file_name``
