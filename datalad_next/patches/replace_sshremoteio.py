@@ -319,8 +319,6 @@ class SSHRemoteIO(IOBase):
             mode = ">>"
         else:
             raise ValueError("Unknown mode '{}'".format(mode))
-        if not content.endswith('\n'):
-            content += '\n'
 
         # it really should read from stdin, but MIH cannot make it happen
         stdin = content.encode()

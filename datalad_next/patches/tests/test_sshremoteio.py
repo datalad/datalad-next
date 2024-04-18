@@ -18,7 +18,7 @@ def test_sshremoteio(sshserver, tmp_path):
 
     # TODO this content has a trailing newline, because "write_file()" requires
     # that. Madness. Remove when fixed, must work without.
-    testcontent = 'two\nlines\n'
+    testcontent = 'two\nlines'
     io.write_file(testfpath, testcontent)
     # now we have a file
     assert io.exists(testfpath)
