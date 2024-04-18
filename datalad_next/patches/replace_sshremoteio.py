@@ -220,65 +220,24 @@ class SSHRemoteIO(IOBase):
         )
 
     def put(self, src, dst, progress_cb):
-        # the given callback only takes a single int, but posix.upload
-        # gives two (cur, target) -> have an addaptor
         posix_ops.upload(
             self.servershell,
             src,
             PurePosixPath(dst),
+            # the given callback only takes a single int, but posix.upload
+            # gives two (cur, target) -> have an addaptor
             lambda c, m: progress_cb(c),
             check=True,
         )
 
     def get(self, src, dst, progress_cb):
-
-        # Note, that as we are in blocking mode, we can't easily fail on the
-        # actual get (that is 'cat').
-        # Therefore check beforehand.
-        if not self.exists(src):
-            raise RIARemoteError("annex object {src} does not exist."
-                                 "".format(src=src))
-
-        from os.path import basename
-        key = basename(str(src))
-        try:
-            size = self._get_download_size_from_key(key)
-        except RemoteError as e:
-            raise RemoteError(f"src: {src}") from e
-
-        if size is None:
-            # rely on SCP for now
-            self.ssh.get(str(src), str(dst))
-            return
-
-        # TODO: see get_from_archive()
-
-        # TODO: Currently we will hang forever if the file isn't readable and
-        #       it's supposed size is bigger than whatever cat spits out on
-        #       stdout. This is because we don't notice that cat has exited
-        #       non-zero. We could have end marker on stderr instead, but then
-        #       we need to empty stderr beforehand to not act upon output from
-        #       earlier calls. This is a problem with blocking reading, since we
-        #       need to make sure there's actually something to read in any
-        #       case.
-        cmd = 'cat {}'.format(sh_quote(str(src)))
-        self.shell.stdin.write(cmd.encode())
-        self.shell.stdin.write(b"\n")
-        self.shell.stdin.flush()
-
-        with open(dst, 'wb') as target_file:
-            bytes_received = 0
-            while bytes_received < size:
-                # TODO: some additional abortion criteria? check stderr in
-                #       addition?
-                c = self.shell.stdout.read1(self.buffer_size)
-                # no idea yet, whether or not there's sth to gain by a
-                # sophisticated determination of how many bytes to read at once
-                # (like size - bytes_received)
-                if c:
-                    bytes_received += len(c)
-                    target_file.write(c)
-                    progress_cb(bytes_received)
+        # TODO we need to be able to pass a progress callback
+        posix_ops.download(
+            self.servershell,
+            PurePosixPath(src),
+            dst,
+            check=True,
+        )
 
     def rename(self, src, dst):
         with self.ensure_writeable(dst.parent):
