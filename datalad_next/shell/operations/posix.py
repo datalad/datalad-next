@@ -158,6 +158,7 @@ def download(
     shell: ShellCommandExecutor,
     remote_path: PurePosixPath,
     local_path: Path,
+    progress_callback: Callable[[int, int], None] | None = None,
     *,
     response_generator_class: type[
         DownloadResponseGenerator
@@ -166,10 +167,7 @@ def download(
 ) -> ExecutionResult:
     """Download a file from the connected shell
 
-    This method downloads a file from the connected shell. It uses ``base64`` in
-    the shell to encode the file. The encoding is mainly done to ensure that the
-    end-marker is significant, i.e. not contained in the transferred file
-    content, and to ensure that no control-sequences are sent.
+    This method downloads a file from the connected shell.
 
     The requirements for download via instances of class
     :class:`DownloadResponseGeneratorPosix` are:
@@ -187,6 +185,9 @@ def download(
         downloaded.
     local_path : Path
         The name of the local file that will contain the downloaded content.
+    progress_callback : callable[[int, int], None], optional, default: None
+        If given, the callback is called with the number of bytes that have
+        been received and the total number of bytes that should be received.
     response_generator_class : type[DownloadResponseGenerator], optional, default: DownloadResponseGeneratorPosix
         The response generator that should be used to handle the download
         output. It must be a subclass of :class:`DownloadResponseGenerator`.
@@ -211,17 +212,23 @@ def download(
         output.
     """
     command = remote_path.as_posix().encode()
-    response_generator = shell.start(
+    response_generator = response_generator_class(shell.stdout)
+    result_generator = shell.start(
         command,
-        response_generator=response_generator_class(shell.stdout),
+        response_generator=response_generator,
     )
     with local_path.open("wb") as local_file:
-        for chunk in response_generator:
+        processed = 0
+        for chunk in result_generator:
             local_file.write(chunk)
-    stderr = b''.join(response_generator.stderr_deque)
-    response_generator.stderr_deque.clear()
+            processed += len(chunk)
+            if progress_callback is not None:
+                progress_callback(processed, response_generator.length)
+
+    stderr = b''.join(result_generator.stderr_deque)
+    result_generator.stderr_deque.clear()
     return create_result(
-        response_generator,
+        result_generator,
         command,
         stdout=b'',
         stderr=stderr,

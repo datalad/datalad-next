@@ -148,6 +148,7 @@ def test_upload(sshserver, tmp_path):
     test_file_name = 'upload_123'
     upload_file = tmp_path / test_file_name
     upload_file.write_text(content)
+    progress = []
     with shell(ssh_args) as ssh_executor:
         # perform an operation on the remote shell
         _check_ls_result(ssh_executor, common_files[0])
@@ -156,10 +157,12 @@ def test_upload(sshserver, tmp_path):
         result = posix.upload(
             ssh_executor,
             upload_file,
-            PurePosixPath(ssh_path + '/' + test_file_name)
+            PurePosixPath(ssh_path + '/' + test_file_name),
+            progress_callback=lambda a,b: progress.append((a,b))
         )
         assert result.returncode == 0
         assert (local_path / test_file_name).read_text() == content
+        assert len(progress) > 0
 
         # perform another operation on the remote shell to ensure functionality
         _check_ls_result(ssh_executor, common_files[0])
@@ -173,6 +176,7 @@ def test_download_ssh(sshserver, tmp_path):
     server_file = local_path / test_file_name
     server_file.write_text(content)
     download_file = tmp_path / test_file_name
+    progress = []
     with shell(ssh_args) as ssh_executor:
         # perform an operation on the remote shell
         _check_ls_result(ssh_executor, common_files[0])
@@ -182,9 +186,11 @@ def test_download_ssh(sshserver, tmp_path):
             ssh_executor,
             PurePosixPath(ssh_path + '/' + test_file_name),
             download_file,
+            progress_callback=lambda a,b: progress.append((a,b))
         )
         assert result.returncode == 0
         assert download_file.read_text() == content
+        assert len(progress) > 0
 
         # perform another operation on the remote shell to ensure functionality
         _check_ls_result(ssh_executor, common_files[0])
@@ -198,6 +204,7 @@ def test_download_local_bash(tmp_path):
     download_file = tmp_path / 'download_123'
     download_file.write_text(content)
     result_file = tmp_path / 'result_123'
+    progress = []
     with shell(['bash']) as bash:
         _check_ls_result(bash, common_files[0])
 
@@ -205,9 +212,11 @@ def test_download_local_bash(tmp_path):
         posix.download(
             bash,
             PurePosixPath(download_file),
-            result_file
+            result_file,
+            progress_callback=lambda a,b: progress.append((a,b)),
         )
         assert result_file.read_text() == content
+        assert len(progress) > 0
 
         # perform another operation on the remote shell to ensure functionality
         _check_ls_result(bash, common_files[0])
@@ -220,12 +229,19 @@ def test_upload_local_bash(tmp_path):
     upload_file = tmp_path / 'upload_123'
     upload_file.write_text(content)
     result_file = tmp_path / 'result_123'
+    progress = []
     with shell(['bash']) as bash:
         _check_ls_result(bash, common_files[0])
 
         # upload file to server and verify its content
-        posix.upload(bash, upload_file, PurePosixPath(result_file))
+        posix.upload(
+            bash,
+            upload_file,
+            PurePosixPath(result_file),
+            progress_callback=lambda a,b: progress.append((a,b)),
+        )
         assert result_file.read_text() == content
+        assert len(progress) > 0
 
         # perform another operation on the remote shell to ensure functionality
         _check_ls_result(bash, common_files[0])
@@ -238,12 +254,19 @@ def test_upload_local_bash_error(tmp_path):
     source_file = tmp_path / 'upload_123'
     source_file.write_text(content)
     destination_file = PurePosixPath('/result_123')
+    progress = []
     with shell(['bash']) as bash:
         _check_ls_result(bash, common_files[0])
 
         # upload file to a root on the server
-        result = posix.upload(bash, source_file, destination_file)
+        result = posix.upload(
+            bash,
+            source_file,
+            destination_file,
+            progress_callback=lambda a,b: progress.append((a,b)),
+        )
         assert result.returncode != 0
+        assert len(progress) > 0
 
         # perform another operation on the remote shell to ensure functionality
         _check_ls_result(bash, common_files[0])
@@ -477,21 +500,24 @@ def test_download_length_error():
 # This test does not work on Windows systems because it executes a local bash.
 @skip_if(on_windows)
 def test_download_error(tmp_path):
+    progress = []
     with shell(['bash']) as bash:
         with pytest.raises(CommandError):
             posix.download(
                 bash,
                 PurePosixPath('/thisdoesnotexist'),
                 tmp_path / 'downloaded_file',
-                check=True
+                progress_callback=lambda a,b: progress.append((a,b)),
+                check=True,
             )
         _check_ls_result(bash, common_files[0])
 
         result = posix.download(
             bash,
             PurePosixPath('/thisdoesnotexist'),
-             tmp_path / 'downloaded_file',
-             check=False
+            tmp_path / 'downloaded_file',
+            progress_callback=lambda a,b: progress.append((a,b)),
+            check=False,
         )
         assert result.returncode not in (0, None)
         _check_ls_result(bash, common_files[0])
