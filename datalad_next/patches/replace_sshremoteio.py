@@ -107,7 +107,10 @@ class SSHRemoteIO(IOBase):
                 CapturedException(e)
 
     def close(self):
+        if self.servershell_context is None:
+            return
         self.servershell_context.__exit__(None, None, None)
+        self.servershell_context = None
 
     @property
     def remote_system(self):
@@ -366,5 +369,17 @@ class SSHRemoteIO(IOBase):
             return False
 
 
+def oraremote_close_io_onclose(self):
+    if self._io:
+        self._io.close()
+        self._io = None
+    if self._push_io:
+        self._push_io.close()
+        self._push_io = None
+
+
 # replace the whole class
 apply_patch('datalad.distributed.ora_remote', None, 'SSHRemoteIO', SSHRemoteIO)
+# add close handler that calls the io.close()
+apply_patch('datalad.distributed.ora_remote', 'ORARemote', 'close',
+            oraremote_close_io_onclose)
