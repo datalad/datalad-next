@@ -20,7 +20,10 @@ The implementation also no longer assumes that local and remote platform are
 identical. This patch introduces an actual remote platform/system
 determination.
 """
-from pathlib import PurePosixPath
+from pathlib import (
+    Path,
+    PurePosixPath,
+)
 from urllib.parse import urlparse
 from urllib.request import unquote
 
@@ -186,10 +189,10 @@ class SSHRemoteIO(IOBase):
     def put(self, src, dst, progress_cb):
         posix_ops.upload(
             self.servershell,
-            src,
+            Path(src),
             PurePosixPath(dst),
             # the given callback only takes a single int, but posix.upload
-            # gives two (cur, target) -> have an addaptor
+            # gives two (cur, target) -> have an adaptor
             lambda c, m: progress_cb(c),
             check=True,
         )
@@ -198,9 +201,9 @@ class SSHRemoteIO(IOBase):
         posix_ops.download(
             self.servershell,
             PurePosixPath(src),
-            dst,
-            # the given callback only takes a single int, but posix.upload
-            # gives two (cur, target) -> have an addaptor
+            Path(dst),
+            # the given callback only takes a single int, but posix.download
+            # gives two (cur, target) -> have an adaptor
             lambda c, m: progress_cb(c),
             check=True,
         )
