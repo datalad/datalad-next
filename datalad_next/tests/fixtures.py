@@ -131,17 +131,21 @@ def tmp_keyring():
 # sadly, this is defined inline and cannot be reused directly
 standard_gitconfig = """\
 [user]
-        name = DataLad Tester
-        email = test@example.com
+    name = DataLad Tester
+    email = test@example.com
 [core]
-	askPass =
+    askPass =
 [datalad "log"]
-        exc = 1
+    exc = 1
+[datalad "extensions"]
+    # load the next extension to be able to test patches of annex remotes
+    # that run in subprocesses
+    load = next
 [annex "security"]
-	# from annex 6.20180626 file:/// and http://localhost access isn't
-	# allowed by default
-	allowed-url-schemes = http https file
-	allowed-http-addresses = all
+    # from annex 6.20180626 file:/// and http://localhost access isn't
+    # allowed by default
+    allowed-url-schemes = http https file
+    allowed-http-addresses = all
 [protocol "file"]
     # since git 2.38.1 cannot by default use local clones for submodules
     # https://github.blog/2022-10-18-git-security-vulnerabilities-announced/#cve-2022-39253
