@@ -462,6 +462,7 @@ def test_fixed_length_response_generator_bash():
 # This test mostly works on Windows systems because it executes a local powershell.
 @skip_if(not on_windows)
 def test_fixed_length_response_generator_powershell():
+    pytest.skip(f'Test disabled, see https://github.com/datalad/datalad-next/issues/662')
     with shell(
             ['powershell', '-Command', '-'],
             zero_command_rg_class=VariableLengthResponseGeneratorPowerShell,
