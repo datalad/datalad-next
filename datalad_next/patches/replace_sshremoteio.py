@@ -24,8 +24,10 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
-from urllib.parse import urlparse
-from urllib.request import unquote
+from urllib.parse import (
+    unquote,
+    urlparse,
+)
 
 from datalad.distributed.ora_remote import (
     DEFAULT_BUFFER_SIZE,
