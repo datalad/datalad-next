@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import sys
-from pathlib import (
-    Path,
-    PurePosixPath,
-)
+from pathlib import PurePosixPath
+from json import loads
 
 import pytest
 from more_itertools import consume
@@ -466,10 +464,14 @@ def test_fixed_length_response_generator_powershell():
             ['powershell', '-Command', '-'],
             zero_command_rg_class=VariableLengthResponseGeneratorPowerShell,
     ) as powershell:
-        response_generator = FixedLengthResponseGeneratorPowerShell(
-            powershell.stdout,
-            length=10
-        )
+        result = loads(powershell('$PSVersionTable|ConvertTo-Json').stdout)['PSVersion']
+        powershell_version = 100 * result['Major'] + result['Minor']
+        if powershell_version == 501 and result['Build'] < 19041:
+            pytest.skip(
+                f'skipping test because of a bug in powershell '
+                f'version {powershell_version}'
+            )
+
         result = powershell(b'Write-Host -NoNewline 0123456789')
         assert result.returncode == 0
         assert result.stdout == b'0123456789'
@@ -477,6 +479,10 @@ def test_fixed_length_response_generator_powershell():
         # Check that only 10 bytes are consumed and any excess bytes show up
         # in the return code. Because the extra bytes are `'abc'`, the return
         # code is invalid, which leads to a `ValueError`.
+        response_generator = FixedLengthResponseGeneratorPowerShell(
+            powershell.stdout,
+            length=10
+        )
         with pytest.raises(ValueError):
             powershell(
                 b'Write-Host -NoNewline 0123456789abc',
