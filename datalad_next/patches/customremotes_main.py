@@ -1,12 +1,18 @@
-"""Connect ``log_progress``-style progress reporting to git-annex
+"""Connect ``log_progress``-style progress reporting to git-annex, add `close()`
 
 This patch introduces a dedicated progress log handler as a proxy between
 standard datalad progress logging and a git-annex special remote as
 an approach to report (data transfer) progress to a git-annex parent process.
 
 This functionality is only (to be) used in dedicated special remote processes.
+
+This patch also adds a standard `close()` handler to special remotes, and calls
+that handler in a context manager to ensure releasing any resources. This
+replaces the custom `stop()` method, which is undocumented and only used by the
+`datalad-archive` special remote.
 """
 
+from contextlib import closing
 import logging
 from typing import (
     Dict,
@@ -112,23 +118,38 @@ def patched_underscore_main(args: list, cls: Type[SpecialRemote]):
     assert cls is not None
     from annexremote import Master
     master = Master()
-    remote = cls(master)
-    master.LinkRemote(remote)
+    # this context manager use relies on patching in a close() below
+    with closing(cls(master)) as remote:
+        master.LinkRemote(remote)
 
-    # we add an additional handler to the logger to deal with
-    # progress reports
-    dlroot_lgr = logging.getLogger('datalad')
-    phandler = AnnexProgressLogHandler(remote)
-    phandler.addFilter(only_progress_logrecords)
-    dlroot_lgr.addHandler(phandler)
+        # we add an additional handler to the logger to deal with
+        # progress reports
+        dlroot_lgr = logging.getLogger('datalad')
+        phandler = AnnexProgressLogHandler(remote)
+        phandler.addFilter(only_progress_logrecords)
+        dlroot_lgr.addHandler(phandler)
 
-    # run the remote
-    master.Listen()
-    # cleanup
-    if hasattr(remote, 'stop'):
-        remote.stop()
+        # run the remote
+        master.Listen()
+        # cleanup special case datalad-core `archive` remote
+        # nobody should do this, use `close()`
+        if hasattr(remote, 'stop'):
+            remote.stop()
 
 
+# a default cleanup handler for CoreBaseSpecialRemote
+# this enables us to use a standard `closing()` context manager with
+# special remotes
+def specialremote_defaultclose_noop(self):
+    pass
+
+
+apply_patch(
+    'datalad.customremotes', 'SpecialRemote', 'close',
+    specialremote_defaultclose_noop,
+    msg='Retrofit `SpecialRemote` with a `close()` handler',
+    expect_attr_present=False,
+)
 apply_patch(
     'datalad.customremotes.main', None, '_main',
     patched_underscore_main,

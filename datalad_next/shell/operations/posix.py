@@ -130,7 +130,7 @@ def upload(
     # `rm -rf $HOME`.
     file_size = local_path.stat().st_size
     cmd_line = (
-        f"head -c {file_size} > {remote_path.as_posix()} "
+        f'head -c {file_size} > "{remote_path.as_posix()}" '
         f"|| (head -c {file_size} > /dev/null; test 1 == 2)"
     )
     with local_path.open("rb") as local_file:
