@@ -7,7 +7,10 @@ from datalad import cfg as dlcfg
 from datalad_next.datasets import Dataset
 from datalad_next.utils import check_symlink_capability
 
-from ..gitworktree import GitTreeItemType
+from ..gitworktree import (
+    GitTreeItemType,
+    iter_gitworktree,
+)
 from ..annexworktree import iter_annexworktree
 
 from .test_itergitworktree import prep_fp_tester
@@ -117,3 +120,13 @@ def test_iter_annexworktree_nonrecursive(existing_dataset):
     dirs = [i for i in all_items if i.gittype == GitTreeItemType.directory]
     assert len(dirs) == 1
     dirs[0].name == PurePath('.datalad')
+
+
+def test_iter_annexworktree_noannex(existing_noannex_dataset):
+    # plain smoke test to ensure this can run on a dataset without an annex
+    all_annex_items = list(
+        iter_annexworktree(existing_noannex_dataset.pathobj))
+    all_git_items = list(iter_gitworktree(existing_noannex_dataset.pathobj))
+    assert len(all_annex_items) == len(all_git_items)
+    for a, g in zip(all_annex_items, all_git_items):
+        assert a.name == g.name
