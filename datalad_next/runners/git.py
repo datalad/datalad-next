@@ -72,7 +72,7 @@ def call_git(
     cwd: Path | None = None,
     force_c_locale: bool = False,
 ) -> None:
-    """Call git with no output capture, raises on non-zero exit.
+    """Call Git with no output capture, raises on non-zero exit.
 
     If ``cwd`` is not None, the function changes the working directory to
     ``cwd`` before executing the command.
@@ -96,7 +96,7 @@ def call_git_success(
     cwd: Path | None = None,
     capture_output: bool = False,
 ) -> bool:
-    """Call Git for a single line of output.
+    """Call Git and report success or failure of the command
 
     ``args`` is a list of arguments for the Git command. This list must not
     contain the Git executable itself. It will be prepended (unconditionally)
@@ -128,7 +128,7 @@ def call_git_lines(
     input: str | None = None,
     force_c_locale: bool = False,
 ) -> list[str]:
-    """Call Git for any (small) number of lines of output.
+    """Call Git for any (small) number of lines of output
 
     ``args`` is a list of arguments for the Git command. This list must not
     contain the Git executable itself. It will be prepended (unconditionally)
@@ -168,7 +168,7 @@ def call_git_oneline(
     input: str | None = None,
     force_c_locale: bool = False,
 ) -> str:
-    """Call git for a single line of output.
+    """Call Git for a single line of output
 
     If ``cwd`` is not None, the function changes the working directory to
     ``cwd`` before executing the command.

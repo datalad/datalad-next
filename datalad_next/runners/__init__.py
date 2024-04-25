@@ -1,11 +1,33 @@
 """Execution of subprocesses
 
-This module provides all relevant components for subprocess execution.
+This module provides all relevant components for subprocess execution.  The
+main work horse is :func:`~datalad_next.runners.iter_subproc`, a context
+manager that enables interaction with a subprocess in the form of an iterable
+for input/output processing. Execution errors are communicated with the
+:class:`~datalad_next.runners.CommandError` exception. In addition, a few
+convenience functions are provided to execute Git commands (including
+git-annex).
 
 .. currentmodule:: datalad_next.runners
+.. autosummary::
+   :toctree: generated
 
-Low-level tooling
------------------
+   iter_subproc
+   call_git
+   call_git_lines
+   call_git_oneline
+   call_git_success
+   iter_git_subproc
+   CommandError
+
+
+Low-level tooling from datalad-core
+-----------------------------------
+
+.. deprecated:: 1.4
+   The functionality described here has been deprecated, and the associated
+   imports from datalad-core are scheduled for removal with version 2.0.
+   Use the implementations listed above instead.
 
 Few process execution/management utilities are provided, for
 generic command execution, and for execution command in the context
@@ -16,8 +38,6 @@ of a Git repository.
 
    GitRunner
    Runner
-   iter_subproc
-   iter_git_subproc
 
 Additional information on the design of the subprocess execution tooling
 is available from https://docs.datalad.org/design/threaded_runner.html
