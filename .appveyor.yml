@@ -287,8 +287,8 @@ for:
       - |
         set -e
         if [ "$APPVEYOR_JOB_NAME" = "test-linux-crippled" ]; then
-          # 500 MB VFAT FS in a box
-          sudo dd if=/dev/zero of=/crippledfs.img count=500 bs=1M
+          # 750 MB VFAT FS in a box
+          sudo dd if=/dev/zero of=/crippledfs.img count=750 bs=1M
           sudo mkfs.vfat /crippledfs.img
           sudo mkdir /crippledfs
           sudo mount -o "uid=$(id -u),gid=$(id -g)" /crippledfs.img /crippledfs
