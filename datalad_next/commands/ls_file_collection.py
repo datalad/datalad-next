@@ -319,6 +319,10 @@ class LsFileCollection(ValidatedInterface):
       by this command (``return_type='generator``) and only until the next
       result is yielded. PY]
 
+    ``annexworktree``
+      Like ``gitworktree``, but amends the reported items with git-annex
+      information, such as ``annexkey``, ``annexsize``, and ``annnexobjpath``.
+
     ``tarfile``
       Reports on members of a TAR archive. The collection identifier is the
       path of the TAR file. Item identifiers are the relative paths
@@ -329,6 +333,9 @@ class LsFileCollection(ValidatedInterface):
       cases. This file handle is only open when items are yielded directly
       by this command (``return_type='generator``) and only until the next
       result is yielded. PY]
+
+    ``zipfile``
+      Like ``tarfile`` for reporting on ZIP archives.
     """
     _validator_ = LsFileCollectionParamValidator()
 
@@ -386,6 +393,13 @@ class LsFileCollection(ValidatedInterface):
          ' | jq \'. | select(.type == "file")\' \\\n'
          ' | jq --slurp . \\\n'
          " | datalad addurls --key 'et:MD5-s{size}--{hash-md5}' - 'https://example.com/{item}'"},
+        {'text': 'List annex keys of all files in the working tree of a dataset',
+         'code_py': "[r['annexkey'] \\\n"
+                    "for r in ls_file_collection('annexworktree', '.') \\\n"
+                    "if 'annexkey' in r]",
+         'code_cmd': "datalad -f json ls-file-collection annexworktree . \\\n"
+                     "| jq '. | select(.annexkey) | .annexkey'",
+        },
     ]
 
     @staticmethod
