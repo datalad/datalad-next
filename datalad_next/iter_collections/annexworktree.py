@@ -25,6 +25,7 @@ from datalad_next.itertools import (
     route_out,
     StoreOnly,
 )
+from datalad_next.repo_utils import has_initialized_annex
 from datalad_next.runners import iter_git_subproc
 
 from .gitworktree import (
@@ -145,6 +146,20 @@ def iter_annexworktree(
         fp=False,
         recursive=recursive,
     )
+
+    if not has_initialized_annex(path):
+        # this is not an annex repo.
+        # we just yield the items from the gitworktree iterator.
+        # we funnel them through the standard result item prep
+        # function for type equality.
+        # when a recursive-mode other than 'repository' will be
+        # implemented, this implementation needs to be double-checked
+        # to avoid decision making on submodules just based on
+        # the nature of the toplevel repo.
+        for item in glsf:
+            yield _get_worktree_item(
+                path, get_fs_info=link_target, git_item=item)
+        return
 
     git_fileinfo_store: list[Any] = list()
     # this is a technical helper that will just store a bunch of `None`s
