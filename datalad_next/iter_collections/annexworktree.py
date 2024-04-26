@@ -25,10 +25,8 @@ from datalad_next.itertools import (
     route_out,
     StoreOnly,
 )
-from datalad_next.runners import (
-    call_git_success,
-    iter_git_subproc,
-)
+from datalad_next.repo_utils import has_initialized_annex
+from datalad_next.runners import iter_git_subproc
 
 from .gitworktree import (
     GitWorktreeItem,
@@ -149,11 +147,7 @@ def iter_annexworktree(
         recursive=recursive,
     )
 
-    if not call_git_success(
-        ['annex', 'info', '--fast', '-q'],
-        cwd=path,
-        capture_output=True,
-    ):
+    if not has_initialized_annex(path):
         # this is not an annex repo.
         # we just yield the items from the gitworktree iterator.
         # we funnel them through the standard result item prep
