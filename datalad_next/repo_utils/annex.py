@@ -19,8 +19,16 @@ def has_initialized_annex(
 
     for this ``path``.
     """
+    # this test is about 3ms in MIH's test system.
+    # datalad-core tests for a git repo and then for .git/annex, this
+    # achieves both in one step (although the test in datalad-core is
+    # likely still faster, because it only inspects the filesystem
+    # for a few key members of a Git repo. In order for that test to
+    # work, though, it has to traverse the filesystem to find a repo root
+    # -- if there even is any).
+    # also ee https://git-annex.branchable.com/forum/Cheapest_test_for_an_initialized_annex__63__/
     return call_git_success(
-        ['annex', 'info', '--fast', '-q'],
+        ['config', '--local', 'annex.uuid'],
         cwd=path,
         capture_output=True,
     )
