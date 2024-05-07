@@ -309,6 +309,7 @@ def modified_dataset(tmp_path_factory):
           (use "git restore --staged <file>..." to unstage)
                 new file:   dir_m/file_a
                 new file:   file_a
+                new file:   file_am
 
         Changes not staged for commit:
           (use "git add/rm <file>..." to update what will be committed)
@@ -324,6 +325,7 @@ def modified_dataset(tmp_path_factory):
                 modified:   dir_sm/sm_nm (new commits, modified content)
                 modified:   dir_sm/sm_nmu (new commits, modified content, untracked content)
                 modified:   dir_sm/sm_u (untracked content)
+                modified:   file_am
                 deleted:    file_d
                 modified:   file_m
 
@@ -333,6 +335,7 @@ def modified_dataset(tmp_path_factory):
                 dir_m/file_u
                 dir_u/file_u
                 file_u
+
 
     Suffix indicates the ought-to state (multiple possible):
 
@@ -406,6 +409,11 @@ def modified_dataset(tmp_path_factory):
         pobj = obj.pathobj if isinstance(obj, Dataset) else obj
         (pobj / 'file_a').write_text('added')
         assert call_git_success(['add', 'file_a'], cwd=pobj)
+    # added and then modified file
+    file_am_obj = ds.pathobj / 'file_am'
+    file_am_obj.write_text('added')
+    assert call_git_success(['add', 'file_am'], cwd=ds.pathobj)
+    file_am_obj.write_text('modified')
 
     # record git-status output as a reference
     status_start = call_git_lines(['status'], cwd=ds.pathobj)
