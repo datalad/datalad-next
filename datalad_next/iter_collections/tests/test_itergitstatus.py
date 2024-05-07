@@ -218,11 +218,15 @@ def test_status_monorec(modified_dataset):
     # the submodules
     _assert_testcases(
         st,
-        # repository and recursive test cases, minus any direct submodule
-        # items
+        # repository and recursive test cases
         [c for c in chain(test_cases_repository_recursion,
                           test_cases_submodule_recursion)
-         if not c['name'].split('/')[-1].split('_')[0] == 'sm'])
+         # minus any submodule that have no new commits
+         # (this only thing that is not attributable to individual
+         # content changes)
+         if not c['name'].split('/')[-1] in (
+             'sm_m', 'sm_mu', 'sm_u',
+         )])
 
 
 def test_status_gitinit(tmp_path):
