@@ -69,7 +69,12 @@ def test_status_homogeneity(modified_dataset):
 
         # anything modified is labeled as such
         assert all(
+            # either directly
             i.status == GitDiffStatus.modification
+            # or as an addition with a modification on top
+            or (i.status == GitDiffStatus.addition
+                and GitContainerModificationType.modified_content
+                    in i.modification_types)
             for i in st.values()
             if 'm' in i.path.name.split('_')[1]
         )
