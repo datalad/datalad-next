@@ -56,15 +56,6 @@ class StatusState(Enum):
     unknown = 'unknown'
 
 
-STATE_COLOR_MAP = {
-    StatusState.added: ac.GREEN,
-    StatusState.modified: ac.RED,
-    StatusState.deleted: ac.RED,
-    StatusState.untracked: ac.RED,
-    StatusState.unknown: ac.YELLOW,
-}
-
-
 diffstatus2resultstate_map = {
     GitDiffStatus.addition: StatusState.added,
     GitDiffStatus.copy: StatusState.added,
@@ -358,7 +349,7 @@ class Status(ValidatedInterface):
             fill=' ' * max(0, max_len - len(state)),
             state=ac.color_word(
                 res.state.value,
-                STATE_COLOR_MAP.get(res.state)),
+                _get_result_status_render_color(res)),
             path=path,
             type_=' ({})'.format(ac.color_word(type_, ac.MAGENTA))
             if type_ else '',
@@ -371,3 +362,14 @@ class Status(ValidatedInterface):
         # no reports, no changes
         if len(results) == 0:
             ui.message("nothing to save, working tree clean")
+
+
+def _get_result_status_render_color(res):
+    if res.state == StatusState.deleted:
+        return ac.RED
+    elif res.state == StatusState.modified:
+        return ac.CYAN
+    elif res.state == StatusState.added:
+        return ac.GREEN
+    else:
+        return ac.BOLD

@@ -316,11 +316,13 @@ def _yield_hierarchy_items(
         # TODO do we need to adjust the eval mode here for the diff recmodes?
         eval_submodule_state=eval_submodule_state,
     ):
-        # we get to see any submodule item passing through here, and can simply
-        # call this function again for a subpath
+        # there is nothing else to do for any non-submodule item
         if item.gittype != GitTreeItemType.submodule:
             yield item
             continue
+
+        # we get to see any submodule item passing through here, and can simply
+        # call this function again for a subpath
 
         # submodule recursion
         # the .path of a GitTreeItem is always POSIX
@@ -341,6 +343,14 @@ def _yield_hierarchy_items(
             # on changes a comprehensive from the point of view of the parent
             # repository, hence no submodule item is emitted
             sm_head = item.gitsha or item.prev_gitsha
+
+            if GitContainerModificationType.new_commits in item.modification_types:
+                # this is a submodule that has new commits compared to
+                # its state in the parent dataset. We need to yield this
+                # item, even if nothing else is modified, because otherwise
+                # this (unsafed) changed would go unnoticed
+                # https://github.com/datalad/datalad-next/issues/645
+                yield item
 
         for i in _yield_hierarchy_items(
             head=sm_head,

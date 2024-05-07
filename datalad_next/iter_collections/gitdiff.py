@@ -91,6 +91,10 @@ class GitDiffItem(GitTreeItem):
     """Qualifiers for modification types of container-type
     items (directories, submodules)."""
 
+    def __post_init__(self):
+        if self.status == GitDiffStatus.addition and self.gitsha is None:
+            self.add_modification_type(GitContainerModificationType.modified_content)
+
     @cached_property
     def prev_path(self) -> PurePosixPath | None:
         """Returns the item ``prev_name`` as a ``PurePosixPath``

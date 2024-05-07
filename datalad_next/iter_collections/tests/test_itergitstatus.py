@@ -69,7 +69,12 @@ def test_status_homogeneity(modified_dataset):
 
         # anything modified is labeled as such
         assert all(
+            # either directly
             i.status == GitDiffStatus.modification
+            # or as an addition with a modification on top
+            or (i.status == GitDiffStatus.addition
+                and GitContainerModificationType.modified_content
+                    in i.modification_types)
             for i in st.values()
             if 'm' in i.path.name.split('_')[1]
         )
@@ -213,11 +218,15 @@ def test_status_monorec(modified_dataset):
     # the submodules
     _assert_testcases(
         st,
-        # repository and recursive test cases, minus any direct submodule
-        # items
+        # repository and recursive test cases
         [c for c in chain(test_cases_repository_recursion,
                           test_cases_submodule_recursion)
-         if not c['name'].split('/')[-1].split('_')[0] == 'sm'])
+         # minus any submodule that have no new commits
+         # (this only thing that is not attributable to individual
+         # content changes)
+         if not c['name'].split('/')[-1] in (
+             'sm_m', 'sm_mu', 'sm_u',
+         )])
 
 
 def test_status_gitinit(tmp_path):
