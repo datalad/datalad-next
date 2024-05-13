@@ -17,6 +17,7 @@ from . import (
     # the following two patches have been taken verbatim from datalad-ria
     ssh_exec,
     sshconnector,
+    add_method_url2transport_path,
     # this replaces SSHRemoteIO entirely
     replace_sshremoteio,
 )

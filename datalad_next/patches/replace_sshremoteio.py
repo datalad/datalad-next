@@ -19,7 +19,12 @@ the call that opens a "shell", if ``self.ssh`` is an instance of
 The implementation also no longer assumes that local and remote platform are
 identical. This patch introduces an actual remote platform/system
 determination.
+
+This patch also adds the method :meth:`url2transport_path`, which is used to
+convert abstract paths, which are used in the patched RIA/ORA-code, into paths
+that SSHRemoteIO can operate on.
 """
+from __future__ import annotations
 from pathlib import (
     Path,
     PurePosixPath,
@@ -116,6 +121,13 @@ class SSHRemoteIO(IOBase):
             return
         self.servershell_context.__exit__(None, None, None)
         self.servershell_context = None
+
+    def url2transport_path(
+            self,
+            url_path: PurePosixPath
+    ) -> Path | PurePosixPath:
+        assert isinstance(url_path, PurePosixPath)
+        return url_path
 
     @property
     def remote_system(self):
