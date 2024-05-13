@@ -20,6 +20,10 @@ from . import (
     add_method_url2transport_path,
     # this replaces SSHRemoteIO entirely
     replace_sshremoteio,
+    # The following patches try to fix ORA/RIA code
+    ria_utils,
     # this replaces ORARemote entirely
     replace_ora_remote,
+    # MUST be after `replace_sshremoteio` and `ria_utils`
+    replace_create_sibling_ria,
 )
