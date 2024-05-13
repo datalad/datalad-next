@@ -17,6 +17,7 @@ from . import (
     # the following two patches have been taken verbatim from datalad-ria
     ssh_exec,
     sshconnector,
+
     add_method_url2transport_path,
     # this replaces SSHRemoteIO entirely
     replace_sshremoteio,
@@ -24,6 +25,8 @@ from . import (
     ria_utils,
     # this replaces ORARemote entirely
     replace_ora_remote,
+    # adapt the tests to the updated interface
+    fix_ria_ora_tests,
     # MUST be after `replace_sshremoteio` and `ria_utils`
     replace_create_sibling_ria,
 )
