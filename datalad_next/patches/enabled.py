@@ -20,4 +20,6 @@ from . import (
     add_method_url2transport_path,
     # this replaces SSHRemoteIO entirely
     replace_sshremoteio,
+    # this replaces ORARemote entirely
+    replace_ora_remote,
 )
