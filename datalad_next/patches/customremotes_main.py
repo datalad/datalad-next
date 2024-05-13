@@ -10,6 +10,8 @@ This patch also adds a standard `close()` handler to special remotes, and calls
 that handler in a context manager to ensure releasing any resources. This
 replaces the custom `stop()` method, which is undocumented and only used by the
 `datalad-archive` special remote.
+
+This patch also adds code that allows to patch a class that is already loaded
 """
 
 from contextlib import closing
@@ -117,6 +119,11 @@ def patched_underscore_main(args: list, cls: Type[SpecialRemote]):
     """
     assert cls is not None
     from annexremote import Master
+
+    # Reload the class, to allow `cls` itself to be patched.
+    new_module = __import__(cls.__module__, fromlist=[cls.__name__])
+    cls = getattr(new_module, cls.__name__)
+
     master = Master()
     # this context manager use relies on patching in a close() below
     with closing(cls(master)) as remote:
