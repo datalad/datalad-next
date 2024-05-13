@@ -4,7 +4,6 @@ from datalad_next.tests import skip_if_on_windows
 
 # we cannot yet run on windows. see
 # https://github.com/datalad/datalad-next/issues/654
-@skip_if_on_windows
 def test_ria_ssh_roundtrip(
         sshserver, existing_dataset, no_result_rendering,
         tmp_path):
