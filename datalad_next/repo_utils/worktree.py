@@ -12,6 +12,16 @@ from datalad_next.runners import (
 def get_worktree_head(
     path: Path,
 ) -> tuple[str | None, str | None]:
+    """Returns the symbolic name of the worktree `HEAD` at the given path
+
+    Returns
+    -------
+    tuple
+      The first item is the symbolic name of the worktree `HEAD`, or `None`
+      if there is no commit.
+      The second item is the symbolic name of the "corresponding branch" in
+      an adjusted-mode git-annex repository, or `None`.
+    """
     try:
         HEAD = call_git_lines(
             # we add the pathspec disambiguator to get cleaner error messages

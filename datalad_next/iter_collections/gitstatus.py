@@ -11,6 +11,7 @@ from pathlib import (
 )
 from typing import Generator
 
+from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.runners import (
     CommandError,
     call_git_lines,
@@ -99,6 +100,10 @@ def iter_gitstatus(
     path = Path(path)
 
     head, corresponding_head = get_worktree_head(path)
+    if head is None:
+        # no commit at all -> compare to an empty repo.
+        head = PRE_INIT_COMMIT_SHA
+
     # TODO it would make sense to always (or optionally) compare against any
     # existing corresponding_head. This would make the status communicate
     # anything that has not made it into the corresponding branch yet
@@ -162,15 +167,15 @@ def _yield_dir_items(
             )
         }
     # diff constrained to direct children
-    for item in ([] if head is None else iter_gitdiff(
+    for item in iter_gitdiff(
         path,
-        from_treeish='HEAD',
+        from_treeish=head,
         # to the worktree
         to_treeish=None,
         recursive='no',
         # TODO trim scope like in repo_items
         eval_submodule_state=eval_submodule_state,
-    )):
+    ):
         if item.status != GitDiffStatus.deletion \
                 and item.gittype in container_types:
             if item.gittype == GitTreeItemType.submodule:
@@ -251,9 +256,9 @@ def _yield_repo_items(
         str(item.name): item for item in iter_submodules(path)
     }
     # start with a repository-contrained diff against the worktree
-    for item in ([] if head is None else iter_gitdiff(
+    for item in iter_gitdiff(
         path,
-        from_treeish='HEAD',
+        from_treeish=head,
         # to the worktree
         to_treeish=None,
         recursive='repository',
@@ -261,7 +266,7 @@ def _yield_repo_items(
         # We need to redo some check for adjusted mode, and other cases anyways
         eval_submodule_state='commit'
         if eval_submodule_state == 'full' else eval_submodule_state,
-    )):
+    ):
         # immediately investigate any submodules that are already
         # reported modified by Git
         if item.gittype == GitTreeItemType.submodule:
