@@ -241,3 +241,15 @@ def test_status_gitinit(tmp_path):
         assert len(res) == 1
         assert res[0].name == 'untracked'
         assert res[0].status == GitDiffStatus.other
+
+
+def test_status_nohead_staged(tmp_path):
+    # initialize a fresh git repo, but make no commits
+    assert call_git_success(['init'], cwd=tmp_path)
+    # stage a file
+    (tmp_path / 'probe').write_text('tostage')
+    assert call_git_success(['add', 'probe'], cwd=tmp_path)
+    _assert_testcases(
+        {i.name: i for i in iter_gitstatus(tmp_path)},
+        [{'name': 'probe', 'status': GitDiffStatus.addition}],
+    )
