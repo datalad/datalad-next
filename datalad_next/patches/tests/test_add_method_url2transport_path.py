@@ -8,13 +8,16 @@ from ..add_method_url2transport_path import (
     http_remote_io_url2transport_path,
 )
 
+from datalad.utils import on_windows
+from datalad.tests.utils_pytest import skip_if
 
-def test_local_io_url2transport_path():
+
+@skip_if(on_windows)
+def test_local_io_url2transport_path_posix():
 
     for url, transport_path in (
             ('/a/b/c', '/a/b/c'),
             ('/C:/a/b/c', '/C:/a/b/c'),
-            ('/C:a/b/c', '/C:a/b/c'),
             ('C:/a/b/c', 'C:/a/b/c'),
     ):
         assert local_io_url2transport_path(
@@ -23,7 +26,8 @@ def test_local_io_url2transport_path():
         ) == Path(transport_path)
 
 
-def test_local_io_url2transport_path_windows_warning(monkeypatch):
+@skip_if(not on_windows)
+def test_local_io_url2transport_path_windows(monkeypatch):
     monkeypatch.setattr(
         'datalad_next.patches.add_method_url2transport_path.on_windows',
         True,
@@ -33,8 +37,19 @@ def test_local_io_url2transport_path_windows_warning(monkeypatch):
         'datalad_next.patches.add_method_url2transport_path.lgr.warning',
         lambda x: warnings.append(x),
     )
-    local_io_url2transport_path(None, PurePosixPath('/C:a/b/c'))
-    assert len(warnings) == 1
+
+    for url, transport_path in (
+            ('/a/b/c', '/a/b/c'),
+            ('C:/a/b/c', 'C:/a/b/c'),
+            ('C:a/b/c', 'C:a/b/c'),
+            ('/C:a/b/c', 'C:a/b/c'),
+            ('/C:/a/b/c', 'C:/a/b/c'),
+    ):
+        assert local_io_url2transport_path(
+            None,
+            PurePosixPath(url)
+        ) == Path(transport_path)
+    assert len(warnings) > 0
 
 
 def test_http_remote_io_url2transport_path():
