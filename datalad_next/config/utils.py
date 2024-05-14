@@ -89,6 +89,9 @@ def set_gitconfig_items_in_env(items: Mapping[str, str | Tuple[str, ...]]):
         values = value if isinstance(value, tuple) else (value,)
         for v in values:
             environ[f'GIT_CONFIG_KEY_{count}'] = key
+            # we support None even though not an allowed input type, because
+            # of https://github.com/datalad/datalad/issues/7589
+            # this can be removed, when that issue is resolved.
             environ[f'GIT_CONFIG_VALUE_{count}'] = '' if v is None else str(v)
             count += 1
     if count:
