@@ -17,6 +17,5 @@ from . import (
     # the following two patches have been taken verbatim from datalad-ria
     ssh_exec,
     sshconnector,
-    # this replaces SSHRemoteIO entirely
-    replace_sshremoteio,
+    patch_ria_ora,
 )
