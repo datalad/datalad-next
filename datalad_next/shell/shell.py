@@ -81,7 +81,39 @@ def shell(shell_cmd: list[str],
     via the returned instance of :class:`ShellCommandExecutor` are executed in
     the same shell instance.
 
-    Simple example that invokes a single command::
+    Parameters
+    ----------
+    shell_cmd : list[str]
+        The command to execute the shell. It should be a list of strings that
+        is given to :func:`iter_subproc` as `args`-parameter. For example:
+        ``['ssh', '-p', '2222', 'localhost']``.
+    chunk_size : int, optional
+        The size of the chunks that are read from the shell's ``stdout`` and
+        ``stderr``. This also defines the size of stored ``stderr``-content.
+    zero_command_rg_class : type[VariableLengthResponseGenerator], optional, default: 'VariableLengthResponseGeneratorPosix'
+        Shell uses an instance of the specified response generator class to
+        execute the *zero command* ("zero command" is the command used to skip
+        the login messages of the shell). This class will also be used as the
+        default response generator for all further commands executed in the
+        :class:`ShellCommandExecutor`-instances that is returned by
+        :func:`shell`. Currently, the following concrete subclasses of
+        :class:`VariableLengthResponseGenerator` exist:
+
+            - :class:`VariableLengthResponseGeneratorPosix`: compatible with
+              POSIX-compliant shells, e.g. ``sh`` or ``bash``.
+
+            - :class:`VariableLengthResponseGeneratorPowerShell`: compatible
+              with PowerShell.
+
+    Yields
+    ------
+    :class:`ShellCommandExecutor`
+
+    Examples
+    --------
+
+    Simple example that invokes a single command, prints its output and its
+    return code::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
@@ -112,8 +144,8 @@ def shell(shell_cmd: list[str],
 
     The following example demonstrates how to use the ``check``-parameter to
     raise a :class:`CommandError`-exception if the return code of the command is
-    not zero. This delegates error handling to the calling code and help to keep
-    the code clean::
+    not zero. This delegates error handling to the calling code and helps to
+    keep the code clean::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
@@ -138,7 +170,7 @@ def shell(shell_cmd: list[str],
         ...         return result.returncode == 0
         ... print(file_exists('/etc/passwd'))
         True
-        ... print(file_exists('/no-such-file'))
+        >>> print(file_exists('/no-such-file'))
         False
 
     An example for result content checking::
@@ -171,33 +203,149 @@ def shell(shell_cmd: list[str],
     (The exact output of the above example might differ, depending on the
     length of the first two entries in the ``/etc/passwd``-file.)
 
-    Parameters
-    ----------
-    shell_cmd : list[str]
-        The command to execute the shell. It should be a list of strings that
-        is given to :func:`iter_subproc` as `args`-parameter. For example:
-        ``['ssh', '-p', '2222', 'localhost']``.
-    chunk_size : int, optional
-        The size of the chunks that are read from the shell's ``stdout`` and
-        ``stderr``. This also defines the size of stored ``stderr``-content.
-    zero_command_rg_class : type[VariableLengthResponseGenerator], optional, default: 'VariableLengthResponseGeneratorPosix'
-        Shell uses an instance of the specified response generator class to
-        execute the *zero command* ("zero command" is the command used to skip
-        the login messages of the shell). This class will also be used as the
-        default response generator for all further commands executed in the
-        :class:`ShellCommandExecutor`-instances that is returned by
-        :func:`shell`. Currently, the following concrete subclasses of
-        :class:`VariableLengthResponseGenerator` exist:
+    The methods :meth:`ShellCommandExecutor.__call__` and
+    :meth:`ShellCommandExecutor.start` allow to pass an iterable in the
+    ``stdin``-argument. The content of this iterable will be sent to ``stdin``
+    of the executed command::
 
-            - :class:`VariableLengthResponseGeneratorPosix`: compatible with
-              POSIX-compliant shells, e.g. ``sh`` or ``bash``.
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result = ssh(b'head -c 4', stdin=(b'ab', b'c', b'd'))
+        ...     print(result.stdout)
+        b'abcd'
 
-            - :class:`VariableLengthResponseGeneratorPowerShell`: compatible
-              with PowerShell.
+    Note the ``head -c 4`` command that reads exactly 4 bytes from its
+    ``stdin``. This ensures that the command terminates after reading exactly
+    four bytes. If we would have just used ``cat``, the command would have
+    continued to run until its ``stdin`` was closed. The ``stdin`` of the
+    command can be close by calling ``ssh.close()``, but once ``ssh.close()``
+    is called, no more commands can be executed on ``ssh``. Note also that
+    ``ssh.start`` must be used to execute a command that reads its ``stdin``
+    until its closed. The reason for this is that ``ssh.start`` will return
+    before the command has terminated, which allows to call ``ssh.close()``,
+    as shown in the following example::
 
-    Yields
-    ------
-    :class:`ShellCommandExecutor`
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result_generator = ssh.start(b'cat', stdin=(b'12', b'34', b'56'))
+        ...     ssh.close()
+        ...     print(tuple(result_generator))
+        (b'123456',)
+
+    ``cat`` continuously tries to read from its ``stdin``. When
+    ``ssh.close()`` is called, ``cat`` will read an EOF and exit. Now the
+    ``ssh``-object is unusable for further command execution, because
+    ``ssh.close()`` was called. Further command execution requires to spin up
+    a new persistent shell-object. To prevent this overhead, it is advised to
+    limit the number of bytes that a shell-command consumes, either by their
+    number, e.g. by using ``head -c``, or by some other means, e.g.
+    by interpreting the content or using a command like ``timeout``.
+
+    ``head -c`` can be used to upload a file to a remote shell. The basic idea
+    is to determine the number of bytes that will be uploaded and create a
+    command in the remote shell that will consume exactly this amount of bytes.
+    The following example implements this idea (without file-name escaping and
+    error handling)::
+
+        >>> import os
+        >>> import time
+        >>> from datalad_next.shell import shell
+        >>> def upload(ssh, file_name, remote_file_name):
+        ...     size = os.stat(file_name).st_size
+        ...     f = open(file_name, 'rb')
+        ...     return ssh(f'head -c {size} > {remote_file_name}', stdin=iter(f.read, b''))
+        ...
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     upload(ssh, '/etc/passwd', '/tmp/uploaded-1')
+
+    Note: in the example above, ``f`` is not explicitly closed, it is only
+    closed when the program exits. The reason for
+    this is that the shell uses threads internally for stdin-feeding, and there
+    is no simple way to determine whether the thread that reads ``f`` has yet
+    read an EOF and exited. If ``f`` is closed before the thread exits, and the
+    thread tries to read from ``f``, a ``ValueError`` will be raised (the
+    function :func:`datalad_next.shell.posix.upload` contains a solution
+    for this problem that has slightly more code. For the sake of simplicity,
+    this solution was not implemented in the example above).
+
+    The following example shows how to use a fixed-length response generator
+    to download a file from a remote shell. The basic idea is to determine the
+    number of bytes that will be downloaded and create a Fixed-Length Response
+    Generator that reads exactly this number of bytes (again an example without
+    file-name escaping or error handling)::
+
+        >>> from datalad_next.shell import shell
+        >>> from datalad_next.shell.response_generators import FixedLengthResponseGeneratorPosix
+        >>> def download(ssh, remote_file_name, local_file_name):
+        ...     size = ssh(f'stat -c %s {remote_file_name}').stdout
+        ...     with open(local_file_name, 'wb') as f:
+        ...         response_generator = FixedLengthResponseGeneratorPosix(ssh.stdout, int(size))
+        ...         results = ssh.start(f'cat {remote_file_name}', response_generator=response_generator)
+        ...         for chunk in results:
+        ...             f.write(chunk)
+        ...
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     download(ssh, '/etc/passwd', '/tmp/downloaded-1')
+        ...
+
+    The next example implements interaction with a python interpreter (which
+    can be local or remote). Interaction in this example means, executing a
+    line of python code, returning the result, i.e. the output on ``stdout``,
+    and detect whether an exception was raised or not. To this end
+    a Python-specific Variable Length Response Generator is created by
+    subclassing the
+    generic class :class:`VariableLengthResponseGenerator`. The new response
+    generator implements the method :meth:`get_final_command`, which takes a
+    python statement and returns a ``try``-``except``-block that executes the
+    python statement, prints an end-marker, and a return code (which is zero if
+    the statement was executed successfully, and one if an exception was
+    raised)::
+
+        >>> from datalad_next.shell import shell
+        >>> from datalad_next.shell.response_generators import VariableLengthResponseGenerator
+        >>> class PythonResponseGenerator(VariableLengthResponseGenerator):
+        ...     def get_final_command(self, command: bytes) -> bytes:
+        ...         return f'''try:
+        ...     {command.decode()}
+        ...     print('{self.end_marker.decode()}')
+        ...     print(0)
+        ... except:
+        ...     print('{self.end_marker.decode()}')
+        ...     print(1)
+        ... '''.encode()
+        ...     @property
+        ...     def zero_command(self) -> bytes:
+        ...         return b'True'
+        ...
+        >>> with shell(['python', '-u', '-i']) as py:
+        ...     print(py('1 + 1'))
+        ...     print(py('1 / 0'))
+        ...
+        ExecutionResult(stdout=b'2\\n', stderr=b'>>> ... ... ... ... ... ... ... ... ', returncode=0)
+        ExecutionResult(stdout=b'', stderr=b'... ... ... ... ... ... ... ... Traceback (most recent call last):\\n  File "<stdin>", line 2, in <module>\\nZeroDivisionError: division by zero', returncode=1)
+
+    The python response generator could be extended to deliver exception
+    information in an extended ``ExecutionResult``. This can be achieved by
+    _pickling_ (see the ``pickle``-module) a caught exception to a byte-string,
+    printing this byte-string after the return-code line, and printing another
+    end-marker. The :meth:`send`-method of the response generator must then
+    be overwritten to unpickle the exception information and store it in an
+    extended ``ExecutionResult`` (or raise it in the shell-context, if that is
+    preferred).
+
+    **Remark**: in situations were a ``with``-statement is not suitable, e.g. a
+    shell object should be used in independent functions, the context manager
+    can be manually entered and left. The following example generates a global
+    ``ShellCommandExecutor``-instance called ``ssh``::
+
+        >>> from datalad_next.shell import shell
+        >>> context_manager = shell(['ssh', 'localhost'])
+        >>> ssh = context_manager.__enter__()
+        >>> print(ssh(b'ls /etc/passwd').stdout)
+        b'/etc/passwd\\n'
+        >>> context_manager.__exit__(None, None, None)
+        False
+
     """
 
     def train(queue: Queue):

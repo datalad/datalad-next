@@ -86,6 +86,9 @@ it does not rely on the uniqueness of the end marker. It is most useful for
 operation like ``download``, where the length of the output can be known in
 advance.
 
+See the documentation of :func:`datalad_next.shell.shell` for examples of how to
+use the shell-function and different response generator classes.
+
 As mentioned above, the classes :class:`VariableLengthResponseGenerator` and
 :class:`FixedLengthResponseGenerator` are abstract. The module
 :mod:`datalad_next.shell.response_generators` provides the following concrete
@@ -99,7 +102,7 @@ implementations for them:
 
     - :class:`FixedLengthResponseGeneratorPowerShell`
 
-When :func:`shell` is executed it will use a
+When :func:`datalad_next.shell.shell` is executed it will use a
 :class:`VariableLengthResponseClass` to skip the login message of the shell.
 This is done by executing a *zero command* (a command that will possibly
 generate some output, and successfully return) in the shell. The zero command is
