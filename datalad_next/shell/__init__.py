@@ -129,6 +129,8 @@ Examples
 See the documentation of :func:`datalad_next.shell.shell` for examples of how to
 use the shell-function and different response generator classes.
 
+API overview
+------------
 .. currentmodule:: datalad_next.shell
 
 .. autosummary::
