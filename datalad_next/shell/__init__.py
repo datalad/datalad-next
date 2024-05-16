@@ -86,9 +86,6 @@ it does not rely on the uniqueness of the end marker. It is most useful for
 operation like ``download``, where the length of the output can be known in
 advance.
 
-See the documentation of :func:`datalad_next.shell.shell` for examples of how to
-use the shell-function and different response generator classes.
-
 As mentioned above, the classes :class:`VariableLengthResponseGenerator` and
 :class:`FixedLengthResponseGenerator` are abstract. The module
 :mod:`datalad_next.shell.response_generators` provides the following concrete
@@ -125,6 +122,12 @@ class identified by ``zero_command_rg_class`` will be used by default to create
 the final command list and to parse the result. Users can override this on a
 per-call basis by providing a different response generator class in the
 ``response_generator``-parameter of :meth:`ShellCommandExecutor.__call__`.
+
+Examples
+--------
+
+See the documentation of :func:`datalad_next.shell.shell` for examples of how to
+use the shell-function and different response generator classes.
 
 .. currentmodule:: datalad_next.shell
 
