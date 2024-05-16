@@ -112,8 +112,8 @@ def shell(shell_cmd: list[str],
     Examples
     --------
 
-    Simple example that invokes a single command, prints its output and its
-    return code::
+    **Example 1:** a simple example that invokes a single command, prints its
+    output and its return code::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
@@ -124,10 +124,10 @@ def shell(shell_cmd: list[str],
         b'-rw-r--r-- 1 root root 2773 Nov 14 10:05 /etc/passwd\\n'
         0
 
-    Example that invokes two commands, the second of which exits with a non-zero
-    return code. The error output is retrieved from ``result.stderr``, which
-    contains all ``stderr`` data that was written since the last command was
-    executed::
+    **Example 2:** this example invokes two commands, the second of which exits
+    with a non-zero return code. The error output is retrieved from
+    ``result.stderr``, which contains all ``stderr`` data that was written
+    since the last command was executed::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
@@ -142,8 +142,9 @@ def shell(shell_cmd: list[str],
         2
         b"Pseudo-terminal will not be allocated because stdin is not a terminal.\\r\\nls: cannot access '/no-such-file': No such file or directory\\n"
 
-    The following example demonstrates how to use the ``check``-parameter to
-    raise a :class:`CommandError`-exception if the return code of the command is
+    **Example 3:** demonstrates how to use the
+    ``check``-parameter to raise a :class:`CommandError`-exception if the
+    return code of the command is
     not zero. This delegates error handling to the calling code and helps to
     keep the code clean::
 
@@ -161,7 +162,7 @@ def shell(shell_cmd: list[str],
             raise CommandError(
         datalad.runner.exception.CommandError: CommandError: 'ls /no-such-file' failed with exitcode 2 [err: 'cannot access '/no-such-file': No such file or directory']
 
-    Manual checking of the return code::
+    **Example 4:** an example for manual checking of the return code::
 
         >>> from datalad_next.shell import shell
         >>> def file_exists(file_name):
@@ -173,7 +174,7 @@ def shell(shell_cmd: list[str],
         >>> print(file_exists('/no-such-file'))
         False
 
-    An example for result content checking::
+    **Example 5:** an example for result content checking::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
@@ -181,8 +182,10 @@ def shell(shell_cmd: list[str],
         ...     if len(result.splitlines()) != 1:
         ...         raise ValueError('Expected exactly one line')
 
-    For long running commands a generator-based result fetching can be used.
-    To use generator-based output the command has to be executed with the method
+    **Example 6:** how to work with generator-based results.
+    For long running commands a generator-based result fetching
+    can be used. To use generator-based output the command has to be executed
+    with the method
     :meth:`ShellCommandExecutor.start`. This method returns a generator that
     provides command output as soon as it is available::
 
@@ -203,6 +206,8 @@ def shell(shell_cmd: list[str],
     (The exact output of the above example might differ, depending on the
     length of the first two entries in the ``/etc/passwd``-file.)
 
+    **Example 7:** how to use the ``stdin``-parameter to feed data to a command
+    that is executed in the persistent shell.
     The methods :meth:`ShellCommandExecutor.__call__` and
     :meth:`ShellCommandExecutor.start` allow to pass an iterable in the
     ``stdin``-argument. The content of this iterable will be sent to ``stdin``
@@ -214,16 +219,21 @@ def shell(shell_cmd: list[str],
         ...     print(result.stdout)
         b'abcd'
 
-    Note the ``head -c 4`` command that reads exactly 4 bytes from its
-    ``stdin``. This ensures that the command terminates after reading exactly
-    four bytes. If we would have just used ``cat``, the command would have
+    **Example 8:** how to work with commands that consume ``stdin`` completely.
+    In the previous example, the command
+    ``head -c 4`` was used to consume data from ``stdin``. This command
+    terminates after
+    reading exactly 4 bytes from ``stdin``. If ``cat`` was used
+    instead of ``head -c 4``, the command would have
     continued to run until its ``stdin`` was closed. The ``stdin`` of the
-    command can be close by calling ``ssh.close()``, but once ``ssh.close()``
-    is called, no more commands can be executed on ``ssh``. Note also that
-    ``ssh.start`` must be used to execute a command that reads its ``stdin``
-    until its closed. The reason for this is that ``ssh.start`` will return
-    before the command has terminated, which allows to call ``ssh.close()``,
-    as shown in the following example::
+    command that is executed in the persistent shell can be close by calling
+    :meth:`ssh.close`. But, in order to be able to call :meth:`ssh.close`,
+    any process that consumes ``stdin`` completely should be executed by
+    calling the :meth:`ssh.start`-method.
+    The reason for this is that :meth:`ssh.start` will return immediately which
+    allows to call the :meth:`ssh.close`-method, as shown in the following
+    code (:meth:`ssh.__call__` would have waited for ``cat`` to terminate, but
+    because :meth:`ssh.close` is not called, ``cat`` would never terminate)::
 
         >>> from datalad_next.shell import shell
         >>> with shell(['ssh', 'localhost']) as ssh:
@@ -232,19 +242,20 @@ def shell(shell_cmd: list[str],
         ...     print(tuple(result_generator))
         (b'123456',)
 
-    ``cat`` continuously tries to read from its ``stdin``. When
-    ``ssh.close()`` is called, ``cat`` will read an EOF and exit. Now the
-    ``ssh``-object is unusable for further command execution, because
-    ``ssh.close()`` was called. Further command execution requires to spin up
+    Note that
+    the ``ssh``-object cannot be used for further command execution after
+    :meth:`ssh.close` was called. Further command execution requires to spin up
     a new persistent shell-object. To prevent this overhead, it is advised to
     limit the number of bytes that a shell-command consumes, either by their
     number, e.g. by using ``head -c``, or by some other means, e.g.
     by interpreting the content or using a command like ``timeout``.
 
-    ``head -c`` can be used to upload a file to a remote shell. The basic idea
+    **Example 9:** upload a file to the persistent shell. The command
+    ``head -c`` can be used to implement the upload a file to a remote shell.
+    The basic idea
     is to determine the number of bytes that will be uploaded and create a
     command in the remote shell that will consume exactly this amount of bytes.
-    The following example implements this idea (without file-name escaping and
+    The following code implements this idea (without file-name escaping and
     error handling)::
 
         >>> import os
@@ -258,7 +269,7 @@ def shell(shell_cmd: list[str],
         >>> with shell(['ssh', 'localhost']) as ssh:
         ...     upload(ssh, '/etc/passwd', '/tmp/uploaded-1')
 
-    Note: in the example above, ``f`` is not explicitly closed, it is only
+    Note: in this example, ``f`` is not explicitly closed, it is only
     closed when the program exits. The reason for
     this is that the shell uses threads internally for stdin-feeding, and there
     is no simple way to determine whether the thread that reads ``f`` has yet
@@ -268,11 +279,15 @@ def shell(shell_cmd: list[str],
     for this problem that has slightly more code. For the sake of simplicity,
     this solution was not implemented in the example above).
 
-    The following example shows how to use a fixed-length response generator
+    **Example 10:** download a file. This example
+    uses a fixed-length response generator
     to download a file from a remote shell. The basic idea is to determine the
-    number of bytes that will be downloaded and create a Fixed-Length Response
-    Generator that reads exactly this number of bytes (again an example without
-    file-name escaping or error handling)::
+    number of bytes that will be downloaded and create a fixed-length response
+    generator that reads exactly this number of bytes. The fixed length response
+    generator is then passed to :meth:`ssh.start` in the keyword-argument
+    ``response_generator``. This instructs :meth:`ssh.start` to use the response
+    generator to interpret the output of this command invocation (the example
+    code has no file-name escaping or error handling)::
 
         >>> from datalad_next.shell import shell
         >>> from datalad_next.shell.response_generators import FixedLengthResponseGeneratorPosix
@@ -288,17 +303,22 @@ def shell(shell_cmd: list[str],
         ...     download(ssh, '/etc/passwd', '/tmp/downloaded-1')
         ...
 
-    The next example implements interaction with a python interpreter (which
-    can be local or remote). Interaction in this example means, executing a
+    Note that :meth:`ssh.start` is used to start the download. This allows to
+    process downloaded data as soon as it is available.
+
+    **Example 11:**
+    This example implements interaction with a *Python* interpreter (which
+    can be local or remote). Interaction in the context of this example means,
+    executing a
     line of python code, returning the result, i.e. the output on ``stdout``,
     and detect whether an exception was raised or not. To this end
-    a Python-specific Variable Length Response Generator is created by
+    a Python-specific variable-length response generator is created by
     subclassing the
     generic class :class:`VariableLengthResponseGenerator`. The new response
     generator implements the method :meth:`get_final_command`, which takes a
     python statement and returns a ``try``-``except``-block that executes the
-    python statement, prints an end-marker, and a return code (which is zero if
-    the statement was executed successfully, and one if an exception was
+    python statement, prints the end-marker and a return code (which is ``0`` if
+    the statement was executed successfully, and ``1`` if an exception was
     raised)::
 
         >>> from datalad_next.shell import shell
@@ -326,17 +346,19 @@ def shell(shell_cmd: list[str],
 
     The python response generator could be extended to deliver exception
     information in an extended ``ExecutionResult``. This can be achieved by
-    _pickling_ (see the ``pickle``-module) a caught exception to a byte-string,
+    *pickling* (see the ``pickle``-module) a caught exception to a byte-string,
     printing this byte-string after the return-code line, and printing another
     end-marker. The :meth:`send`-method of the response generator must then
     be overwritten to unpickle the exception information and store it in an
     extended ``ExecutionResult`` (or raise it in the shell-context, if that is
     preferred).
 
-    **Remark**: in situations were a ``with``-statement is not suitable, e.g. a
-    shell object should be used in independent functions, the context manager
-    can be manually entered and left. The following example generates a global
-    ``ShellCommandExecutor``-instance called ``ssh``::
+    **Example 12:** this example shows how to use the shell context handler
+    in situations were a ``with``-statement is not suitable, e.g. if a shell
+    object should be used in multiple, independently called functions. In this
+    case the context manager
+    can be manually entered and exited. The following code generates a global
+    ``ShellCommandExecutor``-instance in the ``ssh``-variable::
 
         >>> from datalad_next.shell import shell
         >>> context_manager = shell(['ssh', 'localhost'])
