@@ -11,4 +11,7 @@
 # status checks have passed, and RT approval was given.
 *   michael.hanke@gmail.com
 /iter_collections/ christian.moench@web.de
+/iterable_subprocess/ christian.moench@web.de
+/patches/ christian.moench@web.de
 /runners/ christian.moench@web.de
+/shell/ christian.moench@web.de
