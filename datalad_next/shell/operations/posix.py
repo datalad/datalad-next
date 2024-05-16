@@ -51,6 +51,7 @@ def upload(
     shell: ShellCommandExecutor,
     local_path: Path,
     remote_path: PurePosixPath,
+    *,
     progress_callback: Callable[[int, int], None] | None = None,
     check: bool = False,
 ) -> ExecutionResult:
@@ -96,7 +97,11 @@ def upload(
     """
 
     def signaling_read(
-        file: BinaryIO, size: int, queue: Queue, chunk_size: int = COPY_BUFSIZE
+            file: BinaryIO,
+            size: int,
+            queue: Queue,
+            *,
+            chunk_size: int = COPY_BUFSIZE
     ):
         """iterator that reads from a file and signals EOF via a queue
 
@@ -158,8 +163,8 @@ def download(
     shell: ShellCommandExecutor,
     remote_path: PurePosixPath,
     local_path: Path,
-    progress_callback: Callable[[int, int], None] | None = None,
     *,
+    progress_callback: Callable[[int, int], None] | None = None,
     response_generator_class: type[
         DownloadResponseGenerator
     ] = DownloadResponseGeneratorPosix,

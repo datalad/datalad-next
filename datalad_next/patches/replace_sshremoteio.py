@@ -207,7 +207,7 @@ class SSHRemoteIO(IOBase):
             PurePosixPath(dst),
             # the given callback only takes a single int, but posix.upload
             # gives two (cur, target) -> have an adaptor
-            lambda c, m: progress_cb(c),
+            progress_callback=lambda c, m: progress_cb(c),
             check=True,
         )
 
@@ -218,7 +218,7 @@ class SSHRemoteIO(IOBase):
             Path(dst),
             # the given callback only takes a single int, but posix.download
             # gives two (cur, target) -> have an adaptor
-            lambda c, m: progress_cb(c),
+            progress_callback=lambda c, m: progress_cb(c),
             check=True,
         )
 
