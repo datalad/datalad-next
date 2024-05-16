@@ -20,6 +20,15 @@ from ..shell import (
 from datalad_next.consts import COPY_BUFSIZE
 
 
+__all__ = [
+    'DownloadResponseGenerator',
+    'DownloadResponseGeneratorPosix',
+    'upload',
+    'download',
+    'delete',
+]
+
+
 lgr = logging.getLogger("datalad.ext.next.shell.operations")
 
 
