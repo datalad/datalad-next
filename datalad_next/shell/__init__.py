@@ -99,7 +99,7 @@ implementations for them:
 
     - :class:`FixedLengthResponseGeneratorPowerShell`
 
-When :func:`shell` is executed it will use a
+When :func:`datalad_next.shell.shell` is executed it will use a
 :class:`VariableLengthResponseClass` to skip the login message of the shell.
 This is done by executing a *zero command* (a command that will possibly
 generate some output, and successfully return) in the shell. The zero command is
@@ -123,6 +123,14 @@ the final command list and to parse the result. Users can override this on a
 per-call basis by providing a different response generator class in the
 ``response_generator``-parameter of :meth:`ShellCommandExecutor.__call__`.
 
+Examples
+--------
+
+See the documentation of :func:`datalad_next.shell.shell` for examples of how to
+use the shell-function and different response generator classes.
+
+API overview
+------------
 .. currentmodule:: datalad_next.shell
 
 .. autosummary::

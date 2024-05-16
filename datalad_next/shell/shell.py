@@ -81,96 +81,6 @@ def shell(shell_cmd: list[str],
     via the returned instance of :class:`ShellCommandExecutor` are executed in
     the same shell instance.
 
-    Simple example that invokes a single command::
-
-        >>> from datalad_next.shell import shell
-        >>> with shell(['ssh', 'localhost']) as ssh:
-        ...     result = ssh(b'ls -l /etc/passwd')
-        ...     print(result.stdout)
-        ...     print(result.returncode)
-        ...
-        b'-rw-r--r-- 1 root root 2773 Nov 14 10:05 /etc/passwd\\n'
-        0
-
-    Example that invokes two commands, the second of which exits with a non-zero
-    return code. The error output is retrieved from ``result.stderr``, which
-    contains all ``stderr`` data that was written since the last command was
-    executed::
-
-        >>> from datalad_next.shell import shell
-        >>> with shell(['ssh', 'localhost']) as ssh:
-        ...     print(ssh(b'head -1 /etc/passwd').stdout)
-        ...     result = ssh(b'ls /no-such-file')
-        ...     print(result.stdout)
-        ...     print(result.returncode)
-        ...     print(result.stderr)
-        ...
-        b'root:x:0:0:root:/root:/bin/bash\\n'
-        b''
-        2
-        b"Pseudo-terminal will not be allocated because stdin is not a terminal.\\r\\nls: cannot access '/no-such-file': No such file or directory\\n"
-
-    The following example demonstrates how to use the ``check``-parameter to
-    raise a :class:`CommandError`-exception if the return code of the command is
-    not zero. This delegates error handling to the calling code and help to keep
-    the code clean::
-
-        >>> from datalad_next.shell import shell
-        >>> with shell(['ssh', 'localhost']) as ssh:
-        ...     print(ssh(b'ls /no-such-file', check=True).stdout)
-        ...
-        Traceback (most recent call last):
-          File "<stdin>", line 2, in <module>
-          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 279, in __call__
-            return create_result(
-          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 349, in create_result
-            result.to_exception(command, error_message)
-          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 52, in to_exception
-            raise CommandError(
-        datalad.runner.exception.CommandError: CommandError: 'ls /no-such-file' failed with exitcode 2 [err: 'cannot access '/no-such-file': No such file or directory']
-
-    Manual checking of the return code::
-
-        >>> from datalad_next.shell import shell
-        >>> def file_exists(file_name):
-        ...     with shell(['ssh', 'localhost']) as ssh:
-        ...         result = ssh(f'ls {file_name}')
-        ...         return result.returncode == 0
-        ... print(file_exists('/etc/passwd'))
-        True
-        ... print(file_exists('/no-such-file'))
-        False
-
-    An example for result content checking::
-
-        >>> from datalad_next.shell import shell
-        >>> with shell(['ssh', 'localhost']) as ssh:
-        ...     result = ssh(f'grep root /etc/passwd', check=True).stdout
-        ...     if len(result.splitlines()) != 1:
-        ...         raise ValueError('Expected exactly one line')
-
-    For long running commands a generator-based result fetching can be used.
-    To use generator-based output the command has to be executed with the method
-    :meth:`ShellCommandExecutor.start`. This method returns a generator that
-    provides command output as soon as it is available::
-
-        >>> import time
-        >>> from datalad_next.shell import shell
-        >>> with shell(['ssh', 'localhost']) as ssh:
-        ...     result_generator = ssh.start(b'c=0; while [ $c -lt 6 ]; do head -2 /etc/passwd; sleep 2; c=$(( $c + 1 )); done')
-        ...     for result in result_generator:
-        ...         print(time.time(), result)
-        ...     assert result_generator.returncode == 0
-        1713358098.82588 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
-        1713358100.8315682 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
-        1713358102.8402972 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
-        1713358104.8490314 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
-        1713358106.8577306 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
-        1713358108.866439 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
-
-    (The exact output of the above example might differ, depending on the
-    length of the first two entries in the ``/etc/passwd``-file.)
-
     Parameters
     ----------
     shell_cmd : list[str]
@@ -198,6 +108,266 @@ def shell(shell_cmd: list[str],
     Yields
     ------
     :class:`ShellCommandExecutor`
+
+    Examples
+    --------
+
+    **Example 1:** a simple example that invokes a single command, prints its
+    output and its return code::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result = ssh(b'ls -l /etc/passwd')
+        ...     print(result.stdout)
+        ...     print(result.returncode)
+        ...
+        b'-rw-r--r-- 1 root root 2773 Nov 14 10:05 /etc/passwd\\n'
+        0
+
+    **Example 2:** this example invokes two commands, the second of which exits
+    with a non-zero return code. The error output is retrieved from
+    ``result.stderr``, which contains all ``stderr`` data that was written
+    since the last command was executed::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     print(ssh(b'head -1 /etc/passwd').stdout)
+        ...     result = ssh(b'ls /no-such-file')
+        ...     print(result.stdout)
+        ...     print(result.returncode)
+        ...     print(result.stderr)
+        ...
+        b'root:x:0:0:root:/root:/bin/bash\\n'
+        b''
+        2
+        b"Pseudo-terminal will not be allocated because stdin is not a terminal.\\r\\nls: cannot access '/no-such-file': No such file or directory\\n"
+
+    **Example 3:** demonstrates how to use the
+    ``check``-parameter to raise a :class:`CommandError`-exception if the
+    return code of the command is
+    not zero. This delegates error handling to the calling code and helps to
+    keep the code clean::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     print(ssh(b'ls /no-such-file', check=True).stdout)
+        ...
+        Traceback (most recent call last):
+          File "<stdin>", line 2, in <module>
+          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 279, in __call__
+            return create_result(
+          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 349, in create_result
+            result.to_exception(command, error_message)
+          File "/home/cristian/Develop/datalad-next/datalad_next/shell/shell.py", line 52, in to_exception
+            raise CommandError(
+        datalad.runner.exception.CommandError: CommandError: 'ls /no-such-file' failed with exitcode 2 [err: 'cannot access '/no-such-file': No such file or directory']
+
+    **Example 4:** an example for manual checking of the return code::
+
+        >>> from datalad_next.shell import shell
+        >>> def file_exists(file_name):
+        ...     with shell(['ssh', 'localhost']) as ssh:
+        ...         result = ssh(f'ls {file_name}')
+        ...         return result.returncode == 0
+        ... print(file_exists('/etc/passwd'))
+        True
+        >>> print(file_exists('/no-such-file'))
+        False
+
+    **Example 5:** an example for result content checking::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result = ssh(f'grep root /etc/passwd', check=True).stdout
+        ...     if len(result.splitlines()) != 1:
+        ...         raise ValueError('Expected exactly one line')
+
+    **Example 6:** how to work with generator-based results.
+    For long running commands a generator-based result fetching
+    can be used. To use generator-based output the command has to be executed
+    with the method
+    :meth:`ShellCommandExecutor.start`. This method returns a generator that
+    provides command output as soon as it is available::
+
+        >>> import time
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result_generator = ssh.start(b'c=0; while [ $c -lt 6 ]; do head -2 /etc/passwd; sleep 2; c=$(( $c + 1 )); done')
+        ...     for result in result_generator:
+        ...         print(time.time(), result)
+        ...     assert result_generator.returncode == 0
+        1713358098.82588 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358100.8315682 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358102.8402972 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358104.8490314 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358106.8577306 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+        1713358108.866439 b'root:x:0:0:root:/root:/bin/bash\\nsystemd-timesync:x:497:497:systemd Time Synchronization:/:/usr/sbin/nologin\\n'
+
+    (The exact output of the above example might differ, depending on the
+    length of the first two entries in the ``/etc/passwd``-file.)
+
+    **Example 7:** how to use the ``stdin``-parameter to feed data to a command
+    that is executed in the persistent shell.
+    The methods :meth:`ShellCommandExecutor.__call__` and
+    :meth:`ShellCommandExecutor.start` allow to pass an iterable in the
+    ``stdin``-argument. The content of this iterable will be sent to ``stdin``
+    of the executed command::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result = ssh(b'head -c 4', stdin=(b'ab', b'c', b'd'))
+        ...     print(result.stdout)
+        b'abcd'
+
+    **Example 8:** how to work with commands that consume ``stdin`` completely.
+    In the previous example, the command
+    ``head -c 4`` was used to consume data from ``stdin``. This command
+    terminates after
+    reading exactly 4 bytes from ``stdin``. If ``cat`` was used
+    instead of ``head -c 4``, the command would have
+    continued to run until its ``stdin`` was closed. The ``stdin`` of the
+    command that is executed in the persistent shell can be close by calling
+    :meth:`ssh.close`. But, in order to be able to call :meth:`ssh.close`,
+    any process that consumes ``stdin`` completely should be executed by
+    calling the :meth:`ssh.start`-method.
+    The reason for this is that :meth:`ssh.start` will return immediately which
+    allows to call the :meth:`ssh.close`-method, as shown in the following
+    code (:meth:`ssh.__call__` would have waited for ``cat`` to terminate, but
+    because :meth:`ssh.close` is not called, ``cat`` would never terminate)::
+
+        >>> from datalad_next.shell import shell
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     result_generator = ssh.start(b'cat', stdin=(b'12', b'34', b'56'))
+        ...     ssh.close()
+        ...     print(tuple(result_generator))
+        (b'123456',)
+
+    Note that
+    the ``ssh``-object cannot be used for further command execution after
+    :meth:`ssh.close` was called. Further command execution requires to spin up
+    a new persistent shell-object. To prevent this overhead, it is advised to
+    limit the number of bytes that a shell-command consumes, either by their
+    number, e.g. by using ``head -c``, or by some other means, e.g.
+    by interpreting the content or using a command like ``timeout``.
+
+    **Example 9:** upload a file to the persistent shell. The command
+    ``head -c`` can be used to implement the upload a file to a remote shell.
+    The basic idea
+    is to determine the number of bytes that will be uploaded and create a
+    command in the remote shell that will consume exactly this amount of bytes.
+    The following code implements this idea (without file-name escaping and
+    error handling)::
+
+        >>> import os
+        >>> import time
+        >>> from datalad_next.shell import shell
+        >>> def upload(ssh, file_name, remote_file_name):
+        ...     size = os.stat(file_name).st_size
+        ...     f = open(file_name, 'rb')
+        ...     return ssh(f'head -c {size} > {remote_file_name}', stdin=iter(f.read, b''))
+        ...
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     upload(ssh, '/etc/passwd', '/tmp/uploaded-1')
+
+    Note: in this example, ``f`` is not explicitly closed, it is only
+    closed when the program exits. The reason for
+    this is that the shell uses threads internally for stdin-feeding, and there
+    is no simple way to determine whether the thread that reads ``f`` has yet
+    read an EOF and exited. If ``f`` is closed before the thread exits, and the
+    thread tries to read from ``f``, a ``ValueError`` will be raised (the
+    function :func:`datalad_next.shell.posix.upload` contains a solution
+    for this problem that has slightly more code. For the sake of simplicity,
+    this solution was not implemented in the example above).
+
+    **Example 10:** download a file. This example
+    uses a fixed-length response generator
+    to download a file from a remote shell. The basic idea is to determine the
+    number of bytes that will be downloaded and create a fixed-length response
+    generator that reads exactly this number of bytes. The fixed length response
+    generator is then passed to :meth:`ssh.start` in the keyword-argument
+    ``response_generator``. This instructs :meth:`ssh.start` to use the response
+    generator to interpret the output of this command invocation (the example
+    code has no file-name escaping or error handling)::
+
+        >>> from datalad_next.shell import shell
+        >>> from datalad_next.shell.response_generators import FixedLengthResponseGeneratorPosix
+        >>> def download(ssh, remote_file_name, local_file_name):
+        ...     size = ssh(f'stat -c %s {remote_file_name}').stdout
+        ...     with open(local_file_name, 'wb') as f:
+        ...         response_generator = FixedLengthResponseGeneratorPosix(ssh.stdout, int(size))
+        ...         results = ssh.start(f'cat {remote_file_name}', response_generator=response_generator)
+        ...         for chunk in results:
+        ...             f.write(chunk)
+        ...
+        >>> with shell(['ssh', 'localhost']) as ssh:
+        ...     download(ssh, '/etc/passwd', '/tmp/downloaded-1')
+        ...
+
+    Note that :meth:`ssh.start` is used to start the download. This allows to
+    process downloaded data as soon as it is available.
+
+    **Example 11:**
+    This example implements interaction with a *Python* interpreter (which
+    can be local or remote). Interaction in the context of this example means,
+    executing a
+    line of python code, returning the result, i.e. the output on ``stdout``,
+    and detect whether an exception was raised or not. To this end
+    a Python-specific variable-length response generator is created by
+    subclassing the
+    generic class :class:`VariableLengthResponseGenerator`. The new response
+    generator implements the method :meth:`get_final_command`, which takes a
+    python statement and returns a ``try``-``except``-block that executes the
+    python statement, prints the end-marker and a return code (which is ``0`` if
+    the statement was executed successfully, and ``1`` if an exception was
+    raised)::
+
+        >>> from datalad_next.shell import shell
+        >>> from datalad_next.shell.response_generators import VariableLengthResponseGenerator
+        >>> class PythonResponseGenerator(VariableLengthResponseGenerator):
+        ...     def get_final_command(self, command: bytes) -> bytes:
+        ...         return f'''try:
+        ...     {command.decode()}
+        ...     print('{self.end_marker.decode()}')
+        ...     print(0)
+        ... except:
+        ...     print('{self.end_marker.decode()}')
+        ...     print(1)
+        ... '''.encode()
+        ...     @property
+        ...     def zero_command(self) -> bytes:
+        ...         return b'True'
+        ...
+        >>> with shell(['python', '-u', '-i']) as py:
+        ...     print(py('1 + 1'))
+        ...     print(py('1 / 0'))
+        ...
+        ExecutionResult(stdout=b'2\\n', stderr=b'>>> ... ... ... ... ... ... ... ... ', returncode=0)
+        ExecutionResult(stdout=b'', stderr=b'... ... ... ... ... ... ... ... Traceback (most recent call last):\\n  File "<stdin>", line 2, in <module>\\nZeroDivisionError: division by zero', returncode=1)
+
+    The python response generator could be extended to deliver exception
+    information in an extended ``ExecutionResult``. This can be achieved by
+    *pickling* (see the ``pickle``-module) a caught exception to a byte-string,
+    printing this byte-string after the return-code line, and printing another
+    end-marker. The :meth:`send`-method of the response generator must then
+    be overwritten to unpickle the exception information and store it in an
+    extended ``ExecutionResult`` (or raise it in the shell-context, if that is
+    preferred).
+
+    **Example 12:** this example shows how to use the shell context handler
+    in situations were a ``with``-statement is not suitable, e.g. if a shell
+    object should be used in multiple, independently called functions. In this
+    case the context manager
+    can be manually entered and exited. The following code generates a global
+    ``ShellCommandExecutor``-instance in the ``ssh``-variable::
+
+        >>> from datalad_next.shell import shell
+        >>> context_manager = shell(['ssh', 'localhost'])
+        >>> ssh = context_manager.__enter__()
+        >>> print(ssh(b'ls /etc/passwd').stdout)
+        b'/etc/passwd\\n'
+        >>> context_manager.__exit__(None, None, None)
+        False
+
     """
 
     def train(queue: Queue):

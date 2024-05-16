@@ -52,7 +52,7 @@ There is no limit to the number of files. Contributors should strive for files w
 
 Within a sub-package, code should generally use relative imports. The corresponding tests should also import the tested code via relative imports.
 
-Code users should be able to import the most relevant functionality from the sub-package's `__init__.py`. Only items importable from the sub-package's top-level are considered to be part of its "public" API.
+Code users should be able to import the most relevant functionality from the sub-package's `__init__.py`. Only items importable from the sub-package's top-level are considered to be part of its "public" API. If a sub-module is imported in the sub-package's `__init__.py`, consider adding `__all__` to the sub-module to restrict wildcard imports from the sub-module, and to document what is considered to be part of the "public" API. 
 
 Sub-packages should be as self-contained as possible. Individual components in `datalad-next` should strive to be easily migratable to the DataLad core package. This means that any organization principles like *all-exceptions-go-into-a-single-location-in-datalad-next* do not apply. For example, each sub-package should define its exceptions separately from others. When functionality is shared between sub-packages, absolute imports should be made.
 
