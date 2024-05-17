@@ -1,3 +1,116 @@
+# 1.4.0 (2024-05-17)
+
+## 🐛 Bug Fixes
+
+- RIA over SSH access from Mac clients to Linux server was broken
+  due to an inappropriate platform check that assumed that local and
+  remote platform are identical.
+  Fixes https://github.com/datalad/datalad/issues/7536 via
+  https://github.com/datalad/datalad-next/pull/653 (by @mih)
+
+- `next-status` has received a number of fixes:
+
+  - It no longer issues undesirable modification reports
+    that are based on `mtime` changes alone (i.e., no content change).
+    Fixes https://github.com/datalad/datalad-next/issues/639 via
+    https://github.com/datalad/datalad-next/pull/650 (by @mih)
+  - It now detects staged changes in repositories with no
+    commit.
+    Fixes https://github.com/datalad/datalad-next/issues/680 via
+    https://github.com/datalad/datalad-next/pull/681 (by @mih)
+  - `next-status -r mono` now reports on new commits in submodules.
+    Previously this was ignored, leading to the impression of
+    clean datasets despite unsaved changes.
+    Fixes https://github.com/datalad/datalad-next/issues/645 via
+    https://github.com/datalad/datalad-next/pull/679 (by @mih)
+
+- `iter_annexworktree()` can now also be used on plain Git repos,
+  and would behave exactly as if reporting on non-annexed files
+  in a git-annex repo. Previously, a cryptic `iterable did not yield
+  matching item for route-in item, cardinality mismatch?` error was
+  issued in this case.
+  Fixes https://github.com/datalad/datalad-next/issues/670 via
+  https://github.com/datalad/datalad-next/pull/673 (by @mih)
+
+## 💫 Enhancements and new features
+
+- `datalad_next.shell` provides a context manager for (long-running)
+  shell or interpreter subprocesses. Within the context any number of
+  commands can be executed in such a shell, and each command can
+  process input (iterables), and yield output (iterables). This feature
+  is suitable for running and controlling "remote shells" like a login
+  shell on a server via SSH. A range of utilities is provided to
+  employ this functionality for special purpose implementations
+  (e.g., accept fixed-length or variable-length process output).
+  A suite of operations like download/upload file to a remote shell is
+  provided for POSIX-compliant shells `datalad_next.shell.operations.posix`.
+  https://github.com/datalad/datalad-next/pull/596 (by @christian-monch)
+
+- A rewrite of `SSHRemoteIO`, the RIA SSH-operations implementation from
+  datalad-core is provided as a patch. It is based on the new `shell`
+  feature, and provides more robust operations. It's IO performance is
+  at the same level as `scp`-based down/uploads. In contrast to the
+  original implementation, it support fine-grained progress reporting
+  for uploads and downloads.
+  Via https://github.com/datalad/datalad-next/pull/655 (by @mih)
+
+- The `SpecialRemote` base class in datalad-core is patched to support
+  a standard `close()` method for implementing resource release and cleanup
+  operations. The main special remote entry point has been altered to
+  run implementations within a `closing()` context manager to guarantee
+  execution of such handlers.
+  Via https://github.com/datalad/datalad-next/pull/655 (by @mih)
+
+- A new `has_initialized_annex()` helper function is provided to
+  test for a locally initialized annex in a repo.
+  Via https://github.com/datalad/datalad-next/pull/673 (by @mih)
+
+- `iter_annexworktree()` can now also be used on plain Git repositories,
+  and it yields the same output and behavior as running on a git-annex
+  repository with no annex'ed content (just tracked with Git).
+  Fixes https://github.com/datalad/datalad-next/issues/670 via
+  https://github.com/datalad/datalad-next/pull/673 (by @mih)
+
+- `next-status` and `iter_gitstatus()` have been improved to
+  report on further modifications after a file addition has been
+  originally staged.
+  Fixes https://github.com/datalad/datalad-next/issues/637 via
+  https://github.com/datalad/datalad-next/pull/679 (by @mih)
+
+- `next-status` result rendering has been updated to be more markedly
+  different than git-status's. Coloring is now exclusively
+  determined by the nature of a change, rather than being partially
+  similar to git-status's index-updated annotation. This reduces
+  the chance for misinterpretations, and does not create an undesirable
+  focus on the Git index (which is largely ignored by DataLad).
+  Fixes https://github.com/datalad/datalad-next/issues/640 via
+  https://github.com/datalad/datalad-next/pull/679 (by @mih)
+
+- A large 3k-line patch set replaces almost the entire RIA implementation,
+  including the ORA special remote, and the `create-sibling-ria` command.
+  The new implementation brings uniform support for Windows clients, progress
+  reporting for uploads and downloads via SSH, and a faster and more
+  robust behavior for SSH-based operations (based on the new remote
+  shell feature).
+  Fixes https://github.com/datalad/datalad-next/issues/654 via
+  https://github.com/datalad/datalad-next/pull/669 (by @christian-monch)
+
+## 📝 Documentation
+
+- Git-related subprocess execution helpers are now accessible in the
+  rendered documentation, and all supported file collections are now
+  mentioned in the `ls-file-collection` command help.
+  Fixes https://github.com/datalad/datalad-next/issues/668 via
+  https://github.com/datalad/datalad-next/pull/671 (by @mih)
+
+## 🛡 Tests
+
+- Test setup has been improved to support a uniform, datalad-next
+  enabled environment for subprocesses too. This extends the scope
+  of testing to special remote implementations and other code that
+  is executed in subprocesses, and relies on runtime patches.
+  See https://github.com/datalad/datalad-next/pull/i665 (by @mih)
+
 # 1.3.0 (2024-03-19)
 
 ## 💫 Enhancements and new features
