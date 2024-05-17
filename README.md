@@ -93,6 +93,10 @@ package and its commands.
 - Boosted throughput of DataLad's `runner` component for command execution.
 - Substantially more comprehensive replacement for DataLad's `constraints` system
   for type conversion and parameter validation.
+- Windows and Mac client support for RIA store access.
+- A `next-status` command that is A LOT faster than `status`, and offers
+  a `mono` recursion mode that shows modifications of nested dataset
+  hierarchies relative to the state of the root dataset.
 
 ## Summary of additional features for DataLad extension development
 
@@ -132,6 +136,11 @@ package and its commands.
     and from other tests
   - provide a temporary credential manager to perform credential deployment
     and manipulation isolated from a user environment and from other tests
+- An `iter_subproc()` helper that enable communication with subprocesses
+  via input/output iterables.
+- A `shell` context manager that enables interaction with (remote) shells,
+  including support for input/output iterables for each shell-command execution
+  within the context.
 
 ## Patching the DataLad core package.
 
