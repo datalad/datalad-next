@@ -6,6 +6,7 @@ from pathlib import (
     PurePosixPath,
 )
 from queue import Queue
+from shlex import quote as posix_quote
 from typing import (
     BinaryIO,
     Callable,
@@ -42,6 +43,19 @@ class DownloadResponseGeneratorPosix(DownloadResponseGenerator):
 
         This method is usually only called by
         :meth:`ShellCommandExecutor.__call__`.
+
+        Parameters
+        ----------
+        remote_file_name : bytes
+            The name of the file that should be downloaded. If the file name
+            contains special character, e.g. space or ``$``, it must be
+            quoted for a POSIX shell, for example with ``shlex.quote``.
+
+        Returns
+        -------
+        bytes
+            The final command that will be executed in the persistent shell
+            in order to start the download in the connected shell.
         """
         command = b"""
             test -r {remote_file_name}
@@ -79,9 +93,9 @@ def upload(
     shell : ShellCommandExecutor
         The shell that should be used to upload the file.
     local_path : Path
-        The file that should be uploaded.
+        The path of the file that should be uploaded.
     remote_path : PurePosixPath
-        The name of the file on the connected shell that will contain the
+        The path of the file on the connected shell that will contain the
         uploaded content.
     progress_callback : callable[[int, int], None], optional, default: None
         If given, the callback is called with the number of bytes that have
@@ -144,7 +158,7 @@ def upload(
     # `rm -rf $HOME`.
     file_size = local_path.stat().st_size
     cmd_line = (
-        f'head -c {file_size} > "{remote_path.as_posix()}" '
+        f'head -c {file_size} > {posix_quote(str(remote_path))}'
         f"|| (head -c {file_size} > /dev/null; test 1 == 2)"
     )
     with local_path.open("rb") as local_file:
@@ -195,10 +209,10 @@ def download(
     shell: ShellCommandExecutor
         The shell from which a file should be downloaded.
     remote_path : PurePosixPath
-        The name of the file on the connected shell that should be
+        The path of the file on the connected shell that should be
         downloaded.
     local_path : Path
-        The name of the local file that will contain the downloaded content.
+        The path of the local file that will contain the downloaded content.
     progress_callback : callable[[int, int], None], optional, default: None
         If given, the callback is called with the number of bytes that have
         been received and the total number of bytes that should be received.
@@ -206,7 +220,7 @@ def download(
         The response generator that should be used to handle the download
         output. It must be a subclass of :class:`DownloadResponseGenerator`.
         The default works if the connected shell runs on a Unix-like system that
-        provides `ls -dln` and `awk`, e.g. ``Linux`` or ``OSX``.
+        provides `ls -dln`, `cat`, `echo`, and `awk`, e.g. ``Linux`` or ``OSX``.
     check : bool, optional, default: False
         If ``True``, raise a :class:`CommandError` if the remote operation does
         not exit with a ``0`` as return code.
@@ -225,7 +239,7 @@ def download(
         ``chunk_size`` keyword argument to :func:`shell`)) bytes of stderr
         output.
     """
-    command = remote_path.as_posix().encode()
+    command = posix_quote(str(remote_path)).encode()
     response_generator = response_generator_class(shell.stdout)
     result_generator = shell.start(
         command,
@@ -288,7 +302,12 @@ def delete(
         output.
     """
     cmd_line = (
-        "rm " + ("-f " if force else "") + " ".join(f"{f.as_posix()}" for f in files)
+        "rm "
+        + ("-f " if force else "")
+        + " ".join(
+            f"{posix_quote(str(f))}"
+            for f in files
+        )
     )
     result = shell(cmd_line.encode())
     if check:

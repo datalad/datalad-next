@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import PurePosixPath
-from json import loads
+from shlex import quote as posix_quote
 
 import pytest
 from more_itertools import consume
@@ -34,6 +35,21 @@ from .. import posix
 # Some files that are usually found on POSIX systems, i.e. Linux, OSX
 common_files = [b'/etc/passwd', b'/etc/shells']
 
+# Select "challenging" file names that need proper quoting based on Windows, on
+# POSIX, and on FAT file systems.
+if os.getenv('TMPDIR', '').startswith('/crippledfs'):
+    upload_file_name = "up 1"
+    download_file_name = "down 1"
+    files_to_delete = ('f 1', 'f 2', 'f 3')
+elif on_windows:
+    upload_file_name = "upload 123"
+    download_file_name = "download 123"
+    files_to_delete = ('f 1', 'f 2', 'f 3')
+else:
+    upload_file_name = "upload $123 \"'"
+    download_file_name = "download $123 \" ' "
+    files_to_delete = ('f $1', 'f \\2 " ', 'f 3 \' ')
+
 
 def _get_cmdline(ssh_url: str):
     args, parsed = ssh_url2openargs(ssh_url, datalad.cfg)
@@ -56,10 +72,15 @@ def test_basic_functionality_multi(sshserver):
             _check_ls_result(ssh_executor, file_name)
 
 
+def _quote_file_name(file_name: bytes, *, encoding: str = 'utf-8') -> bytes:
+    return posix_quote(file_name.decode(encoding)).encode(encoding)
+
+
 def _check_ls_result(ssh_executor, file_name: bytes):
-    result = ssh_executor(b'ls ' + file_name)
+    quoted_file_name = _quote_file_name(file_name)
+    result = ssh_executor(b'ls ' + quoted_file_name)
     assert result.stdout == file_name + b'\n'
-    result = ssh_executor('ls ' + file_name.decode())
+    result = ssh_executor('ls ' + quoted_file_name.decode())
     assert result.stdout == file_name + b'\n'
 
 
@@ -143,8 +164,7 @@ def test_upload(sshserver, tmp_path):
     ssh_url, local_path = sshserver
     ssh_args, ssh_path = _get_cmdline(ssh_url)
     content = '0123456789'
-    test_file_name = 'upload_123'
-    upload_file = tmp_path / test_file_name
+    upload_file = tmp_path / upload_file_name
     upload_file.write_text(content)
     progress = []
     with shell(ssh_args) as ssh_executor:
@@ -155,11 +175,11 @@ def test_upload(sshserver, tmp_path):
         result = posix.upload(
             ssh_executor,
             upload_file,
-            PurePosixPath(ssh_path + '/' + test_file_name),
-            progress_callback=lambda a,b: progress.append((a,b))
+            PurePosixPath(ssh_path + '/' + upload_file_name),
+            progress_callback=lambda a, b: progress.append((a, b))
         )
         assert result.returncode == 0
-        assert (local_path / test_file_name).read_text() == content
+        assert (local_path / upload_file_name).read_text() == content
         assert len(progress) > 0
 
         # perform another operation on the remote shell to ensure functionality
@@ -170,10 +190,9 @@ def test_download_ssh(sshserver, tmp_path):
     ssh_url, local_path = sshserver
     ssh_args, ssh_path = _get_cmdline(ssh_url)
     content = '0123456789'
-    test_file_name = 'download_123'
-    server_file = local_path / test_file_name
+    server_file = local_path / download_file_name
     server_file.write_text(content)
-    download_file = tmp_path / test_file_name
+    download_file = tmp_path / download_file_name
     progress = []
     with shell(ssh_args) as ssh_executor:
         # perform an operation on the remote shell
@@ -182,9 +201,9 @@ def test_download_ssh(sshserver, tmp_path):
         # download file from server and verify its content
         result = posix.download(
             ssh_executor,
-            PurePosixPath(ssh_path + '/' + test_file_name),
+            PurePosixPath(ssh_path + '/' + download_file_name),
             download_file,
-            progress_callback=lambda a,b: progress.append((a,b))
+            progress_callback=lambda a, b: progress.append((a, b))
         )
         assert result.returncode == 0
         assert download_file.read_text() == content
@@ -199,9 +218,9 @@ def test_download_ssh(sshserver, tmp_path):
 @skip_if(on_windows)
 def test_download_local_bash(tmp_path):
     content = '0123456789'
-    download_file = tmp_path / 'download_123'
+    download_file = tmp_path / download_file_name
     download_file.write_text(content)
-    result_file = tmp_path / 'result_123'
+    result_file = tmp_path / ('result' + download_file_name)
     progress = []
     with shell(['bash']) as bash:
         _check_ls_result(bash, common_files[0])
@@ -211,7 +230,7 @@ def test_download_local_bash(tmp_path):
             bash,
             PurePosixPath(download_file),
             result_file,
-            progress_callback=lambda a,b: progress.append((a,b)),
+            progress_callback=lambda a, b: progress.append((a, b)),
         )
         assert result_file.read_text() == content
         assert len(progress) > 0
@@ -224,9 +243,9 @@ def test_download_local_bash(tmp_path):
 @skip_if(on_windows)
 def test_upload_local_bash(tmp_path):
     content = '0123456789'
-    upload_file = tmp_path / 'upload_123'
+    upload_file = tmp_path / upload_file_name
     upload_file.write_text(content)
-    result_file = tmp_path / 'result_123'
+    result_file = tmp_path / ('result' + upload_file_name)
     progress = []
     with shell(['bash']) as bash:
         _check_ls_result(bash, common_files[0])
@@ -236,7 +255,7 @@ def test_upload_local_bash(tmp_path):
             bash,
             upload_file,
             PurePosixPath(result_file),
-            progress_callback=lambda a,b: progress.append((a,b)),
+            progress_callback=lambda a, b: progress.append((a, b)),
         )
         assert result_file.read_text() == content
         assert len(progress) > 0
@@ -261,7 +280,7 @@ def test_upload_local_bash_error(tmp_path):
             bash,
             source_file,
             destination_file,
-            progress_callback=lambda a,b: progress.append((a,b)),
+            progress_callback=lambda a, b: progress.append((a, b)),
         )
         assert result.returncode != 0
         assert len(progress) > 0
@@ -280,7 +299,6 @@ def test_delete(sshserver):
     ssh_url, local_path = sshserver
     ssh_args, ssh_path = _get_cmdline(ssh_url)
 
-    files_to_delete = ('f1', 'f2', 'f3')
     with shell(ssh_args) as ssh_executor:
         for file in files_to_delete:
             (local_path / file).write_text(f'content_{file}')
@@ -508,7 +526,7 @@ def test_download_error(tmp_path):
                 bash,
                 PurePosixPath('/thisdoesnotexist'),
                 tmp_path / 'downloaded_file',
-                progress_callback=lambda a,b: progress.append((a,b)),
+                progress_callback=lambda a, b: progress.append((a, b)),
                 check=True,
             )
         _check_ls_result(bash, common_files[0])
@@ -517,7 +535,7 @@ def test_download_error(tmp_path):
             bash,
             PurePosixPath('/thisdoesnotexist'),
             tmp_path / 'downloaded_file',
-            progress_callback=lambda a,b: progress.append((a,b)),
+            progress_callback=lambda a, b: progress.append((a, b)),
             check=False,
         )
         assert result.returncode not in (0, None)

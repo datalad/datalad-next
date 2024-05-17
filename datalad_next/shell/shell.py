@@ -572,7 +572,6 @@ class ShellCommandExecutor:
             self.process_inputs.put(stdin)
         return response_generator
 
-
     def __repr__(self):
         return f'{self.__class__.__name__}({self.shell_cmd!r})'
 
