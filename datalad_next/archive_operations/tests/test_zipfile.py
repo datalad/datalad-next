@@ -15,7 +15,7 @@ from ..zipfile import ZipArchiveOperations
 
 
 @dataclass
-class TestArchive:
+class _TestArchive:
     path: Path
     item_count: int
     content: bytes
@@ -23,8 +23,8 @@ class TestArchive:
 
 
 @pytest.fixture(scope='session')
-def structured_sample_zip(sample_zip) -> Generator[TestArchive, None, None]:
-    yield TestArchive(
+def structured_sample_zip(sample_zip) -> Generator[_TestArchive, None, None]:
+    yield _TestArchive(
         path=sample_zip,
         item_count=4,
         content=b'zip-123\n',
@@ -35,7 +35,7 @@ def structured_sample_zip(sample_zip) -> Generator[TestArchive, None, None]:
     )
 
 
-def test_ziparchive_basics(structured_sample_zip: TestArchive):
+def test_ziparchive_basics(structured_sample_zip: _TestArchive):
     spec = structured_sample_zip
     # this is intentionally a hard-coded POSIX relpath
     member_name = 'test-archive/onetwothree.txt'
@@ -46,7 +46,7 @@ def test_ziparchive_basics(structured_sample_zip: TestArchive):
             assert member.read() == spec.content
 
 
-def test_ziparchive_contain(structured_sample_zip: TestArchive):
+def test_ziparchive_contain(structured_sample_zip: _TestArchive):
     # this is intentionally a hard-coded POSIX relpath
     member_name = 'test-archive/onetwothree.txt'
     with ZipArchiveOperations(structured_sample_zip.path) as archive_ops:
@@ -55,7 +55,7 @@ def test_ziparchive_contain(structured_sample_zip: TestArchive):
         assert 'bogus' not in archive_ops
 
 
-def test_ziparchive_iterator(structured_sample_zip: TestArchive):
+def test_ziparchive_iterator(structured_sample_zip: _TestArchive):
     spec = structured_sample_zip
     with ZipArchiveOperations(spec.path) as archive_ops:
         items = list(archive_ops)
@@ -64,7 +64,7 @@ def test_ziparchive_iterator(structured_sample_zip: TestArchive):
             assert item.name in archive_ops
 
 
-def test_open(structured_sample_zip: TestArchive):
+def test_open(structured_sample_zip: _TestArchive):
     spec = structured_sample_zip
     file_pointer = set()
     with ZipArchiveOperations(spec.path) as zf:
@@ -78,7 +78,7 @@ def test_open(structured_sample_zip: TestArchive):
             assert fp.closed is True
 
 
-def test_open_zipinfo(structured_sample_zip: TestArchive):
+def test_open_zipinfo(structured_sample_zip: _TestArchive):
     spec = structured_sample_zip
     with ZipArchiveOperations(spec.path) as zf:
         # get zipfile-native ZipInfo items
@@ -90,7 +90,7 @@ def test_open_zipinfo(structured_sample_zip: TestArchive):
                 assert fp.read(len(spec.content)) == spec.content
 
 
-def test_ziparchive_noncontext(structured_sample_zip: TestArchive):
+def test_ziparchive_noncontext(structured_sample_zip: _TestArchive):
     spec = structured_sample_zip
     zip = ZipArchiveOperations(spec.path)
     assert zip.zipfile.filename == str(spec.path)
