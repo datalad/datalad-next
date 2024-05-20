@@ -228,7 +228,7 @@ def iter_gitdiff(
             # we want to continue the refresh when the index need updating
             '-q',
             '--refresh',
-        ])
+        ], cwd=path)
 
     # when do we need to condense subdir reports into a single dir-report
     reported_dirs: set[str] = set()
