@@ -16,7 +16,7 @@ from ..tarfile import TarArchiveOperations
 
 
 @dataclass
-class TestArchive:
+class _TestArchive:
     path: Path
     item_count: int
     content: bytes
@@ -26,8 +26,8 @@ class TestArchive:
 @pytest.fixture(scope='session')
 def structured_sample_tar_xz(
     sample_tar_xz
-) -> Generator[TestArchive, None, None]:
-    yield TestArchive(
+) -> Generator[_TestArchive, None, None]:
+    yield _TestArchive(
         path=sample_tar_xz,
         item_count=6,
         content=b'123\n',
@@ -39,7 +39,7 @@ def structured_sample_tar_xz(
 
 
 @skipif_no_network
-def test_tararchive_basics(structured_sample_tar_xz: TestArchive):
+def test_tararchive_basics(structured_sample_tar_xz: _TestArchive):
     spec = structured_sample_tar_xz
     # this is intentionally a hard-coded POSIX relpath
     member_name = 'test-archive/onetwothree.txt'
@@ -51,7 +51,7 @@ def test_tararchive_basics(structured_sample_tar_xz: TestArchive):
 
 
 @skipif_no_network
-def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
+def test_tararchive_contain(structured_sample_tar_xz: _TestArchive):
     # this is intentionally a hard-coded POSIX relpath
     member_name = 'test-archive/onetwothree.txt'
     archive_ops = TarArchiveOperations(structured_sample_tar_xz.path)
@@ -63,7 +63,7 @@ def test_tararchive_contain(structured_sample_tar_xz: TestArchive):
 
 
 @skipif_no_network
-def test_tararchive_iterator(structured_sample_tar_xz: TestArchive):
+def test_tararchive_iterator(structured_sample_tar_xz: _TestArchive):
     spec = structured_sample_tar_xz
     with TarArchiveOperations(spec.path) as archive_ops:
         items = list(archive_ops)
@@ -73,7 +73,7 @@ def test_tararchive_iterator(structured_sample_tar_xz: TestArchive):
 
 
 @skipif_no_network
-def test_open(structured_sample_tar_xz: TestArchive):
+def test_open(structured_sample_tar_xz: _TestArchive):
     spec = structured_sample_tar_xz
     file_pointer = set()
     with TarArchiveOperations(spec.path) as tf:
