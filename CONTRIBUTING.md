@@ -39,6 +39,7 @@ New code should be type-annotated. At minimum, a type annotation of the main API
 
 Docstrings should be complete with information on parameters, return values, and exception behavior. Documentation should be added to and rendered with the sphinx-based documentation.
 
+Commits and commit messages must be [Conventional Commits](https://www.conventionalcommits.org). Their compliance is checked for each pull request.
 
 ### Code organization
 
