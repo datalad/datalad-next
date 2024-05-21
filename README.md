@@ -97,6 +97,7 @@ package and its commands.
 - A `next-status` command that is A LOT faster than `status`, and offers
   a `mono` recursion mode that shows modifications of nested dataset
   hierarchies relative to the state of the root dataset.
+  Requires Git v2.31 (or later).
 
 ## Summary of additional features for DataLad extension development
 

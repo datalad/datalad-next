@@ -340,6 +340,7 @@
   the "monorepo" recursion mode, and single-directory reporting options
   of `iter_gitstatus()`. It is the first command to use `dataclass`
   instances as result types, rather than the traditional dictionaries.
+  Git v2.31 or later is required.
 
 - `SshUrlOperations` now supports non-standard SSH ports, non-default
   user names, and custom identity file specifications.
