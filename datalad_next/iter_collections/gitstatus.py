@@ -96,6 +96,11 @@ def iter_gitstatus(
       The ``name`` and ``prev_name`` attributes of an item are a ``str`` with
       the corresponding (relative) path, as reported by Git
       (in POSIX conventions).
+
+    .. note::
+
+       The implementation requires `git rev-parse --path-format=relative`
+       that was introduced with Git v2.31.
     """
     path = Path(path)
 
