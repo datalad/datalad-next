@@ -7,6 +7,7 @@ from functools import wraps
 import os
 from os import environ
 from pathlib import Path
+import pytest
 import subprocess
 from typing import Any
 
