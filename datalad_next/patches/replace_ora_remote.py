@@ -167,7 +167,7 @@ class ORARemote(SpecialRemote):
     # PATCH: add a helper to assert the type of a path.
     @staticmethod
     def _assert_pure_posix_path(path):
-        assert path.__class__ is PurePosixPath
+        assert isinstance(path, PurePosixPath)
 
     # PATCH: add a close function to ensure that all IO-abstraction objects are
     # closed.

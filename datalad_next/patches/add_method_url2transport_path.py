@@ -46,7 +46,7 @@ def local_io_url2transport_path(
         self,
         url_path: PurePosixPath
 ) -> Path | PurePosixPath:
-    assert url_path.__class__ is PurePosixPath
+    assert isinstance(url_path, PurePosixPath)
     if on_windows:
         return str2windows_path(url_path)
     else:
@@ -57,7 +57,7 @@ def http_remote_io_url2transport_path(
         self,
         url_path: PurePosixPath
 ) -> Path | PurePosixPath:
-    assert url_path.__class__ is PurePosixPath
+    assert isinstance(url_path, PurePosixPath)
     return url_path
 
 

@@ -45,7 +45,7 @@ def ria_utils__ensure_version(io, base_path, version):
       target layout version of the store (dataset tree)
     """
     # PATCH: ensure that `base_path` is an instance of `PurePosixPath`.
-    assert base_path.__class__ is PurePosixPath
+    assert isinstance(base_path, PurePosixPath)
 
     # PATCH: convert abstract `ria-layout-version`-path to concrete IO-specific
     # path
@@ -137,7 +137,7 @@ def ria_utils_create_ds_in_store(io,
       'annex/objects')
     """
     # PATCH: ensure that `base_path` is an instance of `PurePosixPath`.
-    assert base_path.__class__ is PurePosixPath
+    assert isinstance(base_path, PurePosixPath)
 
     # TODO: Note for RF'ing, that this is about setting up a valid target
     #       for the special remote not a replacement for create-sibling-ria.
