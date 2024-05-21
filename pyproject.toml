@@ -1,6 +1,12 @@
 [build-system]
 requires = ["setuptools >= 43.0.0", "wheel"]
 
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "scm"
+
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
 markers = [
