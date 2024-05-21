@@ -10,10 +10,13 @@ version_provider = "scm"
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
 markers = [
+    # datalad-next custom markers
+    "skip_if_no_network",
+    # (implicitly) used markers from datalad-core, which are not declared there
+    "integration",
     "network",
     "serve_path_via_http",
     "skip_if_adjusted_branch",
-    "skip_if_no_network",
     "skip_if_on_windows",
     "skip_if_root",
     "skip_ssh",
