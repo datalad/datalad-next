@@ -1,15 +1,15 @@
-## 1.4.1 (2024-05-22)
+# 1.4.1 (2024-05-22)
 
-### 🐛 Bug Fixes
+## 🐛 Bug Fixes
 
 - dependencies: limit test patch import to test runs [905b99bd]
 
-### 📝 Documentation
+## 📝 Documentation
 
 - add note of Git >= v2.31 requirement for next-status [093575d8]
 - state conventional-commits requirement [a9180fc0]
 
-### 🛡 Tests
+## 🛡 Tests
 
 - fixture: add missing import (for non-WebDAV fallback) [ddd66799]
 
