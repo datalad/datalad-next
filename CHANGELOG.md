@@ -3,6 +3,8 @@
 ## 🐛 Bug Fixes
 
 - dependencies: limit test patch import to test runs [905b99bd]
+- RIA: relax inappropriately strong type assertion [75034792]
+- diff/status: run `update-index` in correct path [dbc77004]
 
 ## 📝 Documentation
 
