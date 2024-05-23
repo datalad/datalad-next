@@ -2,18 +2,24 @@
 
 ## 🐛 Bug Fixes
 
-- dependencies: limit test patch import to test runs [905b99bd]
-- RIA: relax inappropriately strong type assertion [75034792]
-- diff/status: run `update-index` in correct path [dbc77004]
+- dependencies: limit test patch import to test runs
+  [905b99bd](https://github.com/datalad/datalad-next/commit/905b99bd)
+- RIA: relax inappropriately strong type assertion
+  [75034792](https://github.com/datalad/datalad-next/commit/75034792)
+- diff/status: run `update-index` in correct path
+  [dbc77004](https://github.com/datalad/datalad-next/commit/dbc77004)
 
 ## 📝 Documentation
 
-- add note of Git >= v2.31 requirement for next-status [093575d8]
-- state conventional-commits requirement [a9180fc0]
+- add note of Git >= v2.31 requirement for next-status
+  [093575d8](https://github.com/datalad/datalad-next/commit/093575d8)
+- state conventional-commits requirement
+  [a9180fc0](https://github.com/datalad/datalad-next/commit/a9180fc0)
 
 ## 🛡 Tests
 
-- fixture: add missing import (for non-WebDAV fallback) [ddd66799]
+- fixture: add missing import (for non-WebDAV fallback)
+  [ddd66799](https://github.com/datalad/datalad-next/commit/ddd66799)
 
 # 1.4.0 (2024-05-17)
 
