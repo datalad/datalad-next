@@ -11,11 +11,11 @@ template = ".changelog.md.j2"
 gpg_sign = true
 
 [tool.commitizen.customize]
-commit_parser = "^((?P<change_type>feat|fix|rf|perf|test|docs|BREAKING CHANGE)(?:\\((?P<scope>[^()\r\n]*)\\)|\\()?(?P<breaking>!)?|\\w+!):\\s(?P<message>.*)?(?P<body>.*)?"
-change_type_order = ["BREAKING CHANGE", "feat", "fix", "rf", "perf", "docs", "test"]
+commit_parser = "^((?P<change_type>feat|fix|rf|perf|test|doc|BREAKING CHANGE)(?:\\((?P<scope>[^()\r\n]*)\\)|\\()?(?P<breaking>!)?|\\w+!):\\s(?P<message>.*)?(?P<body>.*)?"
+change_type_order = ["BREAKING CHANGE", "feat", "fix", "rf", "perf", "doc", "test"]
 changelog_pattern = "^((BREAKING[\\-\\ ]CHANGE|\\w+)(\\(.+\\))?!?):"
 bump_pattern = "^((BREAKING[\\-\\ ]CHANGE|\\w+)(\\(.+\\))?!?):"
-schema_pattern = "(?s)(ci|docs|feat|fix|perf|rf|style|test|chore|revert|bump)(\\(\\S+\\))?!?:( [^\\n\\r]+)((\\n\\n.*)|(\\s*))?$"
+schema_pattern = "(?s)(ci|doc|feat|fix|perf|rf|style|test|chore|revert|bump)(\\(\\S+\\))?!?:( [^\\n\\r]+)((\\n\\n.*)|(\\s*))?$"
 
 [tool.commitizen.customize.bump_map]
 "^\\w+!" = "MAJOR"
@@ -25,7 +25,7 @@ schema_pattern = "(?s)(ci|docs|feat|fix|perf|rf|style|test|chore|revert|bump)(\\
 
 [tool.commitizen.customize.change_type_map]
 "BREAKING CHANGE" = "Breaking changes"
-docs = "📝 Documentation"
+doc = "📝 Documentation"
 feat = "💫 New features"
 fix = "🐛 Bug Fixes"
 test = "🛡 Tests"

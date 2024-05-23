@@ -10,10 +10,11 @@
 
 {% for change in changes %}
 {% if change.scope %}
-- {{ change.scope }}: {{ change.message }} [{{ change.sha1 | truncate(8, true, '') }}]
-{% elif change.message %}
-- {{ change.message }} [{{ change.sha1 | truncate(8, true, '') }}]
-{% endif %}
+- {{ change.scope }}: {{ change.message }}
+{%- elif change.message %}
+- {{ change.message }}
+{%- endif %}
+ [[{{ change.sha1 | truncate(8, true, '') }}]](https://github.com/datalad/datalad-next/commit/{{ change.sha1 | truncate(8, true, '') }})
 {% endfor %}
 {% endfor %}
 {% endfor %}
