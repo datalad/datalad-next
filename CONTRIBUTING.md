@@ -39,7 +39,25 @@ New code should be type-annotated. At minimum, a type annotation of the main API
 
 Docstrings should be complete with information on parameters, return values, and exception behavior. Documentation should be added to and rendered with the sphinx-based documentation.
 
-Commits and commit messages must be [Conventional Commits](https://www.conventionalcommits.org). Their compliance is checked for each pull request.
+Commits and commit messages must be [Conventional Commits](https://www.conventionalcommits.org). Their compliance is checked for each pull request. The following commit types are recognized:
+
+- `feat`: introduces a new feature
+- `fix`: address a problem, fix a bug
+- `doc`: update the documentation
+- `rf`: refactor code with no change of functionality
+- `perf`: enhance performance of existing functionality
+- `test`: add/update/modify test implementations
+- `ci`: change CI setup
+- `style`: beautification
+- `chore`: results of routine tasks, such as changelog updates
+- `revert`: revert a previous change
+- `bump`: version update
+
+Any breaking change must have at least one line of the format
+
+    BREAKING CHANGE: <summary of the breakage>
+
+in the body of the commit message that introduces the breakage. Breaking changes can be introduced in any type of commit. Any number of breaking changes can be described in a commit message (one per line). breaking changes trigger a major version update, and form a dedicated section in the changelog.
 
 ### Code organization
 
