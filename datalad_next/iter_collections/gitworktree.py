@@ -245,26 +245,63 @@ def iter_submodules(
     path: Path,
     *,
     pathspecs: list[str] | GitPathSpecs | None = None,
+    match_containing: bool = False,
 ) -> Generator[GitTreeItem, None, None]:
     """Given a path, report all submodules of a repository worktree underneath
 
-    This is a thin convenience wrapper around ``iter_gitworktree()``.
+    With ``match_containing`` set to the default ``False``, this is merely a
+    convenience wrapper around ``iter_gitworktree()`` that selectively reports
+    on submodules. With ``match_containing=True`` and ``pathspecs`` given, the
+    yielded items corresponding to submodules where the given ``pathsspecs``
+    *could* match content. This includes submodules that are not available
+    locally, because no actual matching of pathspecs to submodule content is
+    performed -- only an evaluation of the submodule item itself.
     """
     _pathspecs = GitPathSpecs(pathspecs)
+    if not _pathspecs:
+        # force flag to be sensible to simplify internal logic
+        match_containing = False
+
     for item in iter_gitworktree(
         path,
         untracked=None,
         link_target=False,
         fp=False,
         recursive='repository',
-        pathspecs=_pathspecs,
+        # if we want to match submodules that contain pathspecs matches
+        # we cannot give the job to Git, it won't report anything,
+        # but we need to match manually below
+        pathspecs=None if match_containing else _pathspecs,
     ):
         # exclude non-submodules, or a submodule that was found at
         # the root path -- which would indicate that the submodule
         # itself it not around, only its record in the parent
-        if item.gittype == GitTreeItemType.submodule \
-                and item.name != PurePath('.'):
+        if item.gittype != GitTreeItemType.submodule \
+                or item.name == PurePath('.'):
+            continue
+
+        if not match_containing:
             yield item
+            continue
+
+        assert pathspecs is not None
+        # does any pathspec match the "inside" of the current submodule's
+        # path
+        # we are using any() here to return as fast as possible.
+        # theoretically, we could also port all of them and enhance
+        # GitTreeItem to carry them outside, but we have no idea
+        # about the outside use case here, and cannot assume the additional
+        # cost is worth it
+        if any(
+            (ps if isinstance(ps, GitPathSpec)
+             else GitPathSpec.from_pathspec_str(ps)).for_subdir(str(item.name))
+            for ps in pathspecs
+        ):
+            yield item
+            continue
+
+        # no match
+        continue
 
 
 def _get_item(

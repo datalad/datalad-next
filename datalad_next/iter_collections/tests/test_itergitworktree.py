@@ -274,3 +274,19 @@ def test_iter_submodules(modified_dataset):
     res = list(iter_submodules(p, pathspecs=[':(exclude)*/sm_c']))
     assert len(res) == len(all_sm) - 1
     assert not any(r.name == PurePath('dir_sm', 'sm_c') for r in res)
+
+    # test pathspecs matching inside submodules
+    # baseline, pointing inside a submodule gives no matching results
+    assert not list(iter_submodules(p, pathspecs=['dir_sm/sm_c/.datalad']))
+    # we can discover the submodule that could have content that matches
+    # the pathspec
+    res = list(iter_submodules(p, pathspecs=['dir_sm/sm_c/.datalad'],
+                               match_containing=True))
+    assert len(res) == 1
+    assert res[0].name == PurePath('dir_sm', 'sm_c')
+    # if we use a wildcard that matches any submodule, we also get all of them
+    # and this includes the dropped submodule, because iter_submodules()
+    # make no assumptions on what this information will be used for
+    res = list(iter_submodules(p, pathspecs=['*/.datalad'],
+                               match_containing=True))
+    assert len(res) == len(all_sm)
