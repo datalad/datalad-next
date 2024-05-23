@@ -239,6 +239,24 @@ def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
     assert not fcount
 
 
+def test_iter_gitworktree_pathspec(modified_dataset):
+    p = modified_dataset.pathobj
+    # query for any files that a set to go straight to Git. these are just
+    # dotfiles in the default config
+    items = list(iter_gitworktree(
+        p,
+        pathspecs=[':(attr:annex.largefiles=nothing)']))
+    assert items
+    assert all(str(i.name).startswith('.') for i in items)
+    # glob-styles
+    # first some that only give a top-level match
+    assert len(list(iter_gitworktree(p, pathspecs=['file_a']))) == 1
+    assert len(list(iter_gitworktree(p, pathspecs=[':(glob)*file_a']))) == 1
+    # now some that match at any depth
+    assert len(list(iter_gitworktree(p, pathspecs=['*file_a']))) == 2
+    assert len(list(iter_gitworktree(p, pathspecs=[':(glob)**/file_a']))) == 2
+
+
 def test_iter_submodules(modified_dataset):
     p = modified_dataset.pathobj
     all_sm = list(iter_submodules(p))
@@ -248,3 +266,11 @@ def test_iter_submodules(modified_dataset):
     assert sorted([str(sm.path.name) for sm in all_sm]) \
         == ['droppedsm_c', 'sm_c', 'sm_d', 'sm_m', 'sm_mu', 'sm_n',
             'sm_nm', 'sm_nmu', 'sm_u']
+    # constrain by pathspec
+    res = list(iter_submodules(p, pathspecs=['*/sm_c']))
+    assert len(res) == 1
+    assert res[0].name == PurePath('dir_sm', 'sm_c')
+    # test negative condition
+    res = list(iter_submodules(p, pathspecs=[':(exclude)*/sm_c']))
+    assert len(res) == len(all_sm) - 1
+    assert not any(r.name == PurePath('dir_sm', 'sm_c') for r in res)
