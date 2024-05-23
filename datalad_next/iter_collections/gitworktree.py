@@ -23,7 +23,10 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-
+from datalad_next.gitpathspec import (
+    GitPathSpec,
+    GitPathSpecs,
+)
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
@@ -69,6 +72,7 @@ def iter_gitworktree(
     link_target: bool = False,
     fp: bool = False,
     recursive: str = 'repository',
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
     """Uses ``git ls-files`` to report on a work tree of a Git repository
 
@@ -143,6 +147,10 @@ def iter_gitworktree(
     lsfiles_args = ['--stage', '--cached']
     if untracked:
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
+
+    _pathspecs = GitPathSpecs(pathspecs)
+    if _pathspecs:
+        lsfiles_args.extend(_pathspecs.arglist())
 
     # helper to handle multi-stage reports by ls-files
     pending_item: tuple[None | PurePosixPath, None | Dict[str, str]] = (None, None)
@@ -235,17 +243,21 @@ def iter_gitworktree(
 
 def iter_submodules(
     path: Path,
+    *,
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitTreeItem, None, None]:
     """Given a path, report all submodules of a repository worktree underneath
 
     This is a thin convenience wrapper around ``iter_gitworktree()``.
     """
+    _pathspecs = GitPathSpecs(pathspecs)
     for item in iter_gitworktree(
         path,
         untracked=None,
         link_target=False,
         fp=False,
         recursive='repository',
+        pathspecs=_pathspecs,
     ):
         # exclude non-submodules, or a submodule that was found at
         # the root path -- which would indicate that the submodule

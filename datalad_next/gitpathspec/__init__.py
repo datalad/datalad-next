@@ -8,3 +8,4 @@ that rely on Git commands that do not support submodule recursion directly.
 __all__ = ['GitPathSpec', 'GitPathSpecs']
 
 from .pathspec import GitPathSpec
+from .pathspecs import GitPathSpecs
