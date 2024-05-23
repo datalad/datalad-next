@@ -10,10 +10,14 @@ from datalad_next.utils import (
     rmtree,
 )
 
+from ..gittree import (
+    GitTreeItemType,
+)
 from ..gitworktree import (
     GitWorktreeItem,
     GitWorktreeFileSystemItem,
     iter_gitworktree,
+    iter_submodules,
 )
 
 
@@ -233,3 +237,14 @@ def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
         else:
             assert (ds.pathobj / ai.name).exists() is False
     assert not fcount
+
+
+def test_iter_submodules(modified_dataset):
+    p = modified_dataset.pathobj
+    all_sm = list(iter_submodules(p))
+    assert all_sm
+    assert all(sm.gittype == GitTreeItemType.submodule for sm in all_sm)
+    assert all(str(sm.path.parent) == 'dir_sm' for sm in all_sm)
+    assert sorted([str(sm.path.name) for sm in all_sm]) \
+        == ['droppedsm_c', 'sm_c', 'sm_d', 'sm_m', 'sm_mu', 'sm_n',
+            'sm_nm', 'sm_nmu', 'sm_u']
