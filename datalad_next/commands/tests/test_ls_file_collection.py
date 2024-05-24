@@ -127,7 +127,7 @@ def test_replace_add_archive_content(sample_tar_xz, existing_dataset,
         # ignore any non-file, would not have an annex key.
         # Also ignores hardlinks (they consume no space (size=0), but could be
         # represented as regular copies of a shared key. however, this
-        # requires further processing of the metadat records, in order to find
+        # requires further processing of the metadata records, in order to find
         # the size of the item that has the same checksum as this one)
         if r.get('type') == 'file'
     ]
