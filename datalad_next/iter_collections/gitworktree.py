@@ -145,9 +145,9 @@ def iter_gitworktree(
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
     # helper to handle multi-stage reports by ls-files
-    pending_item = (None, None)
+    pending_item: tuple[None | PurePosixPath, None | Dict[str, str]] = (None, None)
 
-    reported_dirs = set()
+    reported_dirs: set[PurePosixPath] = set()
     _single_dir = recursive == 'no'
 
     # we add a "fake" `None` record at the end to avoid a special
@@ -165,6 +165,7 @@ def iter_gitworktree(
         if ipath is None or pending_item[0] not in (None, ipath):
             if ipath is None and pending_item[0] is None:
                 return
+            assert pending_item[0] is not None
             # this is the last point where we can still withhold a report.
             # it is also the point where we can do this with minimal
             # impact on the rest of the logic.
@@ -175,7 +176,7 @@ def iter_gitworktree(
                 # base directory -> ignore
                 # we do reset pending_item here, although this would also
                 # happen below -- it decomplexifies the conditionals
-                dir_path = pending_item_path_parts[0]
+                dir_path = PurePosixPath(pending_item_path_parts[0])
                 if dir_path in reported_dirs:
                     # we only yield each containing dir once, and only once
                     pending_item = (ipath, lsfiles_props)
@@ -197,6 +198,7 @@ def iter_gitworktree(
                 pending_item = (ipath, lsfiles_props)
                 continue
 
+            assert pending_item[0] is not None
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
             item = _get_item(
@@ -262,7 +264,7 @@ def _get_item(
     gitsha: str | None = None,
 ) -> GitWorktreeItem | GitWorktreeFileSystemItem:
     if isinstance(type, str):
-        type: GitTreeItemType = _mode_type_map[type]
+        type = _mode_type_map[type]
     item = None
     if link_target or fp:
         fullpath = basepath / ipath
