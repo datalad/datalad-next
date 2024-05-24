@@ -23,10 +23,6 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-from datalad_next.utils import external_versions
-# Kludge: Filter out paths starting with .git/ to work around
-# an `ls-files -o` bug that was fixed in Git 2.25.
-git_needs_filter_kludge = external_versions['cmd:git'] < '2.25'
 
 from .utils import (
     FileSystemItem,
@@ -149,9 +145,9 @@ def iter_gitworktree(
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
     # helper to handle multi-stage reports by ls-files
-    pending_item = (None, None)
+    pending_item: tuple[None | PurePosixPath, None | Dict[str, str]] = (None, None)
 
-    reported_dirs = set()
+    reported_dirs: set[PurePosixPath] = set()
     _single_dir = recursive == 'no'
 
     # we add a "fake" `None` record at the end to avoid a special
@@ -169,6 +165,7 @@ def iter_gitworktree(
         if ipath is None or pending_item[0] not in (None, ipath):
             if ipath is None and pending_item[0] is None:
                 return
+            assert pending_item[0] is not None
             # this is the last point where we can still withhold a report.
             # it is also the point where we can do this with minimal
             # impact on the rest of the logic.
@@ -179,7 +176,7 @@ def iter_gitworktree(
                 # base directory -> ignore
                 # we do reset pending_item here, although this would also
                 # happen below -- it decomplexifies the conditionals
-                dir_path = pending_item_path_parts[0]
+                dir_path = PurePosixPath(pending_item_path_parts[0])
                 if dir_path in reported_dirs:
                     # we only yield each containing dir once, and only once
                     pending_item = (ipath, lsfiles_props)
@@ -201,6 +198,7 @@ def iter_gitworktree(
                 pending_item = (ipath, lsfiles_props)
                 continue
 
+            assert pending_item[0] is not None
             # report on a pending item, this is not a "higher-stage"
             # report by ls-files
             item = _get_item(
@@ -266,7 +264,7 @@ def _get_item(
     gitsha: str | None = None,
 ) -> GitWorktreeItem | GitWorktreeFileSystemItem:
     if isinstance(type, str):
-        type: GitTreeItemType = _mode_type_map[type]
+        type = _mode_type_map[type]
     item = None
     if link_target or fp:
         fullpath = basepath / ipath
@@ -294,9 +292,6 @@ def _lsfiles_line2props(
     items = line.split('\t', maxsplit=1)
     # check if we cannot possibly have a 'staged' report with mode and gitsha
     if len(items) < 2:
-        if git_needs_filter_kludge and line.startswith(".git/"):  # pragma nocover
-            lgr.debug("Filtering out .git/ file: %s", line)
-            return
         # not known to Git, but Git always reports POSIX
         path = PurePosixPath(line)
         # early exist, we have nothing but the path (untracked)
@@ -304,9 +299,6 @@ def _lsfiles_line2props(
 
     props = items[0].split(' ')
     if len(props) != 3:
-        if git_needs_filter_kludge and line.startswith(".git/"):  # pragma nocover
-            lgr.debug("Filtering out .git/ file: %s", line)
-            return
         # not known to Git, but Git always reports POSIX
         path = PurePosixPath(line)
         # early exist, we have nothing but the path (untracked)

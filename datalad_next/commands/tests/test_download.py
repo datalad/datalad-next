@@ -47,7 +47,7 @@ def test_download(tmp_path, http_server, no_result_rendering):
                        return_type='item-or-list')
 
     assert (wdir / 'testfile.txt').read_text() == 'test'
-    # keys for hashes keep user-provided captialization
+    # keys for hashes keep user-provided capitalization
     assert res['md5'] == '098f6bcd4621d373cade4e832627b4f6'
     assert res['SHA256'] == \
         '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'

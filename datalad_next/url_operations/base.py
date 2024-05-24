@@ -126,7 +126,7 @@ class UrlOperations:
           may not support automatic credential lookup.
         hash: list(algorithm_names), optional
           If given, must be a list of hash algorithm names supported by the
-          `hashlib` module. A corresponding hash will be computed simultaenous
+          `hashlib` module. A corresponding hash will be computed simultaneously
           to the download (without reading the data twice), and included
           in the return value.
         timeout: float, optional
@@ -196,7 +196,7 @@ class UrlOperations:
           may not support automatic credential lookup.
         hash: list(algorithm_names), optional
           If given, must be a list of hash algorithm names supported by the
-          `hashlib` module. A corresponding hash will be computed simultaenous
+          `hashlib` module. A corresponding hash will be computed simultaneously
           to the upload (without reading the data twice), and included
           in the return value.
         timeout: float, optional
