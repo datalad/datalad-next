@@ -119,7 +119,6 @@ def iter_gitdiff(
     find_renames: int | None = None,
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
-    # TODO add documentation
     eval_submodule_state: str = 'full',
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
@@ -189,6 +188,23 @@ def iter_gitdiff(
       will still be reported whenever there is no recursion into them.
       For example, submodule items are reported when
       ``recursive='repository``, even when ``yield_tree_items=None``.
+    eval_submodule_state: {'no', 'commit', 'full'}
+      Mode with which submodule changes will be investigated. These modes
+      correspond to (some) of the modes offered by the ``--ignore-submodule``
+      option of ``git diff-(tree|index)``.
+      'no' does not inspect submodules (``--ignore-submodules=all``);
+      'commit' ignores all changes to the work tree of submodules
+      (``--ignore-submodules=dirty``);
+      'full' considers a submodule modified when it either contains untracked
+      or modified files or its HEAD differs from the commit recorded in the
+      superproject (``--ignore-submodules=none``).
+      The treatment of untracked files is determined by the ``untracked``
+      parameter.
+      When a git-annex repository in adjusted mode is detected,
+      the reference commit that the worktree is being compared to, with modes
+      ``commit`` and ``full``, is the basis
+      of the adjusted branch (i.e., the corresponding branch).
+
 
     Yields
     ------

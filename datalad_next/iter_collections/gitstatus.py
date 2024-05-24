@@ -81,13 +81,20 @@ def iter_gitstatus(
       any submodule that is present. If ``no``, only direct children
       are reported on.
     eval_submodule_state: {"no", "commit", "full"}, optional
-      If 'full' (default), the state of a submodule is evaluated by
-      considering all modifications, with the treatment of untracked files
-      determined by `untracked`. If 'commit', the modification check is
-      restricted to comparing the submodule's "HEAD" commit to the one
-      recorded in the superdataset. If 'no', the state of the subdataset is
-      not evaluated. When a git-annex repository in adjusted mode is detected,
-      the reference commit that the worktree is being compared to is the basis
+      Mode with which submodule changes will be investigated. These modes
+      correspond to (some) of the modes offered by the ``--ignore-submodule``
+      option of ``git diff-(tree|index)``.
+      'no' does not inspect submodules (``--ignore-submodules=all``);
+      'commit' ignores all changes to the work tree of submodules
+      (``--ignore-submodules=dirty``);
+      'full' considers a submodule modified when it either contains untracked
+      or modified files or its HEAD differs from the commit recorded in the
+      superproject (``--ignore-submodules=none``).
+      The treatment of untracked files is determined by the ``untracked``
+      parameter.
+      When a git-annex repository in adjusted mode is detected,
+      the reference commit that the worktree is being compared to, with modes
+      ``commit`` and ``full``, is the basis
       of the adjusted branch (i.e., the corresponding branch).
 
     Yields
