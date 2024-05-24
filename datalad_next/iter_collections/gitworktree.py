@@ -23,10 +23,6 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-from datalad_next.utils import external_versions
-# Kludge: Filter out paths starting with .git/ to work around
-# an `ls-files -o` bug that was fixed in Git 2.25.
-git_needs_filter_kludge = external_versions['cmd:git'] < '2.25'
 
 from .utils import (
     FileSystemItem,
@@ -294,9 +290,6 @@ def _lsfiles_line2props(
     items = line.split('\t', maxsplit=1)
     # check if we cannot possibly have a 'staged' report with mode and gitsha
     if len(items) < 2:
-        if git_needs_filter_kludge and line.startswith(".git/"):  # pragma nocover
-            lgr.debug("Filtering out .git/ file: %s", line)
-            return
         # not known to Git, but Git always reports POSIX
         path = PurePosixPath(line)
         # early exist, we have nothing but the path (untracked)
@@ -304,9 +297,6 @@ def _lsfiles_line2props(
 
     props = items[0].split(' ')
     if len(props) != 3:
-        if git_needs_filter_kludge and line.startswith(".git/"):  # pragma nocover
-            lgr.debug("Filtering out .git/ file: %s", line)
-            return
         # not known to Git, but Git always reports POSIX
         path = PurePosixPath(line)
         # early exist, we have nothing but the path (untracked)
