@@ -15,11 +15,6 @@ from pathlib import (
 )
 from urllib.request import pathname2url
 
-from datalad.api import (
-    Dataset,
-    clone,
-    create_sibling_ria,
-)
 from datalad.cmd import (
     WitlessRunner as Runner,
     NoCapture,
@@ -77,6 +72,7 @@ def local_path2pure_posix_path(path: Path | str):
 @with_tempfile
 def patched__postclonetest_prepare(lcl, storepath, storepath2, link):
 
+    from datalad.api import Dataset
     from datalad.customremotes.ria_utils import (
         create_ds_in_store,
         create_store,
@@ -186,6 +182,10 @@ def patched_test_ria_postclone_noannex(dspath=None, storepath=None, clonepath=No
     # PATCH: introduce `ppp_storepath` and use it instead of `storepath`.
     ppp_storepath = local_path2pure_posix_path(storepath)
 
+    from datalad.api import (
+        Dataset,
+        clone,
+    )
     from datalad.customremotes.ria_utils import (
         create_ds_in_store,
         create_store,
@@ -316,6 +316,9 @@ def patched_test_setup_ds_in_store(io_cls, io_args, store=None):
 @serve_path_via_http
 @with_tempfile
 def patched_test_initremote(store_path=None, store_url=None, ds_path=None):
+
+    from datalad.api import Dataset
+
     ds = Dataset(ds_path).create()
     store_path = Path(store_path)
     # PATCH: introduce `ppp_store_path` and use it instead of `store_path`
@@ -376,6 +379,8 @@ def patched_test_initremote(store_path=None, store_url=None, ds_path=None):
 @serve_path_via_http
 @with_tempfile
 def patched_test_read_access(store_path=None, store_url=None, ds_path=None):
+
+    from datalad.api import Dataset
 
     ds = Dataset(ds_path).create()
     populate_dataset(ds)
@@ -444,6 +449,8 @@ def patched_test_read_access(store_path=None, store_url=None, ds_path=None):
 @with_tempfile
 @with_tempfile
 def patched_test_initremote_basic(url, io, store, ds_path, link):
+
+    from datalad.api import Dataset
 
     ds_path = Path(ds_path)
     store = Path(store)
@@ -549,6 +556,8 @@ def patched_test_initremote_basic(url, io, store, ds_path, link):
 @with_tempfile
 def patched_test_remote_layout(host, dspath, store, archiv_store):
 
+    from datalad.api import Dataset
+
     dspath = Path(dspath)
     store = Path(store)
     archiv_store = Path(archiv_store)
@@ -636,6 +645,8 @@ def patched_test_remote_layout(host, dspath, store, archiv_store):
 @with_tempfile
 @with_tempfile
 def patched_test_version_check(host, dspath, store):
+
+    from datalad.api import Dataset
 
     dspath = Path(dspath)
     store = Path(store)
@@ -725,6 +736,9 @@ def patched_test_version_check(host, dspath, store):
 @with_tempfile
 @with_tempfile
 def patched_test_gitannex(host, store, dspath):
+
+    from datalad.api import Dataset
+
     dspath = Path(dspath)
     store = Path(store)
     # PATCH: introduce `ppp_store` and use it instead of `store`
@@ -772,6 +786,8 @@ def patched_test_gitannex(host, store, dspath):
 @with_tempfile
 @with_tempfile
 def patched_test_push_url(storepath=None, dspath=None, blockfile=None):
+
+    from datalad.api import Dataset
 
     dspath = Path(dspath)
     store = Path(storepath)
@@ -855,6 +871,8 @@ def patched_test_permission(host, storepath, dspath):
     # in order to allow the object tree to safely be used with an ephemeral
     # clone. And on removal obtain write permissions, like annex would
     # internally on a drop (but be sure to restore if something went wrong).
+
+    from datalad.api import Dataset
 
     dspath = Path(dspath)
     storepath = Path(storepath)
