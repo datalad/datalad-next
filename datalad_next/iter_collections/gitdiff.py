@@ -422,29 +422,22 @@ def _yield_diff_item(
             # The only modification that is possible with an absent submodule
             # is a deletion. And that would cause the item.gittype to be None
             # -- a condition that is caught above
-            for i in iter_gitdiff(
-                cwd / PurePosixPath(item.name),
-                **dict(
-                    kwargs,
-                    # we never want to pass None here
-                    # if `prev_gitsha` is None, it means that the
-                    # submodule record is new, and we want its full
-                    # content reported. Passing None, however,
-                    # would only report the change to the current
-                    # state.
-                    from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
-                    # when comparing the parent to the worktree, we
-                    # also want to compare any children to the worktree
-                    to_treeish=None if to_treeish is None else item.gitsha,
-                )
-            ):
-                # prepend any item name with the parent items
-                # name
-                for attr in ('name', 'prev_name'):
-                    val = getattr(i, attr)
-                    if val is not None:
-                        setattr(i, attr, f'{item.name}/{val}')
-                yield i
+            sm_subdir = PurePosixPath(item.name)
+            yield from _yield_from_submodule(
+                basename=item.name,
+                path = cwd / sm_subdir,
+                # we never want to pass None here
+                # if `prev_gitsha` is None, it means that the
+                # submodule record is new, and we want its full
+                # content reported. Passing None, however,
+                # would only report the change to the current
+                # state.
+                from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
+                # when comparing the parent to the worktree, we
+                # also want to compare any children to the worktree
+                to_treeish=None if to_treeish is None else item.gitsha,
+                **kwargs
+            )
         return
 
     name = props['name'] or props['prev_name']
@@ -508,3 +501,27 @@ def _git_diff_something(path, args):
                 keep_ends=False,
             )
         )
+
+
+def _yield_from_submodule(
+    basename,
+    path,
+    from_treeish,
+    to_treeish,
+    **kwargs
+):
+    for i in iter_gitdiff(
+        path,
+        **dict(
+            kwargs,
+            from_treeish=from_treeish,
+            to_treeish=to_treeish,
+        )
+    ):
+        # prepend any item name with the parent items
+        # name
+        for attr in ('name', 'prev_name'):
+            val = getattr(i, attr)
+            if val is not None:
+                setattr(i, attr, f'{basename}/{val}')
+        yield i
