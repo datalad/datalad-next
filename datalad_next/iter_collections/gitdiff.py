@@ -182,7 +182,7 @@ def iter_gitdiff(
       have not been modified in the same change. This is a very expensive
       operation for large projects, so use it with caution.
     yield_tree_items: {'submodules', 'directories', 'all', None}, optional
-      Whether to yield an item on type of subtree that will also be recursed
+      Whether to yield an item on a type of subtree that will also be recursed
       into. For example, a submodule item, when submodule recursion is
       enabled. When disabled, subtree items (directories, submodules)
       will still be reported whenever there is no recursion into them.
