@@ -2,6 +2,7 @@ from pathlib import PurePosixPath
 import pytest
 import shutil
 
+from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.utils import rmtree
 
 from ..gitdiff import (
@@ -323,3 +324,35 @@ def test_iter_gitdiff_rec(existing_dataset, no_result_rendering):
     assert diff == list(iter_gitdiff(*status_args, recursive='submodules'))
     # use the opportunity to check equality of recursive='all' for this case
     assert diff == list(iter_gitdiff(*status_args, recursive='all'))
+
+
+def test_iter_gitdiff_recsub_pathspec(modified_dataset):
+    p = modified_dataset.pathobj
+    # we cheat and compare to PRE_INIT_COMMIT_SHA to get everything
+    comp_base = modified_dataset.repo.get_corresponding_branch() or 'HEAD'
+    # from the last commit to the worktree
+    status_args = (p, comp_base, None)
+    # from forever to the last commit
+    diff_args = (p, PRE_INIT_COMMIT_SHA, comp_base)
+
+    # try match on /file_m in every submodule
+    status_res = list(iter_gitdiff(
+        *status_args,
+        recursive='submodules',
+        pathspecs=[':(top)file_m']))
+    assert status_res
+    # compare to diff...
+    # logic: every file that shows up in the status as
+    # modified must have been committed before or at
+    # HEAD
+    diff_res = list(iter_gitdiff(
+        *diff_args,
+        recursive='submodules',
+        pathspecs=[':(top)file_m']))
+    assert diff_res
+    for st, df in zip(status_res, diff_res):
+        assert st.name.endswith('file_m')
+        assert st.name == df.name
+        assert st.prev_gitsha == df.gitsha
+        assert st.status == GitDiffStatus.modification
+        assert df.status == GitDiffStatus.addition

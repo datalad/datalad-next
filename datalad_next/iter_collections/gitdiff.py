@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
+from itertools import chain
 import logging
 from pathlib import (
     Path,
@@ -15,6 +16,7 @@ from pathlib import (
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
+from datalad_next.gitpathspec import GitPathSpec
 from datalad_next.runners import (
     CommandError,
     iter_git_subproc,
@@ -120,6 +122,7 @@ def iter_gitdiff(
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
     eval_submodule_state: str = 'full',
+    pathspecs: list[str | GitPathSpec] | None = None,
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 
@@ -204,7 +207,13 @@ def iter_gitdiff(
       the reference commit that the worktree is being compared to, with modes
       ``commit`` and ``full``, is the basis
       of the adjusted branch (i.e., the corresponding branch).
-
+    pathspecs: list[str | GitPathSpec]
+      Git pathspecs to constrain the evaluation and reporting to particular
+      content. Regular wildcard and magic signatures are supported. With
+      submodule-recursion pathspecs are supported too. Additional processing is
+      required in this mode, because submodule recursion with pathspec
+      constraints is not supported natively by the underlying Git utilities,
+      resulting in a performance penalty.
 
     Yields
     ------
@@ -218,6 +227,8 @@ def iter_gitdiff(
     # forget/ignore and leads to non-obvious errors. Running this once is
     # a cheap safety net
     path = Path(path)
+    # normalize path specs to a plain list of GitPathSpec instances
+    pathspecs = _normalize_gitpathspec(pathspecs)
 
     # put most args in a container, we need to pass then around quite
     # a bit
@@ -229,10 +240,48 @@ def iter_gitdiff(
         find_copies=find_copies,
         yield_tree_items=yield_tree_items,
         eval_submodule_state=eval_submodule_state,
+        pathspecs=pathspecs,
     )
+
+    query_subs: dict[PurePosixPath, GitDiffItem] = dict()
+    if recursive == 'submodules' and pathspecs:
+        # we need special handling: we could have pathspecs that do
+        # NOT match a submodule directly, but match content in one.
+        # we need to ensure that we query these submodules explicitly
+        #
+        # submodule-recursion is recursion into present submodules,
+        # hence we can use iter_submodules() on the worktree to
+        # get all candidates
+        #
+        # if you come here, looking for the reason that a submodule
+        # is not considered for a certain pathspec, although it should,
+        # GitPathSpec.for_subdir() is to blame.
+        query_subs = {
+            i.path: i
+            for i in iter_gitdiff(
+                # same basic setup
+                path=path,
+                from_treeish=from_treeish,
+                to_treeish=to_treeish,
+                eval_submodule_state=eval_submodule_state,
+                # but no submodule recursion, we just need the
+                # immediate submodules
+                recursive='repository',
+                # and importantly, no pathspec constraints
+                pathspecs=None,
+                # turn off everything non-essential
+                find_renames=None,
+                find_copies=None,
+                yield_tree_items=None,
+            )
+            # exclude non-submodules
+            if i.gittype == GitTreeItemType.submodule
+        }
 
     cmd = _build_cmd(**kwargs)
 
+    # TODO refactor this. we call iter_gitdiff() internally too,
+    # and we do not want to run this more than once
     if cmd[0] == 'diff-index':
         # when we compare to the index, we need a refresh run to not have
         # something like plain mtime changes trigger modification reports
@@ -267,6 +316,7 @@ def iter_gitdiff(
                 single_dir=_single_dir,
                 spec=pending_props,
                 reported_dirs=reported_dirs,
+                query_subs=query_subs,
                 **kwargs
             )
             pending_props = None
@@ -282,7 +332,29 @@ def iter_gitdiff(
             single_dir=_single_dir,
             spec=pending_props,
             reported_dirs=reported_dirs,
+            query_subs=query_subs,
             **kwargs
+        )
+    # now process all submodules that could still produce a pathspec
+    # match and have not been touched yet.
+    for sm_subdir, sm_item in query_subs.items():
+        yield from _yield_from_submodule_item(
+            item=sm_item,
+            basepath=path,
+            from_treeish=from_treeish,
+            to_treeish=to_treeish,
+            query_subs=query_subs,
+            # when pathspecs were given, this submodule did not
+            # show up as a direct match, when the pathspecs do not
+            # translate into the submodule, we can stop immediately
+            stop_with_no_pathspec_match=True,
+            # the rest is just passed on
+            pathspecs=pathspecs,
+            recursive=recursive,
+            find_renames=find_renames,
+            find_copies=find_copies,
+            yield_tree_items=yield_tree_items,
+            eval_submodule_state=eval_submodule_state,
         )
 
 
@@ -292,6 +364,7 @@ def _build_cmd(
     recursive, yield_tree_items,
     find_renames, find_copies,
     eval_submodule_state,
+    pathspecs,
 ) -> list[str]:
     # from   : to   : description
     # ---------------------------
@@ -351,6 +424,10 @@ def _build_cmd(
     # add disambiguation marker for pathspec.
     # even if we do not pass any, we get simpler error messages from Git
     cmd.append('--')
+
+    if pathspecs:
+        cmd.extend(str(ps) for ps in pathspecs)
+
     return cmd
 
 
@@ -364,6 +441,7 @@ def _yield_diff_item(
         single_dir: bool,
         reported_dirs: set,
         yield_tree_items: bool,
+        query_subs: dict[PurePosixPath, GitDiffItem],
         **kwargs
 ) -> Generator[GitDiffItem, None, None]:
     props: dict[str, str | int | GitTreeItemType] = {}
@@ -422,25 +500,23 @@ def _yield_diff_item(
             # The only modification that is possible with an absent submodule
             # is a deletion. And that would cause the item.gittype to be None
             # -- a condition that is caught above
-            sm_subdir = PurePosixPath(item.name)
-            yield from _yield_from_submodule(
-                basename=item.name,
-                path = cwd / sm_subdir,
-                # we never want to pass None here
-                # if `prev_gitsha` is None, it means that the
-                # submodule record is new, and we want its full
-                # content reported. Passing None, however,
-                # would only report the change to the current
-                # state.
-                from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
-                # when comparing the parent to the worktree, we
-                # also want to compare any children to the worktree
-                to_treeish=None if to_treeish is None else item.gitsha,
+            yield from _yield_from_submodule_item(
+                item=item,
+                basepath=cwd,
+                from_treeish=from_treeish,
+                to_treeish=to_treeish,
+                query_subs=query_subs,
+                # even when pathspecs were given, this submodule
+                # showed up as a direct match, we would not want
+                # to stop yielding, even when the pathspecs do not
+                # translate into the submodule
+                stop_with_no_pathspec_match=False,
                 **kwargs
             )
         return
 
-    name = props['name'] or props['prev_name']
+    # str() only to assert the type
+    name: str = str(props['name'] or props['prev_name'])
     # we cannot have items that have no name whatsoever
     assert name is not None
     # we decide on mangling the actual report to be on the containing directory
@@ -503,25 +579,81 @@ def _git_diff_something(path, args):
         )
 
 
-def _yield_from_submodule(
-    basename,
-    path,
+def _yield_from_submodule_item(
+    item: GitDiffItem,
+    basepath,
     from_treeish,
     to_treeish,
+    pathspecs: list[GitPathSpec] | None,
+    query_subs: dict[PurePosixPath, GitDiffItem],
+    stop_with_no_pathspec_match=False,
     **kwargs
 ):
-    for i in iter_gitdiff(
-        path,
-        **dict(
-            kwargs,
-            from_treeish=from_treeish,
-            to_treeish=to_treeish,
-        )
-    ):
+    sm_subdir = basepath / PurePosixPath(item.name)
+    if not sm_subdir.exists():
+        # this could be a deleted submodule
+        return
+    if call_git_oneline(
+            ['rev-parse', '--path-format=relative', '--show-toplevel'],
+            cwd=sm_subdir,
+    ).startswith('..'):
+        # the submodule path is not the root of a repository.
+        # this is a dropped/uninstalled submodule
+        return
+
+    if pathspecs:
+        # translated the paths to see, if there is any chance for a
+        # match in this submodule
+        translated_pathspecs = list(chain.from_iterable(
+            ps.for_subdir(item.name)
+            for ps in pathspecs
+        ))
+        if not translated_pathspecs and stop_with_no_pathspec_match:
+            # the pathspecs did not translate to anything for the subdir.
+            # this means that nothing would match any content.
+            # this submodule also did not show for a direct pathspec match.
+            # we can ignore it.
+            return
+        pathspecs = translated_pathspecs
+
+    # in case we had this on the list of submodules to query,
+    # take it off, we are already doing it.
+    # pass None, because there is only submodule tracking
+    # when we really need it
+    query_subs.pop(sm_subdir, None)
+    diff_kwargs = dict(
+        kwargs,
+        # we never want to pass None here
+        # if `prev_gitsha` is None, it means that the
+        # submodule record is new, and we want its full
+        # content reported. Passing None, however,
+        # would only report the change to the current
+        # state.
+        from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
+        # when comparing the parent to the worktree, we
+        # also want to compare any children to the worktree
+        to_treeish=None if to_treeish is None else item.gitsha,
+        pathspecs=pathspecs,
+    )
+    for i in iter_gitdiff(sm_subdir, **diff_kwargs):
         # prepend any item name with the parent items
         # name
         for attr in ('name', 'prev_name'):
             val = getattr(i, attr)
             if val is not None:
-                setattr(i, attr, f'{basename}/{val}')
+                setattr(i, attr, f'{item.name}/{val}')
         yield i
+
+
+def _normalize_gitpathspec(
+    specs: list[str | GitPathSpec] | None,
+) -> list[GitPathSpec] | None:
+    """Normalize path specs to a plain list of GitPathSpec instances"""
+    if not specs:
+        return None
+    else:
+        return [
+            ps if isinstance(ps, GitPathSpec)
+            else GitPathSpec.from_pathspec_str(ps)
+            for ps in specs
+        ]
