@@ -5,22 +5,11 @@ The main functionality is provided by the :func:`iter_gitstatus` function.
 from __future__ import annotations
 
 import logging
-from pathlib import (
-    Path,
-    PurePath,
-)
+from pathlib import Path
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.runners import (
-    CommandError,
-    call_git_lines,
-    iter_git_subproc,
-)
-from datalad_next.itertools import (
-    decode_bytes,
-    itemize,
-)
+from datalad_next.runners import call_git_lines
 from datalad_next.repo_utils import (
     get_worktree_head,
 )
@@ -32,7 +21,6 @@ from .gitdiff import (
     iter_gitdiff,
 )
 from .gitworktree import (
-    GitTreeItem,
     GitTreeItemType,
     iter_gitworktree,
     iter_submodules,
