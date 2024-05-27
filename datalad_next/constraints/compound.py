@@ -80,7 +80,7 @@ class EnsureIterableOf(Constraint):
         except (ConstraintError, TypeError) as e:
             self.raise_for(
                 value,
-                "{itertype} item is not {itype}",
+                "{itertype} item does not match {itype}\n{__itemized_causes__}",
                 itertype=self._iter_type.__name__,
                 itype=self._item_constraint,
                 __caused_by__=e,
