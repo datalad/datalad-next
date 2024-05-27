@@ -74,6 +74,7 @@ structured error reporting.
     EnsureURL
     EnsureParsedURL
 
+    EnsureGitPathSpec
     EnsureGitRefName
     EnsureRemoteName
     EnsureSiblingName
@@ -129,6 +130,7 @@ from .formats import (
 from .dataset import EnsureDataset
 
 from .git import (
+    EnsureGitPathSpec,
     EnsureGitRefName,
     EnsureRemoteName,
     EnsureSiblingName,

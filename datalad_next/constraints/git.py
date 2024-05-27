@@ -1,6 +1,7 @@
 """Constraints for Git-related concepts and parameters"""
 from __future__ import annotations
 
+from datalad_next.gitpathspec import GitPathSpec
 from datalad_next.runners import (
     CommandError,
     call_git,
@@ -175,3 +176,23 @@ class EnsureSiblingName(EnsureRemoteName):
     replaced with "sibling".
     """
     _label = 'sibling'
+
+
+class EnsureGitPathSpec(Constraint):
+    """Ensures a Git pathspec"""
+    def __call__(self, value: str) -> GitPathSpec:
+        if not value:
+            # simple, do here
+            self.raise_for(value, 'pathspec must not be empty')
+
+        try:
+            return GitPathSpec.from_pathspec_str(value)
+        except ValueError as e:
+            self.raise_for(
+                value,
+                'is not a valid pathspec\n{__itemized_causes__}',
+                __caused_by__=e,
+            )
+
+    def short_description(self):
+        return 'Git pathspec'
