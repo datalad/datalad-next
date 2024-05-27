@@ -24,6 +24,8 @@ from datalad_next.commands import (
 from datalad_next.constraints import (
     EnsureChoice,
     EnsureDataset,
+    EnsureGitPathSpec,
+    EnsureListOf,
     WithDescription,
 )
 
@@ -139,11 +141,12 @@ class StatusParamValidator(EnsureCommandParameterization):
                 untracked=EnsureChoice(*opt_untracked_values),
                 recursive=EnsureChoice(*opt_recursive_values),
                 eval_subdataset_state=EnsureChoice(
-                    *opt_eval_subdataset_state_values)
+                    *opt_eval_subdataset_state_values),
+                pathspecs=EnsureListOf(EnsureGitPathSpec()),
             ),
             validate_defaults=('dataset',),
             joint_constraints={
-                ParameterConstraintContext(('untracked', 'recursive'),
+                ParameterConstraintContext(('untracked', 'recursive', 'pathspecs'),
                                            'option normalization'):
                 self.normalize_options,
             },
@@ -158,6 +161,11 @@ class StatusParamValidator(EnsureCommandParameterization):
             kwargs['recursive'] = 'submodules'
         if kwargs['recursive'] == 'mono':
             kwargs['recursive'] = 'monolithic'
+        if not kwargs['pathspecs']:
+            # and empty list can come from argparse. We handle this special
+            # case here and let the actual implementation only deal with
+            # `None` vs a list of pathspecs
+            kwargs['pathspecs'] = None
         return kwargs
 
 
@@ -291,6 +299,11 @@ class Status(ValidatedInterface):
             superdataset's record is evaluated.
             With 'full' any other modifications are considered
             too."""),
+        pathspecs=Parameter(
+            args=("pathspecs",),
+            metavar='<PATHSPEC>',
+            doc="""constrain the report""",
+            nargs='*'),
     )
 
     _examples_ = [
@@ -300,8 +313,7 @@ class Status(ValidatedInterface):
     @datasetmethod(name="next_status")
     @eval_results
     def __call__(
-        # TODO later
-        #path=None,
+        pathspecs=None,
         *,
         dataset=None,
         # TODO possibly later
@@ -318,6 +330,7 @@ class Status(ValidatedInterface):
             untracked=untracked,
             recursive=recursive,
             eval_submodule_state=eval_subdataset_state,
+            pathspecs=pathspecs,
         ):
             yield StatusResult(
                 action='status',
