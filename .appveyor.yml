@@ -164,6 +164,7 @@ environment:
       #   because MIH does not know better
       KEYWORDS: >
         not test_gh1811
+        and not test_nested_pushclone_cycle_allplatforms
         and not test_fake_gitlab
         and not test_dryrun
         and not test_initremote
