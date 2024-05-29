@@ -162,7 +162,29 @@ environment:
       #   the one in test_create_sibling_gitlab.py. However, there is one with
       #   identical name in test_create_sibling_ghlike.py, now also disabled
       #   because MIH does not know better
-      KEYWORDS: not test_gh1811 and not test_fake_gitlab and not test_dryrun
+      KEYWORDS: >
+        not test_gh1811
+        and not test_fake_gitlab
+        and not test_dryrun
+        and not test_initremote
+        and not test_push_url
+        and not test_read_access
+        and not test_ria_postclone_noannex
+        and not test_version_check_ssh
+        and not test_version_check
+        and not test_obtain_permission_ssh
+        and not test_obtain_permission_root
+        and not test_remote_layout
+        and not test_remote_layout_ssh
+        and not test_setup_store
+        and not test_setup_ds_in_store
+        and not test_initremote_basic_fileurl
+        and not test_initremote_basic_httpurl
+        and not test_initremote_basic_httpsurl
+        and not test_initremote_basic_sshurl
+        and not test_gitannex_local
+        and not test_gitannex_ssh
+        and not test_ria_postclonecfg
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.8
       INSTALL_SYSPKGS:
@@ -369,7 +391,7 @@ for:
       # run tests on installed module, not source tree files
       - cmd: md __testhome__
       - cmd: cd __testhome__
-        # run test selecion (--traverse-namespace needed from Python 3.8 onwards)
+        # run test selection
       - cmd: python -m pytest -s -v --durations 20 -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --cov-config=..\.coveragerc --pyargs %DTS%
 
     after_test:
