@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import fnmatch
-from itertools import chain
+from fnmatch import fnmatch
+import posixpath
+from typing import Generator
 
 
 @dataclass(frozen=True)
@@ -17,9 +18,14 @@ class GitPathSpec:
     dirprefix: str
     pattern: str | None
 
+    @property
+    def is_nopathspecs(self):
+        """Whether this pathspec represent "no pathspecs", AKA ':'"""
+        return not self.spectypes and not self.dirprefix and not self.pattern
+
     def __str__(self) -> str:
         """Generate normalized (long-form) pathspec"""
-        if not self.spectypes and not self.dirprefix and not self.pattern:
+        if self.is_nopathspecs:
             return ':'
         ps = ''
         if self.spectypes:
@@ -49,124 +55,20 @@ class GitPathSpec:
         split into sd_parts
         split into pattern_parts
 
+        Returns
+        -------
+        list
+          When an empty list is return, this indicates that the pathsspec
+          cannot be translated to the given ``subdir``, because it does
+          not match the ``subdir`` itself. If a pathspec translates to
+          "no pathspecs", a list with a dedicated ':' pathspec is returned.
         """
+        # special case of a non-translation (pretty much only here to
+        # make some test implementations simpler
         if not subdir:
             return [self]
-        elif 'top' in self.spectypes:
-            # no need to mangle, these are treated as absolute to
-            # any repo they are evaluated one -- this means that
-            # they are OK to change their reference when moving
-            # into submodules
-            return [self]
-        elif 'literal' in self.spectypes:
-            testpattern = self._get_joined_pattern()
-            testsubdir = subdir if subdir.endswith('/') else f'{subdir}/'
-            # TODO icase
-            if (
-                ('icase' in self.spectypes
-                 and testpattern.casefold().startswith(testsubdir.casefold()))
-                or testpattern.startswith(testsubdir)
-            ):
-                return [GitPathSpec(
-                    self.spectypes,
-                    *GitPathSpec._split_prefix_pattern(
-                        testpattern[len(testsubdir):])
-                )]
-            else:
-                return []
-        elif str(self) == ':':
-            return []
-        elif 'glob' in self.spectypes:
-            raise NotImplementedError
-        else:
-            # "ordinary" pathspec with fnmatch
-            # we find the shortest and the longest match for the subdir
-            # and report the list of unique results.
-            # we do that, because we only have partial knowledge of a
-            # would-be matching path. Any '*' might potentially match
-            # more than just the subdir, thereby consuming more of the
-            # pathspec than we can know here.
-            #
-            # We report the shortest and longest detectable match -- not
-            # because this is a complete or correct solution, but because it
-            # adds support for relatively common usecases, e.g. `*item*.jpg`
-            # (match any .jpg file with "item" somewhere is its path.
-            # The shortest match for a translation to a "moreitem/" would cause
-            # a translated pathspec of `*item*.jpg` (already the initial '*'
-            # matches the full subdir, hence any FILEname inside that subdir
-            # would now be required to contain "item". The longest match,
-            # however, translates to `*.jpg`, which is more fitting for the
-            # underlying intentions.
-            return list(set(chain(
-                self._find_shortest_subspec_fnmatch(subdir, 'shortest'),
-                self._find_longest_subspec_fnmatch(subdir, 'longest'),
-            )))
 
-    def _find_longest_subspec_fnmatch(self, subdir: str, mode: str):
-        testpattern = self._get_joined_pattern()
-        testsubdir = subdir
-        tp = testpattern
-        if 'icase' in self.spectypes:
-            testsubdir = subdir.casefold()
-            tp = testpattern.casefold()
-        while tp:
-            if fnmatch.fnmatch(testsubdir, tp):
-                # tp is a match for subdir, subtract it from the full pattern.
-                # we do not want to strip a '*', it has the potential to
-                # match more than just the present subdir
-                final = testpattern[len(tp) - (1 if tp.endswith('*') else 0):]
-                # strip initial directory separators, make no sense when
-                # porting to a subdir
-                final = final.lstrip('/')
-                if final:
-                    yield GitPathSpec(
-                        self.spectypes,
-                        *GitPathSpec._split_prefix_pattern(final)
-                    )
-                return
-            # get the next chunk
-            idx = index_any(tp.rindex, ['/', '*'], 0, len(tp))
-            if idx is None:
-                # we scanned the whole pattern and nothing matched
-                return
-            tp = tp[:idx]
-
-    def _find_shortest_subspec_fnmatch(self, subdir: str, mode: str):
-        testpattern = self._get_joined_pattern()
-        # add a trailing directory separator to prevent undesired
-        # matches of partial directory names
-        testsubdir = subdir if subdir.endswith('/') else f'{subdir}/'
-        tp: None | str = None
-        while tp is None or (len(tp) + 1 < len(testpattern)):
-            # get the next chunk
-            idx = index_any(
-                testpattern.index,
-                ['/', '*'],
-                0 if tp is None else (len(tp) + 1),
-                len(testpattern),
-            )
-            if idx is None:
-                # we scanned the whole pattern and nothing matched, use the
-                # full pattern with a trailing / (because we added that to
-                # testsubdir)
-                tp = f'{testpattern}/'
-            else:
-                tp = testpattern[:idx + 1]
-            assert tp is not None
-            if fnmatch.fnmatch(testsubdir, tp):
-                # tp is a match for subdir, subtract it from the full pattern.
-                # we do not want to strip a '*', it has the potential to
-                # match more than just the present subdir
-                final = testpattern[len(tp) - (1 if tp.endswith('*') else 0):]
-                if final:
-                    # do not emit a non-pathspec to avoid any downstream
-                    # processing giving a non-pattern is the same as not
-                    # given one
-                    yield GitPathSpec(
-                        self.spectypes,
-                        *GitPathSpec._split_prefix_pattern(final)
-                    )
-                return
+        return list(yield_subdir_match_remainder_pathspecs(subdir, self))
 
     @classmethod
     def from_pathspec_str(
@@ -191,7 +93,7 @@ class GitPathSpec:
             }
             pattern = pathspec[1:]
             spectypes = []
-            for i in range(1, len(pathspec)):
+            for i in range(1,len(pathspec)):
                 sig = magic_signatures.get(pathspec[i])
                 if sig is None:
                     pattern = pathspec[i:]
@@ -200,7 +102,7 @@ class GitPathSpec:
         else:
             pattern = pathspec
 
-        # TODO raise when glob and literal magic markers are present
+        # raise when glob and literal magic markers are present
         # simultaneously
         if 'glob' in spectypes and 'literal' in spectypes:
             raise ValueError("'glob' magic is incompatible with 'literal' magic")
@@ -231,14 +133,140 @@ class GitPathSpec:
         return dirprefix, pattern
 
 
-def index_any(fx, subs: list[str], start: int, end: int) -> int | None:
-    idx = []
-    for sub in subs:
-        try:
-            idx.append(fx(sub, start, end))
-        except ValueError:
-            pass
-    if not idx:
-        return None
-    else:
-        return min(idx)
+def yield_subdir_match_remainder_pathspecs(
+    subdir: str,
+    pathspec: GitPathSpec,
+) -> Generator[GitPathSpec, None, None]:
+    """Translate a pathspec into a set of possible subdirectory pathspecs
+
+    The processing implemented here is purely lexical. This means that it
+    works without matching against actual file system (or Git tree) content.
+    This means that it yield, to some degree, overly broad results, but also
+    that it works in cases where there is nothing (yet) to match against.
+    For example, a not-yet-cloned submodule.
+
+    This function does not perform any validatity checking of pathspecs. Only
+    valid pathspecs and well-formed paths are supported.
+
+    A pathspec with the ``top`` magic is returned immediately and as-is. These
+    pathspecs have an absolute reference and do not require a translation into
+    a subdirectory namespace.
+
+    Parameters
+    ----------
+    subdir: str
+      POSIX-notation relative path of a subdirectory. The reference directory
+      match be the same as that of the pathspec to be translated.
+    pathspec: GitPathSpec
+      To-be-translated pathspec
+
+    Yields
+    ------
+    GitPathSpec
+      Any number of pathspecs that an input pathspec decomposed into upon
+      translation into the namespace of a subdirectory.
+    """
+    if 'top' in pathspec.spectypes or pathspec.is_nopathspecs:
+        # pathspec with an absolute reference, or "no pathspecs"
+        # no translation needed
+        yield pathspec
+        return
+
+    # add a trailing directory separator to prevent undesired
+    # matches of partial directory names
+    subdir = subdir \
+        if subdir.endswith('/') \
+        else f'{subdir}/'
+    tp = pathspec._get_joined_pattern()
+
+    if 'icase' in pathspec.spectypes:
+        subdir = subdir.casefold()
+        tp = tp.casefold()
+
+    # literal pathspecs
+    if 'literal' in pathspec.spectypes:
+        # append a trailing slash to allow for full matches
+        tp_endslash = f'{tp}/'
+        if not tp_endslash.startswith(subdir):
+            # no match
+            # BUT
+            # we might have a multi-level subdir, and we might match an
+            # intermediate subdir and could still yield a 'no pathspec'
+            # result
+            while subdir := posixpath.split(subdir)[0]:
+                if tp_endslash.startswith(subdir):
+                    ps = GitPathSpec(tuple(), '', None)
+                    yield ps
+                    return
+            return
+
+        remainder = tp[len(subdir):]
+        if not remainder:
+            # full match
+            yield GitPathSpec(tuple(), '', None)
+        else:
+            yield GitPathSpec(
+                pathspec.spectypes,
+                *GitPathSpec._split_prefix_pattern(remainder)
+            )
+        return
+
+    # tokenize the testpattern using the wildcard that also matches
+    # directories
+    token_delim = '**' if 'glob' in pathspec.spectypes else '*'
+    tp_chunks = tp.split(token_delim)
+    prefix_match = ''
+    yielded = set()
+    for i, chunk in enumerate(tp_chunks):
+        last_chunk = i + 1 == len(tp_chunks)
+        if last_chunk:
+            trymatch = \
+                f'{prefix_match}{chunk}{"" if chunk.endswith("/") else "/"}'
+        else:
+            trymatch = f'{prefix_match}{chunk}*'
+        if not fnmatch(subdir, f'{trymatch}'):
+            # each chunk needs match in order, first non-match ends the
+            # algorithm
+            # BUT
+            # we have an (initial) chunk that points already
+            # inside the target subdir
+            submatch = trymatch
+            while submatch := posixpath.split(submatch)[0]:
+                if fnmatch(f'{subdir}', f'{submatch}/'):
+                    ps = GitPathSpec(
+                        pathspec.spectypes,
+                        *GitPathSpec._split_prefix_pattern(
+                            # +1 for trailing slash
+                            tp[len(submatch) + 1:])
+                    )
+                    if ps not in yielded:
+                        yield ps
+                    return
+            # OR
+            # we might have a multi-level subdir, and we might match an
+            # intermediate subdir and could still yield a 'no pathspec'
+            # result
+            while subdir := posixpath.split(subdir)[0]:
+                if fnmatch(f'{subdir}/', trymatch):
+                    ps = GitPathSpec(tuple(), '', None)
+                    yield ps
+                    return
+            return
+
+        remainder = tp_chunks[i + 1:]
+        if all(not c for c in remainder):
+            # direct hit, no pathspecs after translation
+            ps = GitPathSpec(tuple(), '', None)
+            yield ps
+            return
+        else:
+            ps = GitPathSpec(
+                pathspec.spectypes,
+                *GitPathSpec._split_prefix_pattern(
+                    f'{token_delim}{token_delim.join(remainder)}',
+                )
+            )
+            yield ps
+            yielded.add(ps)
+        # extend prefix for the next round
+        prefix_match = trymatch

@@ -5,6 +5,7 @@ import subprocess
 from .. import (
     GitPathSpec,
 )
+from ..pathspec import yield_subdir_match_remainder_pathspecs
 
 
 def _list_files(path, pathspecs):
@@ -66,7 +67,7 @@ def pathspec_match_testground(tmp_path_factory):
                            'sub/aba/A.txt', 'sub/aba/a.JPG', 'sub/aba/a.txt',
                            'sub/b.dat'],
                 },
-                'sub': {'specs': [],
+                'sub': {'specs': [':'],
                         'match': [
                             'aba/a.JPG', 'aba/a.txt',
                             'b.dat'] if crippled_fs else [
@@ -84,7 +85,7 @@ def pathspec_match_testground(tmp_path_factory):
                 ] if crippled_fs else [
                     'aba/A.txt', 'aba/a.JPG', 'aba/a.txt'],
                 },
-                'aba': {'specs': [],
+                'aba': {'specs': [':'],
                         'match': [
                             'a.JPG', 'a.txt'] if crippled_fs else [
                             'A.txt', 'a.JPG', 'a.txt'],
@@ -100,19 +101,22 @@ def pathspec_match_testground(tmp_path_factory):
                 ] if crippled_fs else [
                     'aba/A.txt', 'aba/a.JPG', 'aba/a.txt'],
                 },
-                'aba': {'specs': [],
+                'aba': {'specs': [':'],
                         'match': [
                             'a.JPG', 'a.txt'] if crippled_fs else [
                             'A.txt', 'a.JPG', 'a.txt'],
                 },
             },
         ),
+        # TODO same as above, but as a literal
+
         dict(
             ps=':(glob)aba/*.txt',
             fordir={
                 None: {'match': [
                     'aba/a.txt',
                 ] if crippled_fs else ['aba/A.txt', 'aba/a.txt']},
+                'sub': {'specs': []},
             },
         ),
         dict(
@@ -257,7 +261,88 @@ def test_pathspecs(pathspec_match_testground):
             # multiple translated ones. This is due to
             subdir_specs = [str(s) for s in ps.for_subdir(subdir)]
             if 'specs' in target:
-                assert set(subdir_specs) == set(target['specs'])
-            if 'match' in target:
+                assert set(subdir_specs) == set(target['specs']), \
+                    f'Mismatch for {testcase["ps"]!r} -> subdir {subdir!r} {target}'
+            if subdir and not target.get('specs') and 'match' in target:
+                raise ValueError(
+                    'invalid test specification: no subdir specs expected, '
+                    f'but match declared: {testcase!r}')
+            if subdir_specs and 'match' in target:
                 tg_subdir = tg / subdir if subdir else tg
                 assert _list_files(tg_subdir, subdir_specs) == target['match']
+
+
+def test_yield_subdir_match_remainder_pathspecs():
+    testcases = [
+        # FORMAT: target path, pathspec, subdir pathspecs
+        ('abc', ':', [':']),
+        # top-magic is returned as-is
+        ('murks', ':(top)crazy*^#', [':(top)crazy*^#']),
+        # no match
+        ('abc', 'not', []),
+        ('abc', 'ABC', []),
+        # direct hits, resolve to "no pathspecs"
+        ('abc', 'a?c', [':']),
+        ('abc', 'abc', [':']),
+        ('abc', 'abc/', [':']),
+        # icase-magic
+        ('abc', ':(icase)ABC', [':']),
+        ('ABC', ':(icase)abc', [':']),
+        # some fairly common fnmatch-style pathspec
+        ('abc', 'abc/*.jpg', ['*.jpg']),
+        ('abc', '*.jpg', ['*.jpg']),
+        ('abc', '*/*.jpg', ['*/*.jpg', '*.jpg']),
+        ('abc', '*/*.jpg', ['*/*.jpg', '*.jpg']),
+        ('abc', '*bc*.jpg', ['*bc*.jpg', '*.jpg']),
+        # adding an glob-unrelated magic does not impact the result
+        ('abc', ':(exclude)*/*.jpg', [':(exclude)*/*.jpg', ':(exclude)*.jpg']),
+        ('abc', ':(attr:export-subst)*/*.jpg',
+         [':(attr:export-subst)*/*.jpg', ':(attr:export-subst)*.jpg']),
+        ('abc', ':(icase,exclude)*/*.jpg',
+         [':(icase,exclude)*/*.jpg', ':(icase,exclude)*.jpg']),
+        # glob-magic
+        ('abc', ':(glob)*bc*.jpg', []),
+        ('abc', ':(glob)*bc**.jpg', [':(glob)**.jpg']),
+        # 2nd-level subdir
+        ('abc/123', 'some.jpg', []),
+        ('abc/123', '*.jpg', ['*.jpg']),
+        ('abc/123', 'abc/*', [':']),
+        ('abc/123', 'abc', [':']),
+        ('abc/123', ':(glob)abc', [':']),
+        ('abc/123', '*123', ['*123', ':']),
+        ('abc/123', '*/123', ['*/123', ':']),
+        ('abc/123', ':(glob)*/123', [':']),
+        # literal-magic
+        ('abc', ':(literal)a?c', []),
+        ('a?c', ':(literal)a?c', [':']),
+        ('a?c', ':(literal)a?c/*?ab*', [':(literal)*?ab*']),
+        ('a?c/123', ':(literal)a?c', [':']),
+        # more complex cases
+        ('abc/123/ABC', 'a*/1?3/*.jpg',
+         ['*/1?3/*.jpg', '*.jpg', '1?3/*.jpg']),
+        # exclude-magic
+        ('abc', ':(exclude)abc', [':']),
+        ('abc/123', ':(exclude)abc', [':']),
+        ('a?c', ':(exclude,literal)a?c', [':']),
+        # stuff that was problematic at some point
+        # initial, non-wildcard part already points inside the
+        # target directory
+        ('sub', 'sub/aba/*.txt', ['aba/*.txt']),
+        # no directory-greedy wildcard whatsoever
+        ('abc', ':(icase)A?C/a.jpg', [':(icase)a.jpg']),
+        # no directory-greedy wildcard in later chunk
+        ('nope/abc', 'no*/a?c/a.jpg', ['*/a?c/a.jpg', 'a.jpg']),
+    ]
+    for ts in testcases:
+        # always test against the given subdir, and also against the subdir
+        # given with a trailing slash
+        for target_path in (ts[0], f'{ts[0]}/'):
+            tsps = GitPathSpec.from_pathspec_str(ts[1])
+            remainders = list(
+                yield_subdir_match_remainder_pathspecs(
+                    target_path,
+                    tsps,
+                )
+            )
+            assert [str(ps) for ps in remainders] == ts[2], \
+                f'Mismatch for {ts}'
