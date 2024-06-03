@@ -817,8 +817,27 @@ apply_patch(
 )
 
 
+# Replace `create_sibling_ria`-method in `Dataset`. This is necessary on
+# Windows. I don't know why.
+def _adaptor_create_sibling_ria(self, *args, **kwargs):
+    return CreateSiblingRia.__call__(
+        *args,
+        **{
+            **kwargs,
+            'dataset': self,
+        }
+    )
+apply_patch(
+    'datalad.distribution.dataset',
+    'Dataset',
+    'create_sibling_ria',
+    _adaptor_create_sibling_ria,
+)
+
+
 class UnknownLayoutVersion(Exception):
     pass
+
 
 known_versions_objt = ['1', '2']
 # Dataset tree versions we introduced so far. This is about the layout of
