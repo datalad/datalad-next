@@ -16,7 +16,10 @@ from pathlib import (
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.gitpathspec import GitPathSpec
+from datalad_next.gitpathspec import (
+    GitPathSpec,
+    GitPathSpecs,
+)
 from datalad_next.runners import (
     CommandError,
     iter_git_subproc,
@@ -122,7 +125,7 @@ def iter_gitdiff(
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
     eval_submodule_state: str = 'full',
-    pathspecs: list[str | GitPathSpec] | None = None,
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 
@@ -227,8 +230,7 @@ def iter_gitdiff(
     # forget/ignore and leads to non-obvious errors. Running this once is
     # a cheap safety net
     path = Path(path)
-    # normalize path specs to a plain list of GitPathSpec instances
-    pathspecs = _normalize_gitpathspec(pathspecs)
+    _pathspecs = GitPathSpecs(pathspecs)
 
     # put most args in a container, we need to pass then around quite
     # a bit
@@ -240,11 +242,11 @@ def iter_gitdiff(
         find_copies=find_copies,
         yield_tree_items=yield_tree_items,
         eval_submodule_state=eval_submodule_state,
-        pathspecs=pathspecs,
+        pathspecs=_pathspecs,
     )
 
     query_subs: dict[PurePosixPath, GitDiffItem] = dict()
-    if recursive == 'submodules' and pathspecs:
+    if recursive == 'submodules' and _pathspecs:
         # we need special handling: we could have pathspecs that do
         # NOT match a submodule directly, but match content in one.
         # we need to ensure that we query these submodules explicitly
@@ -349,7 +351,7 @@ def iter_gitdiff(
             # translate into the submodule, we can stop immediately
             stop_with_no_pathspec_match=True,
             # the rest is just passed on
-            pathspecs=pathspecs,
+            pathspecs=_pathspecs,
             recursive=recursive,
             find_renames=find_renames,
             find_copies=find_copies,
@@ -426,7 +428,7 @@ def _build_cmd(
     cmd.append('--')
 
     if pathspecs:
-        cmd.extend(str(ps) for ps in pathspecs)
+        cmd.extend(pathspecs.arglist())
 
     return cmd
 
@@ -584,7 +586,7 @@ def _yield_from_submodule_item(
     basepath,
     from_treeish,
     to_treeish,
-    pathspecs: list[GitPathSpec] | None,
+    pathspecs: GitPathSpecs,
     query_subs: dict[PurePosixPath, GitDiffItem],
     stop_with_no_pathspec_match=False,
     **kwargs
@@ -604,10 +606,7 @@ def _yield_from_submodule_item(
     if pathspecs:
         # translated the paths to see, if there is any chance for a
         # match in this submodule
-        translated_pathspecs = list(chain.from_iterable(
-            ps.for_subdir(item.name)
-            for ps in pathspecs
-        ))
+        translated_pathspecs = pathspecs.for_subdir(item.path)
         if not translated_pathspecs and stop_with_no_pathspec_match:
             # the pathspecs did not translate to anything for the subdir.
             # this means that nothing would match any content.
@@ -643,17 +642,3 @@ def _yield_from_submodule_item(
             if val is not None:
                 setattr(i, attr, f'{item.name}/{val}')
         yield i
-
-
-def _normalize_gitpathspec(
-    specs: list[str | GitPathSpec] | None,
-) -> list[GitPathSpec] | None:
-    """Normalize path specs to a plain list of GitPathSpec instances"""
-    if not specs:
-        return None
-    else:
-        return [
-            ps if isinstance(ps, GitPathSpec)
-            else GitPathSpec.from_pathspec_str(ps)
-            for ps in specs
-        ]

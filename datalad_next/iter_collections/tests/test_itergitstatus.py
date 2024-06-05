@@ -253,3 +253,18 @@ def test_status_nohead_staged(tmp_path):
         {i.name: i for i in iter_gitstatus(tmp_path)},
         [{'name': 'probe', 'status': GitDiffStatus.addition}],
     )
+
+
+def test_status_pathspec(modified_dataset):
+    p = modified_dataset.pathobj
+    # look for the deleted files (identified by name, not status)
+    # this checks that we do not rely on the filesystem to have any
+    # info on the query result
+    res = list(iter_gitstatus(p, pathspecs=['*file_d']))
+    # dir_d/file_d, dir_m/file_d, file_d
+    assert len(res) == 3
+    assert all(i.name.endswith('file_d') for i in res)
+    # glob pathspec variant (* does not match /)
+    res = list(iter_gitstatus(p, pathspecs=[':(glob)*file_d']))
+    assert len(res) == 1
+    assert res[0].name == 'file_d'

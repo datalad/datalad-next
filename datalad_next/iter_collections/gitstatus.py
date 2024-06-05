@@ -4,11 +4,16 @@ The main functionality is provided by the :func:`iter_gitstatus` function.
 """
 from __future__ import annotations
 
+from itertools import chain
 import logging
 from pathlib import Path
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
+from datalad_next.gitpathspec import (
+    GitPathSpec,
+    GitPathSpecs,
+)
 from datalad_next.runners import call_git_lines
 from datalad_next.repo_utils import (
     get_worktree_head,
@@ -37,6 +42,7 @@ def iter_gitstatus(
     untracked: str | None = 'all',
     recursive: str = 'repository',
     eval_submodule_state: str = "full",
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitDiffItem, None, None]:
     """
     Recursion mode 'no'
@@ -108,25 +114,33 @@ def iter_gitstatus(
     # existing corresponding_head. This would make the status communicate
     # anything that has not made it into the corresponding branch yet
 
-    common_args = dict(
-        head=head,
-        path=path,
-        untracked=untracked,
-        eval_submodule_state=eval_submodule_state,
-    )
+    _pathspecs = GitPathSpecs(pathspecs)
 
     if recursive == 'no':
-        yield from _yield_dir_items(**common_args)
+        yield from _yield_dir_items(
+            head=head,
+            path=path,
+            untracked=untracked,
+            eval_submodule_state=eval_submodule_state,
+            pathspecs=_pathspecs,
+        )
         return
     elif recursive == 'repository':
-        yield from _yield_repo_items(**common_args)
-    # TODO what we really want is a status that is not against a per-repository
-    # HEAD, but against the commit that is recorded in the parent repository
-    # TODO we need a name for that
+        yield from _yield_repo_items(
+            head=head,
+            path=path,
+            untracked=untracked,
+            eval_submodule_state=eval_submodule_state,
+            pathspecs=_pathspecs,
+        )
     elif recursive in ('submodules', 'monolithic'):
         yield from _yield_hierarchy_items(
             recursion_mode=recursive,
-            **common_args,
+            head=head,
+            path=path,
+            untracked=untracked,
+            eval_submodule_state=eval_submodule_state,
+            pathspecs=_pathspecs,
         )
     else:
         raise ValueError(f'unknown recursion type {recursive!r}')
@@ -142,6 +156,7 @@ def _yield_dir_items(
     path: Path,
     untracked: str | None,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ):
     # potential container items in a directory that need content
     # investigation
@@ -175,12 +190,18 @@ def _yield_dir_items(
         recursive='no',
         # TODO trim scope like in repo_items
         eval_submodule_state=eval_submodule_state,
+        pathspecs=pathspecs,
     ):
         if item.status != GitDiffStatus.deletion \
                 and item.gittype in container_types:
             if item.gittype == GitTreeItemType.submodule:
                 # issue standard submodule container report
-                _eval_submodule(path, item, eval_submodule_state)
+                _eval_submodule(
+                    path,
+                    item,
+                    eval_submodule_state,
+                    pathspecs=pathspecs,
+                )
             else:
                 dir_path = path / item.path
                 # this is on a directory. if it appears here, it has
@@ -189,7 +210,10 @@ def _yield_dir_items(
                     item.add_modification_type(
                         GitContainerModificationType.modified_content)
                     if untracked != 'no' \
-                            and _path_has_untracked(path / item.path):
+                            and _path_has_untracked(
+                                path / item.path,
+                                pathspecs=pathspecs.for_subdir(item.path),
+                            ):
                         item.add_modification_type(
                             GitContainerModificationType.untracked_content)
                 else:
@@ -229,11 +253,19 @@ def _yield_dir_items(
             )
             if item.gittype == GitTreeItemType.submodule:
                 # issue standard submodule container report
-                _eval_submodule(path, item, eval_submodule_state)
+                _eval_submodule(
+                    path,
+                    item,
+                    eval_submodule_state,
+                    pathspecs=pathspecs,
+                )
             else:
                 # this is on a directory. if it appears here, it has
                 # no modified content
-                if _path_has_untracked(path / dir_item.path):
+                if _path_has_untracked(
+                    path / dir_item.path,
+                    pathspecs.for_subdir(item.path),
+                ):
                     item.status = GitDiffStatus.modification
                     item.add_modification_type(
                         GitContainerModificationType.untracked_content)
@@ -247,13 +279,23 @@ def _yield_repo_items(
     path: Path,
     untracked: str | None,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ) -> Generator[GitDiffItem, None, None]:
     """Report status items for a single/whole repsoitory"""
     present_submodules = {
         # stringify name for speedy comparison
         # TODO double-check that comparisons are primarily with
         # GitDiffItem.name which is str
-        str(item.name): item for item in iter_submodules(path)
+        str(item.name): item
+        for item in iter_submodules(
+            path,
+            # if there are pathspecs, we want the submodules that
+            # might contain matches, not those that match themselves.
+            # these are discovered by the iter_gitdiff() call below
+            # already
+            pathspecs=pathspecs,
+            match_containing=True,
+        )
     }
     # start with a repository-contrained diff against the worktree
     for item in iter_gitdiff(
@@ -266,11 +308,17 @@ def _yield_repo_items(
         # We need to redo some check for adjusted mode, and other cases anyways
         eval_submodule_state='commit'
         if eval_submodule_state == 'full' else eval_submodule_state,
+        pathspecs=pathspecs,
     ):
         # immediately investigate any submodules that are already
         # reported modified by Git
         if item.gittype == GitTreeItemType.submodule:
-            _eval_submodule(path, item, eval_submodule_state)
+            _eval_submodule(
+                path,
+                item,
+                eval_submodule_state,
+                pathspecs=pathspecs,
+            )
             # we dealt with this submodule
             present_submodules.pop(item.name, None)
         if item.status:
@@ -295,7 +343,12 @@ def _yield_repo_items(
             # TODO others?
         )
         # TODO possibly trim eval_submodule_state
-        _eval_submodule(path, item, eval_submodule_state)
+        _eval_submodule(
+            path,
+            item,
+            eval_submodule_state,
+            pathspecs=pathspecs,
+        )
         if item.status:
             yield item
 
@@ -303,7 +356,7 @@ def _yield_repo_items(
         return
 
     # lastly untracked files of this repo
-    yield from _yield_repo_untracked(path, untracked)
+    yield from _yield_repo_untracked(path, untracked, pathspecs)
 
 
 def _yield_hierarchy_items(
@@ -313,6 +366,7 @@ def _yield_hierarchy_items(
     untracked: str | None,
     recursion_mode: str,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ) -> Generator[GitDiffItem, None, None]:
     for item in _yield_repo_items(
         head=head,
@@ -320,6 +374,7 @@ def _yield_hierarchy_items(
         untracked=untracked,
         # TODO do we need to adjust the eval mode here for the diff recmodes?
         eval_submodule_state=eval_submodule_state,
+        pathspecs=pathspecs,
     ):
         # there is nothing else to do for any non-submodule item
         if item.gittype != GitTreeItemType.submodule:
@@ -349,7 +404,9 @@ def _yield_hierarchy_items(
             # repository, hence no submodule item is emitted
             sm_head = item.gitsha or item.prev_gitsha
 
-            if GitContainerModificationType.new_commits in item.modification_types:
+            if item.modification_types \
+               and GitContainerModificationType.new_commits \
+               in item.modification_types:
                 # this is a submodule that has new commits compared to
                 # its state in the parent dataset. We need to yield this
                 # item, even if nothing else is modified, because otherwise
@@ -364,6 +421,7 @@ def _yield_hierarchy_items(
             # TODO here we could implement handling for a recursion-depth limit
             recursion_mode=recursion_mode,
             eval_submodule_state=eval_submodule_state,
+            pathspecs=pathspecs.for_subdir(item.path),
         ):
             i.name = f'{item.name}/{i.name}'
             yield i
@@ -375,15 +433,20 @@ def _yield_hierarchy_items(
 
 
 def _yield_repo_untracked(
-        path: Path,
-        untracked: str | None,
+    path: Path,
+    untracked: str | None,
+    pathspecs: GitPathSpecs,
 ) -> Generator[GitDiffItem, None, None]:
     """Yield items on all untracked content in a repository"""
     if untracked is None:
         return
     for uf in _git_ls_files(
         path,
-        *lsfiles_untracked_args[untracked],
+        *chain(
+            lsfiles_untracked_args[untracked],
+            ['--'],
+            pathspecs.arglist(),
+        ),
     ):
         yield GitDiffItem(
             name=uf,
@@ -395,7 +458,10 @@ def _yield_repo_untracked(
         )
 
 
-def _path_has_untracked(path: Path) -> bool:
+def _path_has_untracked(
+    path: Path,
+    pathspecs: GitPathSpecs,
+) -> bool:
     """Recursively check for any untracked content (except empty dirs)"""
     if not path.exists():
         # cannot possibly have untracked
@@ -403,14 +469,21 @@ def _path_has_untracked(path: Path) -> bool:
     for ut in _yield_repo_untracked(
         path,
         'no-empty-dir',
+        # TODO reconsider
+        pathspecs=pathspecs,
     ):
         # fast exit on the first detection
         return True
     # we need to find all submodules, regardless of mode.
     # untracked content can also be in a submodule underneath
     # a directory
+    # TODO pass match_containing and pathspecs?
     for subm in iter_submodules(path):
-        if _path_has_untracked(path / subm.path):
+        # TODO translate pathspecs
+        if _path_has_untracked(
+            path / subm.path,
+            pathspecs.for_subdir(subm.path),
+        ):
             # fast exit on the first detection
             return True
     # only after we saw everything we can say there is nothing
@@ -442,13 +515,36 @@ def _get_submod_worktree_head(path: Path) -> tuple[bool, str | None, bool]:
         return True, res[1], adjusted
 
 
-def _eval_submodule(basepath, item, eval_mode) -> None:
+def _eval_submodule(
+    basepath: Path,
+    item: GitDiffItem,
+    eval_mode: str,
+    pathspecs: GitPathSpecs,
+) -> None:
     """In-place amend GitDiffItem submodule item
 
     It does nothing with ``eval_mode='no'``.
+
+    Any passed ``pathspecs`` should not yet be translated to the subdirectory
+    of the submodule, because the translation outcome will be used as a
+    stopping criterion.
     """
+    # pathspec handling:
+    # - ATM we have three eval_modes: no, commit, full
+    # - but see https://github.com/datalad/datalad-next/issues/598#issuecomment-2134416441
     if eval_mode == 'no':
         return
+
+    if pathspecs:
+        # translate into the submodule namespace
+        pathspecs = pathspecs.for_subdir(item.path)
+        if not pathspecs:
+            # no pathspec matched this submodule, we can stop here
+            # TODO but this function called called to begin with,
+            # so something may have matched the submodule as a whole?
+            # we may need to somehow extend the API to be able to infer the
+            # conditions under which this function was called
+            return
 
     item_path = basepath / item.path
 
@@ -465,13 +561,20 @@ def _eval_submodule(basepath, item, eval_mode) -> None:
     if not subds_present:
         return
 
+    # TODO translate pathspecs
     if adjusted:
-        _eval_submodule_adjusted(item_path, item, head_commit, eval_mode)
+        _eval_submodule_adjusted(item_path, item, head_commit, eval_mode, pathspecs)
     else:
-        _eval_submodule_normal(item_path, item, head_commit, eval_mode)
+        _eval_submodule_normal(item_path, item, head_commit, eval_mode, pathspecs)
 
 
-def _eval_submodule_normal(item_path, item, head_commit, eval_mode) -> None:
+def _eval_submodule_normal(
+    item_path: Path,
+    item: GitDiffItem,
+    head_commit: str | None,
+    eval_mode: str,
+    pathspecs: GitPathSpecs,
+) -> None:
     if eval_mode == 'full' and item.status is None or (
         item.modification_types
         and GitContainerModificationType.new_commits in item.modification_types
@@ -481,9 +584,14 @@ def _eval_submodule_normal(item_path, item, head_commit, eval_mode) -> None:
         # exists. This requires a dedicated inspection, which conincidentally
         # is identical to the analysis of an adjusted mode submodule.
         return _eval_submodule_adjusted(
-            item_path, item, head_commit, eval_mode)
+            item_path, item, head_commit, eval_mode, pathspecs)
 
-    if item.gitsha != head_commit:
+    # in the case of pathspecs, a simple comparison of commit shas would not
+    # suffice. we would want to check if there where commits that touched
+    # the respective paths
+    # see https://github.com/datalad/datalad-next/issues/598#issuecomment-2134416441
+    # for a possible approach to better express what evaluation is desired.
+    if not pathspecs and item.gitsha != head_commit:
         item.status = GitDiffStatus.modification
         item.add_modification_type(GitContainerModificationType.new_commits)
 
@@ -491,13 +599,19 @@ def _eval_submodule_normal(item_path, item, head_commit, eval_mode) -> None:
         return
 
     # check for untracked content (recursively)
-    if _path_has_untracked(item_path):
+    if _path_has_untracked(item_path, pathspecs):
         item.status = GitDiffStatus.modification
         item.add_modification_type(
             GitContainerModificationType.untracked_content)
 
 
-def _eval_submodule_adjusted(item_path, item, head_commit, eval_mode) -> None:
+def _eval_submodule_adjusted(
+    item_path: Path,
+    item: GitDiffItem,
+    head_commit: str | None,
+    eval_mode: str,
+    pathspecs: GitPathSpecs,
+) -> None:
     # we cannot rely on the diff-report for a submodule in adjusted mode.
     # git would make the comparison to the adjusted branch HEAD alone.
     # this would almost always be invalid, because it is not meaningful to
@@ -514,7 +628,12 @@ def _eval_submodule_adjusted(item_path, item, head_commit, eval_mode) -> None:
     item.status = None
     item.modification_types = None
 
-    if item.prev_gitsha != head_commit:
+    # in the case of pathspecs, a simple comparison of commit shas would not
+    # suffice. we would want to check if there where commits that touched
+    # the respective paths
+    # see https://github.com/datalad/datalad-next/issues/598#issuecomment-2134416441
+    # for a possible approach to better express what evaluation is desired.
+    if not pathspecs and item.prev_gitsha != head_commit:
         item.status = GitDiffStatus.modification
         item.add_modification_type(GitContainerModificationType.new_commits)
 
@@ -532,6 +651,7 @@ def _eval_submodule_adjusted(item_path, item, head_commit, eval_mode) -> None:
             find_renames=None,
             find_copies=None,
             eval_submodule_state='commit',
+            pathspecs=pathspecs,
         )
     ):
         item.status = GitDiffStatus.modification
@@ -539,7 +659,7 @@ def _eval_submodule_adjusted(item_path, item, head_commit, eval_mode) -> None:
             GitContainerModificationType.modified_content)
 
     # check for untracked content (recursively)
-    if _path_has_untracked(item_path):
+    if _path_has_untracked(item_path, pathspecs):
         item.status = GitDiffStatus.modification
         item.add_modification_type(
             GitContainerModificationType.untracked_content)

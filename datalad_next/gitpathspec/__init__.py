@@ -11,3 +11,4 @@ that rely on Git commands that do not support submodule recursion directly.
 """
 
 from .pathspec import GitPathSpec
+from .pathspecs import GitPathSpecs

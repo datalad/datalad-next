@@ -23,8 +23,10 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-from datalad_next.gitpathspec import GitPathSpec
-
+from datalad_next.gitpathspec import (
+    GitPathSpec,
+    GitPathSpecs,
+)
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
@@ -70,7 +72,7 @@ def iter_gitworktree(
     link_target: bool = False,
     fp: bool = False,
     recursive: str = 'repository',
-    pathspecs: list[str | GitPathSpec] | None = None,
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
     """Uses ``git ls-files`` to report on a work tree of a Git repository
 
@@ -146,8 +148,9 @@ def iter_gitworktree(
     if untracked:
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
-    if pathspecs:
-        lsfiles_args.extend(str(ps) for ps in pathspecs)
+    _pathspecs = GitPathSpecs(pathspecs)
+    if _pathspecs:
+        lsfiles_args.extend(_pathspecs.arglist())
 
     # helper to handle multi-stage reports by ls-files
     pending_item: tuple[None | PurePosixPath, None | Dict[str, str]] = (None, None)
@@ -241,7 +244,7 @@ def iter_gitworktree(
 def iter_submodules(
     path: Path,
     *,
-    pathspecs: list[str | GitPathSpec] | None = None,
+    pathspecs: list[str] | GitPathSpecs | None = None,
     match_containing: bool = False,
 ) -> Generator[GitTreeItem, None, None]:
     """Given a path, report all submodules of a repository worktree underneath
@@ -254,7 +257,8 @@ def iter_submodules(
     locally, because no actual matching of pathspecs to submodule content is
     performed -- only an evaluation of the submodule item itself.
     """
-    if not pathspecs:
+    _pathspecs = GitPathSpecs(pathspecs)
+    if not _pathspecs:
         # force flag to be sensible to simplify internal logic
         match_containing = False
 
@@ -267,7 +271,7 @@ def iter_submodules(
         # if we want to match submodules that contain pathspecs matches
         # we cannot give the job to Git, it won't report anything,
         # but we need to match manually below
-        pathspecs=None if match_containing else pathspecs,
+        pathspecs=None if match_containing else _pathspecs,
     ):
         # exclude non-submodules, or a submodule that was found at
         # the root path -- which would indicate that the submodule
@@ -280,7 +284,7 @@ def iter_submodules(
             yield item
             continue
 
-        assert pathspecs is not None
+        assert _pathspecs is not None
         # does any pathspec match the "inside" of the current submodule's
         # path
         # we are using any() here to return as fast as possible.
@@ -288,11 +292,7 @@ def iter_submodules(
         # GitTreeItem to carry them outside, but we have no idea
         # about the outside use case here, and cannot assume the additional
         # cost is worth it
-        if any(
-            (ps if isinstance(ps, GitPathSpec)
-             else GitPathSpec.from_pathspec_str(ps)).for_subdir(str(item.name))
-            for ps in pathspecs
-        ):
+        if _pathspecs.for_subdir(item.path):
             yield item
             continue
 
