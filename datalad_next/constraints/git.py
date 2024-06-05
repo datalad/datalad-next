@@ -118,7 +118,6 @@ class EnsureRemoteName(Constraint):
                 f"Existence check for {self._label} requires dataset " \
                 "specification"
 
-        if self._known:
             # we don't need to check much, only if a remote of this name
             # already exists -- no need to check for syntax compliance
             # again
@@ -143,6 +142,7 @@ class EnsureRemoteName(Constraint):
             # no further check
             return value
 
+        assert self._dsarg
         if self._known is False and any(
             k.startswith(f"remote.{value}.")
             for k in self._dsarg.ds.config.keys()
