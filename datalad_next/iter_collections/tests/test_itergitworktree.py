@@ -239,6 +239,28 @@ def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
     assert not fcount
 
 
+def test_iter_gitworktree_untracked_only(modified_dataset):
+    p = modified_dataset.pathobj
+    # only untracked files
+    repo_items = list(iter_gitworktree(p, untracked='only'))
+    assert all(f.name.name == 'file_u' for f in repo_items)
+    # same report, but compressed to immediate directory children
+    dir_items = list(iter_gitworktree(p, untracked='only', recursive='no'))
+    assert set(f.name.parts[0] for f in repo_items) == \
+        set(f.name.name for f in dir_items)
+    # no wholly untracked directories in standard report
+    assert not any(f.name.name == 'dir_u'
+                   for f in iter_gitworktree(p, untracked='only'))
+    # but this can be requested
+    wholedir_items = list(iter_gitworktree(p, untracked='only-whole-dir'))
+    assert any(f.name.name == 'dir_u' for f in wholedir_items)
+    # smoke test remaining mode, test case doesn't cause difference
+    assert any(f.name.name == 'dirempty_u' for f in wholedir_items)
+    assert not any(f.name.name == 'dirempty_u'
+                   for f in iter_gitworktree(p, untracked='only-no-empty-dir'))
+
+
+
 def test_iter_gitworktree_pathspec(modified_dataset):
     p = modified_dataset.pathobj
     # query for any files that are set to go straight to Git. these are just

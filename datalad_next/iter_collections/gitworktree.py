@@ -93,6 +93,13 @@ lsfiles_untracked_args = {
     'no-empty-dir':
     ('--stage', '--cached', '--exclude-standard',
      '--others', '--directory', '--no-empty-directory'),
+    'only':
+    ('--exclude-standard', '--others'),
+    'only-whole-dir':
+    ('--exclude-standard', '--others', '--directory'),
+    'only-no-empty-dir':
+    ('--exclude-standard',
+     '--others', '--directory', '--no-empty-directory'),
 }
 
 
@@ -132,12 +139,15 @@ def iter_gitworktree(
       Path of a directory in a Git repository to report on. This directory
       need not be the root directory of the repository, but must be part of
       the repository's work tree.
-    untracked: {'all', 'whole-dir', 'no-empty-dir'} or None, optional
+    untracked: {'all', 'whole-dir', 'no-empty-dir', 'only', 'only-whole-dir', 'only-no-empty-dir'} or None, optional
       If not ``None``, also reports on untracked work tree content.
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual
       untracked files in it; ``no-empty-dir`` skips any reports on
-      untracked empty directories.
+      untracked empty directories. The modes starting with 'only' offer the
+      same untracked content reporting styles, but only untracked and no
+      tracked content is reported. For example, 'only' is the corresponding
+      mode to 'all' with no tracked content being reported.
     link_target: bool, optional
       If ``True``, information matching a
       :class:`~datalad_next.iter_collections.utils.FileSystemItem`
