@@ -241,7 +241,7 @@ def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
 
 def test_iter_gitworktree_pathspec(modified_dataset):
     p = modified_dataset.pathobj
-    # query for any files that a set to go straight to Git. these are just
+    # query for any files that are set to go straight to Git. these are just
     # dotfiles in the default config
     items = list(iter_gitworktree(
         p,
