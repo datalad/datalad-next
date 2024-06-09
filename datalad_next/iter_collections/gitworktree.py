@@ -74,7 +74,7 @@ class GitWorktreeFileSystemItem(FileSystemItem):
           Flag whether to read out a link-target for an item that is a symlink.
         """
         fsitem = GitWorktreeFileSystemItem.from_path(
-            path=item.path(),
+            path=basepath / item.path,
             link_target=link_target,
         )
         fsitem.name = item.name
@@ -173,27 +173,44 @@ def iter_gitworktree(
     path = Path(path)
     _pathspecs = GitPathSpecs(pathspecs)
 
-    yield from _iter_gitworktree(
+    # the helper takes care of talking to Git and doing recursion
+    for item in _iter_gitworktree(
         path=path,
         untracked=untracked,
-        # TODO factor out to a higler level -- reporting vs discovery
-        link_target=link_target,
-        # TODO factor out to a higler level -- reporting vs discovery
-        fp=fp,
         recursive=recursive,
         pathspecs=_pathspecs,
-    )
+    ):
+        # here we take care of the file system related information,
+        # reading out symlinks and opening files
+        if link_target or fp:
+            # convert to FileSystemItem and read out any symlinks
+            try:
+                item = GitWorktreeFileSystemItem.from_worktreeitem(
+                    path,
+                    item,
+                    link_target=link_target,
+                )
+            except FileNotFoundError:
+                pass
+        # try opening the file
+        # _get_fp_src() returns None of there is nothing to open
+        fp_src = _get_fp_src(fp, path, item)
+        if fp_src is None:
+            # nothing to open
+            yield item
+        else:
+            with fp_src.open('rb') as active_fp:
+                item.fp = active_fp
+                yield item
 
 
 def _iter_gitworktree(
     path: Path,
     *,
     untracked: str | None,
-    link_target: bool,
-    fp: bool,
     recursive: str,
     pathspecs: GitPathSpecs,
-) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
+) -> Generator[GitWorktreeItem, None, None]:
     """Internal helper for iter_gitworktree() tp support recursion"""
 
     lsfiles_args = ['--stage', '--cached']
@@ -242,11 +259,6 @@ def _iter_gitworktree(
                     continue
                 item = _get_item(
                     path,
-                    # the next two must be passed in order to get the
-                    # full logic when to yield a GitWorktreeFileSystemItem
-                    # (not just GitWorktreeItem)
-                    link_target=link_target,
-                    fp=fp,
                     # we know all props already
                     ipath=dir_path,
                     type=GitTreeItemType.directory,
@@ -262,20 +274,11 @@ def _iter_gitworktree(
             # report by ls-files
             item = _get_item(
                 path,
-                link_target,
-                fp,
                 pending_item[0],
                 pending_item[1]['mode'] if pending_item[1] else None,
                 pending_item[1]['gitsha'] if pending_item[1] else None,
             )
-            fp_src = _get_fp_src(fp, path, item)
-            if fp_src is None:
-                # nothing to open
-                yield item
-            else:
-                with fp_src.open('rb') as active_fp:
-                    item.fp = active_fp
-                    yield item
+            yield item
 
         if ipath is None:
             # this is the trailing `None` record. we are done here
@@ -357,26 +360,13 @@ def iter_submodules(
 
 def _get_item(
     basepath: Path,
-    link_target: bool,
-    fp: bool,
     ipath: PurePosixPath,
     type: str | GitTreeItemType | None = None,
     gitsha: str | None = None,
-) -> GitWorktreeItem | GitWorktreeFileSystemItem:
+) -> GitWorktreeItem:
     if isinstance(type, str):
         type = _mode_type_map[type]
-    item = None
-    if link_target or fp:
-        fullpath = basepath / ipath
-        try:
-            item = GitWorktreeFileSystemItem.from_path(
-                fullpath,
-                link_target=link_target,
-            )
-        except FileNotFoundError:
-            pass
-    if item is None:
-        item = GitWorktreeItem(name=ipath)
+    item = GitWorktreeItem(name=ipath)
     if type is not None:
         item.gittype = type
     if gitsha is not None:
