@@ -54,6 +54,34 @@ class GitWorktreeFileSystemItem(FileSystemItem):
     gitsha: str | None = None
     gittype: GitTreeItemType | None = None
 
+    @classmethod
+    def from_worktreeitem(
+        cls,
+        basepath: Path,
+        item: GitWorktreeItem,
+        link_target: bool = True,
+    ):
+        """Create GitWorktreeFileSystemItem from corresponding GitWorktreeItem
+
+        Parameters
+        ----------
+        basepath: Path
+          Reference path to convert the ``GitWorktreeItem``'s path into a
+          path on the file system.
+        item: GitWorktreeItem
+          Item to create matching ``GitWorktreeFileSystemItem`` for.
+        link_target: bool
+          Flag whether to read out a link-target for an item that is a symlink.
+        """
+        fsitem = GitWorktreeFileSystemItem.from_path(
+            path=item.path(),
+            link_target=link_target,
+        )
+        fsitem.name = item.name
+        fsitem.gitsha = item.gitsha
+        fsitem.gittype = item.gittype
+        return fsitem
+
 
 lsfiles_untracked_args = {
     'all':
