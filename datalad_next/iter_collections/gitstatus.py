@@ -388,7 +388,10 @@ def _yield_repo_untracked(
         return
     for uf in _git_ls_files(
         path,
-        *lsfiles_untracked_args[untracked],
+        *(a for a in lsfiles_untracked_args[untracked]
+          # temporarily filter this, thew entire function will soon be
+          # obsolete
+          if a not in ('--stage', '--cached')),
     ):
         yield GitDiffItem(
             name=uf,

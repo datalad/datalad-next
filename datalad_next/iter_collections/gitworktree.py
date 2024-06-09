@@ -84,12 +84,15 @@ class GitWorktreeFileSystemItem(FileSystemItem):
 
 
 lsfiles_untracked_args = {
+    None:
+    ('--stage', '--cached'),
     'all':
-    ('--exclude-standard', '--others'),
+    ('--stage', '--cached', '--exclude-standard', '--others'),
     'whole-dir':
-    ('--exclude-standard', '--others', '--directory'),
+    ('--stage', '--cached', '--exclude-standard', '--others', '--directory'),
     'no-empty-dir':
-    ('--exclude-standard', '--others', '--directory', '--no-empty-directory'),
+    ('--stage', '--cached', '--exclude-standard',
+     '--others', '--directory', '--no-empty-directory'),
 }
 
 
@@ -213,9 +216,8 @@ def _iter_gitworktree(
 ) -> Generator[GitWorktreeItem, None, None]:
     """Internal helper for iter_gitworktree() tp support recursion"""
 
-    lsfiles_args = ['--stage', '--cached']
-    if untracked:
-        lsfiles_args.extend(lsfiles_untracked_args[untracked])
+    # perform an implicit test of whether the `untracked` mode is known
+    lsfiles_args = list(lsfiles_untracked_args[untracked])
 
     if pathspecs:
         lsfiles_args.extend(pathspecs.arglist())
