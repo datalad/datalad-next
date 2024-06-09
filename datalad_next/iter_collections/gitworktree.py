@@ -143,14 +143,37 @@ def iter_gitworktree(
     # a cheap safety net
     # https://github.com/datalad/datalad-next/issues/551
     path = Path(path)
+    _pathspecs = GitPathSpecs(pathspecs)
+
+    yield from _iter_gitworktree(
+        path=path,
+        untracked=untracked,
+        # TODO factor out to a higler level -- reporting vs discovery
+        link_target=link_target,
+        # TODO factor out to a higler level -- reporting vs discovery
+        fp=fp,
+        recursive=recursive,
+        pathspecs=_pathspecs,
+    )
+
+
+def _iter_gitworktree(
+    path: Path,
+    *,
+    untracked: str | None,
+    link_target: bool,
+    fp: bool,
+    recursive: str,
+    pathspecs: GitPathSpecs,
+) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
+    """Internal helper for iter_gitworktree() tp support recursion"""
 
     lsfiles_args = ['--stage', '--cached']
     if untracked:
         lsfiles_args.extend(lsfiles_untracked_args[untracked])
 
-    _pathspecs = GitPathSpecs(pathspecs)
-    if _pathspecs:
-        lsfiles_args.extend(_pathspecs.arglist())
+    if pathspecs:
+        lsfiles_args.extend(pathspecs.arglist())
 
     # helper to handle multi-stage reports by ls-files
     pending_item: tuple[None | PurePosixPath, None | Dict[str, str]] = (None, None)
