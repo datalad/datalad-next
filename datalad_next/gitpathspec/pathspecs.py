@@ -48,8 +48,12 @@ class GitPathSpecs:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}([{', '.join(repr(p) for p in self.arglist())}])"
+
     def __len__(self) -> int:
         return len(self._pathspecs) if self._pathspecs is not None else 0
+
+    def __eq__(self, obj):
+        return self._pathspecs == obj._pathspecs
 
     # TODO lru_cache decorator?
     # this would prevent repeated conversion cost for the usage pattern of
@@ -66,6 +70,28 @@ class GitPathSpecs:
             ps.for_subdir(str(path))
             for ps in self._pathspecs
         ))
+
+    def any_match_subdir(
+        self,
+        path: PurePosixPath,
+    ) -> bool:
+        """Returns whether any pathspec could match subdirectory content
+
+        Parameters
+        ----------
+        path: PurePosixPath
+          Relative path in POSIX notation of the subdirectory to run the
+          test for.
+        """
+        if self._pathspecs is None:
+            return False
+        path_s = str(path)
+        for ps in self._pathspecs:
+            if ps.for_subdir(path_s):
+                # any match is sufficient for a decision
+                return True
+        # nothing matches
+        return False
 
     def arglist(self) -> list[str]:
         """Convert pathspecs to a CLI argument list

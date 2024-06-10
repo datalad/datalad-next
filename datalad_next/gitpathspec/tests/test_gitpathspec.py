@@ -5,6 +5,7 @@ import sys
 
 from .. import (
     GitPathSpec,
+    GitPathSpecs,
 )
 from ..pathspec import yield_subdir_match_remainder_pathspecs
 
@@ -347,3 +348,32 @@ def test_yield_subdir_match_remainder_pathspecs():
             )
             assert [str(ps) for ps in remainders] == ts[2], \
                 f'Mismatch for {ts}'
+            # arglist processing of the GitPathSpecs container comes to the
+            # same result
+            assert GitPathSpecs(remainders).arglist() == ts[2]
+            # now we produce the same result with the GitPathSpecs handler
+            assert GitPathSpecs([ts[1]]).for_subdir(target_path).arglist() \
+                == [str(ps) for ps in remainders]
+            # if we are supposed to get any remainder out, the test for a
+            # subdir match also gives an analog result
+            if ts[2]:
+                assert GitPathSpecs([tsps]).any_match_subdir(target_path)
+            else:
+                assert not GitPathSpecs([tsps]).any_match_subdir(target_path)
+
+
+def test_GitPathSpecs():
+    ps = GitPathSpecs(['mike/*', '*.jpg'])
+    # we can create a GitPathSpecs object from another
+    assert GitPathSpecs(ps).arglist() == ps.arglist()
+
+    # going over the properties
+    assert repr(ps) == "GitPathSpecs(['mike/*', '*.jpg'])"
+    assert len(ps) == 2
+
+    # we can have "no pathspecs"
+    # TODO shouldn't this be ':'?
+    # TODO how about the semantic distinction between None and []?
+    nops = GitPathSpecs(None)
+    assert GitPathSpecs(None).for_subdir('doesntmatter') == nops
+    assert GitPathSpecs(None).any_match_subdir('doesntmatter') is False
