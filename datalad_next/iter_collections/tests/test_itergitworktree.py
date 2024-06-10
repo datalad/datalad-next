@@ -312,3 +312,35 @@ def test_iter_submodules(modified_dataset):
     res = list(iter_submodules(p, pathspecs=['*/.datalad'],
                                match_containing=True))
     assert len(res) == len(all_sm)
+
+
+def test_iter_gitworktree_subm_recursion(modified_dataset):
+    p = modified_dataset.pathobj
+    nmu_items = list(iter_gitworktree(p / 'dir_sm' / 'sm_nmu',
+                                      recursive='repository'))
+    # doesn't matter how many exactly, but we expect multiple.
+    # needed for the logic below
+    assert len(nmu_items) > 1
+    # and now from the top with recursion
+    items = list(iter_gitworktree(p, recursive='submodules'))
+    # we see all the submodule content
+    assert all(
+        any(i.name == PurePath('dir_sm', 'sm_nmu') / nmu.name for i in items)
+        for nmu in nmu_items
+    )
+    # now we try listing only the 'nmu' submodule with a bunch of
+    # equivalent pathspecs
+    for ps in (
+        # matches submodule directly
+        ['dir_sm/sm_nmu'],
+        # matches only inside the submodule
+        # (test discovery of the submodule itself)
+        ['dir_sm/sm_nmu/*'],
+        [':(glob)dir_sm/sm_nmu/**'],
+        [':(glob)dir_s?/*_nmu'],
+    ):
+        ps_items = iter_gitworktree(p, recursive='submodules', pathspecs=ps)
+        # we see the submodule items, all of them, and only those
+        assert [i.name for i in ps_items] == \
+            [PurePath('dir_sm', 'sm_nmu') / i.name for i in nmu_items], \
+            f'Mismatch for pathspec {ps!r}'
