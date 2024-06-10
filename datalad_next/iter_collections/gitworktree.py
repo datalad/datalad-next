@@ -353,16 +353,7 @@ def iter_submodules(
         assert pathspecs is not None
         # does any pathspec match the "inside" of the current submodule's
         # path
-        # we are using any() here to return as fast as possible.
-        # theoretically, we could also port all of them and enhance
-        # GitTreeItem to carry them outside, but we have no idea
-        # about the outside use case here, and cannot assume the additional
-        # cost is worth it
-        if any(
-            (ps if isinstance(ps, GitPathSpec)
-             else GitPathSpec.from_pathspec_str(ps)).for_subdir(str(item.name))
-            for ps in pathspecs
-        ):
+        if _pathspecs.any_match_subdir(PurePosixPath(item.name)):
             yield item
             continue
 
