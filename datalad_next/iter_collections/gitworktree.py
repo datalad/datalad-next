@@ -23,10 +23,7 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-from datalad_next.gitpathspec import (
-    GitPathSpec,
-    GitPathSpecs,
-)
+from datalad_next.gitpathspec import GitPathSpecs
 from .utils import (
     FileSystemItem,
     FileSystemItemType,

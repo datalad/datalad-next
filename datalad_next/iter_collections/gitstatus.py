@@ -152,7 +152,7 @@ def _yield_dir_items(
         GitTreeItemType.directory,
         GitTreeItemType.submodule,
     )
-    if untracked == 'no':
+    if untracked is None:
         # no need to look at anything other than the diff report
         dir_items = {}
     else:
@@ -191,7 +191,7 @@ def _yield_dir_items(
                 if dir_path.exists():
                     item.add_modification_type(
                         GitContainerModificationType.modified_content)
-                    if untracked != 'no' \
+                    if untracked is not None \
                             and _path_has_untracked(path / item.path):
                         item.add_modification_type(
                             GitContainerModificationType.untracked_content)
@@ -204,7 +204,7 @@ def _yield_dir_items(
         if item.status:
             yield item
 
-    if untracked == 'no':
+    if untracked is None:
         return
 
     # yield anything untracked, and inspect remaining containers
@@ -302,7 +302,7 @@ def _yield_repo_items(
         if item.status:
             yield item
 
-    if untracked == 'no':
+    if untracked is None:
         return
 
     # lastly untracked files of this repo
