@@ -7,19 +7,12 @@ from __future__ import annotations
 import logging
 from pathlib import (
     Path,
-    PurePath,
 )
 from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.runners import (
-    CommandError,
     call_git_lines,
-    iter_git_subproc,
-)
-from datalad_next.itertools import (
-    decode_bytes,
-    itemize,
 )
 from datalad_next.repo_utils import (
     get_worktree_head,
@@ -32,15 +25,20 @@ from .gitdiff import (
     iter_gitdiff,
 )
 from .gitworktree import (
-    GitTreeItem,
     GitTreeItemType,
     iter_gitworktree,
     iter_submodules,
-    lsfiles_untracked_args,
-    _git_ls_files,
 )
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.gitstatus')
+
+# map untracked modes given to iter_gitstatus() to those that need to be
+# passed to iter_gitworktree() for getting untracked content only
+_untracked_mode_map = {
+    'all': 'only',
+    'whole-dir': 'only-whole-dir',
+    'no-empty-dir': 'only-no-empty-dir',
+}
 
 
 def iter_gitstatus(
@@ -164,7 +162,7 @@ def _yield_dir_items(
         # gather all dierectory items upfront, we subtract the ones reported
         # modified later and lastly yield all untracked content from them
         dir_items = {
-            str(item.name): item
+            item.name.as_posix(): item
             for item in iter_gitworktree(
                 path,
                 untracked=untracked,
@@ -308,7 +306,18 @@ def _yield_repo_items(
         return
 
     # lastly untracked files of this repo
-    yield from _yield_repo_untracked(path, untracked)
+    for item in iter_gitworktree(
+        path=path,
+        untracked=_untracked_mode_map[untracked],
+        link_target=False,
+        fp=False,
+        recursive='repository',
+    ):
+        yield GitDiffItem(
+            name=item.name.as_posix(),
+            status=GitDiffStatus.other,
+            gittype=item.gittype,
+        )
 
 
 def _yield_hierarchy_items(
@@ -379,38 +388,16 @@ def _yield_hierarchy_items(
 #
 
 
-def _yield_repo_untracked(
-        path: Path,
-        untracked: str | None,
-) -> Generator[GitDiffItem, None, None]:
-    """Yield items on all untracked content in a repository"""
-    if untracked is None:
-        return
-    for uf in _git_ls_files(
-        path,
-        *(a for a in lsfiles_untracked_args[untracked]
-          # temporarily filter this, thew entire function will soon be
-          # obsolete
-          if a not in ('--stage', '--cached')),
-    ):
-        yield GitDiffItem(
-            name=uf,
-            status=GitDiffStatus.other,
-            # it is cheap to discriminate between a directory and anything
-            # else. So let's do that, but not spend the cost of deciding
-            # between files and symlinks
-            gittype=GitTreeItemType.directory if uf.endswith('/') else None
-        )
-
-
 def _path_has_untracked(path: Path) -> bool:
     """Recursively check for any untracked content (except empty dirs)"""
     if not path.exists():
         # cannot possibly have untracked
         return False
-    for ut in _yield_repo_untracked(
-        path,
-        'no-empty-dir',
+    for ut in iter_gitworktree(
+        path=path,
+        untracked='only-no-empty-dir',
+        link_target=False,
+        fp=False,
     ):
         # fast exit on the first detection
         return True
