@@ -146,7 +146,8 @@ def _assert_testcases(st, tc):
         assert st[c['name']].status == c['status']
         mod_types = st[c['name']].modification_types
         if 'qual' in c:
-            assert set(mod_types) == set(c['qual'])
+            assert set(mod_types) == set(c['qual']), \
+                f'Mismatch for {c=!r}'
         else:
             assert mod_types is None
 

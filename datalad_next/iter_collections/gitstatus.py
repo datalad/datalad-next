@@ -159,7 +159,7 @@ def _yield_dir_items(
         # there is no recursion, avoid wasting cycles on listing individual
         # files in subdirectories
         untracked = 'whole-dir' if untracked == 'all' else untracked
-        # gather all dierectory items upfront, we subtract the ones reported
+        # gather all directory items upfront, we subtract the ones reported
         # modified later and lastly yield all untracked content from them
         dir_items = {
             item.name.as_posix(): item
@@ -192,7 +192,7 @@ def _yield_dir_items(
                     item.add_modification_type(
                         GitContainerModificationType.modified_content)
                     if untracked is not None \
-                            and _path_has_untracked(path / item.path):
+                            and _path_has_untracked(dir_path):
                         item.add_modification_type(
                             GitContainerModificationType.untracked_content)
                 else:
@@ -236,6 +236,7 @@ def _yield_dir_items(
             else:
                 # this is on a directory. if it appears here, it has
                 # no modified content
+                testpath = path / dir_item.path
                 if _path_has_untracked(path / dir_item.path):
                     item.status = GitDiffStatus.modification
                     item.add_modification_type(
@@ -398,16 +399,10 @@ def _path_has_untracked(path: Path) -> bool:
         untracked='only-no-empty-dir',
         link_target=False,
         fp=False,
+        recursive='submodules',
     ):
         # fast exit on the first detection
         return True
-    # we need to find all submodules, regardless of mode.
-    # untracked content can also be in a submodule underneath
-    # a directory
-    for subm in iter_submodules(path):
-        if _path_has_untracked(path / subm.path):
-            # fast exit on the first detection
-            return True
     # only after we saw everything we can say there is nothing
     return False
 
