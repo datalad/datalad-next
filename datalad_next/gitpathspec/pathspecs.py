@@ -64,12 +64,29 @@ class GitPathSpecs:
         self,
         path: PurePosixPath,
     ) -> GitPathSpecs:
-        if self._pathspecs is None:
-            return self
-        return GitPathSpecs(chain.from_iterable(
+        """Translate pathspecs into the scope of a subdirectory
+
+        Raises
+        ------
+        ValueError
+          Whenever no pathspec can be translated into the scope of the target
+          directory.
+        """
+        if not self._pathspecs:
+            return GitPathSpecs(None)
+        translated = list(chain.from_iterable(
             ps.for_subdir(str(path))
             for ps in self._pathspecs
         ))
+        if not translated:
+            # not a single pathspec could be translated into the subdirectory
+            # scope. This means none was applicable, and not that the whole
+            # subdirectory is matched. We raise in order to allow client code
+            # to distinguish a no-match from an all-match scenario. Returning
+            # the equivalent of an empty list would code "no constraint",
+            # rather than "no match"
+            raise ValueError(f"No pathspecs translate to {path=}")
+        return GitPathSpecs(translated)
 
     def any_match_subdir(
         self,
@@ -77,11 +94,13 @@ class GitPathSpecs:
     ) -> bool:
         """Returns whether any pathspec could match subdirectory content
 
+        In other words, ``False`` is returned whenever ``.for_subdir()``
+        would raise ``ValueError``.
+
         Parameters
         ----------
         path: PurePosixPath
-          Relative path in POSIX notation of the subdirectory to run the
-          test for.
+          Relative path of the subdirectory to run the test for.
         """
         if self._pathspecs is None:
             return False

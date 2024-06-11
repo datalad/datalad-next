@@ -286,14 +286,22 @@ def _yield_from_submodule(
     if not subm_path.exists():
         # no point in trying to list a submodule that is not around
         return
+    subm_pathspecs = pathspecs
+    if pathspecs:
+        # recode pathspecs to match the submodule scope
+        try:
+            subm_pathspecs = pathspecs.for_subdir(subm_name)
+        except ValueError:
+            # not a single pathspec could be translated, there is
+            # no chance for a match, we can stop here
+            return
     for item in iter_gitworktree(
         path=subm_path,
         untracked=untracked,
         link_target=link_target,
         fp=fp,
         recursive=recursive,
-        # recode pathspecs to match the submodule
-        pathspecs=pathspecs.for_subdir(subm_name),
+        pathspecs=subm_pathspecs,
     ):
         # recode path/name
         item.name = subm.name / item.name

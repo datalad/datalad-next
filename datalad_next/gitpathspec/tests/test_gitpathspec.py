@@ -352,8 +352,13 @@ def test_yield_subdir_match_remainder_pathspecs():
             # same result
             assert GitPathSpecs(remainders).arglist() == ts[2]
             # now we produce the same result with the GitPathSpecs handler
-            assert GitPathSpecs([ts[1]]).for_subdir(target_path).arglist() \
-                == [str(ps) for ps in remainders]
+            try:
+                assert \
+                    GitPathSpecs([ts[1]]).for_subdir(target_path).arglist() \
+                    == [str(ps) for ps in remainders]
+            except ValueError:
+                # translation must raise when there would not be a remainder
+                assert not remainders
             # if we are supposed to get any remainder out, the test for a
             # subdir match also gives an analog result
             if ts[2]:
