@@ -239,6 +239,46 @@ def test_iter_gitworktree_basic_fp(existing_dataset, no_result_rendering):
     assert not fcount
 
 
+def test_iter_gitworktree_untracked_only(modified_dataset):
+    p = modified_dataset.pathobj
+    # only untracked files
+    repo_items = list(iter_gitworktree(p, untracked='only'))
+    assert all(f.name.name == 'file_u' for f in repo_items)
+    # same report, but compressed to immediate directory children
+    dir_items = list(iter_gitworktree(p, untracked='only', recursive='no'))
+    assert set(f.name.parts[0] for f in repo_items) == \
+        set(f.name.name for f in dir_items)
+    # no wholly untracked directories in standard report
+    assert not any(f.name.name == 'dir_u'
+                   for f in iter_gitworktree(p, untracked='only'))
+    # but this can be requested
+    wholedir_items = list(iter_gitworktree(p, untracked='only-whole-dir'))
+    assert any(f.name.name == 'dir_u' for f in wholedir_items)
+    # smoke test remaining mode, test case doesn't cause difference
+    assert any(f.name.name == 'dirempty_u' for f in wholedir_items)
+    assert not any(f.name.name == 'dirempty_u'
+                   for f in iter_gitworktree(p, untracked='only-no-empty-dir'))
+
+
+
+def test_iter_gitworktree_pathspec(modified_dataset):
+    p = modified_dataset.pathobj
+    # query for any files that are set to go straight to Git. these are just
+    # dotfiles in the default config
+    items = list(iter_gitworktree(
+        p,
+        pathspecs=[':(attr:annex.largefiles=nothing)']))
+    assert items
+    assert all(str(i.name).startswith('.') for i in items)
+    # glob-styles
+    # first some that only give a top-level match
+    assert len(list(iter_gitworktree(p, pathspecs=['file_a']))) == 1
+    assert len(list(iter_gitworktree(p, pathspecs=[':(glob)*file_a']))) == 1
+    # now some that match at any depth
+    assert len(list(iter_gitworktree(p, pathspecs=['*file_a']))) == 2
+    assert len(list(iter_gitworktree(p, pathspecs=[':(glob)**/file_a']))) == 2
+
+
 def test_iter_submodules(modified_dataset):
     p = modified_dataset.pathobj
     all_sm = list(iter_submodules(p))
@@ -248,3 +288,59 @@ def test_iter_submodules(modified_dataset):
     assert sorted([str(sm.path.name) for sm in all_sm]) \
         == ['droppedsm_c', 'sm_c', 'sm_d', 'sm_m', 'sm_mu', 'sm_n',
             'sm_nm', 'sm_nmu', 'sm_u']
+    # constrain by pathspec
+    res = list(iter_submodules(p, pathspecs=['*/sm_c']))
+    assert len(res) == 1
+    assert res[0].name == PurePath('dir_sm', 'sm_c')
+    # test negative condition
+    res = list(iter_submodules(p, pathspecs=[':(exclude)*/sm_c']))
+    assert len(res) == len(all_sm) - 1
+    assert not any(r.name == PurePath('dir_sm', 'sm_c') for r in res)
+
+    # test pathspecs matching inside submodules
+    # baseline, pointing inside a submodule gives no matching results
+    assert not list(iter_submodules(p, pathspecs=['dir_sm/sm_c/.datalad']))
+    # we can discover the submodule that could have content that matches
+    # the pathspec
+    res = list(iter_submodules(p, pathspecs=['dir_sm/sm_c/.datalad'],
+                               match_containing=True))
+    assert len(res) == 1
+    assert res[0].name == PurePath('dir_sm', 'sm_c')
+    # if we use a wildcard that matches any submodule, we also get all of them
+    # and this includes the dropped submodule, because iter_submodules()
+    # make no assumptions on what this information will be used for
+    res = list(iter_submodules(p, pathspecs=['*/.datalad'],
+                               match_containing=True))
+    assert len(res) == len(all_sm)
+
+
+def test_iter_gitworktree_subm_recursion(modified_dataset):
+    p = modified_dataset.pathobj
+    nmu_items = list(iter_gitworktree(p / 'dir_sm' / 'sm_nmu',
+                                      recursive='repository'))
+    # doesn't matter how many exactly, but we expect multiple.
+    # needed for the logic below
+    assert len(nmu_items) > 1
+    # and now from the top with recursion
+    items = list(iter_gitworktree(p, recursive='submodules'))
+    # we see all the submodule content
+    assert all(
+        any(i.name == PurePath('dir_sm', 'sm_nmu') / nmu.name for i in items)
+        for nmu in nmu_items
+    )
+    # now we try listing only the 'nmu' submodule with a bunch of
+    # equivalent pathspecs
+    for ps in (
+        # matches submodule directly
+        ['dir_sm/sm_nmu'],
+        # matches only inside the submodule
+        # (test discovery of the submodule itself)
+        ['dir_sm/sm_nmu/*'],
+        [':(glob)dir_sm/sm_nmu/**'],
+        [':(glob)dir_s?/*_nmu'],
+    ):
+        ps_items = iter_gitworktree(p, recursive='submodules', pathspecs=ps)
+        # we see the submodule items, all of them, and only those
+        assert [i.name for i in ps_items] == \
+            [PurePath('dir_sm', 'sm_nmu') / i.name for i in nmu_items], \
+            f'Mismatch for pathspec {ps!r}'

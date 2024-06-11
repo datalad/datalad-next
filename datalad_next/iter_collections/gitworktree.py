@@ -23,7 +23,7 @@ from datalad_next.itertools import (
     decode_bytes,
     itemize,
 )
-
+from datalad_next.gitpathspec import GitPathSpecs
 from .utils import (
     FileSystemItem,
     FileSystemItemType,
@@ -51,14 +51,52 @@ class GitWorktreeFileSystemItem(FileSystemItem):
     gitsha: str | None = None
     gittype: GitTreeItemType | None = None
 
+    @classmethod
+    def from_worktreeitem(
+        cls,
+        basepath: Path,
+        item: GitWorktreeItem,
+        link_target: bool = True,
+    ):
+        """Create GitWorktreeFileSystemItem from corresponding GitWorktreeItem
+
+        Parameters
+        ----------
+        basepath: Path
+          Reference path to convert the ``GitWorktreeItem``'s path into a
+          path on the file system.
+        item: GitWorktreeItem
+          Item to create matching ``GitWorktreeFileSystemItem`` for.
+        link_target: bool
+          Flag whether to read out a link-target for an item that is a symlink.
+        """
+        fsitem = GitWorktreeFileSystemItem.from_path(
+            path=basepath / item.path,
+            link_target=link_target,
+        )
+        fsitem.name = item.name
+        fsitem.gitsha = item.gitsha
+        fsitem.gittype = item.gittype
+        return fsitem
+
 
 lsfiles_untracked_args = {
+    None:
+    ('--stage', '--cached'),
     'all':
-    ('--exclude-standard', '--others'),
+    ('--stage', '--cached', '--exclude-standard', '--others'),
     'whole-dir':
-    ('--exclude-standard', '--others', '--directory'),
+    ('--stage', '--cached', '--exclude-standard', '--others', '--directory'),
     'no-empty-dir':
-    ('--exclude-standard', '--others', '--directory', '--no-empty-directory'),
+    ('--stage', '--cached', '--exclude-standard',
+     '--others', '--directory', '--no-empty-directory'),
+    'only':
+    ('--exclude-standard', '--others'),
+    'only-whole-dir':
+    ('--exclude-standard', '--others', '--directory'),
+    'only-no-empty-dir':
+    ('--exclude-standard',
+     '--others', '--directory', '--no-empty-directory'),
 }
 
 
@@ -69,6 +107,7 @@ def iter_gitworktree(
     link_target: bool = False,
     fp: bool = False,
     recursive: str = 'repository',
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
     """Uses ``git ls-files`` to report on a work tree of a Git repository
 
@@ -97,12 +136,15 @@ def iter_gitworktree(
       Path of a directory in a Git repository to report on. This directory
       need not be the root directory of the repository, but must be part of
       the repository's work tree.
-    untracked: {'all', 'whole-dir', 'no-empty-dir'} or None, optional
+    untracked: {'all', 'whole-dir', 'no-empty-dir', 'only', 'only-whole-dir', 'only-no-empty-dir'} or None, optional
       If not ``None``, also reports on untracked work tree content.
       ``all`` reports on any untracked file; ``whole-dir`` yields a single
       report for a directory that is entirely untracked, and not individual
       untracked files in it; ``no-empty-dir`` skips any reports on
-      untracked empty directories.
+      untracked empty directories. The modes starting with 'only' offer the
+      same untracked content reporting styles, but only untracked and no
+      tracked content is reported. For example, 'only' is the corresponding
+      mode to 'all' with no tracked content being reported.
     link_target: bool, optional
       If ``True``, information matching a
       :class:`~datalad_next.iter_collections.utils.FileSystemItem`
@@ -116,16 +158,18 @@ def iter_gitworktree(
       Moreover, each file-type item includes a file-like object
       to access the file's content. This file handle will be closed
       automatically when the next item is yielded.
-    recursive: {'repository', 'no'}, optional
+    recursive: {'submodules', 'repository', 'no'}, optional
       Behavior for recursion into subdirectories of ``path``. By default
       (``repository``), all directories within the repository are reported.
       This possibly includes untracked ones (see ``untracked``), but not
-      directories within submodules. If ``no``, only direct children
-      of ``path`` are reported on. For any worktree items in subdirectories
-      of ``path`` only a single record for the containing immediate
-      subdirectory ``path`` is yielded. For example, with
-      'path/subdir/file1' and 'path/subdir/file2' there will only be a
-      single item with ``name='subdir'`` and ``type='directory'``.
+      directories within submodules. With ``submodules``, the full worktree
+      is reported on with recursion into submodules. With ``no``,
+      only direct children of ``path`` are reported on.
+      For any worktree items in subdirectories of ``path`` only a single
+      record for the containing immediate subdirectory ``path`` is yielded.
+      For example, with 'path/subdir/file1' and 'path/subdir/file2' there
+      will only be a single item with ``name='subdir'`` and
+      ``type='directory'``.
 
     Yields
     ------
@@ -139,10 +183,152 @@ def iter_gitworktree(
     # a cheap safety net
     # https://github.com/datalad/datalad-next/issues/551
     path = Path(path)
+    _pathspecs = GitPathSpecs(pathspecs)
 
-    lsfiles_args = ['--stage', '--cached']
-    if untracked:
-        lsfiles_args.extend(lsfiles_untracked_args[untracked])
+    processed_submodules: set[PurePath] = set()
+
+    # the helper takes care of talking to Git and doing recursion
+    for item in _iter_gitworktree(
+        path=path,
+        untracked=untracked,
+        # the helper cannot do submodule recursion, we do this outside,
+        # so limit here
+        recursive='repository' if recursive == 'submodules' else recursive,
+        pathspecs=_pathspecs,
+    ):
+        # exclude non-submodules, or a submodule that was found at
+        # the root path -- which would indicate that the submodule
+        # itself it not around, only its record in the parent
+        if recursive == 'submodules' \
+                and item.gittype == GitTreeItemType.submodule \
+                and not item.name == PurePath('.'):
+            # mark as processed immediately, independent of whether anything
+            # need to be reported
+            processed_submodules.add(item.name)
+            yield from _yield_from_submodule(
+                basepath=path,
+                subm=item,
+                untracked=untracked,
+                recursive=recursive,
+                link_target=link_target,
+                fp=fp,
+                pathspecs=_pathspecs,
+            )
+            # nothing else to do here, the iter_gitworktree() called
+            # dealt with this submodule completely
+            continue
+
+        # here we take care of the file system related information,
+        # reading out symlinks and opening files
+        if link_target or fp:
+            # convert to FileSystemItem and read out any symlinks
+            try:
+                item = GitWorktreeFileSystemItem.from_worktreeitem(
+                    path,
+                    item,
+                    link_target=link_target,
+                )
+            except FileNotFoundError:
+                pass
+        # try opening the file
+        # _get_fp_src() returns None of there is nothing to open
+        fp_src = _get_fp_src(fp, path, item)
+        if fp_src is None:
+            # nothing to open
+            yield item
+        else:
+            with fp_src.open('rb') as active_fp:
+                item.fp = active_fp
+                yield item
+
+    # we may need to loop over the (remaining) submodules for two reasons:
+    # - with pathspecs there is a chance that a given pathspec set did not
+    #   match a submodule (directly) that could have content that matches a
+    #   pathspec
+    # - when we are looking for untracked content only, the code above
+    #   (by definition) will not have found the submodules (because they are
+    #   unconditionally tracked)
+    if recursive == 'submodules' and (
+        (untracked and untracked.startswith('only')) or _pathspecs
+    ):
+        for subm in iter_submodules(
+            path=path,
+            pathspecs=_pathspecs,
+            match_containing=True,
+        ):
+            if subm.name in processed_submodules:
+                # we dealt with that above already
+                continue
+            yield from _yield_from_submodule(
+                basepath=path,
+                subm=subm,
+                untracked=untracked,
+                recursive=recursive,
+                link_target=link_target,
+                fp=fp,
+                pathspecs=_pathspecs,
+            )
+
+
+def _yield_from_submodule(
+    basepath: Path,
+    subm: GitTreeItem,
+    untracked: str | None,
+    recursive: str,
+    link_target: bool,
+    fp: bool,
+    pathspecs: GitPathSpecs,
+) -> Generator[GitWorktreeItem | GitWorktreeFileSystemItem, None, None]:
+    # GitTreeItem.name is a str in POSIX notation. Convert to proper type
+    # to get a meaningful path on all platforms
+    subm_name = PurePosixPath(subm.name)
+    subm_path = basepath / subm_name
+    if not subm_path.exists():
+        # no point in trying to list a submodule that is not around
+        return
+    subm_pathspecs = pathspecs
+    if pathspecs:
+        # recode pathspecs to match the submodule scope
+        try:
+            subm_pathspecs = pathspecs.for_subdir(subm_name)
+        except ValueError:
+            # not a single pathspec could be translated, there is
+            # no chance for a match, we can stop here
+            return
+    for item in iter_gitworktree(
+        path=subm_path,
+        untracked=untracked,
+        link_target=link_target,
+        fp=fp,
+        recursive=recursive,
+        pathspecs=subm_pathspecs,
+    ):
+        # recode path/name
+        item.name = subm.name / item.name
+        # clear any possibly cached path value
+        try:
+            # if there is a cache, it is an instance value
+            # with the cached_property name
+            del item.path
+        except AttributeError:
+            pass
+        yield item
+
+
+def _iter_gitworktree(
+    path: Path,
+    *,
+    untracked: str | None,
+    recursive: str,
+    pathspecs: GitPathSpecs,
+) -> Generator[GitWorktreeItem, None, None]:
+    """Internal helper for iter_gitworktree() tp support recursion"""
+
+    # perform an implicit test of whether the `untracked` mode is known
+    lsfiles_args = list(lsfiles_untracked_args[untracked])
+
+    if pathspecs:
+        lsfiles_args.extend(pathspecs.arglist())
 
     # helper to handle multi-stage reports by ls-files
     pending_item: tuple[None | PurePosixPath, None | Dict[str, str]] = (None, None)
@@ -183,11 +369,6 @@ def iter_gitworktree(
                     continue
                 item = _get_item(
                     path,
-                    # the next two must be passed in order to get the
-                    # full logic when to yield a GitWorktreeFileSystemItem
-                    # (not just GitWorktreeItem)
-                    link_target=link_target,
-                    fp=fp,
                     # we know all props already
                     ipath=dir_path,
                     type=GitTreeItemType.directory,
@@ -203,20 +384,11 @@ def iter_gitworktree(
             # report by ls-files
             item = _get_item(
                 path,
-                link_target,
-                fp,
                 pending_item[0],
                 pending_item[1]['mode'] if pending_item[1] else None,
                 pending_item[1]['gitsha'] if pending_item[1] else None,
             )
-            fp_src = _get_fp_src(fp, path, item)
-            if fp_src is None:
-                # nothing to open
-                yield item
-            else:
-                with fp_src.open('rb') as active_fp:
-                    item.fp = active_fp
-                    yield item
+            yield item
 
         if ipath is None:
             # this is the trailing `None` record. we are done here
@@ -235,48 +407,67 @@ def iter_gitworktree(
 
 def iter_submodules(
     path: Path,
+    *,
+    pathspecs: list[str] | GitPathSpecs | None = None,
+    match_containing: bool = False,
 ) -> Generator[GitTreeItem, None, None]:
     """Given a path, report all submodules of a repository worktree underneath
 
-    This is a thin convenience wrapper around ``iter_gitworktree()``.
+    With ``match_containing`` set to the default ``False``, this is merely a
+    convenience wrapper around ``iter_gitworktree()`` that selectively reports
+    on submodules. With ``match_containing=True`` and ``pathspecs`` given, the
+    yielded items corresponding to submodules where the given ``pathsspecs``
+    *could* match content. This includes submodules that are not available
+    locally, because no actual matching of pathspecs to submodule content is
+    performed -- only an evaluation of the submodule item itself.
     """
+    _pathspecs = GitPathSpecs(pathspecs)
+    if not _pathspecs:
+        # force flag to be sensible to simplify internal logic
+        match_containing = False
+
     for item in iter_gitworktree(
         path,
         untracked=None,
         link_target=False,
         fp=False,
         recursive='repository',
+        # if we want to match submodules that contain pathspecs matches
+        # we cannot give the job to Git, it won't report anything,
+        # but we need to match manually below
+        pathspecs=None if match_containing else _pathspecs,
     ):
         # exclude non-submodules, or a submodule that was found at
         # the root path -- which would indicate that the submodule
         # itself it not around, only its record in the parent
-        if item.gittype == GitTreeItemType.submodule \
-                and item.name != PurePath('.'):
+        if item.gittype != GitTreeItemType.submodule \
+                or item.name == PurePath('.'):
+            continue
+
+        if not match_containing:
             yield item
+            continue
+
+        assert pathspecs is not None
+        # does any pathspec match the "inside" of the current submodule's
+        # path
+        if _pathspecs.any_match_subdir(PurePosixPath(item.name)):
+            yield item
+            continue
+
+        # no match
+        continue
 
 
 def _get_item(
     basepath: Path,
-    link_target: bool,
-    fp: bool,
     ipath: PurePosixPath,
     type: str | GitTreeItemType | None = None,
     gitsha: str | None = None,
-) -> GitWorktreeItem | GitWorktreeFileSystemItem:
+) -> GitWorktreeItem:
     if isinstance(type, str):
         type = _mode_type_map[type]
-    item = None
-    if link_target or fp:
-        fullpath = basepath / ipath
-        try:
-            item = GitWorktreeFileSystemItem.from_path(
-                fullpath,
-                link_target=link_target,
-            )
-        except FileNotFoundError:
-            pass
-    if item is None:
-        item = GitWorktreeItem(name=ipath)
+    item = GitWorktreeItem(name=ipath)
     if type is not None:
         item.gittype = type
     if gitsha is not None:

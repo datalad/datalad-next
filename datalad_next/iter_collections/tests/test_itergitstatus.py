@@ -38,9 +38,9 @@ def test_status_homogeneity(modified_dataset):
         dict(path=ds.pathobj, eval_submodule_state='commit', recursive='repository'),
         dict(path=ds.pathobj, eval_submodule_state='commit', recursive='submodules'),
         # without untracked
-        dict(path=ds.pathobj, untracked='no', recursive='no'),
-        dict(path=ds.pathobj, untracked='no', recursive='repository'),
-        dict(path=ds.pathobj, untracked='no', recursive='submodules'),
+        dict(path=ds.pathobj, untracked=None, recursive='no'),
+        dict(path=ds.pathobj, untracked=None, recursive='repository'),
+        dict(path=ds.pathobj, untracked=None, recursive='submodules'),
         # special untracked modes
         dict(path=ds.pathobj, untracked='whole-dir', recursive='no'),
         dict(path=ds.pathobj, untracked='whole-dir', recursive='repository'),
@@ -146,7 +146,8 @@ def _assert_testcases(st, tc):
         assert st[c['name']].status == c['status']
         mod_types = st[c['name']].modification_types
         if 'qual' in c:
-            assert set(mod_types) == set(c['qual'])
+            assert set(mod_types) == set(c['qual']), \
+                f'Mismatch for {c=!r}'
         else:
             assert mod_types is None
 

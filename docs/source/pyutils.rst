@@ -23,6 +23,7 @@ packages.
    credman
    datasets
    exceptions
+   gitpathspec
    iterable_subprocess
    itertools
    iter_collections
