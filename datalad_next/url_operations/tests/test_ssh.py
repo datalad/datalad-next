@@ -49,8 +49,7 @@ def test_ssh_url_download(tmp_path, monkeypatch, sshserver):
 
 # path magic inside the test is posix only
 @skip_if_on_windows
-@pytest.mark.parametrize('atomic', [True, False])
-def test_ssh_url_upload(tmp_path, monkeypatch, sshserver, atomic):
+def test_ssh_url_upload(tmp_path, monkeypatch, sshserver):
     ssh_url, ssh_localpath = sshserver
     payload = 'surprise!'
     payload_path = tmp_path / 'payload'
@@ -60,7 +59,7 @@ def test_ssh_url_upload(tmp_path, monkeypatch, sshserver, atomic):
 
     # standard error if local source is not around
     with pytest.raises(FileNotFoundError):
-        ops.upload(payload_path, upload_url, atomic=atomic)
+        ops.upload(payload_path, upload_url)
 
     payload_path.write_text(payload)
     # upload creates parent dirs, so the next just works.
@@ -69,7 +68,7 @@ def test_ssh_url_upload(tmp_path, monkeypatch, sshserver, atomic):
     # server-side preconditions first.
     # this functionality is not about exposing a full
     # remote FS abstraction -- just upload
-    ops.upload(payload_path, upload_url, atomic=atomic)
+    ops.upload(payload_path, upload_url)
     assert upload_path.read_text() == payload
 
 
