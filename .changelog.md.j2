@@ -7,12 +7,30 @@
 {% if change_key %}
 ## {{ change_key }}
 {% endif %}
+{% set scopemap = {
+  'changelog': 'Changelog',
+  'contributing': 'Contributing guide',
+  'helpers': 'Helpers',
+  'patch': 'Patches for DataLad (core)',
+  'sphinx': 'Rendered documentation',
+  'typeannotation': 'Type annotation',
+  'type-annotation': 'Type annotation',
+} %}
 
-{% for change in changes %}
+{# track what changelog scope we already saw for this change_key #}
+{% set ns = namespace(saw_scopes=[]) %}
+{% for change in changes | sort(attribute=scope) %}
+{% set indent = '' %}
 {% if change.scope %}
-- {{ change.scope }}: {{ change.message }}
-{%- elif change.message %}
-- {{ change.message }}
+{% set indent = '  ' %}
+{# write out scope, if it is new #}
+{% if change.scope not in ns.saw_scopes %}
+{% set ns.saw_scopes = ns.saw_scopes + [change.scope] %}
+- {{ scopemap.get(change.scope, change.scope) }}:
+{% endif %}
+{% endif %}
+{%- if change.message %}
+{{ indent }}- {{ change.message }}
 {%- endif %}
  [[{{ change.sha1 | truncate(8, true, '') }}]](https://github.com/datalad/datalad-next/commit/{{ change.sha1 | truncate(8, true, '') }})
 {% endfor %}
