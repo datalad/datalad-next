@@ -170,6 +170,20 @@ def iter_gitworktree(
       For example, with 'path/subdir/file1' and 'path/subdir/file2' there
       will only be a single item with ``name='subdir'`` and
       ``type='directory'``.
+    pathspecs: optional
+      Patterns used to limit results to particular paths. Any pathspecs
+      supported by Git can be used and are passed to the underlying ``git
+      ls-files`` queries. Pathspecs are also supported for recursive reporting
+      on submodules. In such a case, the results match those of individual
+      queries with analog pathspecs on the respective submodules (Git itself
+      does not support pathspecs for submodule-recursive operations).  For
+      example, a ``submodule`` recursion with a pathspec ``*.jpg`` will yield
+      reports on all JPG files in all submodules, even though a submodule path
+      itself does not match ``*.jpg``.  On the other hand, a pathspec
+      ``submoddir/*.jpg`` will only report on JPG files in the submodule at
+      ``submoddir/``, but on all JPG files in that submodule.
+      As of version 1.5, the pathspec support for submodule recursion is
+      preliminary and results should be carefully investigated.
 
     Yields
     ------
