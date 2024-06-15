@@ -1,6 +1,7 @@
 from itertools import chain
 import pytest
 
+from datalad_next.datasets import Dataset
 from datalad_next.runners import (
     call_git_success,
 )
@@ -254,3 +255,17 @@ def test_status_nohead_staged(tmp_path):
         {i.name: i for i in iter_gitstatus(tmp_path)},
         [{'name': 'probe', 'status': GitDiffStatus.addition}],
     )
+
+
+def test_status_submodule_added(existing_dataset, no_result_rendering):
+    p = existing_dataset.pathobj
+    subm_name = 'sub'
+    Dataset(p / subm_name).create()
+    assert call_git_success(
+        ['submodule', '--quiet', 'add', f'./{subm_name}', subm_name],
+        cwd=p)
+    # check that we get the status on a submodule that was just added with
+    # no additional changes
+    res = list(iter_gitstatus(p, recursive='monolithic'))
+    assert any(i.name == subm_name and i.gitsha and i.prev_gitsha is None
+               for i in res)
