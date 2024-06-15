@@ -364,8 +364,11 @@ def _yield_hierarchy_items(
             # repository, hence no submodule item is emitted
             sm_head = item.gitsha or item.prev_gitsha
 
-            if GitContainerModificationType.new_commits in item.modification_types:
-                # this is a submodule that has new commits compared to
+            if item.modification_types is None \
+                    or GitContainerModificationType.new_commits \
+                    in item.modification_types:
+                # this is a submodule that is either entriely new (added),
+                # or it has new commits compared to
                 # its state in the parent dataset. We need to yield this
                 # item, even if nothing else is modified, because otherwise
                 # this (unsafed) changed would go unnoticed
