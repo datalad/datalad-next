@@ -12,7 +12,10 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
-from typing import Generator
+from typing import (
+    Iterator,
+    Generator,
+)
 
 from datalad_next.runners import iter_git_subproc
 from datalad_next.itertools import (
@@ -21,6 +24,7 @@ from datalad_next.itertools import (
 )
 
 from .utils import PathBasedItem
+
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.gittree')
 
@@ -126,7 +130,7 @@ def _get_tree_item(spec: str) -> GitTreeItem:
     )
 
 
-def _git_ls_tree(path, *args):
+def _git_ls_tree(path: Path, *args) -> Iterator[str]:
     with iter_git_subproc(
             [
                 'ls-tree',

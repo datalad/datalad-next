@@ -13,6 +13,9 @@ from pathlib import (
     PurePath,
 )
 from typing import (
+    Dict,
+    Type,
+    Union,
     Any,
     Generator,
 )
@@ -31,7 +34,7 @@ from datalad_next.runners import iter_git_subproc
 from .gitworktree import (
     GitWorktreeItem,
     GitWorktreeFileSystemItem,
-    iter_gitworktree
+    iter_gitworktree,
 )
 from .utils import FileSystemItemType
 
@@ -50,7 +53,7 @@ class AnnexWorktreeItem(GitWorktreeItem):
     def from_gitworktreeitem(
         cls,
         item: GitWorktreeItem,
-    ):
+    ) -> "AnnexWorktreeItem":
         return cls(**item.__dict__)
 
 
@@ -342,7 +345,7 @@ def _get_worktree_item(
 
 
 def _join_annex_info(
-    processed_data,
+    processed_data: Union[Type[StoreOnly], Dict[str, str]],
     stored_data: GitWorktreeItem,
 ) -> dict:
     """Internal helper to join results from pipeline stages

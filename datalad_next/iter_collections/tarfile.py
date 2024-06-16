@@ -12,7 +12,10 @@ from pathlib import (
     PurePosixPath,
 )
 import tarfile
-from typing import Generator
+from typing import (
+    TYPE_CHECKING,
+    Generator,
+)
 
 from .utils import (
     FileSystemItem,
@@ -37,9 +40,10 @@ class TarfileItem(FileSystemItem):
         return PurePosixPath(self.name)
 
     @cached_property
-    def link_target_path(self) -> PurePosixPath:
+    def link_target_path(self) -> PurePosixPath | None:
         """Returns the link_target as a ``PurePosixPath`` instance"""
-        return PurePosixPath(self.link_target)
+        return PurePosixPath(self.link_target) \
+            if self.link_target is not None else None
 
 
 def iter_tar(
@@ -94,8 +98,11 @@ def iter_tar(
             )
             if fp and mtype in (
                     FileSystemItemType.file, FileSystemItemType.hardlink):
-                with tar.extractfile(member) as fp:
-                    item.fp = fp
+                mf = tar.extractfile(member)
+                if TYPE_CHECKING:
+                    assert mf
+                with mf as fileobj:
+                    item.fp = fileobj
                     yield item
             else:
                 yield item
