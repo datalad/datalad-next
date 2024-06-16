@@ -5,10 +5,11 @@ The main functionality is provided by the :func:`iter_gitstatus` function.
 from __future__ import annotations
 
 import logging
-from pathlib import (
-    Path,
+from pathlib import Path
+from typing import (
+    Iterator,
+    Generator,
 )
-from typing import Generator
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.runners import (
@@ -145,7 +146,7 @@ def _yield_dir_items(
     path: Path,
     untracked: str | None,
     eval_submodule_state: str,
-):
+) -> Iterator[GitDiffItem]:
     # potential container items in a directory that need content
     # investigation
     container_types = (
@@ -435,7 +436,11 @@ def _get_submod_worktree_head(path: Path) -> tuple[bool, str | None, bool]:
         return True, res[1], adjusted
 
 
-def _eval_submodule(basepath, item, eval_mode) -> None:
+def _eval_submodule(
+    basepath: Path,
+    item: GitDiffItem,
+    eval_mode: str,
+) -> None:
     """In-place amend GitDiffItem submodule item
 
     It does nothing with ``eval_mode='no'``.
@@ -464,7 +469,12 @@ def _eval_submodule(basepath, item, eval_mode) -> None:
         _eval_submodule_normal(item_path, item, head_commit, eval_mode)
 
 
-def _eval_submodule_normal(item_path, item, head_commit, eval_mode) -> None:
+def _eval_submodule_normal(
+    item_path: Path,
+    item: GitDiffItem,
+    head_commit: str | None,
+    eval_mode: str,
+) -> None:
     if eval_mode == 'full' and item.status is None or (
         item.modification_types
         and GitContainerModificationType.new_commits in item.modification_types
@@ -490,7 +500,12 @@ def _eval_submodule_normal(item_path, item, head_commit, eval_mode) -> None:
             GitContainerModificationType.untracked_content)
 
 
-def _eval_submodule_adjusted(item_path, item, head_commit, eval_mode) -> None:
+def _eval_submodule_adjusted(
+    item_path: Path,
+    item: GitDiffItem,
+    head_commit: str | None,
+    eval_mode: str,
+) -> None:
     # we cannot rely on the diff-report for a submodule in adjusted mode.
     # git would make the comparison to the adjusted branch HEAD alone.
     # this would almost always be invalid, because it is not meaningful to

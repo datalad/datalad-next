@@ -12,7 +12,11 @@ from pathlib import (
     Path,
     PurePosixPath,
 )
-from typing import Generator
+from typing import (
+    Iterator,
+    List,
+    Generator,
+)
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.runners import (
@@ -91,7 +95,7 @@ class GitDiffItem(GitTreeItem):
     """Qualifiers for modification types of container-type
     items (directories, submodules)."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.status == GitDiffStatus.addition and self.gitsha is None:
             self.add_modification_type(GitContainerModificationType.modified_content)
 
@@ -103,7 +107,10 @@ class GitDiffItem(GitTreeItem):
             return None
         return PurePosixPath(self.prev_name)
 
-    def add_modification_type(self, value: GitContainerModificationType):
+    def add_modification_type(
+        self,
+        value: GitContainerModificationType,
+    ) -> None:
         if self.modification_types is None:
             self.modification_types = (value,)
         else:
@@ -450,7 +457,12 @@ def _yield_diff_item(
     yield _mangle_item_for_singledir(item, dname, from_treeish, cwd)
 
 
-def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
+def _mangle_item_for_singledir(
+    item: GitDiffItem,
+    dname: str,
+    from_treeish: str | None,
+    cwd: Path,
+) -> GitDiffItem:
     # at this point we have a change report on subdirectory content
     # we only get here when comparing `from_treeish` to the worktree.
     item.name = dname
@@ -483,7 +495,7 @@ def _mangle_item_for_singledir(item, dname, from_treeish, cwd):
     return item
 
 
-def _git_diff_something(path, args):
+def _git_diff_something(path: Path, args: List[str]) -> Iterator[str]:
     with iter_git_subproc([*args], cwd=path) as r:
         yield from decode_bytes(
             itemize(

@@ -13,6 +13,7 @@ from pathlib import (
     PurePosixPath,
 )
 from typing import (
+    Iterator,
     Dict,
     Generator,
     Tuple,
@@ -33,6 +34,7 @@ from .gittree import (
     GitTreeItemType,
     _mode_type_map,
 )
+
 
 lgr = logging.getLogger('datalad.ext.next.iter_collections.gitworktree')
 
@@ -57,7 +59,7 @@ class GitWorktreeFileSystemItem(FileSystemItem):
         basepath: Path,
         item: GitWorktreeItem,
         link_target: bool = True,
-    ):
+    ) -> "GitWorktreeFileSystemItem":
         """Create GitWorktreeFileSystemItem from corresponding GitWorktreeItem
 
         Parameters
@@ -517,7 +519,7 @@ def _lsfiles_line2props(
     )
 
 
-def _git_ls_files(path, *args):
+def _git_ls_files(path: Path, *args) -> Iterator[str]:
     with iter_git_subproc(
             [
                 'ls-files',

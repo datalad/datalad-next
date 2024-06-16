@@ -11,6 +11,9 @@ from pathlib import (
 )
 import stat
 from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Union,
     Any,
     IO,
     List,
@@ -18,6 +21,15 @@ from typing import (
 
 from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.utils import MultiHash
+
+if TYPE_CHECKING:
+    from .annexworktree import AnnexWorktreeFileSystemItem
+    from .directory import DirectoryItem
+    from .gitworktree import GitWorktreeFileSystemItem
+    from io import BufferedReader
+    from os import PathLike
+    from tarfile import ExFileObject
+    from zipfile import ZipExtFile
 
 
 # TODO Could be `StrEnum`, came with PY3.11
@@ -76,12 +88,13 @@ class FileSystemItem(PathBasedItem, TypedItem):
     mode: int | None = None
     uid: int | None = None
     gid: int | None = None
-    link_target: Any | None = None
+    link_target: str | PathLike[str] | None = None
     fp: IO | None = None
 
-    def link_target_path(self) -> PurePath:
+    def link_target_path(self) -> PurePath | None:
         """Returns the link_target as a ``PurePath`` instance"""
-        return PurePath(self.link_target)
+        return PurePath(self.link_target) if self.link_target is not None \
+            else None
 
     @classmethod
     def from_path(
@@ -89,7 +102,12 @@ class FileSystemItem(PathBasedItem, TypedItem):
         path: Path,
         *,
         link_target: bool = True,
-    ):
+    ) -> Union[
+        DirectoryItem,
+        AnnexWorktreeFileSystemItem,
+        FileSystemItem,
+        GitWorktreeFileSystemItem,
+    ]:
         """Populate item properties from a single `stat` and `readlink` call
 
         The given ``path`` must exist. The ``link_target`` flag indicates
@@ -123,13 +141,17 @@ class FileSystemItem(PathBasedItem, TypedItem):
         return item
 
 
-def compute_multihash_from_fp(fp, hash: List[str], bufsize=COPY_BUFSIZE):
+def compute_multihash_from_fp(
+    fp: Union[BufferedReader, ExFileObject, ZipExtFile],
+    hash: List[str],
+    bufsize: int = COPY_BUFSIZE,
+) -> Dict[str, str]:
     """Compute multiple hashes from a file-like
     """
-    hash = MultiHash(hash)
+    mhash = MultiHash(hash)
     while True:
         chunk = fp.read(bufsize)
         if not chunk:
             break
-        hash.update(chunk)
-    return hash.get_hexdigest()
+        mhash.update(chunk)
+    return mhash.get_hexdigest()

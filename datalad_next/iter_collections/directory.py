@@ -7,14 +7,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator
+from typing import TYPE_CHECKING, Generator
 
 from datalad_next.exceptions import CapturedException
 
 from .utils import (
-    FileSystemItem,
-    FileSystemItemType,
-)
+    FileSystemItem, FileSystemItemType)
 
 
 @dataclass  # sadly PY3.10+ only (kw_only=True)
@@ -65,8 +63,8 @@ def iter_dir(
             CapturedException(e)
             continue
         if fp and item.type == FileSystemItemType.file:
-            with c.open('rb') as fp:
-                item.fp = fp
+            with c.open('rb') as fileobj:
+                item.fp = fileobj
                 yield item
         else:
             yield item
