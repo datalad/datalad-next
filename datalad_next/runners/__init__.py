@@ -102,7 +102,7 @@ from .protocols import (
 # exceptions
 # The following import supports legacy code that uses `CommandError` from this
 # module. If you are writing new code, please use `CommandError` from
-# `datalad.support.exceptions`. We intend to remove this import in the future.
+# `datasalad.runners`. We intend to remove this import in the future.
 from datalad_next.exceptions import CommandError
 
 # utilities
