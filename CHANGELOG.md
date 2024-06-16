@@ -1,3 +1,31 @@
+# 1.5.0 (2024-06-16)
+
+## 💫 New features
+
+- new support subpackage for Git's pathspecs [[8d05f1cd]](https://github.com/datalad/datalad-next/commit/8d05f1cd)
+- add pathspec support to `iter_(gitworktree|submodules)()` [[7622267c]](https://github.com/datalad/datalad-next/commit/7622267c)
+- `GitWorktreeFileSystemItem`:
+  - method to convert `GitWorktreeItem` [[30858780]](https://github.com/datalad/datalad-next/commit/30858780)
+- `iter_gitworktree`:
+  - added submodule recursion with pathspec support [[2851ec4c]](https://github.com/datalad/datalad-next/commit/2851ec4c)
+  - add ability to report untracked content only [[2763b10f]](https://github.com/datalad/datalad-next/commit/2763b10f)
+- `iter_submodules`:
+  - add `match_containing` mode [[8025b7bd]](https://github.com/datalad/datalad-next/commit/8025b7bd)
+
+## 🐛 Bug Fixes
+
+- `iter_gitstatus`:
+  - support newly added submodules [[fd197ad6]](https://github.com/datalad/datalad-next/commit/fd197ad6)
+- `iter_gitstatus`:
+  - rectify usage of unsupported `untracked=no` mode in tests [[673e6c22]](https://github.com/datalad/datalad-next/commit/673e6c22)
+- Patches for DataLad (core):
+  - fix `create_sibling_ria` patching [[78e29b5d]](https://github.com/datalad/datalad-next/commit/78e29b5d)
+
+## 📝 Documentation
+
+- Contributing guide:
+  - expand description of expected commit messages [[04f68b49]](https://github.com/datalad/datalad-next/commit/04f68b49)
+
 # 1.4.1 (2024-05-22)
 
 ## 🐛 Bug Fixes
