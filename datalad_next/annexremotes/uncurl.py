@@ -64,14 +64,14 @@ use after having used them successfully::
     $ git annex addurl http://httpbin.org/basic-auth/myuser/mypassword
     Credential needed for access to http://httpbin.org/basic-auth/myuser/mypassword
     user: myuser
-    password: 
-    password (repeat): 
+    password:
+    password (repeat):
     Enter a name to save the credential
     (for accessing http://httpbin.org/basic-auth/myuser/mypassword) securely for future
     reuse, or 'skip' to not save the credential
     name: httpbin-dummy
 
-    addurl http://httpbin.org/basic-auth/myuser/mypassword (from uncurl) (to ...) 
+    addurl http://httpbin.org/basic-auth/myuser/mypassword (from uncurl) (to ...)
     ok
     (recording state in git...)
 
@@ -257,6 +257,14 @@ class UncurlRemote(SpecialRemote):
         # cache of properties that do not vary within a session
         # or across annex keys
         self.persistent_tmpl_props: dict[str, str] = {}
+
+    def __del__(self):
+        self.close()
+
+    def close(self) -> None:
+        if self.url_handler:
+            del self.url_handler
+            self.url_handler = None
 
     def initremote(self) -> None:
         # at present there is nothing that needs to be done on init/enable.
