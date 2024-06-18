@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from abc import ABCMeta
+from datasalad.iterable_subprocess.iterable_subprocess import OutputFrom
 from logging import getLogger
 
-from datalad_next.runners.iter_subproc import OutputFrom
 from ..response_generators import ShellCommandResponseGenerator
 
 

@@ -9,8 +9,8 @@ from collections import deque
 from collections.abc import Generator
 from random import randint
 
+from datasalad.iterable_subprocess.iterable_subprocess import OutputFrom
 from datalad_next.itertools import align_pattern
-from datalad_next.runners.iter_subproc import OutputFrom
 
 
 __all__ = [

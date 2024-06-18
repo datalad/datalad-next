@@ -4,7 +4,7 @@ from typing import cast
 
 import pytest
 
-from datalad_next.runners.iter_subproc import OutputFrom
+from datasalad.iterable_subprocess.iterable_subprocess import OutputFrom
 from ..response_generators import (
     FixedLengthResponseGeneratorPosix,
     VariableLengthResponseGeneratorPosix,
