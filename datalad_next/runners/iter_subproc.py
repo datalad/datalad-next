@@ -5,11 +5,9 @@ from typing import (
     Iterable,
     List,
 )
+from datasalad.runners import CommandError as SaladCommandError
+from datasalad.iterable_subprocess import iterable_subprocess
 
-from datalad_next.iterable_subprocess.iterable_subprocess import (
-    iterable_subprocess,
-    OutputFrom,
-)
 from datalad_next.exceptions import CommandError
 from datalad_next.consts import COPY_BUFSIZE
 
@@ -25,6 +23,11 @@ def iter_subproc(
     bufsize: int = -1,
 ):
     """Context manager to communicate with a subprocess using iterables
+
+    .. deprecated:: 1.6
+
+       Use ``datasalad.runners.iter_proc`` instead. Renamed ``input`` argument
+       to ``inputs``, and raises datalad's ``CommandError``.
 
     This offers a higher level interface to subprocesses than Python's
     built-in ``subprocess`` module. It allows a subprocess to be naturally
@@ -100,10 +103,20 @@ def iter_subproc(
     -------
     contextmanager
     """
-    return iterable_subprocess(
-        args,
-        tuple() if input is None else input,
-        chunk_size=chunk_size,
-        cwd=cwd,
-        bufsize=bufsize,
-    )
+    try:
+        return iterable_subprocess(
+            args,
+            tuple() if input is None else input,
+            chunk_size=chunk_size,
+            cwd=cwd,
+            bufsize=bufsize,
+        )
+    except SaladCommandError as e:
+        raise CommandError(
+            cmd=e.cmd,
+            msg=e.msg,
+            code=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+            cwd=e.cwd,
+        ) from e

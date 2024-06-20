@@ -9,6 +9,9 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datasalad.iterable_subprocess.iterable_subprocess import OutputFrom
+from datasalad.runners.iter_subproc import iter_subproc
+
 from queue import Queue
 from typing import (
     Generator,
@@ -20,12 +23,9 @@ from .response_generators import (
     VariableLengthResponseGenerator,
     VariableLengthResponseGeneratorPosix,
 )
+
 from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.exceptions import CommandError
-from datalad_next.runners.iter_subproc import (
-    OutputFrom,
-    iter_subproc,
-)
 
 
 __all__ = [
@@ -54,7 +54,7 @@ class ExecutionResult:
                     if isinstance(command, bytes)
                     else str(command),
                 msg=message,
-                code=self.returncode,
+                returncode=self.returncode,
                 stdout=self.stdout,
                 stderr=self.stderr,
             )
@@ -377,7 +377,7 @@ def shell(shell_cmd: list[str],
 
     subprocess_inputs: Queue = Queue()
     with iter_subproc(shell_cmd,
-                      input=train(subprocess_inputs),
+                      inputs=train(subprocess_inputs),
                       chunk_size=chunk_size,
                       bufsize=0) as shell_output:
 

@@ -5,6 +5,10 @@ from __future__ import annotations
 
 import logging
 import sys
+from datasalad.runners import (
+    CommandError,
+    iter_subproc,
+)
 from functools import partial
 from itertools import chain
 from pathlib import (
@@ -29,10 +33,6 @@ from urllib.parse import (
 from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.config import ConfigManager
 from datalad_next.itertools import align_pattern
-from datalad_next.runners import (
-    iter_subproc,
-    CommandError,
-)
 
 
 from .base import UrlOperations
@@ -299,7 +299,7 @@ class SshUrlOperations(UrlOperations):
         try:
             with iter_subproc(
                     cmd,
-                    input=self._with_progress(
+                    inputs=self._with_progress(
                         iter(upload_queue.get, None),
                         progress_id=progress_id,
                         label='uploading',

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datasalad.runners import iter_subproc
 import os
 import sys
 from pathlib import PurePosixPath
@@ -13,10 +14,7 @@ from datalad.tests.utils_pytest import (
     on_windows,
     skip_if,
 )
-from datalad_next.runners import (
-    CommandError,
-    iter_subproc,
-)
+from datalad_next.exceptions import CommandError
 from datalad_next.url_operations.ssh import ssh_url2openargs
 from ..response_generators import (
     FixedLengthResponseGeneratorPosix,
