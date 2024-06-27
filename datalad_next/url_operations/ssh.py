@@ -141,6 +141,40 @@ class SshUrlOperations(UrlOperations):
         self._check_return_code(result.returncode, url)
         return {'content-length': int(result.stdout)}
 
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Delete the target of a shh://-URL
+
+        The target can be a file or a directory.
+
+        See :meth:`datalad_next.url_operations.UrlOperations.delete`
+        for parameter documentation and exception behavior.
+
+        Raises
+        ------
+        UrlOperationsResourceUnknown
+          For deletion targets found absent.
+        """
+
+        delete_cmd = """
+            ret() {{ return $1; }}
+            if [ -f {fpath} ]; then
+                rm {fpath}
+            elif [ -d {fpath} ]; then
+                rm -r {fpath}
+            else
+                ret 244
+            fi"""
+
+        cmd = self.format_cmd(delete_cmd, url)
+        ssh = self.ssh_shell_for(url)
+        result = ssh(cmd)
+        self._check_return_code(result.returncode, url)
+        return {}
+
     def download(self,
                  from_url: str,
                  to_path: Path | None,

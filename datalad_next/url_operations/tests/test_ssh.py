@@ -146,3 +146,25 @@ def test_ssh_stat(sshserver):
     test_path.unlink()
     with pytest.raises(UrlOperationsResourceUnknown):
         ops.stat(test_url)
+
+
+def test_ssh_delete(sshserver):
+    ssh_url, ssh_local_path = sshserver
+
+    test_path = ssh_local_path / 'file1.txt'
+    test_path.write_text('content')
+    test_dir_path = ssh_local_path / 'dir1'
+    test_dir_path.mkdir()
+    (test_dir_path / 'file2.txt').write_text('content 2')
+
+    test_url = f'{ssh_url}/file1.txt'
+    test_dir_url = f'{ssh_url}/dir1'
+
+    ops = SshUrlOperations()
+    ops.delete(test_url)
+    with pytest.raises(UrlOperationsResourceUnknown):
+        ops.delete(test_url)
+
+    ops.delete(test_dir_url)
+    with pytest.raises(UrlOperationsResourceUnknown):
+        ops.delete(test_dir_url)
