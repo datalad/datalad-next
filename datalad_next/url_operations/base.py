@@ -237,7 +237,7 @@ class UrlOperations:
           ``UrlOperationsInteractionError`` general issues in communicating
           with the remote side; ``UrlOperationsAuthenticationError`` for
           errors related to (failed) authentication at the remote;
-          ``UrlOperationsAuthorizationError`` for (lack of) authorizating
+          ``UrlOperationsAuthorizationError`` for (lack of) authorization
           to access a particular resource of perform a particular operation;
           ``UrlOperationsResourceUnknown`` if the target of an operation
           does not exist.
@@ -367,6 +367,3 @@ class UrlOperations:
                 end_log_msg
             )
         )
-
-
-
