@@ -94,6 +94,7 @@ class HttpUrlOperations(UrlOperations):
           For access targets found absent.
         """
         auth = DataladAuth(self.cfg, credential=credential)
+        props: Dict[str, str | int]
         with requests.head(
                 url,
                 headers=self.get_headers(),
