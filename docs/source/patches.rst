@@ -18,6 +18,7 @@ Patches that are automatically applied to DataLad when loading the
    create_sibling_gitlab
    customremotes_main
    distribution_dataset
+   interface_base
    interface_utils
    patch_ria_ora
    push_optimize
