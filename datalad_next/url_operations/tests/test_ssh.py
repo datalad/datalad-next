@@ -1,4 +1,3 @@
-import contextlib
 import io
 
 import pytest
@@ -32,14 +31,6 @@ def test_ssh_url_download(tmp_path, monkeypatch, sshserver):
     props = ops.stat(test_url)
     # we get the correct file size reported
     assert props['content-length'] == test_path.stat().st_size
-
-    # simulate a "protocol error" where the server-side command
-    # is not reporting the magic header
-    with monkeypatch.context() as m:
-        m.setattr(SshUrlOperations, '_stat_cmd', 'echo nothing')
-        # we get a distinct exception
-        with pytest.raises(RuntimeError):
-            ops.stat(test_url)
 
     # and download
     download_path = tmp_path / 'download'
@@ -101,20 +92,31 @@ def test_ssh_url_upload_from_stdin(tmp_path, monkeypatch, sshserver):
 
 
 def test_ssh_url_upload_timeout(tmp_path, monkeypatch):
+    upload_url = f'ssh://localhost/not_used.txt'
+    ssh_url_ops = SshUrlOperations()
+
     payload = 'surprise!'
     payload_path = tmp_path / 'payload'
     payload_path.write_text(payload)
 
-    upload_url = f'ssh://localhost/not_used'
-    ssh_url_ops = SshUrlOperations()
+    def mocked_ssh_shell_for(*args, **kwargs):
 
-    @contextlib.contextmanager
-    def mocked_iter_subproc(*args, **kwargs):
-        yield None
+        class XShell:
+            def __init__(self, *args, **kwargs):
+                self.returncode = 0
+
+            def start(self, *args, **kwargs):
+                print(args, kwargs)
+
+        return XShell()
 
     with monkeypatch.context() as mp_ctx:
         import datalad_next.url_operations.ssh
-        mp_ctx.setattr(datalad_next.url_operations.ssh, 'iter_subproc', mocked_iter_subproc)
+        mp_ctx.setattr(
+            datalad_next.url_operations.ssh.SshUrlOperations,
+            'ssh_shell_for',
+            mocked_ssh_shell_for
+        )
         mp_ctx.setattr(datalad_next.url_operations.ssh, 'COPY_BUFSIZE', 1)
         with pytest.raises(TimeoutError):
             ssh_url_ops.upload(payload_path, upload_url, timeout=1)
@@ -126,4 +128,21 @@ def test_check_return_code():
         SshUrlOperations._check_return_code(244, 'test-244')
     with pytest.raises(UrlOperationsRemoteError):
         SshUrlOperations._check_return_code(None, 'test-None')
+    with pytest.raises(UrlOperationsRemoteError):
         SshUrlOperations._check_return_code(1, 'test-1')
+
+
+def test_ssh_stat(sshserver):
+    ssh_url, ssh_local_path = sshserver
+
+    test_path = ssh_local_path / 'file1.txt'
+    test_path.write_text('content')
+    test_url = f'{ssh_url}/file1.txt'
+
+    ops = SshUrlOperations()
+    props = ops.stat(test_url)
+    assert props['content-length'] == test_path.stat().st_size
+
+    test_path.unlink()
+    with pytest.raises(UrlOperationsResourceUnknown):
+        ops.stat(test_url)

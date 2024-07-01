@@ -179,6 +179,11 @@ class UrlOperations:
                timeout: float | None = None) -> Dict:
         """Upload from a local file or stream to a URL
 
+        Whenever possible, uploads are performed atomically This means that the
+        destination will never see a partially uploaded file. It will either
+        see the previous content (or nothing) or the newly uploaded content.
+        Note: this is not supported by all implementations of URL-operations.
+
         Parameters
         ----------
         from_path: Path or None
