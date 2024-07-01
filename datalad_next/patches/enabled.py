@@ -5,6 +5,7 @@ from . import (
     annexrepo,
     configuration,
     create_sibling_ghlike,
+    interface_base,
     interface_utils,
     push_to_export_remote,
     push_optimize,
