@@ -142,3 +142,16 @@ def test_header_adding():
     # ensure that `headers` did not change the stored headers
     result_2 = url_ops.get_headers()
     assert 'key_2' not in set(result_2)
+
+
+def test_delete_method(httpbin):
+    url_base = httpbin['standard']
+    url_ops = HttpUrlOperations()
+    url_ops.delete(f'{url_base}/delete', timeout=1.0)
+
+
+def test_delete_timeout(httpbin):
+    url_base = httpbin['standard']
+    url_ops = HttpUrlOperations()
+    with pytest.raises(TimeoutError):
+        url_ops.delete(f'{url_base}/delay/2', timeout=1.0)
