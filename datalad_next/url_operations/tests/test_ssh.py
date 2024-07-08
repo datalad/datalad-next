@@ -107,7 +107,7 @@ def test_ssh_url_upload_timeout(tmp_path, monkeypatch):
                 self.returncode = 0
 
             def start(self, *args, **kwargs):
-                print(args, kwargs)
+                pass
 
         return XShell()
 
