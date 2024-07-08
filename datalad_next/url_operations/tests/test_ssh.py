@@ -1,4 +1,5 @@
 import io
+import stat
 
 import pytest
 
@@ -153,9 +154,14 @@ def test_ssh_delete(sshserver):
 
     test_path = ssh_local_path / 'file1.txt'
     test_path.write_text('content')
+    test_path.chmod(stat.S_IRUSR)
+
     test_dir_path = ssh_local_path / 'dir1'
     test_dir_path.mkdir()
-    (test_dir_path / 'file2.txt').write_text('content 2')
+    test_in_dir_file = test_dir_path / 'file2.txt'
+    test_in_dir_file.write_text('content 2')
+    test_in_dir_file.chmod(stat.S_IRUSR)
+    test_dir_path.chmod(stat.S_IRUSR | stat.S_IXUSR)
 
     test_url = f'{ssh_url}/file1.txt'
     test_dir_url = f'{ssh_url}/dir1'
