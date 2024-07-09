@@ -152,7 +152,10 @@ class SshUrlOperations(UrlOperations):
         The target can be a file or a directory. `delete` will attempt to
         delete write protected targets (by setting write permissions). If
         the target is a directory, the complete directory and all its
-        content will be deleted.
+        content will be deleted. `delete` will not modify the permissions
+        of the parent of the target. That means, it will not delete a target
+        in a write protected directory, but it will empty target, if target is
+        a directory.
 
         See :meth:`datalad_next.url_operations.UrlOperations.delete`
         for parameter documentation and exception behavior.

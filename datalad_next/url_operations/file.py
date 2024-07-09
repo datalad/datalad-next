@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import random
+import stat
 import sys
 import time
 from io import IOBase
@@ -207,8 +208,13 @@ class FileUrlOperations(UrlOperations):
                timeout: float | None = None) -> Dict:
         """Delete the target of a file:// URL
 
-        The target can be a file or a directory. If it is a directory, it has
-        to be empty.
+        The target can be a file or a directory. `delete` will attempt to
+        delete write protected targets (by setting write permissions). If
+        the target is a directory, the complete directory and all its
+        content will be deleted. `delete` will not modify the permissions
+        of the parent of the target. That means, it will not delete a target
+        in a write protected directory, but it will empty target, if target is
+        a directory.
 
         See :meth:`datalad_next.url_operations.UrlOperations.delete`
         for parameter documentation and exception behavior.
@@ -220,19 +226,28 @@ class FileUrlOperations(UrlOperations):
         """
         path = self._file_url_to_path(url)
         try:
-            path.unlink()
+            if path.is_dir():
+                self._delete_dir(path)
+            else:
+                path.chmod(stat.S_IWUSR)
+                path.unlink()
         except FileNotFoundError as e:
             raise UrlOperationsResourceUnknown(url) from e
-        except IsADirectoryError:
-            try:
-                path.rmdir()
-            except Exception as e:
-                raise UrlOperationsRemoteError(url, message=str(e)) from e
         except Exception as e:
             # wrap this into the datalad-standard, but keep the
             # original exception linked
             raise UrlOperationsRemoteError(url, message=str(e)) from e
         return {}
+
+    def _delete_dir(self, path: Path):
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        for sub_path in path.iterdir():
+            if sub_path.is_dir():
+                self._delete_dir(sub_path)
+            else:
+                sub_path.chmod(stat.S_IWUSR)
+                sub_path.unlink()
+        path.rmdir()
 
     def _copyfp(self,
                 src_fp: IOBase | BinaryIO,

@@ -149,6 +149,7 @@ def test_ssh_stat(sshserver):
         ops.stat(test_url)
 
 
+@skip_if_on_windows
 def test_ssh_delete(sshserver):
     ssh_url, ssh_local_path = sshserver
 
