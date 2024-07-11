@@ -77,14 +77,15 @@ class SshUrlOperations(UrlOperations):
             context.__exit__(None, None, None)
 
     @staticmethod
-    def _check_return_code(return_code: int | None, url: str):
+    def _check_return_code(return_code: int | None, url: str, msg: str = ''):
         if return_code == 244:
             # this is the special code for a file-not-found
-            raise UrlOperationsResourceUnknown(url)
+            raise UrlOperationsResourceUnknown(url, message=msg)
         elif return_code != 0:
             raise UrlOperationsRemoteError(
                 url,
                 message=f'ssh command returned {return_code}'
+                + f': {msg}' if msg else ''
             )
 
     def ssh_shell_for(self,
@@ -138,8 +139,50 @@ class SshUrlOperations(UrlOperations):
         cmd = self.format_cmd(stat_cmd, url)
         ssh = self.ssh_shell_for(url)
         result = ssh(cmd)
-        self._check_return_code(result.returncode, url)
+        self._check_return_code(result.returncode, url, result.stderr.decode())
         return {'content-length': int(result.stdout)}
+
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Delete the target of a shh://-URL
+
+        The target can be a file or a directory. `delete` will attempt to
+        delete write protected targets (by setting write permissions). If
+        the target is a directory, the complete directory and all its
+        content will be deleted. `delete` will not modify the permissions
+        of the parent of the target. That means, it will not delete a target
+        in a write protected directory, but it will empty target, if target is
+        a directory.
+
+        See :meth:`datalad_next.url_operations.UrlOperations.delete`
+        for parameter documentation and exception behavior.
+
+        Raises
+        ------
+        UrlOperationsResourceUnknown
+          For deletion targets found absent.
+        """
+
+        delete_cmd = """
+            ret() {{ return $1; }}
+            if [ -f {fpath} ]; then
+                chmod u+w {fpath}
+                rm -f {fpath}
+            elif [ -d {fpath} ]; then
+                chmod -R u+wx {fpath}
+                rm -rf {fpath}
+            else
+                ret 244
+            fi"""
+
+        cmd = self.format_cmd(delete_cmd, url)
+        ssh = self.ssh_shell_for(url)
+        result = ssh(cmd)
+        self._check_return_code(result.returncode, url, result.stderr.decode())
+        return {}
 
     def download(self,
                  from_url: str,
@@ -206,7 +249,11 @@ class SshUrlOperations(UrlOperations):
         if dst_fp and to_path is not None:
             dst_fp.close()
 
-        self._check_return_code(result_generator.returncode, from_url)
+        self._check_return_code(
+            result_generator.returncode,
+            from_url,
+            ''.join(result_generator.stderr_deque)
+        )
 
         return {
             **stat,
@@ -340,7 +387,11 @@ class SshUrlOperations(UrlOperations):
             # stdin of the shell was closed, it cannot be used anymore.
             self.close_shell_for(to_url)
 
-        self._check_return_code(result_generator.returncode, to_url)
+        self._check_return_code(
+            result_generator.returncode,
+            to_url,
+            ''.join(result_generator.stderr_deque)
+        )
 
         return {
             **hasher.get_hexdigest(),

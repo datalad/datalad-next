@@ -63,6 +63,21 @@ class HttpUrlOperations(UrlOperations):
             hdrs.update(headers)
         return hdrs
 
+    def _check_status(self, response, url):
+        try:
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            # wrap this into the datalad-standard, but keep the
+            # original exception linked
+            if e.response.status_code == 404:
+                # special case reporting for a 404
+                raise UrlOperationsResourceUnknown(
+                    url, status_code=e.response.status_code) from e
+            else:
+                raise UrlOperationsRemoteError(
+                    url, message=str(e), status_code=e.response.status_code
+                ) from e
+
     def stat(self,
              url: str,
              *,
@@ -79,6 +94,7 @@ class HttpUrlOperations(UrlOperations):
           For access targets found absent.
         """
         auth = DataladAuth(self.cfg, credential=credential)
+        props: Dict[str, str | int]
         with requests.head(
                 url,
                 headers=self.get_headers(),
@@ -89,19 +105,7 @@ class HttpUrlOperations(UrlOperations):
                 allow_redirects=True,
         ) as r:
             # fail visible for any non-OK outcome
-            try:
-                r.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                # wrap this into the datalad-standard, but keep the
-                # original exception linked
-                if e.response.status_code == 404:
-                    # special case reporting for a 404
-                    raise UrlOperationsResourceUnknown(
-                        url, status_code=e.response.status_code) from e
-                else:
-                    raise UrlOperationsRemoteError(
-                        url, message=str(e), status_code=e.response.status_code
-                        ) from e
+            self._check_status(r, url)
             props = {
                 # standardize on lower-case header keys.
                 # also prefix anything other than 'content-length' to make
@@ -122,6 +126,32 @@ class HttpUrlOperations(UrlOperations):
                 # but be reasonably robust against unexpected responses
                 pass
         return props
+
+    def delete(self,
+               url: str,
+               *,
+               credential: str | None = None,
+               timeout: float | None = None) -> Dict:
+        """Delete the target of a http(s)://-URL
+
+        """
+        auth = DataladAuth(self.cfg, credential=credential)
+        try:
+            with requests.delete(
+                    url=url,
+                    stream=True,
+                    headers=self.get_headers(),
+                    auth=auth,
+                    timeout=timeout,
+            ) as r:
+                # fail visible for any non-OK outcome
+                self._check_status(r, url)
+        except requests.exceptions.ReadTimeout as e:
+            raise TimeoutError(f"Timeout while deleting {url}") from e
+        auth.save_entered_credential(
+            context=f'download from {url}'
+        )
+        return {}
 
     def download(self,
                  from_url: str,
@@ -151,20 +181,7 @@ class HttpUrlOperations(UrlOperations):
                 auth=auth,
         ) as r:
             # fail visible for any non-OK outcome
-            try:
-                r.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                # wrap this into the datalad-standard, but keep the
-                # original exception linked
-                if e.response.status_code == 404:
-                    # special case reporting for a 404
-                    raise UrlOperationsResourceUnknown(
-                        from_url, status_code=e.response.status_code) from e
-                else:
-                    raise UrlOperationsRemoteError(
-                        from_url, message=str(e), status_code=e.response.status_code
-                        ) from e
-
+            self._check_status(r, from_url)
             download_props = self._stream_download_from_request(
                 r, to_path, hash=hash)
         auth.save_entered_credential(

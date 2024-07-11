@@ -1,9 +1,10 @@
 import io
+import stat
+
 import pytest
 import sys
 
 from datalad_next.tests import skip_if_on_windows
-from datalad_next.utils import on_linux
 
 from ..file import (
     FileUrlOperations,
@@ -70,36 +71,44 @@ def test_file_url_upload(tmp_path, monkeypatch):
 
     # TODO test missing write permissions
 
+
 def test_file_url_delete(tmp_path):
     payload = 'payload'
-    test_path = tmp_path / 'subdir' / 'myfile'
-    test_path.parent.mkdir()
+    test_dir_path = tmp_path / 'subdir'
+    test_path = test_dir_path / 'myfile'
+
+    test_dir_path.mkdir()
     test_url = test_path.as_uri()
+    test_dir_url = test_dir_path.as_uri()
     ops = FileUrlOperations()
+
     # missing file
     with pytest.raises(UrlOperationsResourceUnknown):
         ops.delete(test_url)
 
-    # place file
+    # place file and write protect
     test_path.write_text(payload)
     assert test_path.read_text() == payload
-    # try deleting a non-empty dir
-    with pytest.raises(UrlOperationsRemoteError):
-        ops.delete(test_path.parent.as_uri())
-
+    test_path.chmod(stat.S_IRUSR)
     # file deletion works
     ops.delete(test_url)
     assert not test_path.exists()
 
-    # both windows and mac give incomprehensible AccessDenied
-    # errors on appveyor, although the directory is confirmed
-    # to be empty
-    if on_linux:
-        # empty dir deletion works too
-        # confirm it is indeed empty
-        assert not list(test_path.parent.iterdir())
-        ops.delete(test_path.parent.as_uri())
-        assert not test_path.parent.exists()
+    # place file again protect directory and file
+    test_path.write_text(payload)
+    assert test_path.read_text() == payload
+    test_dir_path.chmod(stat.S_IXUSR | stat.S_IRUSR)
+    test_path.chmod(stat.S_IRUSR)
+    # non-empty directory deletion works
+    ops.delete(test_dir_url)
+    assert not test_dir_path.exists()
+
+    # create empty, write-protected dir
+    assert not test_dir_path.exists()
+    test_dir_path.mkdir()
+    test_dir_path.chmod(stat.S_IXUSR | stat.S_IRUSR)
+    ops.delete(test_dir_url)
+    assert not test_dir_path.exists()
 
 
 @skip_if_on_windows
