@@ -103,8 +103,11 @@ def decode_bytes(
         else:
             return (
                 position + exc.end,
-                joined_data[:position + exc.end].decode(
-                    encoding, errors='backslashreplace')
+                joined_data[position:position + exc.start].decode(encoding)
+                + joined_data[position + exc.start:position + exc.end].decode(
+                    encoding,
+                    errors='backslashreplace'
+                ),
             )
 
     joined_data = b''

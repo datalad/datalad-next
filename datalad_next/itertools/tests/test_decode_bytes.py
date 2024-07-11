@@ -35,3 +35,8 @@ def test_no_empty_strings():
     # check that empty strings are not yielded
     r = tuple(decode_bytes([b'\xc3', b'\xb6']))
     assert r == ('ö',)
+
+
+def test_multiple_errors():
+    r = ''.join(decode_bytes([b'08 War \xaf No \xaf More \xaf Trouble.shn.mp3']))
+    assert r == '08 War \\xaf No \\xaf More \\xaf Trouble.shn.mp3'
