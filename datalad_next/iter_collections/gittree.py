@@ -141,10 +141,8 @@ def _git_ls_tree(path: Path, *args) -> Iterator[str]:
             ],
             cwd=path,
     ) as r:
-        yield from decode_bytes(
-            itemize(
-                r,
-                sep=b'\0',
-                keep_ends=False,
-            )
+        yield from itemize(
+            decode_bytes(r),
+            sep='\0',
+            keep_ends=False,
         )

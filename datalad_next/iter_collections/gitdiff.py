@@ -497,10 +497,8 @@ def _mangle_item_for_singledir(
 
 def _git_diff_something(path: Path, args: List[str]) -> Iterator[str]:
     with iter_git_subproc([*args], cwd=path) as r:
-        yield from decode_bytes(
-            itemize(
-                r,
-                sep=b'\0',
-                keep_ends=False,
-            )
+        yield from itemize(
+            decode_bytes(r),
+            sep='\0',
+            keep_ends=False,
         )
