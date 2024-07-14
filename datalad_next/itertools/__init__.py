@@ -1,27 +1,28 @@
 """Various iterators, e.g., for subprocess pipelining and output processing
 
-.. currentmodule:: datalad_next.itertools
-.. autosummary::
-   :toctree: generated
+.. deprecated:: 1.6
 
-    align_pattern
-    decode_bytes
-    itemize
-    load_json
-    load_json_with_flag
-    route_out
-    route_in
+   This code has been moved to the datasalad library.
+   Use it from ``datasalad.itertools`` instead.
 """
 
+__all__ = [
+    'align_pattern',
+    'decode_bytes',
+    'itemize',
+    'load_json',
+    'load_json_with_flag',
+    'StoreOnly',
+    'route_in',
+    'route_out',
+]
 
-from .align_pattern import align_pattern
-from .decode_bytes import decode_bytes
-from .itemize import itemize
-from .load_json import (
+from datasalad.itertools import (
+    align_pattern,
+    decode_bytes,
+    itemize,
     load_json,
     load_json_with_flag,
-)
-from .reroute import (
     route_in,
     route_out,
     StoreOnly,

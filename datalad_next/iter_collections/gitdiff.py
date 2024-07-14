@@ -17,15 +17,15 @@ from typing import (
     List,
     Generator,
 )
+from datasalad.itertools import (
+    decode_bytes,
+    itemize,
+)
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.runners import (
     CommandError,
     iter_git_subproc,
-)
-from datalad_next.itertools import (
-    decode_bytes,
-    itemize,
 )
 from datalad_next.runners import (
     call_git,
