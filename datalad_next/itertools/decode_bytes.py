@@ -119,6 +119,10 @@ def decode_bytes(
             try:
                 yield joined_data[position:].decode(encoding)
                 joined_data = b''
+                # must reset the pointer for successful decoded
+                # parts too, otherwise we start too far into a new chunk's
+                # content
+                position = 0
             except UnicodeDecodeError as e:
                 # If an encoding error occurs, we first check whether it was
                 # in the middle of `joined_data` or whether it extends until the

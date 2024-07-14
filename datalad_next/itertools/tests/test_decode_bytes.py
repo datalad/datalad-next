@@ -40,3 +40,10 @@ def test_no_empty_strings():
 def test_multiple_errors():
     r = ''.join(decode_bytes([b'08 War \xaf No \xaf More \xaf Trouble.shn.mp3']))
     assert r == '08 War \\xaf No \\xaf More \\xaf Trouble.shn.mp3'
+
+
+def test_error_chunks():
+    # this verifies that error handling in a previous chunk does not
+    # cause data loss in a subsequent chunk
+    r = ''.join(decode_bytes([b'08 War \xaf No', b'1234567890']))
+    assert r == '08 War \\xaf No1234567890'
