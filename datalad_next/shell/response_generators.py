@@ -10,7 +10,7 @@ from collections.abc import Generator
 from random import randint
 
 from datasalad.iterable_subprocess.iterable_subprocess import OutputFrom
-from datalad_next.itertools import align_pattern
+from datasalad.itertools import align_pattern
 
 
 __all__ = [

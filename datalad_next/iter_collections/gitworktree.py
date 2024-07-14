@@ -18,12 +18,12 @@ from typing import (
     Generator,
     Tuple,
 )
-
-from datalad_next.runners import iter_git_subproc
-from datalad_next.itertools import (
+from datasalad.itertools import (
     decode_bytes,
     itemize,
 )
+
+from datalad_next.runners import iter_git_subproc
 from datalad_next.gitpathspec import GitPathSpecs
 from .utils import (
     FileSystemItem,

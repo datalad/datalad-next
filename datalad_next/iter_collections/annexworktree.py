@@ -19,15 +19,15 @@ from typing import (
     Any,
     Generator,
 )
-
-from datalad_next.consts import on_windows
-from datalad_next.itertools import (
+from datasalad.itertools import (
     itemize,
     load_json,
     route_in,
     route_out,
     StoreOnly,
 )
+
+from datalad_next.consts import on_windows
 from datalad_next.repo_utils import has_initialized_annex
 from datalad_next.runners import iter_git_subproc
 
