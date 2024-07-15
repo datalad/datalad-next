@@ -2,6 +2,7 @@ from pathlib import PurePosixPath
 import pytest
 import shutil
 
+from datalad_next.consts import PRE_INIT_COMMIT_SHA
 from datalad_next.utils import rmtree
 
 from ..gitdiff import (
@@ -323,3 +324,31 @@ def test_iter_gitdiff_rec(existing_dataset, no_result_rendering):
     assert diff == list(iter_gitdiff(*status_args, recursive='submodules'))
     # use the opportunity to check equality of recursive='all' for this case
     assert diff == list(iter_gitdiff(*status_args, recursive='all'))
+
+
+def test_iter_gitdiff_multilvl_rec(existing_dataset, no_result_rendering):
+    ds = existing_dataset
+    s1 = ds.create('sublvl1')
+    s1.create('sublvl2')
+    ds.save()
+    dsp = ds.pathobj
+
+    diff = list(iter_gitdiff(
+        path=dsp,
+        from_treeish=PRE_INIT_COMMIT_SHA,
+        to_treeish=ds.repo.get_corresponding_branch() or 'HEAD',
+        # check that we get full repo content from all submodules
+        recursive='submodules',
+        # check that the container item flags are passed into the
+        # recursion properly
+        yield_tree_items='submodules',
+    ))
+    for repo in ('sublvl1', 'sublvl1/sublvl2'):
+        assert any(
+            d.name == repo and d.gittype == GitTreeItemType.submodule
+            for d in diff)
+    for base in ('', 'sublvl1/', 'sublvl1/sublvl2/'):
+        assert any(
+            d.name == f'{base}.datalad/config' \
+            and d.gittype == GitTreeItemType.file
+            for d in diff)
