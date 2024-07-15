@@ -308,7 +308,7 @@ def _yield_repo_items(
         return
 
     # lastly untracked files of this repo
-    for item in iter_gitworktree(
+    for untracked_item in iter_gitworktree(
         path=path,
         untracked=_untracked_mode_map[untracked],
         link_target=False,
@@ -316,9 +316,9 @@ def _yield_repo_items(
         recursive='repository',
     ):
         yield GitDiffItem(
-            name=item.name.as_posix(),
+            name=untracked_item.name.as_posix(),
             status=GitDiffStatus.other,
-            gittype=item.gittype,
+            gittype=untracked_item.gittype,
         )
 
 
