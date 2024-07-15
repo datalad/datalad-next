@@ -452,6 +452,8 @@ def _yield_diff_item(
                     # when comparing the parent to the worktree, we
                     # also want to compare any children to the worktree
                     to_treeish=None if to_treeish is None else item.gitsha,
+                    recursive=recursive,
+                    yield_tree_items=yield_tree_items,
                 )
             ):
                 # prepend any item name with the parent items
