@@ -4,6 +4,7 @@ The main functionality is provided by the :func:`iter_gitdiff()` function.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
@@ -420,10 +421,17 @@ def _yield_diff_item(
             #    # this modification means that "content" is modified
             #    item.add_modification_type(
             #        GitContainerModificationType.modified_content)
-        if recursive != 'submodules' or yield_tree_items in (
-                'all', 'submodules'):
-            # we are instructed to yield it
+        if recursive != 'submodules':
+            # no submodule recursion, we can yield this submodule item
+            # directly
             yield item
+            return
+        if yield_tree_items in (
+                'all', 'submodules'):
+            # we are instructed to yield this submodule item, but we are going
+            # to recurse into it, continuing to use the item instance for
+            # queries. Hence we yield a copy here to avoid data corruption
+            yield deepcopy(item)
         if recursive == 'submodules':
             # I believe we need no protection against absent submodules.
             # The only way they can appear here is a reported modification.
