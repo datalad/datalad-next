@@ -399,7 +399,9 @@ def _yield_diff_item(
         single_dir: bool,
         reported_dirs: set,
         yield_tree_items: str | None,
-        **kwargs
+        find_renames: int | None,
+        find_copies: int | None,
+        eval_submodule_state: str,
 ) -> Generator[GitDiffItem, None, None]:
     item = _get_diff_item(spec)
 
@@ -463,21 +465,22 @@ def _yield_diff_item(
         # -- a condition that is caught above
         for i in iter_gitdiff(
             cwd / PurePosixPath(item.name),
-            **dict(
-                kwargs,
-                # we never want to pass None here
-                # if `prev_gitsha` is None, it means that the
-                # submodule record is new, and we want its full
-                # content reported. Passing None, however,
-                # would only report the change to the current
-                # state.
-                from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
-                # when comparing the parent to the worktree, we
-                # also want to compare any children to the worktree
-                to_treeish=None if to_treeish is None else item.gitsha,
-                recursive=recursive,
-                yield_tree_items=yield_tree_items,
-            )
+            # we never want to pass None here
+            # if `prev_gitsha` is None, it means that the
+            # submodule record is new, and we want its full
+            # content reported. Passing None, however,
+            # would only report the change to the current
+            # state.
+            from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
+            # when comparing the parent to the worktree, we
+            # also want to compare any children to the worktree
+            to_treeish=None if to_treeish is None else item.gitsha,
+            # pass on the common args
+            recursive=recursive,
+            yield_tree_items=yield_tree_items,
+            find_renames=find_renames,
+            find_copies=find_copies,
+            eval_submodule_state=eval_submodule_state,
         ):
             # prepend any item name with the parent items
             # name
