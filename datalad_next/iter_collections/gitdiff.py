@@ -127,7 +127,6 @@ def iter_gitdiff(
     find_renames: int | None = None,
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
-    # TODO add documentation
     eval_submodule_state: str = 'full',
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
@@ -197,6 +196,13 @@ def iter_gitdiff(
       will still be reported whenever there is no recursion into them.
       For example, submodule items are reported when
       ``recursive='repository``, even when ``yield_tree_items=None``.
+    eval_submodule_state: {"no", "commit", "full"}, optional
+      If 'full' (default), the state of a submodule is evaluated by
+      considering all modifications ('--ignore-submodules=none').
+      If 'commit', the modification check is restricted to comparing the
+      submodule's "HEAD" commit to the one recorded in the superdataset
+      ('--ignore-submodules=dirty'). If 'no', the state of the subdataset is
+      not evaluated ('--ignore-submodules=all').
 
     Yields
     ------
