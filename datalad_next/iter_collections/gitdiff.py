@@ -216,7 +216,29 @@ def iter_gitdiff(
     # forget/ignore and leads to non-obvious errors. Running this once is
     # a cheap safety net
     path = Path(path)
+    yield from _iter_gitdiff(
+        path=path,
+        from_treeish=from_treeish,
+        to_treeish=to_treeish,
+        recursive=recursive,
+        find_renames=find_renames,
+        find_copies=find_copies,
+        yield_tree_items=yield_tree_items,
+        eval_submodule_state=eval_submodule_state,
+    )
 
+
+def _iter_gitdiff(
+    path: Path,
+    from_treeish: str | None,
+    to_treeish: str | None,
+    *,
+    recursive: str,
+    find_renames: int | None,
+    find_copies: int | None,
+    yield_tree_items: str | None,
+    eval_submodule_state: str,
+) -> Generator[GitDiffItem, None, None]:
     cmd = _build_cmd(
         from_treeish=from_treeish,
         to_treeish=to_treeish,
