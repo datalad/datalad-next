@@ -357,18 +357,7 @@ def _build_cmd(
     return cmd
 
 
-def _yield_diff_item(
-        *,
-        cwd: Path,
-        recursive: str,
-        from_treeish: str | None,
-        to_treeish: str | None,
-        spec: list,
-        single_dir: bool,
-        reported_dirs: set,
-        yield_tree_items: str | None,
-        **kwargs
-) -> Generator[GitDiffItem, None, None]:
+def _get_diff_item(spec: list) -> GitDiffItem:
     props: dict[str, str | int | GitTreeItemType] = {}
     props.update(
         (k, _mode_type_map.get(v, None))
@@ -392,10 +381,22 @@ def _yield_diff_item(
         props['prev_name'] = spec[5]
         props['name'] = spec[6] if len(spec) > 6 else spec[5]
 
-    # at this point we know all about the item
-    # conversion should be cheap, so let's do this here
-    # and get a bit neater code for the rest of this function
-    item = GitDiffItem(**props)
+    return GitDiffItem(**props)
+
+
+def _yield_diff_item(
+        *,
+        cwd: Path,
+        recursive: str,
+        from_treeish: str | None,
+        to_treeish: str | None,
+        spec: list,
+        single_dir: bool,
+        reported_dirs: set,
+        yield_tree_items: str | None,
+        **kwargs
+) -> Generator[GitDiffItem, None, None]:
+    item = _get_diff_item(spec)
 
     if not single_dir:
         if item.gittype != GitTreeItemType.submodule:
@@ -450,7 +451,7 @@ def _yield_diff_item(
                 yield i
         return
 
-    name = props['name'] or props['prev_name']
+    name = item.name or item.prev_name
     # we cannot have items that have no name whatsoever
     assert name is not None
     # we decide on mangling the actual report to be on the containing directory
