@@ -463,7 +463,7 @@ def _build_cmd(
 def _get_diff_item(spec: list[str]) -> GitDiffItem:
     # this type annotation is a crutch, we'd really need
     # https://peps.python.org/pep-0692/ to do this properly
-    props: dict[str, str | int | GitTreeItemType] = {}
+    props: dict[str, str | int | GitTreeItemType | GitDiffStatus | None] = {}
     props.update(
         (k, _mode_type_map.get(v, None))
         for k, v in (('prev_gittype', spec[0]),
