@@ -357,7 +357,9 @@ def _build_cmd(
     return cmd
 
 
-def _get_diff_item(spec: list) -> GitDiffItem:
+def _get_diff_item(spec: list[str]) -> GitDiffItem:
+    # this type annotation is a crutch, we'd really need
+    # https://peps.python.org/pep-0692/ to do this properly
     props: dict[str, str | int | GitTreeItemType] = {}
     props.update(
         (k, _mode_type_map.get(v, None))
@@ -381,7 +383,9 @@ def _get_diff_item(spec: list) -> GitDiffItem:
         props['prev_name'] = spec[5]
         props['name'] = spec[6] if len(spec) > 6 else spec[5]
 
-    return GitDiffItem(**props)
+    # disable type checking here, we need
+    # https://peps.python.org/pep-0692/ to do this properly
+    return GitDiffItem(**props)  # type: ignore
 
 
 def _yield_diff_item(
