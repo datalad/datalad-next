@@ -287,10 +287,13 @@ def iter_gitdiff(
 
 def _build_cmd(
     *,
-    from_treeish, to_treeish,
-    recursive, yield_tree_items,
-    find_renames, find_copies,
-    eval_submodule_state,
+    from_treeish: str | None,
+    to_treeish: str | None,
+    recursive: str,
+    find_renames: int | None,
+    find_copies: int | None,
+    yield_tree_items: str | None,
+    eval_submodule_state: str,
 ) -> list[str]:
     # from   : to   : description
     # ---------------------------
@@ -333,6 +336,7 @@ def _build_cmd(
         raise ValueError(
             'either `from_treeish` or `to_treeish` must not be None')
     elif to_treeish is None:
+        assert from_treeish is not None
         cmd = ['diff-index', *common_args, from_treeish]
     else:
         # diff NOT against the working tree
