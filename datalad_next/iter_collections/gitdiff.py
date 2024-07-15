@@ -210,9 +210,7 @@ def iter_gitdiff(
     # a cheap safety net
     path = Path(path)
 
-    # put most args in a container, we need to pass then around quite
-    # a bit
-    kwargs = dict(
+    cmd = _build_cmd(
         from_treeish=from_treeish,
         to_treeish=to_treeish,
         recursive=recursive,
@@ -221,8 +219,6 @@ def iter_gitdiff(
         yield_tree_items=yield_tree_items,
         eval_submodule_state=eval_submodule_state,
     )
-
-    cmd = _build_cmd(**kwargs)
 
     if cmd[0] == 'diff-index':
         # when we compare to the index, we need a refresh run to not have
@@ -258,7 +254,13 @@ def iter_gitdiff(
                 single_dir=_single_dir,
                 spec=pending_props,
                 reported_dirs=reported_dirs,
-                **kwargs
+                from_treeish=from_treeish,
+                to_treeish=to_treeish,
+                recursive=recursive,
+                find_renames=find_renames,
+                find_copies=find_copies,
+                yield_tree_items=yield_tree_items,
+                eval_submodule_state=eval_submodule_state,
             )
             pending_props = None
         elif line.startswith(':'):
@@ -273,7 +275,13 @@ def iter_gitdiff(
             single_dir=_single_dir,
             spec=pending_props,
             reported_dirs=reported_dirs,
-            **kwargs
+            from_treeish=from_treeish,
+            to_treeish=to_treeish,
+            recursive=recursive,
+            find_renames=find_renames,
+            find_copies=find_copies,
+            yield_tree_items=yield_tree_items,
+            eval_submodule_state=eval_submodule_state,
         )
 
 
