@@ -341,7 +341,7 @@ def _build_cmd(
     else:
         # diff NOT against the working tree
         cmd = ['diff-tree', *common_args]
-        if recursive == 'repository':
+        if recursive in ('repository', 'submodules'):
             cmd.append('-r')
             if yield_tree_items in ('all', 'directories'):
                 cmd.append('-t')
