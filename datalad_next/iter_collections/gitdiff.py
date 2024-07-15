@@ -403,85 +403,90 @@ def _yield_diff_item(
 ) -> Generator[GitDiffItem, None, None]:
     item = _get_diff_item(spec)
 
-    if not single_dir:
-        if item.gittype != GitTreeItemType.submodule:
+    if single_dir:
+        # handle the special case of reporting only on the 1st-level
+        # containing directory of an item.
+        name = item.name or item.prev_name
+        # we cannot have items that have no name whatsoever
+        assert name is not None
+        # we decide on mangling the actual report to be on the containing
+        # directory only, or to withhold it entirely
+        dname_l = name.split('/', maxsplit=1)
+        if len(dname_l) < 2:
+            # nothing in a subdirectory
             yield item
             return
-        # this is about a present submodule
-        if item.status == GitDiffStatus.modification:
-            if item.gitsha is None:
-                # in 'git diff-index' speak the submodule is "out-of-sync" with
-                # the index: this happens when there are new commits
-                item.add_modification_type(
-                    GitContainerModificationType.new_commits)
-            # TODO we cannot give details for other modification types.
-            # depending on --ignore-submodules a range of situations
-            # could be the case
-            #else:
-            #    # this modification means that "content" is modified
-            #    item.add_modification_type(
-            #        GitContainerModificationType.modified_content)
-        if recursive != 'submodules':
-            # no submodule recursion, we can yield this submodule item
-            # directly
-            yield item
+        dname = dname_l[0]
+        if dname in reported_dirs:
+            # nothing else todo, we already reported
             return
-        if yield_tree_items in (
-                'all', 'submodules'):
-            # we are instructed to yield this submodule item, but we are going
-            # to recurse into it, continuing to use the item instance for
-            # queries. Hence we yield a copy here to avoid data corruption
-            yield deepcopy(item)
-        if recursive == 'submodules':
-            # I believe we need no protection against absent submodules.
-            # The only way they can appear here is a reported modification.
-            # The only modification that is possible with an absent submodule
-            # is a deletion. And that would cause the item.gittype to be None
-            # -- a condition that is caught above
-            for i in iter_gitdiff(
-                cwd / PurePosixPath(item.name),
-                **dict(
-                    kwargs,
-                    # we never want to pass None here
-                    # if `prev_gitsha` is None, it means that the
-                    # submodule record is new, and we want its full
-                    # content reported. Passing None, however,
-                    # would only report the change to the current
-                    # state.
-                    from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
-                    # when comparing the parent to the worktree, we
-                    # also want to compare any children to the worktree
-                    to_treeish=None if to_treeish is None else item.gitsha,
-                    recursive=recursive,
-                    yield_tree_items=yield_tree_items,
-                )
-            ):
-                # prepend any item name with the parent items
-                # name
-                for attr in ('name', 'prev_name'):
-                    val = getattr(i, attr)
-                    if val is not None:
-                        setattr(i, attr, f'{item.name}/{val}')
-                yield i
+
+        reported_dirs.add(dname)
+        yield _mangle_item_for_singledir(item, dname, from_treeish, cwd)
         return
 
-    name = item.name or item.prev_name
-    # we cannot have items that have no name whatsoever
-    assert name is not None
-    # we decide on mangling the actual report to be on the containing directory
-    # only, or to withhold it entirely
-    dname_l = name.split('/', maxsplit=1)
-    if len(dname_l) < 2:
-        # nothing in a subdirectory
+    if item.gittype != GitTreeItemType.submodule:
+        # any non-submodule item can be yielded now and we are done here
         yield item
         return
-    dname = dname_l[0]
-    if dname in reported_dirs:
-        # nothing else todo, we already reported
-        return
 
-    reported_dirs.add(dname)
-    yield _mangle_item_for_singledir(item, dname, from_treeish, cwd)
+    # this is about a present submodule
+    if item.status == GitDiffStatus.modification:
+        if item.gitsha is None:
+            # in 'git diff-index' speak the submodule is "out-of-sync" with
+            # the index: this happens when there are new commits
+            item.add_modification_type(
+                GitContainerModificationType.new_commits)
+        # TODO we cannot give details for other modification types.
+        # depending on --ignore-submodules a range of situations
+        # could be the case
+        #else:
+        #    # this modification means that "content" is modified
+        #    item.add_modification_type(
+        #        GitContainerModificationType.modified_content)
+    if recursive != 'submodules':
+        # no submodule recursion, we can yield this submodule item
+        # directly
+        yield item
+        return
+    if yield_tree_items in (
+            'all', 'submodules'):
+        # we are instructed to yield this submodule item, but we are going
+        # to recurse into it, continuing to use the item instance for
+        # queries. Hence we yield a copy here to avoid data corruption
+        yield deepcopy(item)
+    if recursive == 'submodules':
+        # I believe we need no protection against absent submodules.
+        # The only way they can appear here is a reported modification.
+        # The only modification that is possible with an absent submodule
+        # is a deletion. And that would cause the item.gittype to be None
+        # -- a condition that is caught above
+        for i in iter_gitdiff(
+            cwd / PurePosixPath(item.name),
+            **dict(
+                kwargs,
+                # we never want to pass None here
+                # if `prev_gitsha` is None, it means that the
+                # submodule record is new, and we want its full
+                # content reported. Passing None, however,
+                # would only report the change to the current
+                # state.
+                from_treeish=item.prev_gitsha or PRE_INIT_COMMIT_SHA,
+                # when comparing the parent to the worktree, we
+                # also want to compare any children to the worktree
+                to_treeish=None if to_treeish is None else item.gitsha,
+                recursive=recursive,
+                yield_tree_items=yield_tree_items,
+            )
+        ):
+            # prepend any item name with the parent items
+            # name
+            for attr in ('name', 'prev_name'):
+                val = getattr(i, attr)
+                if val is not None:
+                    setattr(i, attr, f'{item.name}/{val}')
+            yield i
+    return
 
 
 def _mangle_item_for_singledir(
