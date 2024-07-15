@@ -233,7 +233,7 @@ def iter_gitdiff(
     # a cheap safety net
     path = Path(path)
     _pathspecs = GitPathSpecs(pathspecs)
-    processed_submodules: set[PurePosixPath] = set()
+    processed_submodules: set[str] = set()
 
     for item in _iter_gitdiff(
         path=path,
@@ -251,7 +251,7 @@ def iter_gitdiff(
         # itself it not around, only its record in the parent
         if recursive == 'submodules' \
                 and item.gittype == GitTreeItemType.submodule \
-                and not item.name == PurePosixPath('.'):
+                and not item.name == '.':
             # mark as processed immediately, independent of whether anything
             # need to be reported
             processed_submodules.add(item.name)
