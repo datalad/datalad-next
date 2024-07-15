@@ -333,15 +333,18 @@ def test_iter_gitdiff_multilvl_rec(existing_dataset, no_result_rendering):
     ds.save()
     dsp = ds.pathobj
 
-    diff = list(iter_gitdiff(
+    common_args = dict(
         path=dsp,
         from_treeish=PRE_INIT_COMMIT_SHA,
         to_treeish=ds.repo.get_corresponding_branch() or 'HEAD',
+    )
+    diff = list(iter_gitdiff(
         # check that we get full repo content from all submodules
         recursive='submodules',
         # check that the container item flags are passed into the
         # recursion properly
         yield_tree_items='submodules',
+        **common_args
     ))
     for repo in ('sublvl1', 'sublvl1/sublvl2'):
         assert any(
@@ -352,3 +355,17 @@ def test_iter_gitdiff_multilvl_rec(existing_dataset, no_result_rendering):
             d.name == f'{base}.datalad/config' \
             and d.gittype == GitTreeItemType.file
             for d in diff)
+
+    # try with very simple pathspec constraint, where the pathspec
+    # itself does not match the submodules that contain the
+    # matches
+    diff = list(iter_gitdiff(
+        pathspecs=[':(glob)**/config'],
+        recursive='submodules',
+        **common_args
+    ))
+    assert len(diff) == 3
+    assert all(
+        d.name.endswith('config') and d.gittype == GitTreeItemType.file
+        for d in diff
+    )

@@ -24,6 +24,7 @@ from datasalad.itertools import (
 )
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
+from datalad_next.gitpathspec import GitPathSpecs
 from datalad_next.runners import (
     CommandError,
     iter_git_subproc,
@@ -128,6 +129,7 @@ def iter_gitdiff(
     find_copies: int | None = None,
     yield_tree_items: str | None = None,
     eval_submodule_state: str = 'full',
+    pathspecs: list[str] | GitPathSpecs | None = None,
 ) -> Generator[GitDiffItem, None, None]:
     """Report differences between Git tree-ishes or tracked worktree content
 
@@ -203,6 +205,20 @@ def iter_gitdiff(
       submodule's "HEAD" commit to the one recorded in the superdataset
       ('--ignore-submodules=dirty'). If 'no', the state of the subdataset is
       not evaluated ('--ignore-submodules=all').
+    pathspecs: optional
+      Patterns used to limit results to particular paths. Any pathspecs
+      supported by Git can be used and are passed to the underlying ``git
+      ls-files`` queries. Pathspecs are also supported for recursive reporting
+      on submodules. In such a case, the results match those of individual
+      queries with analog pathspecs on the respective submodules (Git itself
+      does not support pathspecs for submodule-recursive operations).  For
+      example, a ``submodule`` recursion with a pathspec ``*.jpg`` will yield
+      reports on all JPG files in all submodules, even though a submodule path
+      itself does not match ``*.jpg``.  On the other hand, a pathspec
+      ``submoddir/*.jpg`` will only report on JPG files in the submodule at
+      ``submoddir/``, but on all JPG files in that submodule.
+      As of version 1.5, the pathspec support for submodule recursion is
+      preliminary and results should be carefully investigated.
 
     Yields
     ------
@@ -216,7 +232,10 @@ def iter_gitdiff(
     # forget/ignore and leads to non-obvious errors. Running this once is
     # a cheap safety net
     path = Path(path)
-    yield from _iter_gitdiff(
+    _pathspecs = GitPathSpecs(pathspecs)
+    processed_submodules: set[PurePosixPath] = set()
+
+    for item in _iter_gitdiff(
         path=path,
         from_treeish=from_treeish,
         to_treeish=to_treeish,
@@ -225,7 +244,55 @@ def iter_gitdiff(
         find_copies=find_copies,
         yield_tree_items=yield_tree_items,
         eval_submodule_state=eval_submodule_state,
-    )
+        pathspecs=_pathspecs,
+    ):
+        # exclude non-submodules, or a submodule that was found at
+        # the root path -- which would indicate that the submodule
+        # itself it not around, only its record in the parent
+        if recursive == 'submodules' \
+                and item.gittype == GitTreeItemType.submodule \
+                and not item.name == PurePosixPath('.'):
+            # mark as processed immediately, independent of whether anything
+            # need to be reported
+            processed_submodules.add(item.name)
+        yield item
+
+    # we may need to loop over the (remaining) submodules, because
+    # with pathspecs there is a chance that a given pathspec set did not
+    # match a submodule (directly) that could have content that matches a
+    # pathspec
+    if recursive == 'submodules' and _pathspecs:
+        for item in _iter_gitdiff(
+            path=path,
+            from_treeish=from_treeish,
+            to_treeish=to_treeish,
+            # no need to double-recurse, we just need to discover all
+            # submodules in the diff unconstrained by pathspecs
+            recursive='repository',
+            find_renames=None,
+            find_copies=None,
+            yield_tree_items=None,
+            # we need to look at the recorded commit to get submodule
+            # reports at all
+            eval_submodule_state='commit',
+            pathspecs=GitPathSpecs(None),
+        ):
+            if item.gittype != GitTreeItemType.submodule \
+                    or item.name in processed_submodules:
+                # not a submodule or already reported on
+                continue
+
+            yield from _yield_from_submodule(
+                basepath=path,
+                subm=item,
+                to_treeish=to_treeish,
+                recursive=recursive,
+                yield_tree_items=yield_tree_items,
+                find_renames=find_renames,
+                find_copies=find_copies,
+                eval_submodule_state=eval_submodule_state,
+                pathspecs=_pathspecs,
+            )
 
 
 def _iter_gitdiff(
@@ -238,6 +305,7 @@ def _iter_gitdiff(
     find_copies: int | None,
     yield_tree_items: str | None,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ) -> Generator[GitDiffItem, None, None]:
     cmd = _build_cmd(
         from_treeish=from_treeish,
@@ -247,6 +315,7 @@ def _iter_gitdiff(
         find_copies=find_copies,
         yield_tree_items=yield_tree_items,
         eval_submodule_state=eval_submodule_state,
+        pathspecs=pathspecs,
     )
 
     if cmd[0] == 'diff-index':
@@ -290,6 +359,7 @@ def _iter_gitdiff(
                 find_copies=find_copies,
                 yield_tree_items=yield_tree_items,
                 eval_submodule_state=eval_submodule_state,
+                pathspecs=pathspecs,
             )
             pending_props = None
         elif line.startswith(':'):
@@ -311,6 +381,7 @@ def _iter_gitdiff(
             find_copies=find_copies,
             yield_tree_items=yield_tree_items,
             eval_submodule_state=eval_submodule_state,
+            pathspecs=pathspecs,
         )
 
 
@@ -323,6 +394,7 @@ def _build_cmd(
     find_copies: int | None,
     yield_tree_items: str | None,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ) -> list[str]:
     # from   : to   : description
     # ---------------------------
@@ -383,6 +455,8 @@ def _build_cmd(
     # add disambiguation marker for pathspec.
     # even if we do not pass any, we get simpler error messages from Git
     cmd.append('--')
+
+    cmd.extend(pathspecs.arglist())
     return cmd
 
 
@@ -430,6 +504,7 @@ def _yield_diff_item(
     find_renames: int | None,
     find_copies: int | None,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ) -> Generator[GitDiffItem, None, None]:
     item = _get_diff_item(spec)
 
@@ -497,6 +572,7 @@ def _yield_diff_item(
             find_renames=find_renames,
             find_copies=find_copies,
             eval_submodule_state=eval_submodule_state,
+            pathspecs=pathspecs,
         )
 
 
@@ -510,14 +586,25 @@ def _yield_from_submodule(
     find_renames: int | None,
     find_copies: int | None,
     eval_submodule_state: str,
+    pathspecs: GitPathSpecs,
 ) -> Generator[GitDiffItem, None, None]:
     # I believe we need no protection against absent submodules.
     # The only way they can appear here is a reported modification.
     # The only modification that is possible with an absent submodule
     # is a deletion. And that would cause the item.gittype to be None
     # -- a condition that is caught above
+    subm_name = PurePosixPath(subm.name)
+    subm_pathspecs = pathspecs
+    if pathspecs:
+        # recode pathspecs to match the submodule scope
+        try:
+            subm_pathspecs = pathspecs.for_subdir(subm_name)
+        except ValueError:
+            # not a single pathspec could be translated, there is
+            # no chance for a match, we can stop here
+            return
     for i in iter_gitdiff(
-        basepath / PurePosixPath(subm.name),
+        basepath / subm_name,
         # we never want to pass None here
         # if `prev_gitsha` is None, it means that the
         # submodule record is new, and we want its full
@@ -534,6 +621,7 @@ def _yield_from_submodule(
         find_renames=find_renames,
         find_copies=find_copies,
         eval_submodule_state=eval_submodule_state,
+        pathspecs=subm_pathspecs,
     ):
         # prepend any item name with the parent items
         # name
