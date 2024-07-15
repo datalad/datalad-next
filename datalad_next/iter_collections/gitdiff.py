@@ -362,7 +362,7 @@ def _yield_diff_item(
         spec: list,
         single_dir: bool,
         reported_dirs: set,
-        yield_tree_items: bool,
+        yield_tree_items: str | None,
         **kwargs
 ) -> Generator[GitDiffItem, None, None]:
     props: dict[str, str | int | GitTreeItemType] = {}
