@@ -344,7 +344,7 @@ class CreateSiblingRia(Interface):
         # be different for subdatasets.
         # PATCH: use canonified representation of `url` and `push_url`
         url = canonify_url(url)
-        push_url = canonify_url(url)
+        push_url = canonify_url(push_url)
 
         try:
             ssh_host, url_base_path_str, rewritten_url = \
