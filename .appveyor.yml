@@ -205,8 +205,6 @@ environment:
     - job_name: datalad-core-4
       DTS: >
         datalad.local
-      KEYWORDS: >
-        not test_wtf
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.8
       INSTALL_SYSPKGS:
