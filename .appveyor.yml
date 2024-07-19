@@ -228,6 +228,7 @@ environment:
 # only run the CI if there are code or tooling changes
 only_commits:
   files:
+    - .appveyor.yml
     - datalad_next/
     - tools/
 
