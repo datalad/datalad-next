@@ -1,5 +1,129 @@
 [build-system]
-requires = ["setuptools >= 43.0.0", "wheel"]
+requires = [
+    "hatchling",
+    "hatch-vcs",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "datalad-next"
+dynamic = ["version"]
+description = "What is next in DataLad"
+readme = "README.md"
+license = "MIT"
+requires-python = ">= 3.8"
+authors = [
+    { name = "The DataLad Team and Contributors", email = "team@datalad.org" },
+]
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "annexremote",
+    "datalad >= 0.18.4",
+    "datasalad >= 0.2.1",
+    "humanize",
+    "more-itertools",
+]
+
+[project.optional-dependencies]
+devel = [
+    "cheroot",
+    "coverage",
+    "psutil",
+    "pytest",
+    "pytest-cov",
+    "webdavclient3",
+    "wsgidav",
+]
+httpsupport = [
+    "requests",
+    "requests_toolbelt",
+]
+
+[project.scripts]
+git-annex-backend-XDLRA = "datalad_next.annexbackends.xdlra:main"
+git-annex-remote-archivist = "datalad_next.annexremotes.archivist:main"
+git-annex-remote-uncurl = "datalad_next.annexremotes.uncurl:main"
+git-remote-datalad-annex = "datalad_next.gitremotes.datalad_annex:main"
+
+[project.entry-points."datalad.extensions"]
+next = "datalad_next:command_suite"
+
+[project.urls]
+Homepage = "https://github.com/datalad/datalad-next"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "datalad_next/_version.py"
+
+[tool.hatch.envs.hatch-test]
+default-args = ["datalad_next"]
+extra-dependencies = [
+    "pytest",
+    "pytest-cov",
+    "psutil",
+    "webdavclient3",
+    "wsgidav",
+]
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+    "mypy>=1.0.0",
+    "pytest",
+]
+
+[tool.hatch.envs.types.scripts]
+check = [
+  "mypy --install-types --non-interactive --python-version 3.8 --pretty --show-error-context datalad_next",
+]
+
+[tool.hatch.envs.docs]
+extra-dependencies = [
+  "sphinx",
+  "sphinx_rtd_theme",
+  "pytest",
+]
+[tool.hatch.envs.docs.scripts]
+build = [
+  "make -C docs html",
+]
+clean = [
+  "rm -rf docs/generated",
+  "make -C docs clean",
+]
+
+
+[tool.coverage.run]
+source_pkgs = ["datalad_next"]
+branch = true
+parallel = true
+omit = [
+#  "src/datasalad/__about__.py",
+]
+data_file = "${COVERAGE_ROOT-.}/.coverage"
+
+[tool.coverage.paths]
+datalad_next = ["src/datalad_next", "*/datalad_next/src/datalad_next"]
+tests = ["tests", "*/datalad_next/*/tests"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/datalad_next",
+]
 
 [tool.commitizen]
 name = "cz_customize"

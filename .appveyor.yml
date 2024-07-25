@@ -45,7 +45,7 @@
 #     respective CI run configuration).
 
 
-# do not make repository clone cheap: interfers with versioneer
+# do not make repository clone cheap: interfers with VCS-based version determination
 shallow_clone: false
 
 # turn of support for MS project build support (not needed)
@@ -327,7 +327,7 @@ for:
       # run tests on installed module, not source tree files
       - |
         cd __testhome__
-        python -m pytest -s -v --durations 20 -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --pyargs ${DTS}
+        hatch test --durations 20 -m "not (turtle)" -k "$KEYWORDS" --cov=datalad_next --cov datalad --cov-config=../.coveragerc --pyargs ${DTS}
 
     after_test:
       - python -m coverage xml
@@ -394,7 +394,7 @@ for:
       - cmd: md __testhome__
       - cmd: cd __testhome__
         # run test selection
-      - cmd: python -m pytest -s -v --durations 20 -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --cov-config=..\.coveragerc --pyargs %DTS%
+      - cmd: hatch test --durations 20 -m "not (turtle)" -k "%KEYWORDS%" --cov=datalad_next --cov-config=..\.coveragerc --pyargs %DTS%
 
     after_test:
       - cmd: python -m coverage xml
@@ -410,8 +410,7 @@ for:
 # ALL TEST RUNS
 #
 build_script:
-  - python -m pip install -r requirements-devel.txt
-  - python -m pip install .
+  - python -m pip install hatch coverage
 
 after_build:
   # Identity setup
