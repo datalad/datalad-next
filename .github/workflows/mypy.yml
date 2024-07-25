@@ -17,8 +17,8 @@ jobs:
           architecture: x64
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install mypy
-        run: python -m pip install mypy  # you can pin your preferred version
+      - name: Install hatch (which pull mypy)
+        run: python -m pip install hatch
       - name: Get Python changed files
         id: changed-py-files
         uses: tj-actions/changed-files@v44
@@ -30,10 +30,10 @@ jobs:
         if: steps.changed-py-files.outputs.any_changed == 'true'
         run: |
           # get any type stubs that mypy thinks it needs
-          mypy --install-types --non-interactive --follow-imports skip --ignore-missing-imports ${{ steps.changed-py-files.outputs.all_changed_files }}
+          hatch run types:mypy --install-types --non-interactive --follow-imports skip --ignore-missing-imports ${{ steps.changed-py-files.outputs.all_changed_files }}
           # run mypy on the modified files only, and do not even follow imports.
           # this results is a fairly superficial test, but given the overall
           # state of annotations, we strive to become more correct incrementally
           # with focused error reports, rather than barfing a huge complaint
           # that is unrelated to the changeset someone has been working on
-          mypy --follow-imports skip --ignore-missing-imports --pretty --show-error-context ${{ steps.changed-py-files.outputs.all_changed_files }}
+          hatch run types:mypy --follow-imports skip --ignore-missing-imports --pretty --show-error-context ${{ steps.changed-py-files.outputs.all_changed_files }}
