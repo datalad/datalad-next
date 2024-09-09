@@ -13,6 +13,7 @@ from functools import wraps
 import inspect
 import logging
 from typing import (
+    Any,
     Callable,
     Dict,
     Generator,
@@ -288,25 +289,7 @@ def _execute_command_(
         result_renderer = 'generic'
 
     # figure out which hooks are relevant for this command execution
-    # query cfg for defaults
-    # .is_installed and .config can be costly, so ensure we do
-    # it only once. See https://github.com/datalad/datalad/issues/3575
-    dataset_arg = allkwargs.get('dataset', None)
-    ds = None
-    if dataset_arg is not None:
-        from datalad_next.datasets import Dataset
-        if isinstance(dataset_arg, Dataset):
-            ds = dataset_arg
-        elif isinstance(dataset_arg, DatasetParameter):
-            ds = dataset_arg.ds
-        else:
-            try:
-                ds = Dataset(dataset_arg)
-            except ValueError:
-                pass
-    # look for hooks
-    hooks = get_jsonhooks_from_config(ds.config if ds else dlcfg)
-    # end of hooks discovery
+    hooks = get_hooks(allkwargs.get('dataset', None))
 
     # flag whether to raise an exception
     incomplete_results = []
@@ -353,7 +336,9 @@ def _execute_command_(
                 # users need to pay attention to void infinite
                 # loops, i.e. when a hook yields a result that
                 # triggers that same hook again
-                for hr in run_jsonhook(hook, spec, r, dataset_arg):
+                for hr in run_jsonhook(
+                    hook, spec, r, allkwargs.get('dataset', None)
+                ):
                     # apply same logic as for main results, otherwise
                     # any filters would only tackle the primary results
                     # and a mixture of return values could happen
@@ -398,6 +383,27 @@ def _execute_command_(
         raise IncompleteResultsError(
             failed=incomplete_results,
             msg="Command did not complete successfully")
+
+
+def get_hooks(dataset_arg: Any) -> dict[str, dict]:
+    # figure out which hooks are relevant for this command execution
+    # query cfg for defaults
+    # .is_installed and .config can be costly, so ensure we do
+    # it only once. See https://github.com/datalad/datalad/issues/3575
+    ds = None
+    if dataset_arg is not None:
+        from datalad_next.datasets import Dataset
+        if isinstance(dataset_arg, Dataset):
+            ds = dataset_arg
+        elif isinstance(dataset_arg, DatasetParameter):
+            ds = dataset_arg.ds
+        else:
+            try:
+                ds = Dataset(dataset_arg)
+            except ValueError:
+                pass
+    # look for hooks
+    return get_jsonhooks_from_config(ds.config if ds else dlcfg)
 
 
 # apply patch
