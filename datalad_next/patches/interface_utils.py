@@ -94,16 +94,15 @@ def eval_results(wrapped):
 
         # retrieve common options from kwargs, and fall back on the command
         # class attributes, or general defaults if needed
-        kwargs = kwargs.copy()  # we will pop, which might cause side-effect
-        common_params = {
-            p_name: kwargs.pop(
-                # go with any explicitly given default
-                p_name,
-                # otherwise determine the command class and pull any
-                # default set in that class
-                getattr(wrapped_class, p_name))
-            for p_name in eval_params}
+        kwargs, common_params = get_eval_kwargs(wrapped_class, **kwargs)
 
+        execute_kwargs = {
+            'interface': wrapped_class,
+            'cmd': wrapped,
+            'cmd_args': args,
+            'cmd_kwargs': kwargs,
+            'exec_kwargs': common_params,
+        }
         # short cuts and configured setup for common options
         return_type = common_params['return_type']
 
@@ -112,23 +111,11 @@ def eval_results(wrapped):
             lgr.log(2,
                     "Returning generator_func from eval_func for %s",
                     wrapped_class)
-            return _execute_command_(
-                interface=wrapped_class,
-                cmd=wrapped,
-                cmd_args=args,
-                cmd_kwargs=kwargs,
-                exec_kwargs=common_params,
-            )
+            return _execute_command_(**execute_kwargs)
         else:
             @wraps(_execute_command_)
             def return_func(*args_, **kwargs_):
-                results = _execute_command_(
-                    interface=wrapped_class,
-                    cmd=wrapped,
-                    cmd_args=args,
-                    cmd_kwargs=kwargs,
-                    exec_kwargs=common_params,
-                )
+                results = _execute_command_(**execute_kwargs)
                 if inspect.isgenerator(results):
                     # unwind generator if there is one, this actually runs
                     # any processing
@@ -147,6 +134,20 @@ def eval_results(wrapped):
     ret = eval_func
     ret._eval_results = True
     return ret
+
+
+def get_eval_kwargs(cls: anInterface, **kwargs) -> tuple[dict, dict]:
+    # retrieve common options from kwargs, and fall back on the command
+    # class attributes, or general defaults if needed
+    eval_kwargs = {
+        p_name: kwargs.pop(
+            # go with any explicitly given default
+            p_name,
+            # otherwise determine the command class and pull any
+            # default set in that class
+            getattr(cls, p_name))
+        for p_name in eval_params}
+    return dict(kwargs), eval_kwargs
 
 
 # this is a replacement for datalad.interface.base.get_allargs_as_kwargs
