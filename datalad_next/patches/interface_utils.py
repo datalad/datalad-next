@@ -15,6 +15,10 @@ import inspect
 import json
 import logging
 import sys
+from abc import (
+    ABC,
+    abstractmethod,
+)
 from functools import (
     partial,
     wraps,
@@ -58,7 +62,49 @@ from datalad_next.utils import getargspec
 lgr = logging.getLogger('datalad.interface.utils')
 
 
-class ResultHandler:
+class ResultHandler(ABC):
+    @abstractmethod
+    def return_results(self, get_results: Callable):
+        """
+        """
+
+    @abstractmethod
+    def log_result(self, result: dict) -> None:
+        """
+        """
+
+    @abstractmethod
+    def want_custom_result_summary(self, mode: str) -> bool:
+        """
+        """
+
+    @abstractmethod
+    def render_result(self, result: dict) -> None:
+        """
+        """
+
+    @abstractmethod
+    def render_result_summary(self) -> None:
+        """
+        """
+
+    @abstractmethod
+    def run_result_hooks(self, res) -> Generator[dict[str, Any], None, None]:
+        """
+        """
+
+    @abstractmethod
+    def transform_result(self, res) -> Generator[Any, None, None]:
+        """
+        """
+
+    @abstractmethod
+    def keep_result(self, res) -> bool:
+        """
+        """
+
+
+class LegacyResultHandler(ResultHandler):
     def __init__(
         self,
         interface: anInterface,
@@ -370,7 +416,7 @@ def eval_results(wrapped):
         result_handler_cls = kwargs.pop('result_handler_cls', None)
         if result_handler_cls is None:
             # use default
-            result_handler_cls = ResultHandler
+            result_handler_cls = LegacyResultHandler
 
         result_handler = result_handler_cls(
             wrapped_class,
