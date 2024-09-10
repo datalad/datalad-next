@@ -38,6 +38,8 @@ from .results import (
     CommandResult,
     CommandResultStatus,
 )
+from .result_handler import ResultHandler
+
 
 class ValidatedInterface(Interface):
     """Alternative base class for commands with uniform parameter validation
