@@ -65,6 +65,27 @@ class ResultHandler:
         # look for potential override of logging behavior
         self._result_log_level = dlcfg.get('datalad.log.result-level', 'debug')
 
+        # e.g., if a custom summary is to be provided, collect the results
+        self._results: list[dict] = []
+
+        # how many repetitions to show, before suppression kicks in
+        self._render_n_repetitions = \
+            dlcfg.obtain('datalad.ui.suppress-similar-results-threshold') \
+            if sys.stdout.isatty() \
+            and dlcfg.obtain('datalad.ui.suppress-similar-results') \
+            else float("inf")
+        # status variables for the suppression of repeated result
+        # by the generic renderer
+        # counter for detected repetitions
+        self._last_result_reps: int = 0
+        # used to track repeated messages in the generic renderer
+        self._last_result: dict | None = None
+        # the timestamp of the last renderer result
+        self._last_result_ts: float | None = None
+
+        # track what actions were performed how many times
+        self._action_summary: dict[str, dict] = {}
+
     def return_results(
         self,
         # except a generator
@@ -136,6 +157,94 @@ class ResultHandler:
                 raise TypeError(msg) from exc
         else:
             res_lgr(msg)
+
+    def want_custom_result_summary(self, mode: str) -> bool:
+        return mode in (
+            'tailored', 'generic', 'default') and hasattr(
+                self._interface,
+                'custom_result_summary_renderer')
+
+    def render_result(
+        self,
+        result: dict,
+        *,
+        mode: str,
+        cmd_kwargs: dict[str, Any],
+    ) -> None:
+        res = result
+        result_renderer = mode
+        if result_renderer == 'tailored' \
+                and not hasattr(self._interface, 'custom_result_renderer'):
+            # a tailored result renderer is requested, but the class
+            # does not provide any, fall back to the generic one
+            result_renderer = 'generic'
+        if result_renderer == 'default':
+            # standardize on the new name 'generic' to avoid more complex
+            # checking below
+            result_renderer = 'generic'
+
+        # if a custom summary is to be provided, collect the results
+        # of the command execution
+        if self.want_custom_result_summary(mode):
+            self._results.append(result)
+
+        # update summary statistics
+        actsum = self._action_summary.get(res['action'], {})
+        if res['status']:
+            actsum[res['status']] = actsum.get(res['status'], 0) + 1
+            self._action_summary[res['action']] = actsum
+
+        if result_renderer is None or result_renderer == 'disabled':
+            # no rendering of individual results desired, we are done
+            return
+
+        # pass result
+        if result_renderer == 'generic':
+            self._last_result_reps, self._last_result, self._last_result_ts = \
+                _render_result_generic(
+                    res,
+                    self._render_n_repetitions,
+                    self._last_result_reps,
+                    self._last_result,
+                    self._last_result_ts,
+                )
+        elif result_renderer in ('json', 'json_pp'):
+            _render_result_json(res, result_renderer.endswith('_pp'))
+        elif result_renderer == 'tailored':
+            self._interface.custom_result_renderer(res, **cmd_kwargs)
+        elif callable(result_renderer):
+            _render_result_customcall(res, result_renderer, cmd_kwargs)
+        else:
+            msg = f'unknown result renderer {result_renderer!r}'
+            raise ValueError(msg)
+
+    def render_result_summary(self, mode: str) -> None:
+        # make sure to report on any issues that we had suppressed
+        _display_suppressed_message(
+            self._last_result_reps,
+            self._render_n_repetitions,
+            self._last_result_ts,
+            final=True,
+        )
+        do_custom_result_summary = self.want_custom_result_summary(mode)
+
+        pass_summary = do_custom_result_summary \
+            and getattr(self._interface,
+                        'custom_result_summary_renderer_pass_summary',
+                        None)
+        # result summary before a potential exception
+        # custom first
+        if do_custom_result_summary:
+            summary_args = (self._results, self._action_summary) \
+                if pass_summary else (self._results,)
+            self._interface.custom_result_summary_renderer(*summary_args)
+        elif mode in ('generic', 'default') \
+                and self._action_summary \
+                and sum(sum(s.values())
+                        for s in self._action_summary.values()) > 1:
+            # give a summary in generic mode, when there was more than one
+            # action performed
+            render_action_summary(self._action_summary)
 
 
 # This function interface is taken from
@@ -329,53 +438,30 @@ def _execute_command_(
         # use verbatim, if not a known label
         allkwargs['result_xfm'])
     result_filter = get_result_filter(allkwargs['result_filter'])
-    result_renderer = allkwargs['result_renderer']
-    if result_renderer == 'tailored' and not hasattr(interface,
-                                                     'custom_result_renderer'):
-        # a tailored result renderer is requested, but the class
-        # does not provide any, fall back to the generic one
-        result_renderer = 'generic'
-    if result_renderer == 'default':
-        # standardize on the new name 'generic' to avoid more complex
-        # checking below
-        result_renderer = 'generic'
 
     # figure out which hooks are relevant for this command execution
     hooks = get_hooks(allkwargs.get('dataset', None))
 
     # flag whether to raise an exception
     incomplete_results: list[dict] = []
-    # track what actions were performed how many times
-    action_summary: dict[str, dict] = {}
-
-    # if a custom summary is to be provided, collect the results
-    # of the command execution
-    results = []
-    do_custom_result_summary = result_renderer in (
-        'tailored', 'generic', 'default') and hasattr(
-            interface,
-            'custom_result_summary_renderer')
-    pass_summary = do_custom_result_summary \
-        and getattr(interface,
-                    'custom_result_summary_renderer_pass_summary',
-                    None)
 
     # process main results
     for r in _process_results(
-            # execution, call with any arguments from the validated
-            # set that are no result-handling related
-            cmd(**{k: v for k, v in allkwargs.items()
-                if k not in eval_params}),
-            interface,
-            allkwargs['on_failure'],
-            # bookkeeping
-            action_summary,
-            incomplete_results,
-            # communication
-            result_renderer,
-            result_handler,
-            # let renderers get to see how a command was called
-            allkwargs):
+        # execution, call with any arguments from the validated
+        # set that are no result-handling related
+        cmd(**{k: v for k, v in allkwargs.items()
+            if k not in eval_params}),
+        on_failure=allkwargs['on_failure'],
+        # bookkeeping
+        incomplete_results=incomplete_results,
+        # communication
+        result_logger=result_handler.log_result,
+        result_renderer=partial(
+            result_handler.render_result,
+            mode=allkwargs['result_renderer'],
+            cmd_kwargs=allkwargs,
+        ),
+    ):
         for hook, spec in hooks.items():
             # run the hooks before we yield the result
             # this ensures that they are executed before
@@ -411,23 +497,7 @@ def _execute_command_(
         if r_xfm:
             yield r_xfm
 
-        # collect if summary is desired
-        if do_custom_result_summary:
-            results.append(r)
-
-    # result summary before a potential exception
-    # custom first
-    if do_custom_result_summary:
-        summary_args = (results, action_summary) \
-            if pass_summary else (results,)
-        interface.custom_result_summary_renderer(*summary_args)
-    elif result_renderer in ('generic', 'default') \
-            and action_summary \
-            and sum(sum(s.values())
-                    for s in action_summary.values()) > 1:
-        # give a summary in generic mode, when there was more than one
-        # action performed
-        render_action_summary(action_summary)
+    result_handler.render_result_summary(allkwargs['result_renderer'])
 
     if incomplete_results:
         raise IncompleteResultsError(
@@ -498,33 +568,16 @@ def get_hooks(dataset_arg: Any) -> dict[str, dict]:
 
 
 def _process_results(
-        results,
-        cmd_class,
-        on_failure,
-        action_summary,
-        incomplete_results,
-        result_renderer,
-        # TODO: rather than the whole instance, pass one or more
-        # method that do the thing(s) we need.
-        # see `result_filter`, and `result_renderer` below
-        result_handler: ResultHandler,
-        allkwargs):
+    results,
+    *,
+    on_failure: str,
+    incomplete_results,
+    result_logger: Callable,
+    result_renderer: Callable,
+):
     # private helper pf @eval_results
     # loop over results generated from some source and handle each
     # of them according to the requested behavior (logging, rendering, ...)
-
-    # used to track repeated messages in the generic renderer
-    last_result = None
-    # the timestamp of the last renderer result
-    last_result_ts = None
-    # counter for detected repetitions
-    last_result_reps = 0
-    # how many repetitions to show, before suppression kicks in
-    render_n_repetitions = \
-        dlcfg.obtain('datalad.ui.suppress-similar-results-threshold') \
-            if sys.stdout.isatty() \
-               and dlcfg.obtain('datalad.ui.suppress-similar-results') \
-            else float("inf")
 
     for res in results:
         if not res or 'action' not in res:
@@ -534,36 +587,16 @@ def _process_results(
             lgr.debug('Drop result record without "action": %s', res)
             continue
 
-        actsum = action_summary.get(res['action'], {})
-        if res['status']:
-            actsum[res['status']] = actsum.get(res['status'], 0) + 1
-            action_summary[res['action']] = actsum
-
-        result_handler.log_result(res)
+        result_logger(res)
         # remove logger instance from results, as it is no longer useful
         # after logging was done, it isn't serializable, and generally
         # pollutes the output
         res.pop('logger', None)
 
-        ## output rendering
-        if result_renderer is None or result_renderer == 'disabled':
-            pass
-        elif result_renderer == 'generic':
-            last_result_reps, last_result, last_result_ts = \
-                _render_result_generic(
-                    res, render_n_repetitions,
-                    last_result_reps, last_result, last_result_ts)
-        elif result_renderer in ('json', 'json_pp'):
-            _render_result_json(res, result_renderer.endswith('_pp'))
-        elif result_renderer == 'tailored':
-            cmd_class.custom_result_renderer(res, **allkwargs)
-        elif callable(result_renderer):
-            _render_result_customcall(res, result_renderer, allkwargs)
-        else:
-            msg = f'unknown result renderer {result_renderer!r}'
-            raise ValueError(msg)
+        # output rendering
+        result_renderer(res)
 
-        ## error handling
+        # error handling
         # looks for error status, and report at the end via
         # an exception
         if on_failure in ('continue', 'stop') \
@@ -574,9 +607,6 @@ def _process_results(
                 # raise will happen after the loop
                 break
         yield res
-    # make sure to report on any issues that we had suppressed
-    _display_suppressed_message(
-        last_result_reps, render_n_repetitions, last_result_ts, final=True)
 
 
 def _display_suppressed_message(nsimilar, ndisplayed, last_ts, final=False):
