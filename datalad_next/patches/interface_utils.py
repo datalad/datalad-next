@@ -14,7 +14,11 @@ from functools import (
     wraps,
 )
 import inspect
+import json
 import logging
+from os.path import relpath
+import sys
+from time import time
 from typing import (
     Any,
     Callable,
@@ -29,6 +33,8 @@ from datalad.core.local.resulthooks import (
     match_jsonhook2result,
     run_jsonhook,
 )
+from datalad.dochelpers import single_or_plural
+from datalad.interface.base import default_logchannels
 from datalad.interface.common_opts import eval_params
 from datalad.interface.results import known_result_xfms
 from datalad.interface.utils import (
@@ -37,13 +43,15 @@ from datalad.interface.utils import (
     keep_result,
     render_action_summary,
     xfm_result,
-    _process_results,
 )
+from datalad.ui import ui
 from datalad_next.exceptions import IncompleteResultsError
 from datalad.utils import get_wrapped_class
 from datalad_next.patches import apply_patch
 from datalad_next.constraints import DatasetParameter
 from datalad_next.utils import getargspec
+import datalad.support.ansi_colors as ac
+from datalad.support.exceptions import CapturedException
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
@@ -443,6 +451,213 @@ def get_hooks(dataset_arg: Any) -> dict[str, dict]:
                 pass
     # look for hooks
     return get_jsonhooks_from_config(ds.config if ds else dlcfg)
+
+
+def _process_results(
+        results,
+        cmd_class,
+        on_failure,
+        action_summary,
+        incomplete_results,
+        result_renderer,
+        result_log_level,
+        allkwargs):
+    # private helper pf @eval_results
+    # loop over results generated from some source and handle each
+    # of them according to the requested behavior (logging, rendering, ...)
+
+    # used to track repeated messages in the generic renderer
+    last_result = None
+    # the timestamp of the last renderer result
+    last_result_ts = None
+    # counter for detected repetitions
+    last_result_reps = 0
+    # how many repetitions to show, before suppression kicks in
+    render_n_repetitions = \
+        dlcfg.obtain('datalad.ui.suppress-similar-results-threshold') \
+            if sys.stdout.isatty() \
+               and dlcfg.obtain('datalad.ui.suppress-similar-results') \
+            else float("inf")
+
+    for res in results:
+        if not res or 'action' not in res:
+            # XXX Yarik has to no clue on how to track the origin of the
+            # record to figure out WTF, so he just skips it
+            # but MIH thinks leaving a trace of that would be good
+            lgr.debug('Drop result record without "action": %s', res)
+            continue
+
+        actsum = action_summary.get(res['action'], {})
+        if res['status']:
+            actsum[res['status']] = actsum.get(res['status'], 0) + 1
+            action_summary[res['action']] = actsum
+        ## log message, if there is one and a logger was given
+        msg = res.get('message', None)
+        # remove logger instance from results, as it is no longer useful
+        # after logging was done, it isn't serializable, and generally
+        # pollutes the output
+        res_lgr = res.pop('logger', None)
+        if msg and res_lgr:
+            if isinstance(res_lgr, logging.Logger):
+                # didn't get a particular log function, go with default
+                res_lgr = getattr(
+                    res_lgr,
+                    default_logchannels[res['status']]
+                    if result_log_level == 'match-status'
+                    else result_log_level)
+            msg = res['message']
+            msgargs = None
+            if isinstance(msg, tuple):
+                msgargs = msg[1:]
+                msg = msg[0]
+            if 'path' in res:
+                # result path could be a path instance
+                path = str(res['path'])
+                if msgargs:
+                    # we will pass the msg for %-polation, so % should be doubled
+                    path = path.replace('%', '%%')
+                msg = '{} [{}({})]'.format(
+                    msg, res['action'], path)
+            if msgargs:
+                # support string expansion of logging to avoid runtime cost
+                try:
+                    res_lgr(msg, *msgargs)
+                except TypeError as exc:
+                    raise TypeError(
+                        "Failed to render %r with %r from %r: %s"
+                        % (msg, msgargs, res, str(exc))
+                    ) from exc
+            else:
+                res_lgr(msg)
+
+        ## output rendering
+        if result_renderer is None or result_renderer == 'disabled':
+            pass
+        elif result_renderer == 'generic':
+            last_result_reps, last_result, last_result_ts = \
+                _render_result_generic(
+                    res, render_n_repetitions,
+                    last_result_reps, last_result, last_result_ts)
+        elif result_renderer in ('json', 'json_pp'):
+            _render_result_json(res, result_renderer.endswith('_pp'))
+        elif result_renderer == 'tailored':
+            cmd_class.custom_result_renderer(res, **allkwargs)
+        elif hasattr(result_renderer, '__call__'):
+            _render_result_customcall(res, result_renderer, allkwargs)
+        else:
+            raise ValueError(f'unknown result renderer "{result_renderer}"')
+
+        ## error handling
+        # looks for error status, and report at the end via
+        # an exception
+        if on_failure in ('continue', 'stop') \
+                and res['status'] in ('impossible', 'error'):
+            incomplete_results.append(res)
+            if on_failure == 'stop':
+                # first fail -> that's it
+                # raise will happen after the loop
+                break
+        yield res
+    # make sure to report on any issues that we had suppressed
+    _display_suppressed_message(
+        last_result_reps, render_n_repetitions, last_result_ts, final=True)
+
+
+def _display_suppressed_message(nsimilar, ndisplayed, last_ts, final=False):
+    # +1 because there was the original result + nsimilar displayed.
+    n_suppressed = nsimilar - ndisplayed + 1
+    if n_suppressed > 0:
+        ts = time()
+        # rate-limit update of suppression message, with a large number
+        # of fast-paced results updating for each one can result in more
+        # CPU load than the actual processing
+        # arbitrarily go for a 2Hz update frequency -- it "feels" good
+        if last_ts is None or final or (ts - last_ts > 0.5):
+            ui.message('  [{} similar {} been suppressed; disable with datalad.ui.suppress-similar-results=off]'
+                       .format(n_suppressed,
+                               single_or_plural("message has",
+                                                "messages have",
+                                                n_suppressed, False)),
+                       cr="\n" if final else "\r")
+            return ts
+    return last_ts
+
+
+def _render_result_generic(
+        res, render_n_repetitions,
+        # status vars
+        last_result_reps, last_result, last_result_ts):
+    # which result dict keys to inspect for changes to discover repetitions
+    # of similar messages
+    repetition_keys = set(('action', 'status', 'type', 'refds'))
+
+    trimmed_result = {k: v for k, v in res.items() if k in repetition_keys}
+    if res.get('status', None) != 'notneeded' \
+            and trimmed_result == last_result:
+        # this is a similar report, suppress if too many, but count it
+        last_result_reps += 1
+        if last_result_reps < render_n_repetitions:
+            generic_result_renderer(res)
+        else:
+            last_result_ts = _display_suppressed_message(
+                last_result_reps, render_n_repetitions, last_result_ts)
+    else:
+        # this one is new, first report on any prev. suppressed results
+        # by number, and then render this fresh one
+        last_result_ts = _display_suppressed_message(
+            last_result_reps, render_n_repetitions, last_result_ts,
+            final=True)
+        generic_result_renderer(res)
+        last_result_reps = 0
+    return last_result_reps, trimmed_result, last_result_ts
+
+
+def _render_result_json(res, prettyprint):
+    ui.message(json.dumps(
+        {k: v for k, v in res.items()
+         if k not in ('logger')},
+        sort_keys=True,
+        indent=2 if prettyprint else None,
+        default=str))
+
+
+def _render_result_customcall(res, result_renderer, allkwargs):
+    try:
+        result_renderer(res, **allkwargs)
+    except Exception as e:
+        lgr.warning('Result rendering failed for: %s [%s]',
+                    res, CapturedException(e))
+
+
+def generic_result_renderer(res):
+    if res.get('status', None) != 'notneeded':
+        path = res.get('path', None)
+        if path and res.get('refds'):
+            try:
+                path = relpath(path, res['refds'])
+            except ValueError:
+                # can happen, e.g., on windows with paths from different
+                # drives. just go with the original path in this case
+                pass
+        ui.message('{action}({status}):{path}{type}{msg}{err}'.format(
+            action=ac.color_word(
+                res.get('action', '<action-unspecified>'),
+                ac.BOLD),
+            status=ac.color_status(res.get('status', '<status-unspecified>')),
+            path=' {}'.format(path) if path else '',
+            type=' ({})'.format(
+                ac.color_word(res['type'], ac.MAGENTA)
+            ) if 'type' in res else '',
+            msg=' [{}]'.format(
+                res['message'][0] % res['message'][1:]
+                if isinstance(res['message'], tuple) else res[
+                    'message'])
+            if res.get('message', None) else '',
+            err=ac.color_word(' [{}]'.format(
+                res['error_message'][0] % res['error_message'][1:]
+                if isinstance(res['error_message'], tuple) else res[
+                    'error_message']), ac.RED)
+            if res.get('error_message', None) and res.get('status', None) != 'ok' else ''))
 
 
 # apply patch
