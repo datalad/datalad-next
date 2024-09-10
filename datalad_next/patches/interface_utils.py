@@ -90,6 +90,16 @@ class ResultHandler:
         # track what actions were performed how many times
         self._action_summary: dict[str, dict] = {}
 
+        self._hooks = None
+
+        # resolve string labels for transformers too
+        self._result_xfm = known_result_xfms.get(
+            cmd_kwargs['result_xfm'],
+            # use verbatim, if not a known label
+            cmd_kwargs['result_xfm'])
+
+        self._result_filter = get_result_filter(cmd_kwargs['result_filter'])
+
     def return_results(
         self,
         # except a generator
@@ -247,6 +257,54 @@ class ResultHandler:
             # give a summary in generic mode, when there was more than one
             # action performed
             render_action_summary(self._action_summary)
+
+    def run_result_hooks(self, res) -> Generator[dict[str, Any], None, None]:
+        dataset_arg = self._cmd_kwargs.get('dataset', None)
+        if self._hooks is None:
+            # figure out which hooks are relevant for this command execution
+            self._hooks = get_hooks(dataset_arg)
+
+        for hook, spec in self._hooks.items():
+            # run the hooks before we yield the result
+            # this ensures that they are executed before
+            # a potentially wrapper command gets to act
+            # on them
+            if match_jsonhook2result(hook, res, spec['match']):
+                lgr.debug('Result %s matches hook %s', res, hook)
+                # a hook is also a command that yields results
+                # so yield them outside too
+                # users need to pay attention to void infinite
+                # loops, i.e. when a hook yields a result that
+                # triggers that same hook again
+                for hr in run_jsonhook(
+                    hook, spec, res, dataset_arg
+                ):
+                    # apply same logic as for main results, otherwise
+                    # any filters would only tackle the primary results
+                    # and a mixture of return values could happen
+                    if not self.keep_result(hr):
+                        continue
+                    hr_xfm = xfm_result(hr, self._result_xfm)
+                    # rationale for conditional is a few lines down
+                    if hr_xfm:
+                        yield hr_xfm
+
+    def transform_result(self, res) -> Generator[Any, None, None]:
+        r_xfm = xfm_result(res, self._result_xfm)
+        # in case the result_xfm decided to not give us anything
+        # exclude it from the results. There is no particular reason
+        # to do so other than that it was established behavior when
+        # this comment was written. This will not affect any real
+        # result record
+        if r_xfm:
+            yield r_xfm
+
+    def keep_result(self, res) -> bool:
+        return keep_result(
+            res,
+            self._result_filter,
+            **self._cmd_kwargs,
+        )
 
 
 # This function interface is taken from
@@ -431,16 +489,6 @@ def _execute_command_(
     allkwargs:
       Keyword arguments for `cmd`.
     """
-    # resolve string labels for transformers too
-    result_xfm = known_result_xfms.get(
-        allkwargs['result_xfm'],
-        # use verbatim, if not a known label
-        allkwargs['result_xfm'])
-    result_filter = get_result_filter(allkwargs['result_filter'])
-
-    # figure out which hooks are relevant for this command execution
-    hooks = get_hooks(allkwargs.get('dataset', None))
-
     # flag whether to raise an exception
     incomplete_results: list[dict] = []
 
@@ -457,40 +505,12 @@ def _execute_command_(
         result_logger=result_handler.log_result,
         result_renderer=result_handler.render_result,
     ):
-        for hook, spec in hooks.items():
-            # run the hooks before we yield the result
-            # this ensures that they are executed before
-            # a potentially wrapper command gets to act
-            # on them
-            if match_jsonhook2result(hook, r, spec['match']):
-                lgr.debug('Result %s matches hook %s', r, hook)
-                # a hook is also a command that yields results
-                # so yield them outside too
-                # users need to pay attention to void infinite
-                # loops, i.e. when a hook yields a result that
-                # triggers that same hook again
-                for hr in run_jsonhook(
-                    hook, spec, r, allkwargs.get('dataset', None)
-                ):
-                    # apply same logic as for main results, otherwise
-                    # any filters would only tackle the primary results
-                    # and a mixture of return values could happen
-                    if not keep_result(hr, result_filter, **allkwargs):
-                        continue
-                    hr_xfm = xfm_result(hr, result_xfm)
-                    # rationale for conditional is a few lines down
-                    if hr_xfm:
-                        yield hr_xfm
-        if not keep_result(r, result_filter, **allkwargs):
+        yield from result_handler.run_result_hooks(r)
+
+        if not result_handler.keep_result(r):
             continue
-        r_xfm = xfm_result(r, result_xfm)
-        # in case the result_xfm decided to not give us anything
-        # exclude it from the results. There is no particular reason
-        # to do so other than that it was established behavior when
-        # this comment was written. This will not affect any real
-        # result record
-        if r_xfm:
-            yield r_xfm
+
+        yield from result_handler.transform_result(r)
 
     result_handler.render_result_summary()
 
