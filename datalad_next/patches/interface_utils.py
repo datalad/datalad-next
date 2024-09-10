@@ -9,7 +9,10 @@ For details on implementing validation for individual commands see
 :class:`datalad_next.commands.ValidatedInterface`.
 """
 
-from functools import wraps
+from functools import (
+    partial,
+    wraps,
+)
 import inspect
 import logging
 from typing import (
@@ -17,6 +20,7 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    Iterable,
 )
 
 from datalad import cfg as dlcfg
@@ -42,6 +46,42 @@ from datalad_next.constraints import DatasetParameter
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
+
+
+class ResultHandler:
+    def __init__(self, interface: anInterface) -> None:
+        self._interface = interface
+
+    def return_results(
+        self,
+        get_results: Callable,
+        *,
+        mode: str,
+    ):
+        if mode == 'generator':
+            # hand over the generator
+            lgr.log(2,
+                    "Returning generator_func from eval_func for %s",
+                    self._interface)
+            return get_results()
+        else:
+            @wraps(_execute_command_)
+            def return_func():
+                results = get_results()
+                if inspect.isgenerator(results):
+                    # unwind generator if there is one, this actually runs
+                    # any processing
+                    results = list(results)
+                if mode == 'item-or-list' and \
+                        len(results) < 2:
+                    return results[0] if results else None
+                else:
+                    return results
+
+            lgr.log(2,
+                    "Returning return_func from eval_func for %s",
+                    self._interface)
+            return return_func()
 
 
 # This function interface is taken from
@@ -97,39 +137,28 @@ def eval_results(wrapped):
         # class attributes, or general defaults if needed
         kwargs = get_eval_kwargs(wrapped_class, **kwargs)
 
-        execute_kwargs = {
-            'interface': wrapped_class,
-            'cmd': wrapped,
-            'cmd_args': args,
-            'cmd_kwargs': kwargs,
-        }
-        # short cuts and configured setup for common options
-        return_type = kwargs['return_type']
+        # go with a custom result handler if instructed
+        result_handler_cls = kwargs.pop('result_handler_cls', None)
+        if result_handler_cls is None:
+            # use default
+            result_handler_cls = ResultHandler
 
-        if return_type == 'generator':
-            # hand over the generator
-            lgr.log(2,
-                    "Returning generator_func from eval_func for %s",
-                    wrapped_class)
-            return _execute_command_(**execute_kwargs)
-        else:
-            @wraps(_execute_command_)
-            def return_func(*args_, **kwargs_):
-                results = _execute_command_(**execute_kwargs)
-                if inspect.isgenerator(results):
-                    # unwind generator if there is one, this actually runs
-                    # any processing
-                    results = list(results)
-                if return_type == 'item-or-list' and \
-                        len(results) < 2:
-                    return results[0] if results else None
-                else:
-                    return results
+        result_handler = result_handler_cls(wrapped_class)
 
-            lgr.log(2,
-                    "Returning return_func from eval_func for %s",
-                    wrapped_class)
-            return return_func(*args, **kwargs)
+        return result_handler.return_results(
+            # we wrap the result generating function into
+            # a partial to get an argumentless callable
+            # that provides an iterable. partial is a misnomer
+            # here, all necessarry parameters are given
+            partial(
+                _execute_command_,
+                interface=wrapped_class,
+                cmd=wrapped,
+                cmd_args=args,
+                cmd_kwargs=kwargs,
+            ),
+            mode=kwargs['return_type'],
+        )
 
     ret = eval_func
     ret._eval_results = True
