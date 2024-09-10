@@ -59,8 +59,13 @@ lgr = logging.getLogger('datalad.interface.utils')
 
 
 class ResultHandler:
-    def __init__(self, interface: anInterface) -> None:
+    def __init__(
+        self,
+        interface: anInterface,
+        cmd_kwargs: dict[str, Any],
+    ) -> None:
         self._interface = interface
+        self._cmd_kwargs = cmd_kwargs
         # look for potential override of logging behavior
         self._result_log_level = dlcfg.get('datalad.log.result-level', 'debug')
 
@@ -89,9 +94,8 @@ class ResultHandler:
         self,
         # except a generator
         get_results: Callable,
-        *,
-        mode: str,
     ):
+        mode = self._cmd_kwargs['return_type']
         if mode == 'generator':
             # hand over the generator
             lgr.log(2,
@@ -166,10 +170,8 @@ class ResultHandler:
     def render_result(
         self,
         result: dict,
-        *,
-        mode: str,
-        cmd_kwargs: dict[str, Any],
     ) -> None:
+        mode = self._cmd_kwargs['result_renderer']
         res = result
         result_renderer = mode
         if result_renderer == 'tailored' \
@@ -210,14 +212,15 @@ class ResultHandler:
         elif result_renderer in ('json', 'json_pp'):
             _render_result_json(res, result_renderer.endswith('_pp'))
         elif result_renderer == 'tailored':
-            self._interface.custom_result_renderer(res, **cmd_kwargs)
+            self._interface.custom_result_renderer(res, **self._cmd_kwargs)
         elif callable(result_renderer):
-            _render_result_customcall(res, result_renderer, cmd_kwargs)
+            _render_result_customcall(res, result_renderer, self._cmd_kwargs)
         else:
             msg = f'unknown result renderer {result_renderer!r}'
             raise ValueError(msg)
 
-    def render_result_summary(self, mode: str) -> None:
+    def render_result_summary(self) -> None:
+        mode = self._cmd_kwargs['result_renderer']
         # make sure to report on any issues that we had suppressed
         _display_suppressed_message(
             self._last_result_reps,
@@ -311,7 +314,10 @@ def eval_results(wrapped):
             # use default
             result_handler_cls = ResultHandler
 
-        result_handler = result_handler_cls(wrapped_class)
+        result_handler = result_handler_cls(
+            wrapped_class,
+            cmd_kwargs=allkwargs,
+        )
 
         return result_handler.return_results(
             # we wrap the result generating function into
@@ -325,7 +331,6 @@ def eval_results(wrapped):
                 allkwargs=allkwargs,
                 result_handler=result_handler,
             ),
-            mode=kwargs['return_type'],
         )
 
     ret = eval_func
@@ -450,11 +455,7 @@ def _execute_command_(
         incomplete_results=incomplete_results,
         # communication
         result_logger=result_handler.log_result,
-        result_renderer=partial(
-            result_handler.render_result,
-            mode=allkwargs['result_renderer'],
-            cmd_kwargs=allkwargs,
-        ),
+        result_renderer=result_handler.render_result,
     ):
         for hook, spec in hooks.items():
             # run the hooks before we yield the result
@@ -491,7 +492,7 @@ def _execute_command_(
         if r_xfm:
             yield r_xfm
 
-    result_handler.render_result_summary(allkwargs['result_renderer'])
+    result_handler.render_result_summary()
 
     if incomplete_results:
         raise IncompleteResultsError(
