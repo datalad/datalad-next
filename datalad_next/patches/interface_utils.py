@@ -62,9 +62,12 @@ lgr = logging.getLogger('datalad.interface.utils')
 class ResultHandler:
     def __init__(self, interface: anInterface) -> None:
         self._interface = interface
+        # look for potential override of logging behavior
+        self._result_log_level = dlcfg.get('datalad.log.result-level', 'debug')
 
     def return_results(
         self,
+        # except a generator
         get_results: Callable,
         *,
         mode: str,
@@ -94,6 +97,45 @@ class ResultHandler:
                 "Returning return_func from eval_func for %s",
                 self._interface)
         return return_func()
+
+    def log_result(self, result: dict) -> None:
+        res = result
+        # log message, if there is one and a logger was given
+        msg = res.get('message', None)
+        res_lgr = res.get('logger', None)
+        if not (msg and res_lgr):
+            return
+
+        if isinstance(res_lgr, logging.Logger):
+            # didn't get a particular log function, go with default
+            res_lgr = getattr(
+                res_lgr,
+                default_logchannels[res['status']]
+                if self._result_log_level == 'match-status'
+                else self._result_log_level)
+        msg = res['message']
+        msgargs = None
+        if isinstance(msg, tuple):
+            msgargs = msg[1:]
+            msg = msg[0]
+        if 'path' in res:
+            # result path could be a path instance
+            path = str(res['path'])
+            if msgargs:
+                # we will pass the msg for %-polation, so % should be doubled
+                path = path.replace('%', '%%')
+            msg = '{} [{}({})]'.format(
+                msg, res['action'], path)
+        if msgargs:
+            # support string expansion of logging to avoid runtime cost
+            try:
+                res_lgr(msg, *msgargs)
+            except TypeError as exc:
+                msg = f"Failed to render {msg!r} " \
+                      f"with {msgargs!r} from {res!r}: {exc}"
+                raise TypeError(msg) from exc
+        else:
+            res_lgr(msg)
 
 
 # This function interface is taken from
@@ -168,6 +210,7 @@ def eval_results(wrapped):
                 cmd=wrapped,
                 cmd_args=args,
                 cmd_kwargs=kwargs,
+                result_handler=result_handler,
             ),
             mode=kwargs['return_type'],
         )
@@ -254,6 +297,10 @@ def _execute_command_(
     cmd: Callable[..., Generator[dict, None, None]],
     cmd_args: tuple,
     cmd_kwargs: dict,
+    # TODO: rather than the whole instance, pass one or more
+    # method that do the thing(s) we need.
+    # see `result_filter`, and `result_renderer` below
+    result_handler: ResultHandler,
 ) -> Generator[dict, None, None]:
     """Internal helper to drive a command execution generator-style
 
@@ -276,8 +323,6 @@ def _execute_command_(
         cmd_kwargs=cmd_kwargs,
     )
 
-    # look for potential override of logging behavior
-    result_log_level = dlcfg.get('datalad.log.result-level', 'debug')
     # resolve string labels for transformers too
     result_xfm = known_result_xfms.get(
         allkwargs['result_xfm'],
@@ -328,7 +373,7 @@ def _execute_command_(
             incomplete_results,
             # communication
             result_renderer,
-            result_log_level,
+            result_handler,
             # let renderers get to see how a command was called
             allkwargs):
         for hook, spec in hooks.items():
@@ -459,7 +504,10 @@ def _process_results(
         action_summary,
         incomplete_results,
         result_renderer,
-        result_log_level,
+        # TODO: rather than the whole instance, pass one or more
+        # method that do the thing(s) we need.
+        # see `result_filter`, and `result_renderer` below
+        result_handler: ResultHandler,
         allkwargs):
     # private helper pf @eval_results
     # loop over results generated from some source and handle each
@@ -490,43 +538,12 @@ def _process_results(
         if res['status']:
             actsum[res['status']] = actsum.get(res['status'], 0) + 1
             action_summary[res['action']] = actsum
-        ## log message, if there is one and a logger was given
-        msg = res.get('message', None)
+
+        result_handler.log_result(res)
         # remove logger instance from results, as it is no longer useful
         # after logging was done, it isn't serializable, and generally
         # pollutes the output
-        res_lgr = res.pop('logger', None)
-        if msg and res_lgr:
-            if isinstance(res_lgr, logging.Logger):
-                # didn't get a particular log function, go with default
-                res_lgr = getattr(
-                    res_lgr,
-                    default_logchannels[res['status']]
-                    if result_log_level == 'match-status'
-                    else result_log_level)
-            msg = res['message']
-            msgargs = None
-            if isinstance(msg, tuple):
-                msgargs = msg[1:]
-                msg = msg[0]
-            if 'path' in res:
-                # result path could be a path instance
-                path = str(res['path'])
-                if msgargs:
-                    # we will pass the msg for %-polation, so % should be doubled
-                    path = path.replace('%', '%%')
-                msg = '{} [{}({})]'.format(
-                    msg, res['action'], path)
-            if msgargs:
-                # support string expansion of logging to avoid runtime cost
-                try:
-                    res_lgr(msg, *msgargs)
-                except TypeError as exc:
-                    msg = f"Failed to render {msg!r} " \
-                          f"with {msgargs!r} from {res!r}: {exc}"
-                    raise TypeError(msg) from exc
-            else:
-                res_lgr(msg)
+        res.pop('logger', None)
 
         ## output rendering
         if result_renderer is None or result_renderer == 'disabled':
