@@ -8,25 +8,26 @@ properties of the parameters.
 For details on implementing validation for individual commands see
 :class:`datalad_next.commands.ValidatedInterface`.
 """
+from __future__ import annotations
 
+import contextlib
+import inspect
+import json
+import logging
+import sys
 from functools import (
     partial,
     wraps,
 )
-import inspect
-import json
-import logging
 from os.path import relpath
-import sys
 from time import time
 from typing import (
     Any,
     Callable,
-    Dict,
     Generator,
-    Iterable,
 )
 
+import datalad.support.ansi_colors as ac
 from datalad import cfg as dlcfg
 from datalad.core.local.resulthooks import (
     get_jsonhooks_from_config,
@@ -44,14 +45,15 @@ from datalad.interface.utils import (
     render_action_summary,
     xfm_result,
 )
-from datalad.ui import ui
-from datalad_next.exceptions import IncompleteResultsError
-from datalad.utils import get_wrapped_class
-from datalad_next.patches import apply_patch
-from datalad_next.constraints import DatasetParameter
 from datalad_next.utils import getargspec
 import datalad.support.ansi_colors as ac
 from datalad.support.exceptions import CapturedException
+from datalad.ui import ui
+from datalad.utils import get_wrapped_class
+
+from datalad_next.constraints import DatasetParameter
+from datalad_next.exceptions import IncompleteResultsError
+from datalad_next.patches import apply_patch
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
@@ -73,24 +75,25 @@ class ResultHandler:
                     "Returning generator_func from eval_func for %s",
                     self._interface)
             return get_results()
-        else:
-            @wraps(_execute_command_)
-            def return_func():
-                results = get_results()
-                if inspect.isgenerator(results):
-                    # unwind generator if there is one, this actually runs
-                    # any processing
-                    results = list(results)
-                if mode == 'item-or-list' and \
-                        len(results) < 2:
-                    return results[0] if results else None
-                else:
-                    return results
 
-            lgr.log(2,
-                    "Returning return_func from eval_func for %s",
-                    self._interface)
-            return return_func()
+        @wraps(_execute_command_)
+        def return_func():
+            results = get_results()
+            if inspect.isgenerator(results):
+                # unwind generator if there is one, this actually runs
+                # any processing
+                results = list(results)
+            cannot_be_item_length = 2
+            if mode == 'item-or-list' and \
+                    len(results) < cannot_be_item_length:
+                return results[0] if results else None
+
+            return results
+
+        lgr.log(2,
+                "Returning return_func from eval_func for %s",
+                self._interface)
+        return return_func()
 
 
 # This function interface is taken from
@@ -158,7 +161,7 @@ def eval_results(wrapped):
             # we wrap the result generating function into
             # a partial to get an argumentless callable
             # that provides an iterable. partial is a misnomer
-            # here, all necessarry parameters are given
+            # here, all necessary parameters are given
             partial(
                 _execute_command_,
                 interface=wrapped_class,
@@ -170,7 +173,7 @@ def eval_results(wrapped):
         )
 
     ret = eval_func
-    ret._eval_results = True
+    ret._eval_results = True  # noqa: SLF001
     return ret
 
 
@@ -212,7 +215,7 @@ def get_allargs_as_kwargs(call, args, kwargs):
     defaults = argspec.defaults
     nargs = len(argspec.args)
     defaults = defaults or []  # ensure it is a list and not None
-    assert (nargs >= len(defaults))
+    assert (nargs >= len(defaults))  # noqa: S101
     # map any args to their name
     argmap = list(zip(argspec.args[:len(args)], args))
     kwargs_ = dict(argmap)
@@ -225,11 +228,11 @@ def get_allargs_as_kwargs(call, args, kwargs):
     kwargs_.update(kwargs)
     # determine which arguments still have values identical to their declared
     # defaults
-    at_default = set(
+    at_default = {
         k for k in kwargs_
         if k in default_map and default_map[k] == kwargs_[k]
-    )
-    # XXX we cannot assert the following, because our own highlevel
+    }
+    # XXX: we cannot assert the following, because our own highlevel
     # API commands support more kwargs than what is discoverable
     # from their signature...
     #assert (nargs == len(kwargs_))
@@ -248,10 +251,10 @@ def get_allargs_as_kwargs(call, args, kwargs):
 def _execute_command_(
     *,
     interface: anInterface,
-    cmd: Callable[..., Generator[Dict, None, None]],
+    cmd: Callable[..., Generator[dict, None, None]],
     cmd_args: tuple,
-    cmd_kwargs: Dict,
-) -> Generator[Dict, None, None]:
+    cmd_kwargs: dict,
+) -> Generator[dict, None, None]:
     """Internal helper to drive a command execution generator-style
 
     Parameters
@@ -296,9 +299,9 @@ def _execute_command_(
     hooks = get_hooks(allkwargs.get('dataset', None))
 
     # flag whether to raise an exception
-    incomplete_results = []
+    incomplete_results: list[dict] = []
     # track what actions were performed how many times
-    action_summary = {}
+    action_summary: dict[str, dict] = {}
 
     # if a custom summary is to be provided, collect the results
     # of the command execution
@@ -348,20 +351,20 @@ def _execute_command_(
                     # and a mixture of return values could happen
                     if not keep_result(hr, result_filter, **allkwargs):
                         continue
-                    hr = xfm_result(hr, result_xfm)
+                    hr_xfm = xfm_result(hr, result_xfm)
                     # rationale for conditional is a few lines down
-                    if hr:
-                        yield hr
+                    if hr_xfm:
+                        yield hr_xfm
         if not keep_result(r, result_filter, **allkwargs):
             continue
-        r = xfm_result(r, result_xfm)
+        r_xfm = xfm_result(r, result_xfm)
         # in case the result_xfm decided to not give us anything
         # exclude it from the results. There is no particular reason
         # to do so other than that it was established behavior when
         # this comment was written. This will not affect any real
         # result record
-        if r:
-            yield r
+        if r_xfm:
+            yield r_xfm
 
         # collect if summary is desired
         if do_custom_result_summary:
@@ -370,10 +373,8 @@ def _execute_command_(
     # result summary before a potential exception
     # custom first
     if do_custom_result_summary:
-        if pass_summary:
-            summary_args = (results, action_summary)
-        else:
-            summary_args = (results,)
+        summary_args = (results, action_summary) \
+            if pass_summary else (results,)
         interface.custom_result_summary_renderer(*summary_args)
     elif result_renderer in ('generic', 'default') \
             and action_summary \
@@ -391,9 +392,9 @@ def _execute_command_(
 
 def validate_parameters(
     interface: anInterface,
-    cmd: Callable[..., Generator[Dict, None, None]],
+    cmd: Callable[..., Generator[dict, None, None]],
     cmd_args: tuple,
-    cmd_kwargs: Dict,
+    cmd_kwargs: dict,
 ) -> dict[str, Any]:
     # for result filters and validation
     # we need to produce a dict with argname/argvalue pairs for all args
@@ -412,10 +413,10 @@ def validate_parameters(
             interface)
     else:
         lgr.debug('Command parameter validation for %s', interface)
-        validator_kwargs = dict(
-            at_default=at_default,
-            required=required_args or None,
-        )
+        validator_kwargs = {
+            'at_default': at_default,
+            'required': required_args or None,
+        }
         # make immediate vs exhaustive parameter validation
         # configurable
         raise_on_error = dlcfg.get(
@@ -445,10 +446,8 @@ def get_hooks(dataset_arg: Any) -> dict[str, dict]:
         elif isinstance(dataset_arg, DatasetParameter):
             ds = dataset_arg.ds
         else:
-            try:
+            with contextlib.suppress(ValueError):
                 ds = Dataset(dataset_arg)
-            except ValueError:
-                pass
     # look for hooks
     return get_jsonhooks_from_config(ds.config if ds else dlcfg)
 
@@ -481,7 +480,7 @@ def _process_results(
 
     for res in results:
         if not res or 'action' not in res:
-            # XXX Yarik has to no clue on how to track the origin of the
+            # XXX: Yarik has to no clue on how to track the origin of the
             # record to figure out WTF, so he just skips it
             # but MIH thinks leaving a trace of that would be good
             lgr.debug('Drop result record without "action": %s', res)
@@ -523,10 +522,9 @@ def _process_results(
                 try:
                     res_lgr(msg, *msgargs)
                 except TypeError as exc:
-                    raise TypeError(
-                        "Failed to render %r with %r from %r: %s"
-                        % (msg, msgargs, res, str(exc))
-                    ) from exc
+                    msg = f"Failed to render {msg!r} " \
+                          f"with {msgargs!r} from {res!r}: {exc}"
+                    raise TypeError(msg) from exc
             else:
                 res_lgr(msg)
 
@@ -542,10 +540,11 @@ def _process_results(
             _render_result_json(res, result_renderer.endswith('_pp'))
         elif result_renderer == 'tailored':
             cmd_class.custom_result_renderer(res, **allkwargs)
-        elif hasattr(result_renderer, '__call__'):
+        elif callable(result_renderer):
             _render_result_customcall(res, result_renderer, allkwargs)
         else:
-            raise ValueError(f'unknown result renderer "{result_renderer}"')
+            msg = f'unknown result renderer {result_renderer!r}'
+            raise ValueError(msg)
 
         ## error handling
         # looks for error status, and report at the end via
@@ -572,7 +571,8 @@ def _display_suppressed_message(nsimilar, ndisplayed, last_ts, final=False):
         # of fast-paced results updating for each one can result in more
         # CPU load than the actual processing
         # arbitrarily go for a 2Hz update frequency -- it "feels" good
-        if last_ts is None or final or (ts - last_ts > 0.5):
+        max_freq = 0.5
+        if last_ts is None or final or (ts - last_ts > max_freq):
             ui.message('  [{} similar {} been suppressed; disable with datalad.ui.suppress-similar-results=off]'
                        .format(n_suppressed,
                                single_or_plural("message has",
@@ -589,7 +589,7 @@ def _render_result_generic(
         last_result_reps, last_result, last_result_ts):
     # which result dict keys to inspect for changes to discover repetitions
     # of similar messages
-    repetition_keys = set(('action', 'status', 'type', 'refds'))
+    repetition_keys = {'action', 'status', 'type', 'refds'}
 
     trimmed_result = {k: v for k, v in res.items() if k in repetition_keys}
     if res.get('status', None) != 'notneeded' \
@@ -624,7 +624,7 @@ def _render_result_json(res, prettyprint):
 def _render_result_customcall(res, result_renderer, allkwargs):
     try:
         result_renderer(res, **allkwargs)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         lgr.warning('Result rendering failed for: %s [%s]',
                     res, CapturedException(e))
 
@@ -633,18 +633,16 @@ def generic_result_renderer(res):
     if res.get('status', None) != 'notneeded':
         path = res.get('path', None)
         if path and res.get('refds'):
-            try:
+            # can happen, e.g., on windows with paths from different
+            # drives. just go with the original path in this case
+            with contextlib.suppress(ValueError):
                 path = relpath(path, res['refds'])
-            except ValueError:
-                # can happen, e.g., on windows with paths from different
-                # drives. just go with the original path in this case
-                pass
         ui.message('{action}({status}):{path}{type}{msg}{err}'.format(
             action=ac.color_word(
                 res.get('action', '<action-unspecified>'),
                 ac.BOLD),
             status=ac.color_status(res.get('status', '<status-unspecified>')),
-            path=' {}'.format(path) if path else '',
+            path=f' {path}' if path else '',
             type=' ({})'.format(
                 ac.color_word(res['type'], ac.MAGENTA)
             ) if 'type' in res else '',
