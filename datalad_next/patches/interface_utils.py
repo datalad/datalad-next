@@ -41,8 +41,9 @@ from datalad.interface.utils import (
 )
 from datalad_next.exceptions import IncompleteResultsError
 from datalad.utils import get_wrapped_class
-from . import apply_patch
+from datalad_next.patches import apply_patch
 from datalad_next.constraints import DatasetParameter
+from datalad_next.utils import getargspec
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
@@ -199,7 +200,6 @@ def get_allargs_as_kwargs(call, args, kwargs):
       The third value is a set with names of all mandatory arguments, whether
       or not they are included in the returned mapping.
     """
-    from datalad_next.utils import getargspec
     argspec = getargspec(call, include_kwonlyargs=True)
     defaults = argspec.defaults
     nargs = len(argspec.args)
@@ -258,40 +258,12 @@ def _execute_command_(
     cmd_kwargs:
       Keyword arguments for `cmd`.
     """
-    # for result filters and validation
-    # we need to produce a dict with argname/argvalue pairs for all args
-    # incl. defaults and args given as positionals
-    allkwargs, at_default, required_args = get_allargs_as_kwargs(
-        cmd,
-        cmd_args,
-        cmd_kwargs,
+    allkwargs = validate_parameters(
+        interface=interface,
+        cmd=cmd,
+        cmd_args=cmd_args,
+        cmd_kwargs=cmd_kwargs,
     )
-
-    # validate the complete parameterization
-    param_validator = interface.get_parameter_validator() \
-        if hasattr(interface, 'get_parameter_validator') else None
-    if param_validator is None:
-        lgr.debug(
-            'Command parameter validation skipped. %s declares no validator',
-            interface)
-    else:
-        lgr.debug('Command parameter validation for %s', interface)
-        validator_kwargs = dict(
-            at_default=at_default,
-            required=required_args or None,
-        )
-        # make immediate vs exhaustive parameter validation
-        # configurable
-        raise_on_error = dlcfg.get(
-            'datalad.runtime.parameter-violation', None)
-        if raise_on_error:
-            validator_kwargs['on_error'] = raise_on_error
-
-        allkwargs = param_validator(
-            allkwargs,
-            **validator_kwargs
-        )
-        lgr.debug('Command parameter validation ended for %s', interface)
 
     # look for potential override of logging behavior
     result_log_level = dlcfg.get('datalad.log.result-level', 'debug')
@@ -407,6 +379,49 @@ def _execute_command_(
         raise IncompleteResultsError(
             failed=incomplete_results,
             msg="Command did not complete successfully")
+
+
+def validate_parameters(
+    interface: anInterface,
+    cmd: Callable[..., Generator[Dict, None, None]],
+    cmd_args: tuple,
+    cmd_kwargs: Dict,
+) -> dict[str, Any]:
+    # for result filters and validation
+    # we need to produce a dict with argname/argvalue pairs for all args
+    # incl. defaults and args given as positionals
+    allkwargs, at_default, required_args = get_allargs_as_kwargs(
+        cmd,
+        cmd_args,
+        cmd_kwargs,
+    )
+    # validate the complete parameterization
+    param_validator = interface.get_parameter_validator() \
+        if hasattr(interface, 'get_parameter_validator') else None
+    if param_validator is None:
+        lgr.debug(
+            'Command parameter validation skipped. %s declares no validator',
+            interface)
+    else:
+        lgr.debug('Command parameter validation for %s', interface)
+        validator_kwargs = dict(
+            at_default=at_default,
+            required=required_args or None,
+        )
+        # make immediate vs exhaustive parameter validation
+        # configurable
+        raise_on_error = dlcfg.get(
+            'datalad.runtime.parameter-violation', None)
+        if raise_on_error:
+            validator_kwargs['on_error'] = raise_on_error
+
+        allkwargs = param_validator(
+            allkwargs,
+            **validator_kwargs
+        )
+        lgr.debug('Command parameter validation ended for %s', interface)
+
+    return allkwargs
 
 
 def get_hooks(dataset_arg: Any) -> dict[str, dict]:
