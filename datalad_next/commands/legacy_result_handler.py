@@ -71,7 +71,7 @@ class LegacyResultHandler(ResultHandler):
         # track what actions were performed how many times
         self._action_summary: dict[str, dict] = {}
 
-        self._hooks = None
+        self._hooks: dict[str, dict[Any, Any]] | None = None
 
         # resolve string labels for transformers too
         self._result_xfm = known_result_xfms.get(
