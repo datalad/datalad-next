@@ -118,7 +118,7 @@ environment:
       PY: 3.8
       INSTALL_GITANNEX: git-annex
       DATALAD_LOCATIONS_SOCKETS: /Users/appveyor/DLTMP/sockets
-      CODECOV_BINARY: https://uploader.codecov.io/latest/macos/codecov
+      CODECOV_BINARY: https://cli.codecov.io/v0.7.4/macos/codecov
       DATALAD_TESTS_SSH: 1
       # no docker on Mac, we log into self
       # 'test_publish_target_url' relies git-annex being installed on the
@@ -333,7 +333,8 @@ for:
       - python -m coverage xml
       - "curl -Os $CODECOV_BINARY"
       - chmod +x codecov
-      - ./codecov
+      # the do-upload subcommand seems to work for the codecov-cli and legacy uploader
+      - ./codecov do-upload
 
     on_finish:
       # conditionally block the exit of a CI run for direct debugging
