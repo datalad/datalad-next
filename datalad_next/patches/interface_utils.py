@@ -45,8 +45,6 @@ from datalad.interface.utils import (
     render_action_summary,
     xfm_result,
 )
-from datalad_next.utils import getargspec
-import datalad.support.ansi_colors as ac
 from datalad.support.exceptions import CapturedException
 from datalad.ui import ui
 from datalad.utils import get_wrapped_class
@@ -54,6 +52,7 @@ from datalad.utils import get_wrapped_class
 from datalad_next.constraints import DatasetParameter
 from datalad_next.exceptions import IncompleteResultsError
 from datalad_next.patches import apply_patch
+from datalad_next.utils import getargspec
 
 # use same logger as -core
 lgr = logging.getLogger('datalad.interface.utils')
@@ -299,6 +298,12 @@ def eval_results(wrapped):
         # retrieve common options from kwargs, and fall back on the command
         # class attributes, or general defaults if needed
         kwargs = get_eval_kwargs(wrapped_class, **kwargs)
+        allkwargs = validate_parameters(
+            interface=wrapped_class,
+            cmd=wrapped,
+            cmd_args=args,
+            cmd_kwargs=kwargs,
+        )
 
         # go with a custom result handler if instructed
         result_handler_cls = kwargs.pop('result_handler_cls', None)
@@ -317,8 +322,7 @@ def eval_results(wrapped):
                 _execute_command_,
                 interface=wrapped_class,
                 cmd=wrapped,
-                cmd_args=args,
-                cmd_kwargs=kwargs,
+                allkwargs=allkwargs,
                 result_handler=result_handler,
             ),
             mode=kwargs['return_type'],
@@ -404,8 +408,7 @@ def _execute_command_(
     *,
     interface: anInterface,
     cmd: Callable[..., Generator[dict, None, None]],
-    cmd_args: tuple,
-    cmd_kwargs: dict,
+    allkwargs: dict,
     # TODO: rather than the whole instance, pass one or more
     # method that do the thing(s) we need.
     # see `result_filter`, and `result_renderer` below
@@ -420,18 +423,9 @@ def _execute_command_(
     cmd:
       A DataLad command implementation. Typically the `__call__()` of
       the given `interface`.
-    cmd_args:
-      Positional arguments for `cmd`.
-    cmd_kwargs:
+    allkwargs:
       Keyword arguments for `cmd`.
     """
-    allkwargs = validate_parameters(
-        interface=interface,
-        cmd=cmd,
-        cmd_args=cmd_args,
-        cmd_kwargs=cmd_kwargs,
-    )
-
     # resolve string labels for transformers too
     result_xfm = known_result_xfms.get(
         allkwargs['result_xfm'],
