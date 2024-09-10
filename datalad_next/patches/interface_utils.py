@@ -95,17 +95,16 @@ def eval_results(wrapped):
 
         # retrieve common options from kwargs, and fall back on the command
         # class attributes, or general defaults if needed
-        kwargs, common_params = get_eval_kwargs(wrapped_class, **kwargs)
+        kwargs = get_eval_kwargs(wrapped_class, **kwargs)
 
         execute_kwargs = {
             'interface': wrapped_class,
             'cmd': wrapped,
             'cmd_args': args,
             'cmd_kwargs': kwargs,
-            'exec_kwargs': common_params,
         }
         # short cuts and configured setup for common options
-        return_type = common_params['return_type']
+        return_type = kwargs['return_type']
 
         if return_type == 'generator':
             # hand over the generator
@@ -137,18 +136,18 @@ def eval_results(wrapped):
     return ret
 
 
-def get_eval_kwargs(cls: anInterface, **kwargs) -> tuple[dict, dict]:
+def get_eval_kwargs(cls: anInterface, **kwargs) -> dict:
     # retrieve common options from kwargs, and fall back on the command
     # class attributes, or general defaults if needed
     eval_kwargs = {
-        p_name: kwargs.pop(
+        p_name: kwargs.get(
             # go with any explicitly given default
             p_name,
             # otherwise determine the command class and pull any
             # default set in that class
             getattr(cls, p_name))
         for p_name in eval_params}
-    return dict(kwargs), eval_kwargs
+    return dict(kwargs, **eval_kwargs)
 
 
 # this is a replacement for datalad.interface.base.get_allargs_as_kwargs
@@ -215,7 +214,6 @@ def _execute_command_(
     cmd: Callable[..., Generator[Dict, None, None]],
     cmd_args: tuple,
     cmd_kwargs: Dict,
-    exec_kwargs: Dict,
 ) -> Generator[Dict, None, None]:
     """Internal helper to drive a command execution generator-style
 
@@ -230,9 +228,6 @@ def _execute_command_(
       Positional arguments for `cmd`.
     cmd_kwargs:
       Keyword arguments for `cmd`.
-    exec_kwargs:
-      Keyword argument affecting the result handling.
-      See `datalad.interface.common_opts.eval_params`.
     """
     # for result filters and validation
     # we need to produce a dict with argname/argvalue pairs for all args
@@ -240,7 +235,7 @@ def _execute_command_(
     allkwargs, at_default, required_args = get_allargs_as_kwargs(
         cmd,
         cmd_args,
-        {**cmd_kwargs, **exec_kwargs},
+        cmd_kwargs,
     )
 
     # validate the complete parameterization
@@ -313,7 +308,7 @@ def _execute_command_(
             # execution, call with any arguments from the validated
             # set that are no result-handling related
             cmd(**{k: v for k, v in allkwargs.items()
-                if k not in exec_kwargs}),
+                if k not in eval_params}),
             interface,
             allkwargs['on_failure'],
             # bookkeeping
