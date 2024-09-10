@@ -430,7 +430,6 @@ def eval_results(wrapped):
             # here, all necessary parameters are given
             partial(
                 _execute_command_,
-                interface=wrapped_class,
                 cmd=wrapped,
                 allkwargs=allkwargs,
                 result_handler=result_handler,
@@ -515,7 +514,6 @@ def get_allargs_as_kwargs(call, args, kwargs):
 # datalad-core@209bc319db8f34cceae4fee86493bf41927676fd
 def _execute_command_(
     *,
-    interface: anInterface,
     cmd: Callable[..., Generator[dict, None, None]],
     allkwargs: dict,
     # TODO: rather than the whole instance, pass one or more
@@ -535,28 +533,51 @@ def _execute_command_(
     allkwargs:
       Keyword arguments for `cmd`.
     """
-    # flag whether to raise an exception
+    # bookkeeping whether to raise an exception
     incomplete_results: list[dict] = []
 
-    # process main results
-    for r in _process_results(
-        # execution, call with any arguments from the validated
-        # set that are no result-handling related
-        cmd(**{k: v for k, v in allkwargs.items()
-            if k not in eval_params}),
-        on_failure=allkwargs['on_failure'],
-        # bookkeeping
-        incomplete_results=incomplete_results,
-        # communication
-        result_logger=result_handler.log_result,
-        result_renderer=result_handler.render_result,
-    ):
-        yield from result_handler.run_result_hooks(r)
+    on_failure = allkwargs['on_failure']
 
-        if not result_handler.keep_result(r):
+    # process main results
+    # execution, call with any arguments from the validated
+    # set that are no result-handling related
+    for res in cmd(
+        **{k: v for k, v in allkwargs.items()
+           if k not in eval_params}
+    ):
+        if not res or 'action' not in res:
+            # XXX: Yarik has to no clue on how to track the origin of the
+            # record to figure out WTF, so he just skips it
+            # but MIH thinks leaving a trace of that would be good
+            lgr.debug('Drop result record without "action": %s', res)
             continue
 
-        yield from result_handler.transform_result(r)
+        result_handler.log_result(res)
+        # remove logger instance from results, as it is no longer useful
+        # after logging was done, it isn't serializable, and generally
+        # pollutes the output
+        res.pop('logger', None)
+
+        # output rendering
+        result_handler.render_result(res)
+
+        # error handling
+        # looks for error status, and report at the end via
+        # an exception
+        if on_failure in ('continue', 'stop') \
+                and res['status'] in ('impossible', 'error'):
+            incomplete_results.append(res)
+            if on_failure == 'stop':
+                # first fail -> that's it
+                # raise will happen after the loop
+                break
+
+        yield from result_handler.run_result_hooks(res)
+
+        if not result_handler.keep_result(res):
+            continue
+
+        yield from result_handler.transform_result(res)
 
     result_handler.render_result_summary()
 
@@ -626,48 +647,6 @@ def get_hooks(dataset_arg: Any) -> dict[str, dict]:
                 ds = Dataset(dataset_arg)
     # look for hooks
     return get_jsonhooks_from_config(ds.config if ds else dlcfg)
-
-
-def _process_results(
-    results,
-    *,
-    on_failure: str,
-    incomplete_results,
-    result_logger: Callable,
-    result_renderer: Callable,
-):
-    # private helper pf @eval_results
-    # loop over results generated from some source and handle each
-    # of them according to the requested behavior (logging, rendering, ...)
-
-    for res in results:
-        if not res or 'action' not in res:
-            # XXX: Yarik has to no clue on how to track the origin of the
-            # record to figure out WTF, so he just skips it
-            # but MIH thinks leaving a trace of that would be good
-            lgr.debug('Drop result record without "action": %s', res)
-            continue
-
-        result_logger(res)
-        # remove logger instance from results, as it is no longer useful
-        # after logging was done, it isn't serializable, and generally
-        # pollutes the output
-        res.pop('logger', None)
-
-        # output rendering
-        result_renderer(res)
-
-        # error handling
-        # looks for error status, and report at the end via
-        # an exception
-        if on_failure in ('continue', 'stop') \
-                and res['status'] in ('impossible', 'error'):
-            incomplete_results.append(res)
-            if on_failure == 'stop':
-                # first fail -> that's it
-                # raise will happen after the loop
-                break
-        yield res
 
 
 def _display_suppressed_message(nsimilar, ndisplayed, last_ts, final=False):
