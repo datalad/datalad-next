@@ -241,10 +241,6 @@ def _execute_command_(
             continue
 
         result_handler.log_result(res)
-        # remove logger instance from results, as it is no longer useful
-        # after logging was done, it isn't serializable, and generally
-        # pollutes the output
-        res.pop('logger', None)
 
         # output rendering
         result_handler.render_result(res)
