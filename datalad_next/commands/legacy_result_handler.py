@@ -24,7 +24,6 @@ from datalad.dochelpers import single_or_plural
 from datalad.interface.base import default_logchannels
 from datalad.interface.results import known_result_xfms
 from datalad.interface.utils import (
-    anInterface,
     get_result_filter,
     keep_result,
     render_action_summary,
@@ -33,7 +32,10 @@ from datalad.interface.utils import (
 from datalad.support.exceptions import CapturedException
 from datalad.ui import ui
 
-from datalad_next.commands import ResultHandler
+from datalad_next.commands import (
+    Interface,
+    ResultHandler,
+)
 from datalad_next.constraints import DatasetParameter
 
 lgr = logging.getLogger('datalad.interface.utils')
@@ -42,7 +44,7 @@ lgr = logging.getLogger('datalad.interface.utils')
 class LegacyResultHandler(ResultHandler):
     def __init__(
         self,
-        interface: anInterface,
+        interface: type[Interface],
         cmd_kwargs: dict[str, Any],
     ) -> None:
         self._interface = interface

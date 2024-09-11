@@ -27,9 +27,10 @@ from datalad import cfg as dlcfg
 from datalad.interface.common_opts import eval_params
 
 if TYPE_CHECKING:
-    from datalad.interface.utils import anInterface
-
-    from datalad_next.commands import ResultHandler
+    from datalad_next.commands import (
+        Interface,
+        ResultHandler,
+    )
 
 from datalad.utils import get_wrapped_class
 
@@ -131,7 +132,7 @@ def eval_results(wrapped):
     return ret
 
 
-def get_eval_kwargs(cls: anInterface, **kwargs) -> dict:
+def get_eval_kwargs(cls: type[Interface], **kwargs) -> dict:
     # retrieve common options from kwargs, and fall back on the command
     # class attributes, or general defaults if needed
     eval_kwargs = {
@@ -274,7 +275,7 @@ def _execute_command_(
 
 
 def validate_parameters(
-    interface: anInterface,
+    interface: type[Interface],
     cmd: Callable[..., Generator[dict, None, None]],
     cmd_args: tuple,
     cmd_kwargs: dict,
