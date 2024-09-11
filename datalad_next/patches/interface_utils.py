@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 from datalad.utils import get_wrapped_class
 
+from datalad_next import get_command_result_handler_class
 from datalad_next.commands.legacy_result_handler import LegacyResultHandler
 from datalad_next.exceptions import IncompleteResultsError
 from datalad_next.patches import apply_patch
@@ -102,7 +103,7 @@ def eval_results(wrapped):
         )
 
         # go with a custom result handler if instructed
-        result_handler_cls = kwargs.pop('result_handler_cls', None)
+        result_handler_cls = get_command_result_handler_class()
         if result_handler_cls is None:
             # use default
             result_handler_cls = LegacyResultHandler
