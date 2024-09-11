@@ -278,3 +278,77 @@ schema_pattern = "(?s)(ci|doc|feat|fix|perf|rf|style|test|chore|revert|bump)(\\(
 "^BREAKING" = "MAJOR"
 "^feat" = "MINOR"
 "^fix" = "PATCH"
+
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    # datalad-next custom markers
+    "skip_if_no_network",
+    # (implicitly) used markers from datalad-core, which are only declared
+    # in its tox.ini (inaccessible to pytest here)
+    "fail_slow",
+    "githubci_osx",
+    "githubci_win",
+    "integration",
+    "known_failure",
+    "known_failure_githubci_osx",
+    "known_failure_githubci_win",
+    "known_failure_osx",
+    "known_failure_windows",
+    "network",
+    "osx",
+    "probe_known_failure",
+    "serve_path_via_http",
+    "skip_if_adjusted_branch",
+    "skip_if_no_network",
+    "skip_if_on_windows",
+    "skip_if_root",
+    "skip_known_failure",
+    "skip_nomultiplex_ssh",
+    "skip_ssh",
+    "skip_wo_symlink_capability",
+    "slow",
+    "turtle",
+    "usecase",
+    "windows",
+    "with_config",
+    "with_fake_cookies_db",
+    "with_memory_keyring",
+    "with_sameas_remotes",
+    "with_testrepos",
+    "without_http_proxy",
+]
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+  "pytest",
+]
+[tool.hatch.envs.types.scripts]
+check = [
+  "mypy --follow-imports skip --ignore-missing-imports --install-types --non-interactive --python-version 3.8 --pretty --show-error-context datalad_next",
+]
+
+[tool.ruff]
+exclude = [
+  # sphinx
+  "docs",
+]
+line-length = 88
+indent-width = 4
+target-version = "py38"
+[tool.ruff.format]
+# Prefer single quotes over double quotes.
+quote-style = "single"
+[tool.ruff.lint.per-file-ignores]
+"**/test_*" = [
+  # permit assert statements in tests
+  "S101",
+  # permit relative import in tests
+  "TID252",
+  # permit versatile function names in tests
+  "N802",
+]
+# permit relative import in subpackage root
+"datalad_next/*/__init__.py" = ["TID252"]
