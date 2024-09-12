@@ -1,12 +1,12 @@
 from . import (
     cli_configoverrides,
+    interface_utils,
     commanderror,
     common_cfg,
     annexrepo,
     configuration,
     create_sibling_ghlike,
     interface_base,
-    interface_utils,
     push_to_export_remote,
     push_optimize,
     siblings,
