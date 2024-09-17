@@ -41,6 +41,7 @@ dependencies = [
   "datasalad@git+https://github.com/datalad/datasalad@settings#egg=datasalad",
   "humanize",
   "more-itertools",
+  "typing_extensions",
 ]
 
 [tool.hatch.metadata]

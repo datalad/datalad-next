@@ -6,6 +6,7 @@ of errors (now only one error instead of three identical errors).
 This change does not override user-settings, only the default.
 """
 
+# TODO just reset the default in the new config manager
 from datalad.support.extensions import has_config
 
 if has_config('datalad.annex.retry'):

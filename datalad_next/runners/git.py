@@ -71,6 +71,7 @@ def call_git(
     *,
     cwd: Path | None = None,
     force_c_locale: bool = False,
+    capture_output: bool = False,
 ) -> None:
     """Call Git with no output capture, raises on non-zero exit.
 
@@ -80,10 +81,14 @@ def call_git(
     If ``force_c_locale`` is ``True`` the environment of the Git process
     is altered to ensure output according to the C locale. This is useful
     when output has to be processed in a locale invariant fashion.
+
+    If ``capture_output`` is ``True``, process output is captured. This is
+    necessary for reporting any error messaging via a ``CommandError`` exception.
+    By default process output is not captured.
     """
     _call_git(
         args,
-        capture_output=False,
+        capture_output=capture_output,
         cwd=cwd,
         check=True,
         force_c_locale=force_c_locale,

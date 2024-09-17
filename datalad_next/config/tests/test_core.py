@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+
 import logging
 import os
 from os.path import exists
@@ -39,6 +41,11 @@ from datalad.utils import (
     Path,
     get_home_envvars,
     swallow_logs,
+)
+from datalad_next.config import dialog
+from datalad_next.config.item import (
+    ConfigurationItem,
+    UnsetValue,
 )
 
 # XXX tabs are intentional (part of the format)!
@@ -194,7 +201,8 @@ def test_something(path=None, new_home=None):
 
     # batch a changes
     cfg.add('mike.wants.to', 'know', reload=False)
-    assert_false('mike.wants.to' in cfg)
+    # next assert is not valid anymore, we have immediate availability
+    #assert_false('mike.wants.to' in cfg)
     cfg.add('mike.wants.to', 'eat')
     assert_true('mike.wants.to' in cfg)
     assert_equal(len(cfg['mike.wants.to']), 2)
@@ -246,19 +254,24 @@ def test_something(path=None, new_home=None):
         globalcfg = ConfigManager()
         assert_not_in('datalad.unittest.youcan', globalcfg)
         assert_in('datalad.sneaky.addition', globalcfg)
-        cfg.add('datalad.unittest.youcan', 'removeme', scope='global')
+        # next line made no sense, `cfg` is configured to only
+        # deal with "branch" config
+        #cfg.add('datalad.unittest.youcan', 'removeme', scope='global')
+        globalcfg.add('datalad.unittest.youcan', 'removeme', scope='global')
         assert(exists(global_gitconfig))
         # it did not go into the dataset's config!
         assert_not_in('datalad.unittest.youcan', cfg)
         # does not monitor additions!
         globalcfg.reload(force=True)
         assert_in('datalad.unittest.youcan', globalcfg)
-        with swallow_logs():
-            assert_raises(
-                CommandError,
-                globalcfg.unset,
-                'datalad.unittest.youcan',
-                scope='local')
+        # next lines makes no sense, neither `cfg` nor `globalcfg`
+        # deal with the "local" config
+        #with swallow_logs():
+        #    assert_raises(
+        #        CommandError,
+        #        globalcfg.unset,
+        #        'datalad.unittest.youcan',
+        #        scope='local')
         assert(globalcfg.has_section('datalad.unittest'))
         globalcfg.unset('datalad.unittest.youcan', scope='global')
         # but after we unset the only value -- that section is no longer listed
@@ -334,8 +347,7 @@ def test_obtain(path=None):
     # don't hide type issues, float doesn't become an int magically
     assert_raises(ValueError, cfg.obtain, dummy, valtype=int)
     # inject some prior knowledge
-    from datalad.interface.common_cfg import definitions as cfg_defs
-    cfg_defs[dummy] = dict(type=float)
+    cfg._defaults[dummy] = ConfigurationItem(UnsetValue, validator=float)
     # no we don't need to specify a type anymore
     assert_equal(cfg.obtain(dummy), 5.3)
     # but if we remove the value from the config, all magic is gone
@@ -356,11 +368,11 @@ def test_obtain(path=None):
     @with_testsui(responses='5.3')
     def ask():
         assert_equal(
-            cfg.obtain(dummy, dialog_type='question', text='Tell me'), 5.3)
+            cfg.obtain(dummy, dialog_type='question', title='Tell me'), 5.3)
     ask()
 
     # preconfigure even more, to get the most compact call
-    cfg_defs[dummy]['ui'] = ('question', dict(text='tell me', title='Gretchen Frage'))
+    cfg._defaults[dummy]._dialog = dialog.Question(text='tell me', title='Gretchen Frage')
 
     @with_testsui(responses='5.3')
     def ask():
@@ -379,7 +391,7 @@ def test_obtain(path=None):
     ask()
 
     # but we can preconfigure it
-    cfg_defs[dummy]['destination'] = 'broken'
+    cfg._defaults[dummy]._store_target = 'broken'
 
     @with_testsui(responses='5.3')
     def ask():
@@ -387,7 +399,7 @@ def test_obtain(path=None):
     ask()
 
     # fixup destination
-    cfg_defs[dummy]['destination'] = 'branch'
+    cfg._defaults[dummy]._store_target = 'branch'
 
     @with_testsui(responses='5.3')
     def ask():
@@ -412,7 +424,7 @@ def test_obtain(path=None):
     #ask()
 
 
-def test_from_env():
+def test_from_env(existing_dataset):
     cfg = ConfigManager()
     assert_not_in('datalad.crazy.cfg', cfg)
     with patch.dict('os.environ',
@@ -421,7 +433,7 @@ def test_from_env():
         assert_in('datalad.crazy.cfg', cfg)
         assert_equal(cfg['datalad.crazy.cfg'], 'impossibletoguess')
         # not in dataset-only mode
-        cfg = ConfigManager(Dataset('nowhere'), source='branch')
+        cfg = ConfigManager(existing_dataset, source='branch')
         assert_not_in('datalad.crazy.cfg', cfg)
     # check env trumps override
     cfg = ConfigManager()
@@ -432,7 +444,7 @@ def test_from_env():
     with patch.dict('os.environ',
                     {'DATALAD_CRAZY_OVERRIDE': 'fromenv'}):
         cfg.reload()
-        assert_equal(cfg['datalad.crazy.override'], 'fromenv')
+        assert_equal(cfg.get('datalad.crazy.override'), 'fromenv')
 
 
 def test_from_env_overrides():
@@ -481,7 +493,7 @@ def test_overrides():
     assert_in('user.name', cfg)
     # set
     cfg.set('user.name', 'myoverride', scope='override')
-    assert_equal(cfg['user.name'], 'myoverride')
+    assert_equal(cfg.get('user.name'), 'myoverride')
     # unset just removes override, not entire config
     cfg.unset('user.name', scope='override')
     assert_in('user.name', cfg)
@@ -489,19 +501,19 @@ def test_overrides():
     # add
     # there is no initial increment
     cfg.add('user.name', 'myoverride', scope='override')
-    assert_equal(cfg['user.name'], 'myoverride')
+    assert_equal(cfg.get('user.name'), 'myoverride')
     # same as with add, not a list
-    assert_equal(cfg['user.name'], 'myoverride')
+    assert_equal(cfg.get('user.name'), 'myoverride')
     # but then there is
     cfg.add('user.name', 'myother', scope='override')
-    assert_equal(cfg['user.name'], ['myoverride', 'myother'])
+    assert_equal(cfg.get('user.name', get_all=True)[-2:], ('myoverride', 'myother'))
     # rename
     assert_not_in('ups.name', cfg)
     cfg.rename_section('user', 'ups', scope='override')
     # original variable still there
     assert_in('user.name', cfg)
     # rename of override in effect
-    assert_equal(cfg['ups.name'], ['myoverride', 'myother'])
+    assert_equal(cfg.get('ups.name', get_all=True)[-2:], ('myoverride', 'myother'))
     # remove entirely by section
     cfg.remove_section('ups', scope='override')
     from datalad.utils import Path
@@ -573,16 +585,17 @@ def test_no_leaks(path1=None, path2=None):
         ds2.create()
         assert_not_in('i.was.here', ds2.config.keys())
 
-        # and that we do not track the wrong files
-        assert_not_in(ds1.pathobj / '.git' / 'config',
-                      ds2.config._stores['git']['files'])
-        assert_not_in(ds1.pathobj / '.datalad' / 'config',
-                      ds2.config._stores['branch']['files'])
-        # these are the right ones
-        assert_in(ds2.pathobj / '.git' / 'config',
-                  ds2.config._stores['git']['files'])
-        assert_in(ds2.pathobj / '.datalad' / 'config',
-                  ds2.config._stores['branch']['files'])
+        # internals do not exist anymore
+        # # and that we do not track the wrong files
+        # assert_not_in(ds1.pathobj / '.git' / 'config',
+        #               ds2.config._stores['git']['files'])
+        # assert_not_in(ds1.pathobj / '.datalad' / 'config',
+        #               ds2.config._stores['branch']['files'])
+        # # these are the right ones
+        # assert_in(ds2.pathobj / '.git' / 'config',
+        #           ds2.config._stores['git']['files'])
+        # assert_in(ds2.pathobj / '.datalad' / 'config',
+        #           ds2.config._stores['branch']['files'])
 
 
 @with_tempfile()
@@ -590,7 +603,8 @@ def test_no_local_write_if_no_dataset(path=None):
     Dataset(path).create()
     with chpwd(path):
         cfg = ConfigManager()
-        with assert_raises(CommandError):
+        # KeyError because the scope is not known
+        with assert_raises(KeyError):
             cfg.set('a.b.c', 'd', scope='local')
 
 
@@ -661,13 +675,14 @@ def test_bare(src=None, path=None):
     assert_true(gr.bare)
     # do we read the correct local config?
     assert_in(gr.pathobj / 'config', gr.config._stores['git']['files'])
-    # do we pick up the default branch config too?
-    assert_in('blob:HEAD:.datalad/config',
-              gr.config._stores['branch']['files'])
+    # these internals are no longer valid
+    ## do we pick up the default branch config too?
+    #assert_in('blob:HEAD:.datalad/config',
+    #          gr.config._stores['branch']['files'])
     # and track its reload stamp via its file shasum
-    assert_equal(
-        dlconfig_sha,
-        gr.config._stores['branch']['stats']['blob:HEAD:.datalad/config'])
+    #assert_equal(
+    #    dlconfig_sha,
+    #    gr.config._stores['branch']['stats']['blob:HEAD:.datalad/config'])
     # check that we can pick up the dsid from the commit branch config
     assert_equal(ds.id, gr.config.get('datalad.dataset.id'))
     # and it is coming from the correct source
@@ -800,7 +815,7 @@ def test_cross_cfgman_update(datalad_cfg, tmp_path):
     # there is no dataset to write to, it rejects it rightfully
     # it is a bit versatile in its exception behavior
     # https://github.com/datalad/datalad/issues/7300
-    with pytest.raises((ValueError, CommandError)):
+    with pytest.raises((ValueError, CommandError, KeyError)):
         ds.config.set(myuniqcfg, myuniqcfg_value, scope='local')
     # but we can write to global scope
     ds.config.set(myuniqcfg, myuniqcfg_value, scope='global')

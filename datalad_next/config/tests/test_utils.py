@@ -2,7 +2,6 @@
 import pytest
 
 from .. import utils  # for patching environ
-
 from ..utils import (
     get_gitconfig_items_from_env,
     set_gitconfig_items_in_env,
