@@ -53,13 +53,14 @@ command_suite = (
 
 # patch datalad-core
 import datalad_next.patches.enabled
-
-# register additional configuration items in datalad-core
-from datalad.support.extensions import register_config
 from datalad_next.constraints import (
     EnsureBool,
     EnsureChoice,
 )
+
+# register additional configuration items in datalad-core
+from datalad.support.extensions import register_config
+
 register_config(
     'datalad.credentials.repeat-secret-entry',
     'Require entering secrets twice for interactive specification?',
