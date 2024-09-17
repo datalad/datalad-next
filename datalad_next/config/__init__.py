@@ -17,6 +17,8 @@ __all__ = [
     'MultiConfiguration',
     'defaults',
     'dialog',
+    'legacy_register_config',
+    'legacy_cfg',
 ]
 
 # TODO: eventually replace with
@@ -26,6 +28,10 @@ from datalad.config import ConfigManager
 from . import dialog
 from .default import (
     ImplementationDefault,
+    legacy_register_config,
+)
+from .default import (
+    load_legacy_defaults as _load_legacy_defaults,
 )
 from .env import Environment
 from .legacy import ConfigManager as LegacyConfigManager
@@ -34,6 +40,8 @@ from .source import ConfigurationSource
 
 # instance for registering all defaults
 defaults = ImplementationDefault()
+# load up with legacy registrations for now
+_load_legacy_defaults(defaults)
 
 manager = MultiConfiguration({
     # order reflects precedence rule, first source with a
@@ -41,4 +49,7 @@ manager = MultiConfiguration({
     'environment': Environment(),
     'defaults': defaults,
 })
+
+legacy_cfg = LegacyConfigManager(
+    manager,
 )

@@ -29,3 +29,14 @@ class YesNo(Dialog):
 @dataclass(kw_only=True)
 class Choice(Dialog):
     pass
+
+
+def get_dialog_class_from_legacy_ui_label(label: str) -> type[Dialog]:
+    """Recode legacy `datalad.interface.common_cfg` UI type label"""
+    if label == 'yesno':
+        return YesNo
+    elif label == 'question':
+        return Question
+    else:
+        msg = f'unknown UI type label {label!r}'
+        raise ValueError(msg)

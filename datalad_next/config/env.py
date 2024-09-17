@@ -21,6 +21,11 @@ class Environment(ConfigurationSource):
 
     def load(self) -> None:
         # not resetting here, incremental load
+        for k, v in self._load_legacy_overrides().items():
+            self[k] = ConfigurationItem(
+                value=v,
+                store_target=Environment,
+            )
         for k in environ:
             if not k.startswith('DATALAD_'):
                 continue
@@ -30,6 +35,21 @@ class Environment(ConfigurationSource):
                 value=environ[k],
                 store_target=Environment,
             )
+
+    def _load_legacy_overrides(self) -> dict[str, Any]:
+        try:
+            return {
+                str(k): v
+                for k, v in json.loads(
+                    environ.get("DATALAD_CONFIG_OVERRIDES_JSON", '{}')
+                ).items()
+            }
+        except json.decoder.JSONDecodeError as exc:
+            lgr.warning(
+                "Failed to load DATALAD_CONFIG_OVERRIDES_JSON: %s",
+                exc,
+            )
+            return {}
 
     def __str__(self):
         return 'Environment'
