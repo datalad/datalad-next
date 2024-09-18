@@ -12,6 +12,7 @@ from datalad_next.patches import apply_patch
 
 from datalad_next.config import (
     defaults,
+    legacy_cfg,
     legacy_register_config,
 )
 
@@ -24,6 +25,7 @@ def register_config(*args, **kwargs):
     legacy_register_config(defaults, *args, **kwargs)
 
 
+apply_patch('datalad', None, 'cfg', legacy_cfg)
 apply_patch('datalad.support.extensions', None, 'register_config',
             register_config)
 apply_patch('datalad.support.extensions', None, 'has_config', has_config)
