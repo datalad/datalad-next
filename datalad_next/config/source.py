@@ -13,13 +13,8 @@ from datalad_next.config.item import ConfigurationItem
 
 
 class ConfigurationSource(ABC):
-    def __init__(
-        self,
-        load=True,  # noqa: FBT002
-    ):
-        self.reset()
-        if load:
-            self.load()
+    def __init__(self):
+        self.__items: dict[str, ConfigurationItem] | None = None
 
     @property
     @abstractmethod
@@ -42,11 +37,18 @@ class ConfigurationSource(ABC):
         explicitly.
         """
 
+    @property
+    def _items(self) -> dict[str, ConfigurationItem]:
+        if self.__items is None:
+            self.reset()
+            self.load()
+        return self.__items
+
     def reset(self) -> None:
         # particular implementations may not use this facility,
         # but it is provided as a convenience. Maybe factor
         # it out into a dedicated subclass even.
-        self._items: dict[str, ConfigurationItem] = {}
+        self.__items = {}
 
     def __len__(self) -> int:
         return len(self._items)
