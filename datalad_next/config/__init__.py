@@ -34,6 +34,12 @@ from .default import (
     load_legacy_defaults as _load_legacy_defaults,
 )
 from .env import Environment
+from .git import (
+    GitConfig,
+    LocalGitConfig,
+    GlobalGitConfig,
+    SystemGitConfig,
+)
 from .legacy import ConfigManager as LegacyConfigManager
 from .multi import MultiConfiguration
 from .source import ConfigurationSource
@@ -47,6 +53,8 @@ manager = MultiConfiguration({
     # order reflects precedence rule, first source with a
     # key takes precedence
     'environment': Environment(),
+    'git-global': GlobalGitConfig(),
+    'git-system': SystemGitConfig(),
     'defaults': defaults,
 })
 
