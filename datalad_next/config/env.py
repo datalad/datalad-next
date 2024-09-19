@@ -13,7 +13,7 @@ lgr = logging.getLogger('datalad.config')
 
 class Environment(ConfigurationSource):
     """
-    All loaded items have a `store_target` of `Environment, assuming
+    All loaded items have a ``store_target`` of ``Environment``, assuming
     that if they are loaded from the environment, a modification can
     also target the environment again.
     """

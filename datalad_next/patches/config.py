@@ -5,7 +5,7 @@ The original implementation use a structure from
 `ImplementationDefault` from `datalad_next.config` also contains this
 information, and consolidates it into a new structure and API. This patch
 ensures that extensions registering their configuration items using this legacy
-API, also feed this `defaults` instance.
+API, also feeds this `defaults` instance.
 """
 
 from datalad_next.patches import apply_patch

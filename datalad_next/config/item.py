@@ -17,9 +17,18 @@ if TYPE_CHECKING:
     from datalad_next.constraints import Constraint
 
 
+from datalad.interface.common_cfg import _NotGiven
+
+
+# make a type alias with a subjectively more self-explaining name
+# we reuse the core type to keep checking code here simple, and
+# easy to migrate later
+UnsetValue = _NotGiven
+
+
 @dataclass
 class ConfigurationItem:
-    value: Any
+    value: Any | UnsetValue
     """Value of a configuration item"""
     validator: Constraint | Callable | None = None
     """Type or validator of the configuration value"""
