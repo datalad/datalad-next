@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "hatchling",
-    "hatch-vcs",
+  "hatchling",
+  "hatch-vcs",
 ]
 build-backend = "hatchling.build"
 
@@ -10,37 +10,57 @@ name = "datalad-next"
 dynamic = ["version"]
 description = "What is next in DataLad"
 readme = "README.md"
-license = "MIT"
 requires-python = ">= 3.8"
+license = "MIT"
+keywords = [
+  "datalad",
+  "git",
+  "git-annex",
+]
 authors = [
-    { name = "The DataLad Team and Contributors", email = "team@datalad.org" },
+  { name = "The DataLad Team and Contributors", email = "team@datalad.org" },
 ]
 classifiers = [
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Version Control",
+  "Topic :: Software Development :: Version Control :: Git",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "annexremote",
-    "datalad >= 0.18.4",
-    "datasalad >= 0.2.1",
-    "humanize",
-    "more-itertools",
+  "annexremote",
+  "datalad >= 0.18.4",
+  "datasalad >= 0.2.1",
+  "humanize",
+  "more-itertools",
 ]
+
+[project.urls]
+Homepage = "https://github.com/datalad/datalad-next"
+Documentation = "https://github.com/datalad/datalad-next#readme"
+Issues = "https://github.com/datalad/datalad-next/issues"
+Source = "https://github.com/datalad/datalad-next"
+Changelog = "https://github.com/datalad/datalad-next/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 devel = [
-    "cheroot",
-    "coverage",
-    "psutil",
-    "pytest",
-    "pytest-cov",
-    "webdavclient3",
-    "wsgidav",
+  "cheroot",
+  "coverage",
+  "psutil",
+  "pytest",
+  "pytest-cov",
+  "webdavclient3",
+  "wsgidav",
 ]
 httpsupport = [
-    "requests",
-    "requests_toolbelt",
+  "requests",
+  "requests_toolbelt",
 ]
 
 [project.scripts]
@@ -52,29 +72,45 @@ git-remote-datalad-annex = "datalad_next.gitremotes.datalad_annex:main"
 [project.entry-points."datalad.extensions"]
 next = "datalad_next:command_suite"
 
-[project.urls]
-Homepage = "https://github.com/datalad/datalad-next"
-
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "datalad_next/_version.py"
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".github",
+  "tools",
+  "docs/build",
+]
+
 [tool.hatch.envs.hatch-test]
 default-args = ["datalad_next"]
 extra-dependencies = [
-    "pytest",
-    "pytest-cov",
-    "psutil",
-    "webdavclient3",
-    "wsgidav",
+  "pytest",
+  "pytest-cov",
+  "psutil",
+  "webdavclient3",
+  "wsgidav",
 ]
 
+[tool.hatch.envs.tests]
+description = "run tests across Python versions"
+template = "hatch-test"
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.tests.scripts]
+run = 'python -m pytest'
+
+
 [tool.hatch.envs.types]
+description = "type checking with MyPy"
 extra-dependencies = [
-    "mypy>=1.0.0",
-    "pytest",
+  "mypy>=1.0.0",
+  "pytest",
 ]
 
 [tool.hatch.envs.types.scripts]
@@ -83,6 +119,7 @@ check = [
 ]
 
 [tool.hatch.envs.docs]
+description = "build Sphinx-based docs"
 extra-dependencies = [
   "sphinx",
   "sphinx_rtd_theme",
@@ -95,6 +132,80 @@ build = [
 clean = [
   "rm -rf docs/generated",
   "make -C docs clean",
+]
+
+[tool.hatch.envs.cz]
+description = "commit compliance, changelog, and release generation"
+detached = true
+extra-dependencies = [
+  "commitizen",
+]
+[tool.hatch.envs.cz.scripts]
+#check-commits = [
+#  # check all commit messages since the (before) beginning
+#  "cz check --rev-range 4b825dc642cb6eb9a060e54bf8d69288fbee4904..HEAD",
+#]
+show-changelog = [
+  # show the would-be changelog on stdout
+  "cz changelog --dry-run",
+]
+bump-version = [
+  # bump version (also tags) and update changelog
+  "cz bump --changelog",
+]
+
+[tool.hatch.envs.codespell]
+description = "spell checking"
+detached = true
+extra-dependencies = [
+  "codespell",
+]
+[tool.hatch.envs.codespell.scripts]
+check = "codespell"
+fix = "codespell --write-changes"
+
+[tool.codespell]
+skip = ".git,build,.*cache,dist"
+#exclude-file = ".codespell-exclude"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+  # datalad-next custom markers
+  "skip_if_no_network",
+  # (implicitly) used markers from datalad-core, which are only declared
+  # in its tox.ini (inaccessible to pytest here)
+  "fail_slow",
+  "githubci_osx",
+  "githubci_win",
+  "integration",
+  "known_failure",
+  "known_failure_githubci_osx",
+  "known_failure_githubci_win",
+  "known_failure_osx",
+  "known_failure_windows",
+  "network",
+  "osx",
+  "probe_known_failure",
+  "serve_path_via_http",
+  "skip_if_adjusted_branch",
+  "skip_if_no_network",
+  "skip_if_on_windows",
+  "skip_if_root",
+  "skip_known_failure",
+  "skip_nomultiplex_ssh",
+  "skip_ssh",
+  "skip_wo_symlink_capability",
+  "slow",
+  "turtle",
+  "usecase",
+  "windows",
+  "with_config",
+  "with_fake_cookies_db",
+  "with_memory_keyring",
+  "with_sameas_remotes",
+  "with_testrepos",
+  "without_http_proxy",
 ]
 
 
@@ -120,10 +231,28 @@ exclude_lines = [
   "raise NotImplementedError",
 ]
 
-[tool.hatch.build.targets.sdist]
-include = [
-    "/datalad_next",
+[tool.ruff]
+exclude = [
+  # sphinx
+  "docs",
 ]
+line-length = 88
+indent-width = 4
+target-version = "py38"
+[tool.ruff.format]
+# Prefer single quotes over double quotes.
+quote-style = "single"
+[tool.ruff.lint.per-file-ignores]
+"**/test_*" = [
+  # permit assert statements in tests
+  "S101",
+  # permit relative import in tests
+  "TID252",
+  # permit versatile function names in tests
+  "N802",
+]
+# permit relative import in subpackage root
+"datalad_core/*/__init__.py" = ["TID252"]
 
 [tool.commitizen]
 name = "cz_customize"
@@ -155,44 +284,3 @@ fix = "🐛 Bug Fixes"
 test = "🛡 Tests"
 rf = "🏠 Refactorings"
 perf = "🚀 Performance improvements"
-
-
-[tool.pytest.ini_options]
-addopts = "--strict-markers"
-markers = [
-    # datalad-next custom markers
-    "skip_if_no_network",
-    # (implicitly) used markers from datalad-core, which are only declared
-    # in its tox.ini (inaccessible to pytest here)
-    "fail_slow",
-    "githubci_osx",
-    "githubci_win",
-    "integration",
-    "known_failure",
-    "known_failure_githubci_osx",
-    "known_failure_githubci_win",
-    "known_failure_osx",
-    "known_failure_windows",
-    "network",
-    "osx",
-    "probe_known_failure",
-    "serve_path_via_http",
-    "skip_if_adjusted_branch",
-    "skip_if_no_network",
-    "skip_if_on_windows",
-    "skip_if_root",
-    "skip_known_failure",
-    "skip_nomultiplex_ssh",
-    "skip_ssh",
-    "skip_wo_symlink_capability",
-    "slow",
-    "turtle",
-    "usecase",
-    "windows",
-    "with_config",
-    "with_fake_cookies_db",
-    "with_memory_keyring",
-    "with_sameas_remotes",
-    "with_testrepos",
-    "without_http_proxy",
-]
