@@ -5,6 +5,12 @@ import logging
 import re
 from abc import abstractmethod
 from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+)
+
+if TYPE_CHECKING:  # pragma: nocover
+    from os import PathLike
 
 from datasalad.itertools import (
     decode_bytes,
@@ -13,7 +19,10 @@ from datasalad.itertools import (
 
 from datalad_next.config.item import ConfigurationItem
 from datalad_next.config.source import ConfigurationSource
-from datalad_next.runners import iter_git_subproc
+from datalad_next.runners import (
+    call_git,
+    iter_git_subproc,
+)
 
 lgr = logging.getLogger('datalad.config')
 
@@ -40,7 +49,7 @@ class GitConfig(ConfigurationSource):
         fileset = set()
 
         with iter_git_subproc(
-            [*self._get_git_config_cmd(), '--list'],
+            [*self._get_git_config_cmd(), '--show-origin', '--list', '-z'],
             input=None,
             cwd=cwd,
         ) as gitcfg:
@@ -62,15 +71,21 @@ class GitConfig(ConfigurationSource):
         self._sources = origin_paths.union(origin_blobs)
 
         for k, v in dct.items():
-            self[k] = ConfigurationItem(
+            super().__setitem__(k, ConfigurationItem(
                 value=v,
                 store_target=self.__class__,
-            )
+            ))
+
+    def __setitem__(self, key: str, value: ConfigurationItem) -> None:
+        call_git(
+            [*self._get_git_config_cmd(), '--replace-all', key, value.value],
+        )
+        super().__setitem__(key, value)
 
 
 class SystemGitConfig(GitConfig):
     def _get_git_config_cmd(self) -> list[str]:
-        return ['config', '--show-origin', '--system', '-z']
+        return ['config', '--system']
 
     def _get_git_config_cwd(self) -> Path:
         return Path.cwd()
@@ -78,13 +93,17 @@ class SystemGitConfig(GitConfig):
 
 class GlobalGitConfig(GitConfig):
     def _get_git_config_cmd(self) -> list[str]:
-        return ['config', '--show-origin', '--global', '-z']
+        return ['config', '--global']
 
     def _get_git_config_cwd(self) -> Path:
         return Path.cwd()
 
 
 class LocalGitConfig(GitConfig):
+    def __init__(self, path: PathLike):
+        super().__init__()
+        self._path = str(path)
+
     def _get_git_config_cmd(self) -> list[str]:
         return ['config', '--show-origin', '--local', '-z']
 

@@ -7,7 +7,7 @@ from typing import (
     Any,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: nocover
     from datalad_next.config import (
         ConfigurationItem,
         ConfigurationSource,

@@ -53,3 +53,6 @@ class Environment(ConfigurationSource):
 
     def __str__(self):
         return 'Environment'
+
+    def __repr__(self):
+        return 'Environment()'

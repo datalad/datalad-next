@@ -84,8 +84,10 @@ manager = MultiConfiguration({
     # order reflects precedence rule, first source with a
     # key takes precedence
     'environment': Environment(),
+    #'git-local': ...,
     'git-global': GlobalGitConfig(),
     'git-system': SystemGitConfig(),
+    #'datalad-branch': ...,
     'defaults': defaults,
 })
 

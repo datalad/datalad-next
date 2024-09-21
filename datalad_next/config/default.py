@@ -128,7 +128,7 @@ def get_validator_from_legacy_spec(
     if default is UnsetValue and default_fn is not UnsetValue:
         validator = DynamicDefaultConstraint(
             default_fn,
-            type_ if type_ is not UnsetValue else NoConstraint,
+            type_ if type_ is not UnsetValue else NoConstraint(),
         )
     return validator
 
