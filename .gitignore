@@ -10,3 +10,4 @@ docs/build
 docs/source/generated
 build/
 dist/
+datalad_next/_version.py
