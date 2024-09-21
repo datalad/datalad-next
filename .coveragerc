@@ -3,7 +3,6 @@ parallel = True
 branch = True
 data_file = ${COVERAGE_ROOT-.}/.coverage
 omit =
-  # versioneer
   */_version.py
 
 [paths]

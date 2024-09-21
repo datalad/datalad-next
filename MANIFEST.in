@@ -1,4 +1,4 @@
-include CONTRIBUTORS LICENSE versioneer.py
+include CONTRIBUTORS LICENSE
 graft _datalad_buildsupport
 graft docs
 prune docs/build

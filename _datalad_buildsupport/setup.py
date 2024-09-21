@@ -16,7 +16,7 @@ from os.path import (
 from setuptools import Command, DistutilsOptionError
 from setuptools.config import read_configuration
 
-import versioneer
+import datalad_next
 
 from . import formatters as fmt
 
@@ -147,7 +147,7 @@ class BuildManPage(Command):
                 format = cls(
                     cmdname,
                     ext_sections=sections,
-                    version=versioneer.get_version())
+                    version=datalad_next.__version__)
                 formatted = format.format_man_page(p)
                 with open(opj(opath, '{0}.{1}'.format(
                         cmdname.replace(' ', '-'),
