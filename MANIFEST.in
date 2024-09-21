@@ -1,5 +1,0 @@
-include CONTRIBUTORS LICENSE
-graft _datalad_buildsupport
-graft docs
-prune docs/build
-global-exclude *.py[cod]
