@@ -94,6 +94,9 @@ extra-dependencies = [
   "webdavclient3",
   "wsgidav",
 ]
+[tool.hatch.envs.hatch-test.env-vars]
+# load the extension
+DATALAD_EXTENSIONS_LOAD = "next"
 
 [tool.hatch.envs.tests]
 description = "run tests across Python versions"
