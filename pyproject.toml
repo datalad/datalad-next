@@ -166,7 +166,7 @@ fix = "codespell --write-changes"
 
 [tool.codespell]
 skip = ".git,build,.*cache,dist"
-#exclude-file = ".codespell-exclude"
+exclude-file = ".codespell-exclude"
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
