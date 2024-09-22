@@ -1,6 +1,7 @@
 # Contributing to `datalad-next`
 
 - [What contributions are most suitable for `datalad-next`](#when-should-i-consider-a-contribution-to-datalad-next)
+- [Developer cheat sheet](#developer-cheat-sheet)
 - [Style guide](#contribution-style-guide)
 - [Code organization](#code-organization)
 - [How to implement runtime patches](#runtime-patches)
@@ -27,6 +28,88 @@ If in doubt, it is advisable to file an issue and ask for feedback before prepar
 New feature releases of `datalad-next` are happening more frequently. Typically, every 4-6 weeks.
 
 New features depending on other `datalad-next` features are, by necessity, better directed at `datalad-next`.
+
+
+## Developer cheat sheet
+
+[Hatch](https://hatch.pypa.io) is used as a convenience solution for packaging and development tasks.
+Hatch takes care of managing dependencies and environments, including the Python interpreter itself.
+If not installed yet, installing via [pipx](https://github.com/pypa/pipx) is recommended (`pipx install hatch`).
+
+Below is a list of some provided convenience commands.
+An accurate overview of provided convenience scripts can be obtained by running: `hatch env show`.
+All command setup can be found in `pyproject.toml`, and given alternatively managed dependencies, all commands can also be used without `hatch`.
+
+### Run the tests (with coverage reporting)
+
+```
+hatch test [--cover]
+```
+
+There is also a setup for matrix test runs, covering all current Python versions:
+
+```
+hatch run tests:run [<select tests>]
+```
+
+This can also be used to run tests for a specific Python version only:
+
+```
+hatch run tests.py3.10:run [<select tests>]
+```
+
+### Build the HTML documentation (under `docs/_build/html`)
+
+```
+hatch run docs:build
+# clean with
+hatch run docs:clean
+```
+
+### Check type annotations
+
+```
+hatch run types:check
+```
+
+### Check commit messages for compliance with [Conventional Commits](https://www.conventionalcommits.org)
+
+```
+hatch run cz:check-commits
+```
+
+### Show would-be auto-generated changelog for the next release
+
+Run this command to see whether a commit series yields a sensible changelog
+contribution.
+
+```
+hatch run cz:show-changelog
+```
+
+### Create a new release
+
+```
+hatch run cz:bump-version
+```
+
+The new version is determined automatically from the nature of the (conventional) commits made since the last release.
+A changelog is generated and committed.
+
+In cases where the generated changelog needs to be edited afterwards (typos, unnecessary complexity, etc.), the created version tag needs to be advanced.
+
+
+### Build a new source package and wheel
+
+```
+hatch build
+```
+
+### Publish a new release to PyPi
+
+```
+hatch publish
+```
 
 
 ## Contribution style guide
