@@ -4,8 +4,17 @@
 
 {% for change_key, changes in entry.changes.items() %}
 
+{% set change_key_map = {
+  'BREAKING CHANGE': '🪓 Breaking changes',
+  'doc': '📝 Documentation',
+  'feat': '💫 New features',
+  'fix': '🐛 Bug Fixes',
+  'test': '🛡 Tests',
+  'rf': '🏠 Refactorings',
+  'perf': '🚀 Performance improvements',
+} %}
 {% if change_key %}
-## {{ change_key }}
+## {{ change_key_map.get(change_key, change_key) }}
 {% endif %}
 {% set scopemap = {
   'changelog': 'Changelog',
