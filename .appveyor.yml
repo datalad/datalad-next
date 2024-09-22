@@ -82,8 +82,8 @@ environment:
 
     # Ubuntu core tests
     - job_name: test-linux
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.10
+      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2204
+      PY: 3.9
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       # 'test_publish_target_url' relies on a strict `localhost` target
@@ -96,8 +96,8 @@ environment:
     # same as 'test-linux', but TMPDIR is on a crippled filesystem, causing
     # most, if not all test datasets to be created on that filesystem
     - job_name: test-linux-crippled
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.10
+      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2204
+      PY: 3.9
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
       DEPLOY_HTTPBIN_IMAGE: yes
@@ -106,9 +106,9 @@ environment:
 
     # Windows core tests
     - job_name: test-win
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
       # Python version specification is non-standard on windows
-      PY: 3.9
+      PY: 3.12
       INSTALL_GITANNEX: git-annex -m datalad/packages
       DATALAD_TESTS_SSH: 1
       DATALAD_TESTS_SERVER_SSH_SECKEY: C:\DLTMP\datalad_tests_id_rsa
@@ -119,8 +119,8 @@ environment:
 
     # MacOS core tests
     - job_name: test-mac
-      APPVEYOR_BUILD_WORKER_IMAGE: macos-monterey
-      PY: 3.9
+      APPVEYOR_BUILD_WORKER_IMAGE: macos-sonoma
+      PY: 3.12
       INSTALL_GITANNEX: git-annex
       DATALAD_LOCATIONS_SOCKETS: /Users/appveyor/DLTMP/sockets
       DATALAD_TESTS_SSH: 1
