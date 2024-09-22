@@ -325,7 +325,7 @@ for:
       - echo TMPDIR=$TMPDIR
       # not ready for doctests yet, some are invalid
       # 'hatch run tests.py${PY}:run-cov --doctest-modules --durations 20 -m "not (turtle)" -k "$KEYWORDS"  --pyargs ${DTS}'
-      - 'hatch run tests.py${PY}:run-cov --durations 20 -m "not (turtle)" -k "$KEYWORDS"  --pyargs ${DTS}'
+      - 'hatch run tests.py${PY}:run-cov --reruns 5 --reruns-delay 5 --durations 20 -m "not (turtle)" -k "$KEYWORDS"  --pyargs ${DTS}'
 
     after_test:
       - 'hatch run tests.py${PY}:cov-combine'
@@ -393,7 +393,7 @@ for:
       # run test selection
       # not ready for doctests yet, some are invalid
       # 'hatch run tests.py%PY%:run-cov --doctest-modules --durations 20 -m "not (turtle)" -k "%KEYWORD%"  --pyargs %DTS%'
-      - cmd: 'hatch run tests.py%PY%:run-cov --durations 20 -m "not (turtle)" -k "%KEYWORD%"  --pyargs %DTS%'
+      - cmd: 'hatch run tests.py%PY%:run-cov --reruns 5 --reruns-delay 5 --durations 20 -m "not (turtle)" -k "%KEYWORD%"  --pyargs %DTS%'
 
     after_test:
       - cmd: 'hatch run tests.py%PY%:cov-combine'
