@@ -275,12 +275,3 @@ schema_pattern = "(?s)(ci|doc|feat|fix|perf|rf|style|test|chore|revert|bump)(\\(
 "^BREAKING" = "MAJOR"
 "^feat" = "MINOR"
 "^fix" = "PATCH"
-
-[tool.commitizen.customize.change_type_map]
-"BREAKING CHANGE" = "🪓 Breaking changes"
-doc = "📝 Documentation"
-feat = "💫 New features"
-fix = "🐛 Bug Fixes"
-test = "🛡 Tests"
-rf = "🏠 Refactorings"
-perf = "🚀 Performance improvements"
