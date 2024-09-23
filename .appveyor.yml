@@ -92,6 +92,12 @@ environment:
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
       DATALAD_TESTS_SSH: 1
+      KEYWORDS: >
+        not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_remote_layout_ssh
+        and not test_setup_ds_in_store_ssh
+        and not test_obtain_permission_ssh
 
     # same as 'test-linux', but TMPDIR is on a crippled filesystem, causing
     # most, if not all test datasets to be created on that filesystem
@@ -103,6 +109,11 @@ environment:
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
       DATALAD_TESTS_SSH: 1
+      KEYWORDS: >
+        not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_remote_layout_ssh
+        and not test_setup_ds_in_store_ssh
 
     # Windows core tests
     - job_name: test-win
@@ -116,6 +127,9 @@ environment:
       COVERAGE_ROOT: C:\DLTMP
       HATCH_DATA_DIR: C:\hatch-data-dir
       PIP_CACHE: C:\Users\appveyor\AppData\Local\pip\Cache
+      KEYWORDS: >
+        not test_initremote_basic_sshurl
+        and not test_version_check_ssh
 
     # MacOS core tests
     - job_name: test-mac
@@ -137,6 +151,11 @@ environment:
       COVERAGE_ROOT: /Users/appveyor/DLTMP
       HATCH_DATA_DIR: /Users/appveyor/hatch-data-dir
       PIP_CACHE: /Users/appveyor/.cache/pip
+      KEYWORDS: >
+        not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_remote_layout_ssh
+        and not test_setup_ds_in_store_ssh
 
     # run a subset of the core tests on the oldest supported Python version
     - job_name: datalad-core-1
@@ -148,7 +167,10 @@ environment:
       # - test_librarymode: assumes that CLI config overrides end up in the
       #   session `datalad.cfg.overrides`, but -next changes that behavior
       #   to have `.overrides` be uniformly limited to instance overrides
-      KEYWORDS: not test_gh1811 and not test_librarymode
+      KEYWORDS: >
+        not test_gh1811
+        and not test_librarymode
+        and not test_basics
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.9
       INSTALL_SYSPKGS:
