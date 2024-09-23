@@ -88,7 +88,13 @@ environment:
       INSTALL_GITANNEX: git-annex -m snapshot
       # 'test_publish_target_url' relies on a strict `localhost` target
       # setup, we don't have that
-      KEYWORDS: not test_publish_target_url
+      KEYWORDS: >
+        not test_publish_target_url
+        and not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_remote_layout_ssh
+        and not test_setup_ds_in_store_ssh
+        and not test_obtain_permission_ssh
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
       DATALAD_TESTS_SSH: 1
@@ -103,6 +109,11 @@ environment:
       DEPLOY_HTTPBIN_IMAGE: yes
       INSTALL_SYSPKGS:
       DATALAD_TESTS_SSH: 1
+      KEYWORDS: >
+        not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_remote_layout_ssh
+        and not test_setup_ds_in_store_ssh
 
     # Windows core tests
     - job_name: test-win
@@ -116,6 +127,10 @@ environment:
       COVERAGE_ROOT: C:\DLTMP
       HATCH_DATA_DIR: C:\hatch-data-dir
       PIP_CACHE: C:\Users\appveyor\AppData\Local\pip\Cache
+      KEYWORDS: >
+        not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_setup_ds_in_store_ssh
 
     # MacOS core tests
     - job_name: test-mac
@@ -127,7 +142,12 @@ environment:
       # no docker on Mac, we log into self
       # 'test_publish_target_url' relies git-annex being installed on the
       # target, but we only have that in a personal env
-      KEYWORDS: not test_publish_target_url
+      KEYWORDS: >
+        not test_publish_target_url
+        and not test_initremote_basic_sshurl
+        and not test_version_check_ssh
+        and not test_remote_layout_ssh
+        and not test_setup_ds_in_store_ssh
       DATALAD_TESTS_SERVER_SSH_HOST: localhost
       DATALAD_TESTS_SERVER_SSH_PORT: 22
       DATALAD_TESTS_SERVER_SSH_LOGIN: appveyor
@@ -148,7 +168,10 @@ environment:
       # - test_librarymode: assumes that CLI config overrides end up in the
       #   session `datalad.cfg.overrides`, but -next changes that behavior
       #   to have `.overrides` be uniformly limited to instance overrides
-      KEYWORDS: not test_gh1811 and not test_librarymode
+      KEYWORDS: >
+        not test_gh1811
+        and not test_librarymode
+        and not test_basics
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
       PY: 3.9
       INSTALL_SYSPKGS:
@@ -214,6 +237,10 @@ environment:
       INSTALL_SYSPKGS:
       # datalad-annex git remote needs something after git-annex_8.20211x
       INSTALL_GITANNEX: git-annex -m snapshot
+      KEYWORDS: >
+        not test_addurls_from_list
+        and not test_addurls_url_on_collision_error_if_different
+        and not test_addurls_url_on_collision_choose
     - job_name: datalad-core-5
       DTS: >
         datalad.runner
@@ -393,7 +420,7 @@ for:
       # run test selection
       # not ready for doctests yet, some are invalid
       # 'hatch run tests.py%PY%:run-cov --doctest-modules --durations 20 -m "not (turtle)" -k "%KEYWORD%"  --pyargs %DTS%'
-      - cmd: 'hatch run tests.py%PY%:run-cov --reruns 5 --reruns-delay 5 --durations 20 -m "not (turtle)" -k "%KEYWORD%"  --pyargs %DTS%'
+      - cmd: 'hatch run tests.py%PY%:run-cov --reruns 5 --reruns-delay 5 --durations 20 -m "not (turtle)" -k "%KEYWORDS%"  --pyargs %DTS%'
 
     after_test:
       - cmd: 'hatch run tests.py%PY%:cov-combine'
