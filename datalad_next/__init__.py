@@ -2,6 +2,8 @@
 
 __docformat__ = 'restructuredtext'
 
+from datalad_next._version import __version__
+
 import logging
 lgr = logging.getLogger('datalad.next')
 
@@ -108,9 +110,3 @@ register_config(
     default=False,
     dialog='yesno',
 )
-
-
-try:
-    from ._version import version as __version__
-except ImportError:
-    pass
