@@ -2,9 +2,21 @@
 
 __docformat__ = 'restructuredtext'
 
-from datalad_next._version import __version__
+__all__ = [
+    '__version__',
+    'command_suite',
+    # TODO: REMOVE FOR V2.0
+    'lgr',
+]
 
 import logging
+
+from datalad_next._version import __version__
+
+# patch datalad-core
+from datalad_next.patches import enabled as enabled  # noqa: PLC0414
+
+# TODO: REMOVE FOR V2.0
 lgr = logging.getLogger('datalad.next')
 
 # Defines a datalad command suite.
@@ -12,7 +24,7 @@ lgr = logging.getLogger('datalad.next')
 # to be found by datalad
 command_suite = (
     # description of the command suite, displayed in cmdline help
-    "What is next in DataLad",
+    'What is next in DataLad',
     [
         # specification of a command, any number of commands can be defined
         (
@@ -36,52 +48,57 @@ command_suite = (
             # name of the command class implementation in above module
             'TreeCommand',
             # command name (differs from lowercase command class name)
-            'tree'
+            'tree',
         ),
         (
-            'datalad_next.commands.download', 'Download', 'download',
+            'datalad_next.commands.download',
+            'Download',
+            'download',
         ),
         (
-            'datalad_next.commands.ls_file_collection', 'LsFileCollection',
+            'datalad_next.commands.ls_file_collection',
+            'LsFileCollection',
             'ls-file-collection',
         ),
         (
-            'datalad_next.commands.status', 'Status',
-            'next-status', 'next_status',
+            'datalad_next.commands.status',
+            'Status',
+            'next-status',
+            'next_status',
         ),
-    ]
+    ],
 )
 
 
-# patch datalad-core
-import datalad_next.patches.enabled
-from datalad_next.constraints import (
+# register additional configuration items in datalad-core
+from datalad.support.extensions import register_config  # noqa: E402
+
+from datalad_next.constraints import (  # noqa: E402
     EnsureBool,
     EnsureChoice,
 )
-
-# register additional configuration items in datalad-core
-from datalad.support.extensions import register_config
 
 register_config(
     'datalad.credentials.repeat-secret-entry',
     'Require entering secrets twice for interactive specification?',
     type=EnsureBool(),
     default=True,
-    dialog='yesno')
+    dialog='yesno',
+)
 register_config(
     'datalad.credentials.hidden-secret-entry',
     'Hide secret in interactive entry?',
     type=EnsureBool(),
     default=True,
-    dialog='yesno')
+    dialog='yesno',
+)
 register_config(
     'datalad.clone.url-substitute.webdav',
     'webdav(s):// clone URL substitution',
-    description="Convenience conversion of custom WebDAV URLs to "
+    description='Convenience conversion of custom WebDAV URLs to '
     "git-cloneable 'datalad-annex::'-type URLs. The 'webdav://' "
     "prefix implies a remote sibling in 'filetree' or 'export' mode "
-    "See https://docs.datalad.org/design/url_substitution.html for details",
+    'See https://docs.datalad.org/design/url_substitution.html for details',
     dialog='question',
     scope='global',
     default=(
