@@ -255,7 +255,7 @@ quote-style = "single"
   "N802",
 ]
 # permit relative import in subpackage root
-"datalad_core/*/__init__.py" = ["TID252"]
+"datalad_next/*/__init__.py" = ["TID252"]
 
 [tool.commitizen]
 name = "cz_customize"
