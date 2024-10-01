@@ -13,7 +13,6 @@ from datasalad.settings import (
 
 from datalad_next.config.item import ConfigurationItem
 
-
 lgr = logging.getLogger('datalad.config')
 
 

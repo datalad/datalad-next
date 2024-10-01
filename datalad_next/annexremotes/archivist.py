@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 from pathlib import Path
 from shutil import copyfileobj
+import sys
 from typing import (
     Dict,
     Generator,
@@ -162,7 +163,7 @@ class ArchivistRemote(SpecialRemote):
         # us a `LeanAnnexRepo`.
         # TODO it is unclear to MIH what is actually needed API-wise of the legacy
         # interface. Needs research.
-        self._repo = LegacyAnnexRepo(self.annex.getgitdir())
+        self._repo = LegacyAnnexRepo(self.repodir)
         # are we in legacy mode?
         # let remote-specific setting take priority (there could be
         # multiple archivist-type remotes configured), and use unspecific switch
@@ -175,7 +176,7 @@ class ArchivistRemote(SpecialRemote):
             # other code in this file will run!!!
             # __getattribute__ will relay all top-level operations
             # to an instance of the legacy implementation
-            from datalad.customremotes.archives import ArchiveAnnexCustomRemote
+            from datalad.customremotes.archives import ArchiveAnnexCustomRemote  # type: ignore
             lsr = ArchiveAnnexCustomRemote(self.annex)
             lsr.prepare()
             # we can skip everything else, it won't be triggered anymore
@@ -377,7 +378,7 @@ class _ArchiveHandlers:
     The main functionality is provided by ``from_locators()``.
     """
     # TODO make archive access caching behavior configurable from the outside
-    def __init__(self, repo):
+    def __init__(self, repo: LegacyAnnexRepo):
         # mapping of archive keys to an info dict
         self._db: Dict[AnnexKey, _ArchiveInfo] = {}
         # for running git-annex queries against the repo
@@ -422,6 +423,7 @@ class _ArchiveHandlers:
         }.items():
             # local_path will be None now, if not around
             if kh.local_path:
+                assert kh.handler
                 # we found one with a local archive.
                 # yield handler and all matching locators
                 yield kh.handler, [loc for loc in locs if loc.akey == akey]
@@ -466,7 +468,8 @@ class _ArchiveHandlers:
         exc = []
         # but this time sort the keys to start with the smallest ones
         # (just in case a download is involved)
-        for akey in sorted(akeys, key=lambda x: x.size):
+        # when no size info is available, assume worst case
+        for akey in sorted(akeys, key=lambda x: x.size or sys.maxsize):
             # at this point we must have an existing _ArchiveInfo record
             # for this akey
             ainfo = self._db[akey]
@@ -485,11 +488,17 @@ class _ArchiveHandlers:
         # exceptions, make sure to report them
         if exc:
             # TODO better error
-            e = RuntimeError(
+            class RuntimeErrors(RuntimeError):
+                def __init__(self, msg, errors):
+                    RuntimeError.__init__(self, msg)
+                    self.errors = errors
+
+            overall_exc = RuntimeErrors(
                 'Exhausted all candidate archive handlers '
-                f'(previous failures {exc})')
-            e.errors = exc
-            raise e
+                f'(previous failures {exc})',
+                errors=exc,
+            )
+            raise overall_exc
 
     def _get_archive_info(
             self,
@@ -523,6 +532,7 @@ class _ArchiveHandlers:
             raise NotImplementedError
 
         if ainfo.type == ArchiveType.tar:
+            assert ainfo.local_path is not None
             from datalad_next.archive_operations import TarArchiveOperations
             return TarArchiveOperations(
                 ainfo.local_path,
@@ -564,9 +574,9 @@ def _get_key_contentpath(repo: LegacyAnnexRepo, key: str):
         # and the content can be found at the location
         loc = next(repo.call_annex_items_(['contentlocation', key]))
         # convert to path. git-annex will report a path relative to the
-        # dotgit-dir
+        # CWD of the call above
         # TODO platform-native?
-        loc = repo.dot_git / Path(loc)
+        loc = repo.pathobj / Path(loc)
     except CommandError:
         loc = None
     return loc

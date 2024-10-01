@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from os import environ
 from typing import (
-    Dict,
     Mapping,
     Tuple,
 )
 
 
-def get_gitconfig_items_from_env() -> Mapping[str, str | Tuple[str, ...]]:
+def get_gitconfig_items_from_env() -> dict[str, str | Tuple[str, ...]]:
     """Parse git-config ENV (``GIT_CONFIG_COUNT|KEY|VALUE``) and return as dict
 
     This implementation does not use ``git-config`` directly, but aims to
@@ -29,7 +28,7 @@ def get_gitconfig_items_from_env() -> Mapping[str, str | Tuple[str, ...]]:
       times, the respective values are aggregated in reported as a tuple
       for that specific key.
     """
-    items: Dict[str, str | Tuple[str, ...]] = {}
+    items: dict[str, str | Tuple[str, ...]] = {}
     for k, v in ((_get_gitconfig_var_from_env(i, 'key'),
                   _get_gitconfig_var_from_env(i, 'value'))
                  for i in range(_get_gitconfig_itemcount())):

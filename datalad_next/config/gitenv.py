@@ -60,7 +60,7 @@ class GitEnvironment(WritableSource):
         default: Any = None,
     ) -> tuple[Setting, ...]:
         try:
-            val = get_gitconfig_items_from_env()[key]
+            val = get_gitconfig_items_from_env()[str(key)]
         except KeyError:
             return (self._get_default_setting(default),)
         vals = val if isinstance(val, tuple) else (val,)

@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from datasalad.settings import Source
 
     from datalad_next.config import (
-        Dialog,
         dialog as dialog_collection,
     )
     from datalad_next.constraints import Constraint
@@ -60,7 +59,7 @@ class ConfigurationItem(Setting):
         self._store_target = store_target
 
     @property
-    def dialog(self) -> Dialog | None:
+    def dialog(self) -> dialog_collection.Dialog | None:
         return self._dialog
 
     @property

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import warnings
 from copy import copy
 from functools import wraps
-import logging
-from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
 )
-import warnings
 
 if TYPE_CHECKING:
     from datalad.distribution.dataset import Dataset  # type: ignore
@@ -23,14 +22,14 @@ from datasalad.settings import (
 )
 from datasalad.settings.setting import UnsetValue as SaladUnsetValue
 
+from datalad_next.config import dialog
+from datalad_next.config.git import (
+    DataladBranchConfig,
+    LocalGitConfig,
+)
 from datalad_next.config.item import (
     ConfigurationItem,
     UnsetValue,
-)
-from datalad_next.config import dialog
-from datalad_next.config.git import (
-    LocalGitConfig,
-    DataladBranchConfig,
 )
 from datalad_next.runners import (
     call_git,
@@ -59,6 +58,37 @@ def _where_to_scope(func):
     return wrapper
 
 
+class LegacyOverridesProxy:
+    """Proxy class to wrap the legacy ConfigManager overrides
+
+    There were handed out for direct manipulation of their holding
+    dict. This allowed for arbitrary modification. This class is
+    supposed to give us a fighting change to keep supporting this
+    interface, while being able to issue deprecation warnings
+    and continue to integrate with the new setup.
+
+    For now this wraps the legacy-override source, but it could
+    eventually migrate to read from and write to the git-command
+    source.
+    """
+    def __init__(self, overrides: InMemory):
+        self._ov = overrides
+
+    def items(self):
+        for k, v in self._ov._items.items():
+            yield k, v.value if not isinstance(v, tuple) \
+                else (i.value for i in v)
+
+    def update(self, other):
+        for k, v in other.items():
+            self._ov._items[k] = self._ov.item_type(v) \
+                if not isinstance(v, tuple) \
+                else tuple(self._ov.item_type(i) for i in v)
+
+    def copy(self):
+        return dict(self.items())
+
+
 class ConfigManager:
     def __init__(
         self,
@@ -76,8 +106,7 @@ class ConfigManager:
             source=source,
         ))
         self._defaults = manager.sources['defaults']
-        for src in self._mngr.sources.values():
-            src.load()
+        self.reload()
 
         # TODO: make obsolete
         self._repo_dot_git = None
@@ -93,10 +122,10 @@ class ConfigManager:
 
     @property
     def overrides(self):
-        # this is a big hassle. the original class hands out the real dict to do any
-        # manipulation with it. for a transition we want to keep some control, and
-        # hand out a proxy only
-        return MappingProxyType(self._mngr.sources['legacy-overrides']._items)
+        # this is a big hassle. the original class hands out the real dict to
+        # do any manipulation with it. for a transition we want to keep some
+        # control, and hand out a proxy only
+        return LegacyOverridesProxy(self._mngr.sources['legacy-overrides'])
 
     @property
     def _stores(self):
@@ -114,7 +143,10 @@ class ConfigManager:
         return {'git': {'files': files}}
 
     def reload(self, force: bool = False) -> None:
-        for s in self._mngr.sources.values():
+        for n, s in self._mngr.sources.items():
+            if n in ('legacy-overrides', 'defaults'):
+                continue
+            s.reinit()
             s.load()
 
     def obtain(self, var, default=None, dialog_type=None, valtype=None,
@@ -187,12 +219,12 @@ class ConfigManager:
         **kwargs,
     ):
         # now we need to try to obtain something from the user
-        from datalad.ui import ui
+        from datalad.ui import ui  # type: ignore
 
         if (not ui.is_interactive or default_item.dialog is None) and default is None:
             raise RuntimeError(
-                "cannot obtain value for configuration item '{}', "
-                "not preconfigured, no default, no UI available".format(var))
+                f"cannot obtain value for configuration item '{var}', "
+                "not preconfigured, no default, no UI available")
 
         # obtain via UI
         try:
@@ -217,8 +249,8 @@ class ConfigManager:
             # we got nothing
             if default is None:
                 raise RuntimeError(
-                    "could not obtain value for configuration item '{}', "
-                    "not preconfigured, no default".format(var))
+                    f"could not obtain value for configuration item '{var}', "
+                    "not preconfigured, no default")
             # XXX maybe we should return default here, even it was returned
             # from the UI -- if that is even possible
 
@@ -387,6 +419,8 @@ class ConfigManager:
             src.load()
 
     def get_src(self, scope):
+        if scope is None:
+            scope = 'local'
         name = scope_label_to_source_label_map.get(scope)
         if name is None:
             raise ValueError(f'unknown scope {scope!r}')
@@ -427,7 +461,7 @@ def get_sources(
       and 'branch-local'.
     """
     nodataset_errmsg = (
-        'ConfigManager configured to read from a branch of a dataset only, '
+        'ConfigManager configured to read from (a branch of) a dataset, '
         'but no dataset given'
     )
     # if applicable, we want to reuse the exact same source instances as the
@@ -450,7 +484,7 @@ def get_sources(
             'datalad-branch': DataladBranchConfig(dataset.pathobj),
         }
     if source == 'local':
-        if not dataset:
+        if dataset is None:
             return {
                 'legacy-environment': global_sources['legacy-environment'],
                 'legacy-overrides': ovsrc,
@@ -465,6 +499,8 @@ def get_sources(
             'git-system': global_sources['git-system'],
         }
     if source == 'branch-local':
+        if dataset is None:
+            raise ValueError(nodataset_errmsg)
         return {
             'legacy-overrides': ovsrc,
             'git-local': LocalGitConfig(dataset.pathobj),
@@ -492,11 +528,6 @@ def get_sources(
 
 
 def anything2bool(val):
-    if val is None:
-        # TODO: just changes this behavior
-        # forced by a test in old core that forces _proc_dump_line
-        # to work this way
-        return True
     if val == '':
         return False
     if hasattr(val, 'lower'):
@@ -558,14 +589,14 @@ def rewrite_url(cfg, url):
                 "Ignoring URL rewrite configuration for '%s', "
                 "multiple conflicting definitions exists: %s",
                 match,
-                ['url.{}.insteadof'.format(k)
+                [f'url.{k}.insteadof'
                  for k, v in matches.items()
                  if v == match]
             )
         else:
-            url = '{}{}'.format(rewrite_base, url[len(match):])
+            url = f'{rewrite_base}{url[len(match):]}'
     return url
 
 
 # for convenience, bind to class too
-ConfigManager.rewrite_url = rewrite_url
+ConfigManager.rewrite_url = rewrite_url  # type: ignore

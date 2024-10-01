@@ -4,6 +4,7 @@ from datalad_next.runners import (
     call_git_lines,
     call_git_oneline,
 )
+
 from ..gitenv import GitEnvironment
 
 

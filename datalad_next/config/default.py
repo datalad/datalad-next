@@ -82,7 +82,7 @@ def legacy_register_config(
     title: str,
     *,
     default: Any = UnsetValue,
-    default_fn: Callable | type[UnsetValue] = UnsetValue,
+    default_fn: Callable | None = None,
     description: str | None = None,
     type: Constraint | None = None,  # noqa: A002
     dialog: str | None = None,
@@ -99,7 +99,6 @@ def legacy_register_config(
         ),
         store_target=get_store_target_from_destination_label(scope),
     )
-
     # lastly trigger legacy registration
     _legacy_register_config(
         name=name,

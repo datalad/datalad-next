@@ -7,7 +7,6 @@ from os.path import join as opj
 from unittest.mock import patch
 
 import pytest
-
 from datalad import cfg as dl_cfg
 from datalad.api import create
 from datalad.cmd import CommandError
@@ -42,6 +41,7 @@ from datalad.utils import (
     get_home_envvars,
     swallow_logs,
 )
+
 from datalad_next.config import dialog
 from datalad_next.config.item import (
     ConfigurationItem,
@@ -133,25 +133,27 @@ def test_something(path=None, new_home=None):
     assert_true(cfg.has_section('something'))
     assert_false(cfg.has_section('somethingelse'))
     assert_equal(sorted(cfg.sections()),
-                 [u'onemore.complicated の beast with.dot', 'something'])
+                 ['onemore.complicated の beast with.dot', 'something'])
     assert_true(cfg.has_option('something', 'user'))
     assert_false(cfg.has_option('something', 'us?er'))
     assert_false(cfg.has_option('some?thing', 'user'))
     assert_equal(sorted(cfg.options('something')), ['empty', 'myint', 'novalue', 'user'])
-    assert_equal(cfg.options(u'onemore.complicated の beast with.dot'), ['findme'])
+    assert_equal(cfg.options('onemore.complicated の beast with.dot'), ['findme'])
 
     assert_equal(
         sorted(cfg.items()),
-        [(u'onemore.complicated の beast with.dot.findme', '5.0'),
+        [('onemore.complicated の beast with.dot.findme', '5.0'),
          ('something.empty', ''),
          ('something.myint', '3'),
-         ('something.novalue', None),
+         # no-value is a shorthand for 'true'
+         ('something.novalue', 'true'),
          ('something.user', ('name=Jane Doe', 'email=jd@example.com'))])
     assert_equal(
         sorted(cfg.items('something')),
         [('something.empty', ''),
          ('something.myint', '3'),
-         ('something.novalue', None),
+         # no-value is a shorthand for 'true'
+         ('something.novalue', 'true'),
          ('something.user', ('name=Jane Doe', 'email=jd@example.com'))])
 
     # by default get last value only
@@ -162,12 +164,13 @@ def test_something(path=None, new_home=None):
         cfg.get('something.user', get_all=True),
         ('name=Jane Doe', 'email=jd@example.com'))
     assert_raises(KeyError, cfg.__getitem__, 'somedthing.user')
-    assert_equal(cfg.getfloat(u'onemore.complicated の beast with.dot', 'findme'), 5.0)
+    assert_equal(cfg.getfloat('onemore.complicated の beast with.dot', 'findme'), 5.0)
     assert_equal(cfg.getint('something', 'myint'), 3)
     assert_equal(cfg.getbool('something', 'myint'), True)
     # git demands a key without value at all to be used as a flag, thus True
     assert_equal(cfg.getbool('something', 'novalue'), True)
-    assert_equal(cfg.get('something.novalue'), None)
+    # no-value is a shorthand for 'true'
+    assert_equal(cfg.get('something.novalue'), 'true')
     # empty value is False
     assert_equal(cfg.getbool('something', 'empty'), False)
     assert_equal(cfg.get('something.empty'), '')
@@ -182,7 +185,7 @@ def test_something(path=None, new_home=None):
 
     # modification follows
     cfg.add('something.new', 'の')
-    assert_equal(cfg.get('something.new'), u'の')
+    assert_equal(cfg.get('something.new'), 'の')
     # sections are added on demand
     cfg.add('unheard.of', 'fame')
     assert_true(cfg.has_section('unheard.of'))
@@ -516,7 +519,6 @@ def test_overrides():
     assert_equal(cfg.get('ups.name', get_all=True)[-2:], ('myoverride', 'myother'))
     # remove entirely by section
     cfg.remove_section('ups', scope='override')
-    from datalad.utils import Path
     assert_not_in(
         'ups.name', cfg,
         (cfg._stores,
@@ -555,7 +557,7 @@ def test_rewrite_url():
         'http://host4': ('someokish', 'conflict2'),
     }
     cfg = {
-        'url.{}.insteadof'.format(k): v
+        f'url.{k}.insteadof': v
         for k, v in cfg_in.items()
     }
     for input, output in test_cases:

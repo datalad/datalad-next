@@ -4,10 +4,11 @@ from __future__ import annotations
 import logging
 import re
 from abc import abstractmethod
-from pathlib import Path
 from os import name as os_name
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Hashable,
 )
 
 if TYPE_CHECKING:
@@ -15,14 +16,13 @@ if TYPE_CHECKING:
 
     from datasalad.settings import Setting
 
+from datalad.consts import DATASET_CONFIG_FILE  # type: ignore
 from datasalad.itertools import (
     decode_bytes,
     itemize,
 )
 from datasalad.runners import CommandError as SaladCommandError
 from datasalad.settings import CachingSource
-
-from datalad.consts import DATASET_CONFIG_FILE
 
 from datalad_next.config.item import ConfigurationItem
 from datalad_next.runners import (
@@ -52,7 +52,7 @@ class GitConfig(CachingSource):
         """Return the git-config command suitable for a particular config"""
 
     @abstractmethod
-    def _get_git_config_cwd(self) -> Path:
+    def _get_git_config_cwd(self) -> Path | None:
         """Return path the git-config command should run in"""
 
     def reinit(self) -> None:
@@ -60,7 +60,7 @@ class GitConfig(CachingSource):
         self._sources: set[str | Path] = set()
 
     def load(self) -> None:
-        cwd = self._get_git_config_cwd()
+        cwd = self._get_git_config_cwd() or Path.cwd()
         dct: dict[str, str | tuple[str, ...]] = {}
         fileset: set[str] = set()
 
@@ -93,33 +93,30 @@ class GitConfig(CachingSource):
         # the "blobs" is known
         self._sources = origin_paths.union(origin_blobs)
 
+        setter = '__setitem__'
         for k, v in dct.items():
-            if isinstance(v, tuple):
-                vals = tuple(
-                    ConfigurationItem(
-                        value=val,
-                        store_target=self.__class__,
-                    )
-                    for val in v
-                )
-            else:
-                vals = ConfigurationItem(
-                    value=v,
+            if not isinstance(v, tuple):
+                v = (v,)
+            for val in v:
+                item = ConfigurationItem(
+                    value=val,
                     store_target=self.__class__,
                 )
-            super().__setitem__(k, vals)
+                getattr(super(), setter)(k, item)
+                # for every subsequent value we must call add()
+                setter = 'add'
 
 
-    def __setitem__(self, key: str, value: Setting) -> None:
+    def __setitem__(self, key: Hashable, value: Setting) -> None:
         call_git(
-            [*self._get_git_config_cmd(), '--replace-all', key, str(value.value)],
+            [*self._get_git_config_cmd(), '--replace-all', str(key), str(value.value)],
             capture_output=True,
         )
         super().__setitem__(key, value)
 
-    def add(self, key: str, value: Setting) -> None:
+    def add(self, key: Hashable, value: Setting) -> None:
         call_git(
-            [*self._get_git_config_cmd(), '--add', key, str(value.value)],
+            [*self._get_git_config_cmd(), '--add', str(key), str(value.value)],
             capture_output=True,
 
         )
@@ -130,7 +127,7 @@ class SystemGitConfig(GitConfig):
     def _get_git_config_cmd(self) -> list[str]:
         return [f'--git-dir={self.nul}', 'config', '--system']
 
-    def _get_git_config_cwd(self) -> Path:
+    def _get_git_config_cwd(self) -> Path | None:
         return Path.cwd()
 
 
@@ -138,42 +135,55 @@ class GlobalGitConfig(GitConfig):
     def _get_git_config_cmd(self) -> list[str]:
         return [f'--git-dir={self.nul}', 'config', '--global']
 
-    def _get_git_config_cwd(self) -> Path:
+    def _get_git_config_cwd(self) -> Path | None:
         return Path.cwd()
 
 
 class LocalGitConfig(GitConfig):
     def __init__(self, path: PathLike):
         super().__init__()
-        self._path = path
+        pathobj = Path(path)
+
         try:
-            self._is_bare_repo = call_git_oneline(
-                ['rev-parse', '--is-bare-repository'],
-                cwd=path,
+            #TODO CHECK FOR GIT_DIR and adjust
+            self._in_worktree = call_git_oneline(
+                ['rev-parse', '--is-inside-work-tree'],
+                cwd=pathobj,
                 force_c_locale=True,
             ) == 'true'
-        except CommandError:
-            # TODO: this is too simplistic. It could also be
-            # that there is no repo (yet)
-            self._is_bare_repo = False
+        except CommandError as e:
+            from os import environ
+            msg = f"no Git repository at {path}: {e!r} {environ.get('GIT_DIR')}"
+            raise ValueError(msg) from e
+
+        self._gitdir = Path(
+            path if not self._in_worktree
+            else call_git_oneline(
+                ['rev-parse', '--path-format=absolute', '--git-dir'],
+                cwd=pathobj,
+                force_c_locale=True,
+            )
+        )
 
     def _get_git_config_cmd(self) -> list[str]:
-        return ['-C', str(self._path), 'config', '--local']
+        return ['--git-dir', str(self._gitdir), 'config', '--local']
 
-    def _get_git_config_cwd(self) -> Path:
-        return self._path
+    def _get_git_config_cwd(self) -> Path | None:
+        # we set --git-dir, CWD does not matter
+        return None
 
 
 class DataladBranchConfig(LocalGitConfig):
     def __init__(self, path: PathLike):
         super().__init__(path)
+        self._path = path
 
     def _get_git_config_cmd(self) -> list[str]:
         return [
-            '-C', str(self._path),
-            'config',
-            *(('--blob', 'HEAD:.datalad/config') if self._is_bare_repo else
-              ('--file', str(self._path / DATASET_CONFIG_FILE))),
+            '--git-dir', str(self._gitdir), 'config',
+            *(('--file', str(self._path / DATASET_CONFIG_FILE))
+              if self._in_worktree
+              else ('--blob', f'HEAD:{DATASET_CONFIG_FILE}'))
         ]
 
     def _ensure_target_dir(self):
@@ -182,11 +192,11 @@ class DataladBranchConfig(LocalGitConfig):
             custom_file = Path(cmd[cmd.index('--file') + 1])
             custom_file.parent.mkdir(exist_ok=True)
 
-    def __setitem__(self, key: str, value: Setting) -> None:
+    def __setitem__(self, key: Hashable, value: Setting) -> None:
         self._ensure_target_dir()
         super().__setitem__(key, value)
 
-    def add(self, key: str, value: Setting) -> None:
+    def add(self, key: Hashable, value: Setting) -> None:
         self._ensure_target_dir()
         super().add(key, value)
 
@@ -224,10 +234,7 @@ def _proc_dump_line(
         # man git-config:
         # just name, which is a short-hand to say that the variable is
         # the boolean
-        #v = "true"
-        # BUUUUUT datalad of old want it to stay `None`
-        # BUUUUUUUUT it also want it to be reported as True later on
-        v = None
+        v = "true"
     # multi-value reporting
     present_v = dct.get(k)
     if present_v is None:

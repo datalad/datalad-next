@@ -41,7 +41,6 @@ import logging
 from datalad.config import anything2bool
 from datalad.customremotes import (
     ProtocolError,
-    SpecialRemote,
 )
 from datalad.distributed.ora_remote import (
     HTTPRemoteIO,
@@ -61,6 +60,7 @@ from datalad.customremotes.ria_utils import (
     verify_ria_url,
 )
 from datalad.utils import on_windows
+from datalad_next.annexremotes import SpecialRemote
 
 from . import apply_patch
 
@@ -229,7 +229,7 @@ class ORARemote(SpecialRemote):
 
         # this will work, even when this is not a bare repo
         # but it is not capable of reading out dataset/branch config
-        self._repo = AnnexRepo(self.gitdir)
+        self._repo = AnnexRepo(self.repodir)
 
         cfg_map = {"ora-force-write": "force_write",
                    "ora-ignore-ria-config": "ignore_remote_config",
@@ -723,7 +723,7 @@ class ORARemote(SpecialRemote):
     def prepare(self):
 
         gitdir = self.annex.getgitdir()
-        self._repo = AnnexRepo(gitdir)
+        self._repo = AnnexRepo(self.repodir)
         self._verify_config()
 
         self.get_store()
