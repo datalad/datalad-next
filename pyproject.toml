@@ -36,10 +36,15 @@ classifiers = [
 dependencies = [
   "annexremote",
   "datalad >= 0.18.4",
-  "datasalad >= 0.2.1",
+  # co-development with datasalad for now and here
+  #"datasalad >= 0.2.1",
+  "datasalad@git+https://github.com/datalad/datasalad@settings#egg=datasalad",
   "humanize",
   "more-itertools",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [project.urls]
 Homepage = "https://github.com/datalad/datalad-next"
