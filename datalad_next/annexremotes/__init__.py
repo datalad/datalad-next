@@ -4,6 +4,7 @@ from __future__ import annotations
 # in a single place
 from annexremote import UnsupportedRequest
 from typing import Any
+from os import environ
 
 from datalad.customremotes import (
     # this is an enhanced RemoteError that self-documents its cause
@@ -32,8 +33,19 @@ class SpecialRemote(_SpecialRemote):
         to limit further proliferation of the ``AnnexRepo`` API.
         """
         if self._repo is None:
-            self._repo = LeanAnnexRepo(self.annex.getgitdir())
+            self._repo = LeanAnnexRepo(self.repodir)
         return self._repo
+
+    @property
+    def repodir(self) -> str:
+        import sys
+        repodir = self.annex.getgitdir()
+        # git-annex also sets GIT_DIR, and we want to account for that
+        # to be able to run regular Git command in this environment
+        gitdir_env = environ.get("GIT_DIR")
+        if gitdir_env and repodir.endswith(gitdir_env):
+            repodir = repodir[:-len(gitdir_env)]
+        return repodir
 
     @property
     def remotename(self) -> str:

@@ -2,10 +2,9 @@ from pathlib import (
     PurePath,
 )
 
-from datalad import cfg as dlcfg
+from datalad_next.config import manager
 
 from datalad_next.datasets import Dataset
-from datalad_next.utils import check_symlink_capability
 
 from ..gitworktree import (
     GitTreeItemType,
@@ -17,13 +16,9 @@ from .test_itergitworktree import prep_fp_tester
 
 
 def _mkds(tmp_path_factory, monkeypatch, cfg_overrides):
-    with monkeypatch.context() as m:
-        for k, v in cfg_overrides.items():
-            m.setitem(dlcfg.overrides, k, v)
-        dlcfg.reload()
+    with manager.overrides(cfg_overrides):
         ds = Dataset(tmp_path_factory.mktemp('ds')).create(
             result_renderer='disabled')
-    dlcfg.reload()
     return ds
 
 
