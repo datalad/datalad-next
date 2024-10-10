@@ -9,6 +9,7 @@
 [![GitHub release](https://img.shields.io/github/release/datalad/datalad-next.svg)](https://GitHub.com/datalad/datalad-next/releases/)
 [![PyPI version fury.io](https://badge.fury.io/py/datalad-next.svg)](https://pypi.python.org/pypi/datalad-next/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6833099.svg)](https://doi.org/10.5281/zenodo.6833099)
+[![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch)
 
 This DataLad extension can be thought of as a staging area for additional
 functionality, or for improved performance and user experience. Unlike other
