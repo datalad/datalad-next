@@ -157,6 +157,17 @@
                 "infra",
                 "test"
             ]
+        },
+        {
+            "login": "candleindark",
+            "name": "Isaac To",
+            "contributions": [
+                "code"
+            ],
+            "profile": "https://github.com/candleindark",
+            "avatar_url": [
+                "https://avatars.githubusercontent.com/u/12135617?v=4"
+            ]
         }
     ]
 }
