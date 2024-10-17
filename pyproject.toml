@@ -43,7 +43,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/datalad/datalad-next"
-Documentation = "https://github.com/datalad/datalad-next#readme"
+Documentation = "https://docs.datalad.org/projects/next/en/latest/"
 Issues = "https://github.com/datalad/datalad-next/issues"
 Source = "https://github.com/datalad/datalad-next"
 Changelog = "https://github.com/datalad/datalad-next/blob/main/CHANGELOG.md"
