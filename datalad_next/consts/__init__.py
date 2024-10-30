@@ -16,6 +16,13 @@ on_windows
   ``True`` if executed on the Windows platform.
 """
 
+__all__ = [
+    'COPY_BUFSIZE',
+    'PRE_INIT_COMMIT_SHA',
+    'on_linux',
+    'on_windows',
+]
+
 # import from "utils", but these really are constants
 from datalad.utils import (
     on_linux,
@@ -29,4 +36,4 @@ except ImportError:  # pragma: no cover
     # from PY3.10
     COPY_BUFSIZE = 1024 * 1024 if on_windows else 64 * 1024
 
-from datalad.consts import PRE_INIT_COMMIT_SHA
+from datalad_core.consts import PRE_INIT_COMMIT_SHA

@@ -24,14 +24,12 @@ from datasalad.itertools import (
 )
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.gitpathspec import GitPathSpecs
-from datalad_next.runners import (
+from datasalad.gitpathspec import GitPathSpecs
+from datalad_core.runners import (
     CommandError,
-    iter_git_subproc,
-)
-from datalad_next.runners import (
     call_git,
     call_git_oneline,
+    iter_git_subproc,
 )
 
 from .gittree import (
