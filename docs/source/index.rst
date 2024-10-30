@@ -72,11 +72,11 @@ as stable as possible. This includes signatures and return value behavior.
 
 As an example::
 
-    from datalad_next.runners import iter_git_subproc
+    from datalad_next.repo_utils import get_worktree_head
 
 imports a part of the public API, but::
 
-    from datalad_next.runners.git import iter_git_subproc
+    from datalad_next.repo_utils.worktree import get_worktree_head
 
 does not.
 

@@ -212,7 +212,7 @@ from datalad_next.datasets import (
     LegacyGitRepo as GitRepo,
 )
 from datalad_next.exceptions import CapturedException
-from datalad_next.runners import (
+from datalad_core.runners import (
     CommandError,
     call_git,
     call_git_oneline,
