@@ -24,7 +24,7 @@ from datasalad.itertools import (
 )
 
 from datalad_next.runners import iter_git_subproc
-from datalad_next.gitpathspec import GitPathSpecs
+from datasalad.gitpathspec import GitPathSpecs
 from .utils import (
     FileSystemItem,
     FileSystemItemType,

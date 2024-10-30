@@ -1,11 +1,23 @@
 """Handling of Git's pathspecs with subdirectory mangling support
 
-This functionality can be used to add support for pathspecs to implementations
-that rely on Git commands that do not support submodule recursion directly.
-
+.. deprecated:: 1.6
+   This module is deprecated. It has been migrated to the `datasalad library
+   <https://pypi.org/project/datasalad>`__. Imports should be adjusted to
+   ``datasalad.gitpathspec``.
 """
 
 __all__ = ['GitPathSpec', 'GitPathSpecs']
 
-from .pathspec import GitPathSpec
-from .pathspecs import GitPathSpecs
+import warnings
+
+from datasalad.gitpathspec import (
+    GitPathSpec,
+    GitPathSpecs,
+)
+
+warnings.warn(
+    '`datalad_next.gitpathspec` has been migrated to the datasalad library, '
+    'adjust imports to `datasalad.gitpathspec`',
+    DeprecationWarning,
+    stacklevel=1,
+)

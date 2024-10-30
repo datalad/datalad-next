@@ -36,7 +36,7 @@ classifiers = [
 dependencies = [
   "annexremote",
   "datalad >= 0.18.4",
-  "datasalad >= 0.2.1",
+  "datasalad >= 0.5.0",
   "humanize",
   "more-itertools",
 ]

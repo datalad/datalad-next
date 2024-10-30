@@ -24,7 +24,7 @@ from datasalad.itertools import (
 )
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.gitpathspec import GitPathSpecs
+from datasalad.gitpathspec import GitPathSpecs
 from datalad_next.runners import (
     CommandError,
     iter_git_subproc,
