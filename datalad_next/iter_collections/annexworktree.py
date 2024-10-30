@@ -29,7 +29,7 @@ from datasalad.itertools import (
 
 from datalad_next.consts import on_windows
 from datalad_next.repo_utils import has_initialized_annex
-from datalad_next.runners import iter_git_subproc
+from datalad_core.runners import iter_git_subproc
 
 from .gitworktree import (
     GitWorktreeItem,

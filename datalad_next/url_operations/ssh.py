@@ -31,7 +31,7 @@ from more_itertools import consume
 
 from datalad_next.consts import COPY_BUFSIZE
 from datalad_next.config import ConfigManager
-from datalad_next.runners import CommandError
+from datalad_core.runners import CommandError
 from datalad_next.shell import (
     FixedLengthResponseGeneratorPosix,
     ShellCommandExecutor,

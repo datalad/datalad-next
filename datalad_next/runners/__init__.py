@@ -1,5 +1,10 @@
 """Execution of subprocesses
 
+.. deprecated:: 1.6
+   This module is deprecated. It has been partially migrated to the
+   `datalad-core library <https://pypi.org/project/datalad-core>`__. Imports
+   should be adjusted to ``datalad_core.runners``.
+
 This module provides all relevant components for subprocess execution.  The
 main work horse is :func:`~datalad_next.runners.iter_subproc`, a context
 manager that enables interaction with a subprocess in the form of an iterable
@@ -63,59 +68,95 @@ inspired by ``asyncio.SubprocessProtocol``.
    StdOutErrCapture
 """
 
-from .iter_subproc import (
-    iter_subproc,
+__all__ = [
+    'call_git',
+    'call_git_lines',
+    'call_git_oneline',
+    'call_git_success',
+    'iter_git_subproc',
+    'iter_subproc',
+    'CommandError',
+    'GitRunner',
+    'KillOutput',
+    'NoCapture',
+    'Protocol',
+    'Runner',
+    'StdErrCapture',
+    'StdOutCapture',
+    'StdOutErrCapture',
+    'STDERR_FILENO',
+    'STDOUT_FILENO',
+    'ThreadedRunner',
+    'LineSplitter',
+    'GeneratorMixIn',
+    'NoCaptureGeneratorProtocol',
+    'StdOutCaptureGeneratorProtocol',
+    'DEVNULL',
+]
+
+import warnings
+
+# TODO: REMOVE FOR V2.0
+from subprocess import (
+    DEVNULL,
 )
-from .git import (
+
+# runners
+# TODO: REMOVE FOR V2.0
+# protocols
+# TODO: REMOVE FOR V2.0
+from datalad.runner import (
+    GitRunner,
+    KillOutput,
+    NoCapture,
+    Protocol,
+    Runner,
+    StdErrCapture,
+    StdOutCapture,
+    StdOutErrCapture,
+)
+
+# TODO: REMOVE FOR V2.0
+# utilities
+# TODO: REMOVE FOR V2.0
+from datalad.runner.nonasyncrunner import (
+    STDERR_FILENO,
+    STDOUT_FILENO,
+    ThreadedRunner,
+)
+
+# TODO: REMOVE FOR V2.0
+from datalad.runner.protocol import GeneratorMixIn
+
+# TODO: REMOVE FOR V2.0
+from datalad.runner.utils import (
+    LineSplitter,
+)
+from datalad_core.runners import (
     call_git,
     call_git_lines,
     call_git_oneline,
     call_git_success,
     iter_git_subproc,
+    iter_subproc,
 )
 
-# runners
-# TODO REMOVE FOR V2.0
-from datalad.runner import (
-    GitRunner,
-    Runner,
-)
-# TODO REMOVE FOR V2.0
-from datalad.runner.nonasyncrunner import ThreadedRunner
-# protocols
-# TODO REMOVE FOR V2.0
-from datalad.runner import (
-    KillOutput,
-    NoCapture,
-    Protocol,
-    StdOutCapture,
-    StdErrCapture,
-    StdOutErrCapture,
-)
-# TODO REMOVE FOR V2.0
-from datalad.runner.protocol import GeneratorMixIn
-# TODO REMOVE FOR V2.0
+# exceptions
+# The following import supports legacy code that uses `CommandError` from this
+# module. If you are writing new code, please use `CommandError` from
+# `datalad_core.runners`. We intend to remove this import in the future.
+from datalad_next.exceptions import CommandError
+
+# TODO: REMOVE FOR V2.0
 from .protocols import (
     NoCaptureGeneratorProtocol,
     StdOutCaptureGeneratorProtocol,
 )
-# exceptions
-# The following import supports legacy code that uses `CommandError` from this
-# module. If you are writing new code, please use `CommandError` from
-# `datalad.support.exceptions`. We intend to remove this import in the future.
-from datalad_next.exceptions import CommandError
 
-# utilities
-# TODO REMOVE FOR V2.0
-from datalad.runner.nonasyncrunner import (
-    STDOUT_FILENO,
-    STDERR_FILENO,
-)
-# TODO REMOVE FOR V2.0
-from datalad.runner.utils import (
-    LineSplitter,
-)
-# TODO REMOVE FOR V2.0
-from subprocess import (
-    DEVNULL,
+warnings.warn(
+    '`datalad_next.runners` has been partially migrated to the '
+    'datalad-core library, '
+    'check docs, and adjust imports to `datalad_core.runners`',
+    DeprecationWarning,
+    stacklevel=1,
 )
