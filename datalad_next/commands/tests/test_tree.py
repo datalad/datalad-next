@@ -786,7 +786,7 @@ class TestTreeFilesystemIssues:
         link_to_self.symlink_to(link_to_self)
         with assert_raises((RuntimeError, OSError)):  # OSError on Windows
             # resolution should fail because of infinite loop
-            link_to_self.resolve()
+            link_to_self.resolve(strict=True)
 
         # 3. good symlink pointing to existing directory
         link_to_dir1 = tmp_path / 'links' / '3_link_to_dir1'
