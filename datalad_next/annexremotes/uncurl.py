@@ -528,10 +528,13 @@ class UncurlRemote(SpecialRemote):
                 handler(url)
                 # we succeeded, no need to try again
                 return True
-            except UrlOperationsResourceUnknown:
-                # general system access worked, but at the key location is nothing
-                # to be found
-                return False
+            except (UrlOperationsResourceUnknown, ValueError):
+                # UrlOperationsResourceUnknown: general system access worked, but
+                # at the key location is nothing to be found
+                # ValueError: something else went wrong trying to handle the URL
+                # (e.g. unknown scheme)
+                # -> try the next URL
+                pass
             except UrlOperationsRemoteError as e:
                 # return False only if we could be sure that the remote
                 # system works properly and just the key is not around
