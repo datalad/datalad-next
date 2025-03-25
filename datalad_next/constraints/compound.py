@@ -377,7 +377,7 @@ class ConstraintWithPassthrough(Constraint):
     def for_dataset(self, dataset: DatasetParameter) -> Constraint:
         """Wrap the wrapped constraint again after tailoring it for the dataset
 
-        The pass-through value is re-used.
+        The pass-through value is reused.
         """
         return self.__class__(
             self._constraint.for_dataset(dataset),
