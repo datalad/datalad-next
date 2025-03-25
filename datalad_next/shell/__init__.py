@@ -137,6 +137,7 @@ API overview
    :toctree: generated
    :recursive:
 
+   shell
    ShellCommandExecutor
    ShellCommandResponseGenerator
    VariableLengthResponseGenerator
