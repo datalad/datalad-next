@@ -528,6 +528,12 @@ class _ArchiveHandlers:
                 ainfo.local_path,
                 cfg=self._repo.config,
             )
+        elif ainfo.type == ArchiveType.zip:
+            from datalad_next.archive_operations import ZipArchiveOperations
+            return ZipArchiveOperations(
+                ainfo.local_path,
+                cfg=self._repo.config,
+            )
         else:
             raise NotImplementedError
 
