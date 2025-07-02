@@ -69,9 +69,7 @@ def populated_archivist_dataset(
 
     akeys = {}
 
-    # no ZIP just yet
-    # for archivetype, ext in (('zip', ''), ('tar', '.gz')):
-    for archivetype, ext in (('tar', '.gz'), ):
+    for archivetype, ext in (('zip', ''), ('tar', '.gz')):
         archive_path = Path(f"{archive_root}.{archivetype}{ext}")
 
         archive_path_inds = ads.pathobj / '.archives' / archive_path.name
@@ -128,9 +126,7 @@ def _check_archivist_retrieval(archivist_dataset):
     # step 1: addurl
     _check_archivist_addurl(
         # check all archive types supported
-        # no ZIP just yet
-        #('zip', 'tar'),
-        ('tar',),
+        ('zip', 'tar'),
         ads, akeys, archive_root, dscontent,
     )
 
@@ -142,36 +138,25 @@ def _check_archivist_retrieval(archivist_dataset):
     # because for each file there is a URL on record
     # -- hence always another copy
     # this requires archivist's CHECKPRESENT to function properly
-    # no ZIP just yet
-    #res = ads.drop(['azip', 'atar'])
-    res = ads.drop(['atar'])
+    res = ads.drop(['azip', 'atar'])
     assert_result_count(
         res,
         # all files, plus the two directories we gave as arguments
-        # no ZIP just yet
-        #len(dscontent) + 2,
-        3,
+        len(dscontent) + 2,
         action='drop',
         status='ok',
     )
 
     # step 3: retrieve keys with dl+archive: URLs from locally present archives
-    # no ZIP just yet
-    #res = ads.get(['azip', 'atar'])
-    res = ads.get(['atar'])
+    res = ads.get(['azip', 'atar'])
     assert_result_count(
         res,
-        # no ZIP just yet
-        # len(dscontent),
-        2,
+        len(dscontent),
         action='get',
         status='ok',
         type='file',
     )
     for fpath, fcontent in dscontent:
-        # no ZIP just yet
-        if 'zip' in fpath:
-            continue
         assert (ads.pathobj / fpath).read_text() == fcontent
 
     # step 4: now drop ALL keys (incl. archives)
@@ -183,43 +168,31 @@ def _check_archivist_retrieval(archivist_dataset):
     assert_result_count(
         res,
         # a tar and a zip
-        # no ZIP just yet
-        #2,
-        1,
+        2,
         action='drop',
         type='file',
         status='ok',
     )
     # and 4a now drop the keys that have their content from archives
-    # no ZIP just yet
-    #res = ads.drop(['azip', 'atar'])
-    res = ads.drop(['atar'])
+    res = ads.drop(['azip', 'atar'])
     assert_result_count(
         res,
-        # no ZIP just yet
-        #len(dscontent),
-        2,
+        len(dscontent),
         action='drop',
         status='ok',
         type='file',
     )
     # and now get again, this time with no archives around locally
-    # no ZIP just yet
-    #res = ads.get(['azip', 'atar'])
-    res = ads.get(['atar'])
+    res = ads.get(['azip', 'atar'])
     assert_result_count(
         res,
         # no ZIP just yet
-        # len(dscontent),
-        2,
+        len(dscontent),
         action='get',
         status='ok',
         type='file',
     )
     for fpath, fcontent in dscontent:
-        # no ZIP just yet
-        if 'zip' in fpath:
-            continue
         assert (ads.pathobj / fpath).read_text() == fcontent
     # and drop everything again to leave the dataset empty
     res = ads.drop(['.'])
@@ -237,15 +210,11 @@ def test_archivist_retrieval(populated_archivist_dataset, no_result_rendering):
     for archive in archive_root.parent.glob('*.*z*'):
         archive.unlink()
     with pytest.raises(CommandError) as e:
-        # no ZIP just yet
-        #ads.repo.call_annex(['get', 'atar', 'azip'])
-        ads.repo.call_annex(['get', 'atar'])
+        ads.repo.call_annex(['get', 'atar', 'azip'])
     # make sure the "reason" is communicated outwards
     assert 'does not exist' in e.value.stderr
     with pytest.raises(CommandError):
-        # no ZIP just yet
-        #ads.repo.call_annex(['fsck', '-f', 'archivist', 'atar', 'azip'])
-        ads.repo.call_annex(['fsck', '-f', 'archivist', 'atar'])
+        ads.repo.call_annex(['fsck', '-f', 'archivist', 'atar', 'azip'])
 
 
 def test_archivist_retrieval_legacy(
