@@ -41,6 +41,9 @@ ssh-keygen \
 # establish expected permission setup for SSH key
 chmod 600 "${DATALAD_TESTS_SERVER_SSH_SECKEY}"
 
+# give the service some time to start
+sleep 10
+
 # ingest actual host key
 ssh-keyscan \
   -t ecdsa \
