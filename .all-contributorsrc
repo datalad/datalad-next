@@ -168,6 +168,17 @@
             "avatar_url": [
                 "https://avatars.githubusercontent.com/u/12135617?v=4"
             ]
+        },
+        {
+            "login": "cjwatson",
+            "name": "Colin Watson",
+            "contributions": [
+                "code"
+            ],
+            "profile": "https://github.com/cjwatson",
+            "avatar_url": [
+                "https://avatars.githubusercontent.com/u/2429141?v=4"
+            ]
         }
     ]
 }
