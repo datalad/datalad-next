@@ -187,7 +187,7 @@ def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin,
     credman.set(hbscred[0], **hbscred[1])
     redirect_url = f'{httpbin["http"]}/basic-auth/mike/dummy'
     res = download(
-        # redirect from https to http, must drop provideded credential
+        # redirect from https to http, must drop provided credential
         # to avoid leakage
         {f'{httpbin["https"]}/redirect-to?url={redirect_url}': '-'},
         credential=hbscred[0],
@@ -200,7 +200,7 @@ def test_download_no_credential_leak_to_http(credman, capsys, hbscred, httpbin,
     # this is not the right test, though. What would be suitable
     # is an authenticated request that then redirects
     res = download(
-        # redirect from https to http, must drop provideded credential
+        # redirect from https to http, must drop provided credential
         # to avoid leakage
         {f'{httpbin["https"]}/redirect-to?url={redirect_url}': '-'},
         on_failure='ignore')
