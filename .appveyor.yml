@@ -50,6 +50,8 @@ shallow_clone: false
 build: off
 
 environment:
+  # not ready for --doctest-modules yet, some are invalid
+  TEST_SCRIPT: 'hatch test -i py=3.9 --cover --durations 10'
   # unless indicated otherwise, we test datalad_next
   DTS: datalad_next
   # place coverage files to a known location regardless of where a test run
@@ -57,8 +59,10 @@ environment:
   COVERAGE_ROOT: /home/appveyor/DLTMP
   # we pin hatch's data file to make it easy to cache it
   HATCH_DATA_DIR: /home/appveyor/hatch-data-dir
-  # same for pip
-  PIP_CACHE: /home/appveyor/.cache/pip
+  # same for uv
+  UV_CACHE_DIR: /home/appveyor/.cache/uv
+  # let hatch use uv for managing packages and envs
+  HATCH_ENV_TYPE_VIRTUAL_UV_PATH: /home/appveyor/.local/bin/uv
   # SSH testing is done via a side-loaded container that provides a POSIX/SSHable
   # server environment
   DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/recipes/sshd/id_rsa?job=sshd
@@ -83,9 +87,6 @@ environment:
     # Ubuntu core tests
     - job_name: test-linux
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2204
-      PY: 3.9
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
       # 'test_publish_target_url' relies on a strict `localhost` target
       # setup, we don't have that
       KEYWORDS: >
@@ -96,18 +97,13 @@ environment:
         and not test_setup_ds_in_store_ssh
         and not test_obtain_permission_ssh
       DEPLOY_HTTPBIN_IMAGE: yes
-      INSTALL_SYSPKGS:
       DATALAD_TESTS_SSH: 1
 
     # same as 'test-linux', but TMPDIR is on a crippled filesystem, causing
     # most, if not all test datasets to be created on that filesystem
     - job_name: test-linux-crippled
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2204
-      PY: 3.9
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
       DEPLOY_HTTPBIN_IMAGE: yes
-      INSTALL_SYSPKGS:
       DATALAD_TESTS_SSH: 1
       KEYWORDS: >
         not test_initremote_basic_sshurl
@@ -118,25 +114,30 @@ environment:
     # Windows core tests
     - job_name: test-win
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
-      # Python version specification is non-standard on windows
-      PY: 3.12
-      INSTALL_GITANNEX: git-annex -m datalad/packages
+      TEST_SCRIPT: 'hatch test -i py=3.13 --cover --durations 10'
       DATALAD_TESTS_SSH: 1
       DATALAD_TESTS_SERVER_SSH_SECKEY: C:\DLTMP\datalad_tests_id_rsa
       DATALAD_TESTS_SERVER_LOCALPATH: C:\DLTMP\sshdroot
       COVERAGE_ROOT: C:\DLTMP
       HATCH_DATA_DIR: C:\hatch-data-dir
-      PIP_CACHE: C:\Users\appveyor\AppData\Local\pip\Cache
+      # make hatch use uv as an installer
+      HATCH_ENV_TYPE_VIRTUAL_UV_PATH: C:\Users\appveyor\.local\bin\uv.exe
+      UV_CACHE_DIR: C:\Users\appveyor\AppData\Local\uv\cache
       KEYWORDS: >
         not test_initremote_basic_sshurl
         and not test_version_check_ssh
         and not test_setup_ds_in_store_ssh
+      # appveyor has a default path that comprises _everything_. here we trim
+      # it to the bare necessities to reduce using preinstalled software
+      # that changes without notice. importantly, we
+      # - reset the default python to be a 64bit one
+      # - include the installation target path for `uv`
+      CUSTOMPATH: C:\Users\appveyor\.local\bin;C:\Program Files\Git\cmd;C:\Program Files\Git\usr\bin;C:\Windows\system32;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Windows\System32\OpenSSH;C:\Program Files\PowerShell\7;C:\Program Files\Docker\Docker\resources\bin;C:\ProgramData\DockerDesktop\version-bin;C:\Program Files\7-Zip;C:\Python312-x64;C:\Python312-x64\Scripts"
 
     # MacOS core tests
     - job_name: test-mac
       APPVEYOR_BUILD_WORKER_IMAGE: macos-sonoma
-      PY: 3.12
-      INSTALL_GITANNEX: git-annex
+      TEST_SCRIPT: 'hatch test -i py=3.13 --cover --durations 10'
       DATALAD_LOCATIONS_SOCKETS: /Users/appveyor/DLTMP/sockets
       DATALAD_TESTS_SSH: 1
       # no docker on Mac, we log into self
@@ -156,29 +157,14 @@ environment:
       DATALAD_TESTS_SERVER_LOCALPATH: /Users/appveyor/DLTMP/riaroot
       COVERAGE_ROOT: /Users/appveyor/DLTMP
       HATCH_DATA_DIR: /Users/appveyor/hatch-data-dir
-      PIP_CACHE: /Users/appveyor/.cache/pip
+      HATCH_ENV_TYPE_VIRTUAL_UV_PATH: /Users/appveyor/.local/bin/uv
+      UV_CACHE_DIR: /Users/appveyor/.cache/uv
 
     # run a subset of the core tests on the oldest supported Python version
     - job_name: datalad-core-1
       DTS: >
         datalad.cli
         datalad.core
-      # do not run tests that ensure behavior we intentionally changed
-      # - test_gh1811: is included in next in an alternative implementation
-      # - test_librarymode: assumes that CLI config overrides end up in the
-      #   session `datalad.cfg.overrides`, but -next changes that behavior
-      #   to have `.overrides` be uniformly limited to instance overrides
-      KEYWORDS: >
-        not test_gh1811
-        and not test_librarymode
-        and not test_basics
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.9
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-    - job_name: datalad-core-2
-      DTS: >
         datalad.customremotes
         datalad.dataset
         datalad.distributed
@@ -186,6 +172,9 @@ environment:
         datalad.interface
       # do not run tests that ensure behavior we intentionally changed
       # - test_gh1811: is included in next in an alternative implementation
+      # - test_librarymode: assumes that CLI config overrides end up in the
+      #   session `datalad.cfg.overrides`, but -next changes that behavior
+      #   to have `.overrides` be uniformly limited to instance overrides
       # - test_fake_gitlab: we have an updated variant in next
       # - test_dryrun: we have an updated variant in next; what is disabled is
       #   the one in test_create_sibling_gitlab.py. However, there is one with
@@ -193,6 +182,8 @@ environment:
       #   because MIH does not know better
       KEYWORDS: >
         not test_gh1811
+        and not test_librarymode
+        and not test_basics
         and not test_nested_pushclone_cycle_allplatforms
         and not test_fake_gitlab
         and not test_dryrun
@@ -216,50 +207,32 @@ environment:
         and not test_gitannex_ssh
         and not test_ria_postclonecfg
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.9
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-    - job_name: datalad-core-3
-      DTS: >
-        datalad.distribution
-      KEYWORDS: not test_invalid_args
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.9
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
-    - job_name: datalad-core-4
+    - job_name: datalad-core-2
       DTS: >
         datalad.local
-      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.9
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
+        datalad.distribution
       KEYWORDS: >
-        not test_addurls_from_list
+        not test_invalid_args
+        and not test_addurls_from_list
         and not test_addurls_url_on_collision_error_if_different
         and not test_addurls_url_on_collision_choose
-    - job_name: datalad-core-5
+      APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
+    - job_name: datalad-core-3
       DTS: >
         datalad.runner
         datalad.support
         datalad.tests
         datalad.ui
       APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu2004
-      PY: 3.9
-      INSTALL_SYSPKGS:
-      # datalad-annex git remote needs something after git-annex_8.20211x
-      INSTALL_GITANNEX: git-annex -m snapshot
 
 
 # only run the CI if there are code or tooling changes
 only_commits:
   files:
+    - datalad_next/**/*
+    - tools/**/*
+    - pyproject.toml
     - .appveyor.yml
-    - datalad_next/
-    - tools/
 
 
 # tests need specific hostnames to be available
@@ -288,8 +261,7 @@ for:
         - job_name: datalad-core-5
 
     cache:
-      # pip cache
-      - "${PIP_CACHE} -> .appveyor.yml"
+      - "${UV_CACHE_DIR} -> .appveyor.yml"
       # hatch-managed python versions
       - "${HATCH_DATA_DIR}/env/virtual/.pythons -> pyproject.toml"
       # cache the docker image for httpbin. in 2023 it has not changed in
@@ -301,37 +273,25 @@ for:
     # init cannot use any components from the repo, because it runs prior to
     # cloning it
     init:
-      # enable external SSH access to CI worker
+      # LOGIN enable external SSH access to CI worker
       # needs APPVEYOR_SSH_KEY defined in project settings (or environment)
-      - curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+      #- curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+      # wipe out appveyor's collection of environment shims to prevent
+      # hatch from being confused by it
+      - rm -rf /home/appveyor/.pyenv
       # Scratch space
       # we place the "unix" one into the user's HOME to avoid git-annex issues on MacOSX
       # gh-5291
       - mkdir ~/DLTMP && export TMPDIR=~/DLTMP
       # establish a root directory for SSH tests
       - "mkdir ${DATALAD_TESTS_SERVER_LOCALPATH}"
-
-    install:
-      # verify that a PY variable is declared that identifies the desired Python version
-      # for this run
-      - "[ \"x$PY\" != x ]"
-      # Missing system software
-      - tools/appveyor/install-syspkgs $INSTALL_SYSPKGS
-      # activate Python env solely to get `python` to become available consistently
-      # hatch will manage the actual testing environment
-      - '. ${HOME}/venv${PY}/bin/activate'
-      - tools/appveyor/install-git-annex ${INSTALL_GITANNEX}
-      # enable the git-annex provisioned by the installer
-      - "[ -f ${HOME}/dlinstaller_env.sh ] && . ${HOME}/dlinstaller_env.sh || true"
-      # HTTPBIN
-      - "[ -n \"$DEPLOY_HTTPBIN_IMAGE\" ] && tools/appveyor/docker-load-httpbin || true"
+      # deploy `uv`
+      - curl -LsSf https://astral.sh/uv/install.sh | sh
+      - source $HOME/.local/bin/env
 
     before_test:
       - "[ \"$DATALAD_TESTS_SSH\" = 1 ] && tools/appveyor/setup-sshd || true"
       - "[ \"$DATALAD_TESTS_SSH\" = 1 ] && tools/appveyor/verify-ssh-access || true"
-      - 'hatch run tests.py${PY}:datalad wtf'
-
-    test_script:
       # store original TMPDIR setting to limit modification to test execution
       - export PREV_TMPDIR=$TMPDIR
       # make TMPDIR a "crippled filesystem" to test wrong assumptions of POSIX-ness
@@ -350,14 +310,13 @@ for:
           export TMPDIR=/crippledfs
         fi
       - echo TMPDIR=$TMPDIR
-      # not ready for doctests yet, some are invalid
-      # 'hatch run tests.py${PY}:run-cov --doctest-modules --durations 20 -m "not (turtle)" -k "$KEYWORDS"  --pyargs ${DTS}'
-      - 'hatch run tests.py${PY}:run-cov --reruns 5 --reruns-delay 5 --durations 20 -m "not (turtle)" -k "$KEYWORDS"  --pyargs ${DTS}'
+
+    test_script:
+      - '$TEST_SCRIPT -m "not (turtle)" -k "$KEYWORDS" --pyargs ${DTS}'
 
     after_test:
-      - 'hatch run tests.py${PY}:cov-combine'
-      - 'hatch run tests.py${PY}:coverage xml'
-      - 'codecovcli --auto-load-params-from AppVeyor upload-process -n "appveyor-$APPVEYOR_JOB_NAME" --disable-search -f coverage.xml'
+      - coverage xml
+      - codecovcli --auto-load-params-from AppVeyor upload-process -n "appveyor-${APPVEYOR_JOB_NAME}" --disable-search -f coverage.xml
 
     on_finish:
       # conditionally block the exit of a CI run for direct debugging
@@ -371,22 +330,22 @@ for:
       only:
         - job_name: test-win
     cache:
-      # pip cache
-      - "%PIP_CACHE% -> .appveyor.yml"
+      - "%UV_CACHE_DIR% -> .appveyor.yml"
       # hatch-managed python versions
       - "%HATCH_DATA_DIR%\\env\\virtual\\.pythons -> pyproject.toml"
 
     # init cannot use any components from the repo, because it runs prior to
     # cloning it
     init:
+      - cmd: "set PATH=%CUSTOMPATH%"
       # remove windows 260-char limit on path names
       - ps: Set-Itemproperty -path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -value 1
       # enable developer mode on windows
       # this should enable mklink without admin privileges, but it doesn't seem to work
       #- ps: tools\ci\appveyor_enable_windevmode.ps1
-      # enable RDP access on windows (RDP password is in appveyor project config)
+      # LOGIN enable RDP access on windows (RDP password is in appveyor project config)
       # this is relatively expensive (1-2min), but very convenient to jump into any build at any time
-      - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+      #- ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
       # Scratch space
       - cmd: md C:\DLTMP
       # and use that scratch space to get short paths in test repos
@@ -395,38 +354,19 @@ for:
       - cmd: "set TEMP=C:\\DLTMP"
       # establish a root directory for SSH tests
       - cmd: "md %DATALAD_TESTS_SERVER_LOCALPATH%"
-
-    install:
-      # place a debug setup helper at a convenient location
-      - cmd: copy tools\appveyor\env_setup.bat C:\\datalad_debug.bat
-      - cmd: "set PATH=C:\\Python%PY%;C:\\Python%PY%\\Scripts;%PATH%"
-      # deploy the datalad installer, override version via DATALAD_INSTALLER_VERSION
-      - cmd:
-          IF DEFINED DATALAD_INSTALLER_VERSION (
-          python -m pip install "datalad-installer%DATALAD_INSTALLER_VERSION%"
-          ) ELSE (
-          python -m pip install datalad-installer
-          )
-      # Install git-annex on windows, otherwise INSTALL_SYSPKGS can be used
-      # deploy git-annex, if desired
-      - cmd: IF DEFINED INSTALL_GITANNEX datalad-installer --sudo ok %INSTALL_GITANNEX%
+      # install `uv`
+      - cmd: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
     before_test:
       - tools\appveyor\setup-sshd
       - tools\appveyor\verify-ssh-access
-      - cmd: 'hatch run tests.py%PY%:datalad wtf'
 
     test_script:
-      # run test selection
-      # not ready for doctests yet, some are invalid
-      # 'hatch run tests.py%PY%:run-cov --doctest-modules --durations 20 -m "not (turtle)" -k "%KEYWORD%"  --pyargs %DTS%'
-      - cmd: 'hatch run tests.py%PY%:run-cov --reruns 5 --reruns-delay 5 --durations 20 -m "not (turtle)" -k "%KEYWORDS%"  --pyargs %DTS%'
+      - cmd: '%TEST_SCRIPT% -m "not (turtle)" -k "%KEYWORDS%" --pyargs %DTS%'
 
     after_test:
-      - cmd: 'hatch run tests.py%PY%:cov-combine'
-      - cmd: 'hatch run tests.py%PY%:coverage xml'
-      - cmd: 'codecovcli --auto-load-params-from AppVeyor upload-process -n "appveyor-%APPVEYOR_JOB_NAME%" --disable-search -f coverage.xml'
-
+      - coverage xml
+      - codecovcli --auto-load-params-from AppVeyor upload-process -n "appveyor-%APPVEYOR_JOB_NAME%" --disable-search -f coverage.xml
 
     on_finish:
       # conditionally block the exit of a CI run for direct debugging
@@ -436,8 +376,15 @@ for:
 #
 # ALL TEST RUNS
 #
-build_script:
-  - python -m pip install hatch codecov-cli
+
+install:
+  # deploy git-annex from PyPi
+  - uv tool install git-annex
+  - uv tool install hatch
+  - uv tool install coverage[toml]
+  - uv tool install codecov-cli
+  # HTTPBIN
+  - sh: "[ -n \"$DEPLOY_HTTPBIN_IMAGE\" ] && tools/appveyor/docker-load-httpbin || true"
 
 after_build:
   # Identity setup
