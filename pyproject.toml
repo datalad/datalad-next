@@ -98,16 +98,8 @@ extra-dependencies = [
 # load the extension
 DATALAD_EXTENSIONS_LOAD = "next"
 
-[tool.hatch.envs.tests]
-description = "run tests across Python versions"
-template = "hatch-test"
-
-[[tool.hatch.envs.tests.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12"]
-
-[tool.hatch.envs.tests.scripts]
-run = 'python -m pytest {args}'
-
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.types]
 description = "type checking with MyPy"
