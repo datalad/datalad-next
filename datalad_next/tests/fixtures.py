@@ -11,7 +11,7 @@ from time import sleep
 from urllib.request import urlopen
 
 from datalad_next.datasets import Dataset
-from datalad_next.runners import (
+from datalad_core.runners import (
     call_git_lines,
     call_git_success,
 )

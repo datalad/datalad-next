@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from datalad_next.runners import call_git_success
+from datalad_core.runners import call_git_success
 
 
 def has_initialized_annex(

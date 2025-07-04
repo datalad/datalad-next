@@ -50,7 +50,7 @@ from datalad.support.sshconnector import NoMultiplexSSHConnection
 
 from datalad_next.exceptions import CapturedException
 from datalad_next.patches import apply_patch
-from datalad_next.runners import CommandError
+from datalad_core.runners import CommandError
 from datalad_next.shell import (
     FixedLengthResponseGeneratorPosix,
     shell,

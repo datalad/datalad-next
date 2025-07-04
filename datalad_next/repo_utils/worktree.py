@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from datalad_next.exceptions import CapturedException
-from datalad_next.runners import (
+from datalad_core.runners import (
     CommandError,
     call_git_lines,
 )

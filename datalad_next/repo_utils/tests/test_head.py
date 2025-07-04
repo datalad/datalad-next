@@ -1,6 +1,6 @@
 import pytest
 
-from datalad_next.runners import call_git
+from datalad_core.runners import call_git
 
 from .. import get_worktree_head
 

@@ -2,7 +2,7 @@ from itertools import chain
 import pytest
 
 from datalad_next.datasets import Dataset
-from datalad_next.runners import (
+from datalad_core.runners import (
     call_git_success,
 )
 
