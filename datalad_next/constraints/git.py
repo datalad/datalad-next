@@ -1,7 +1,7 @@
 """Constraints for Git-related concepts and parameters"""
 from __future__ import annotations
 
-from datalad_next.runners import (
+from datalad_core.runners import (
     CommandError,
     call_git,
     call_git_oneline,

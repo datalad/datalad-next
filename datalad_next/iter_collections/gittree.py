@@ -21,7 +21,7 @@ from datasalad.itertools import (
     itemize,
 )
 
-from datalad_next.runners import iter_git_subproc
+from datalad_core.runners import iter_git_subproc
 
 from .utils import PathBasedItem
 

@@ -12,7 +12,7 @@ from typing import (
 )
 
 from datalad_next.consts import PRE_INIT_COMMIT_SHA
-from datalad_next.runners import (
+from datalad_core.runners import (
     call_git_lines,
 )
 from datalad_next.repo_utils import (
