@@ -177,7 +177,7 @@ def iter_annexworktree(
                  '--batch'],
                 # intersperse items with newlines to trigger a batch run
                 # this avoids string operations to append newlines to items
-                input=intersperse(
+                inputs=intersperse(
                     b'\n',
                     # use `GitWorktree*`-elements yielded by `iter_gitworktree`
                     # to create an `AnnexWorktreeItem` or
@@ -200,7 +200,7 @@ def iter_annexworktree(
                 # get the key properties JSON-lines style
                 ['annex', 'examinekey', '--json', '--batch'],
                 # use only non-empty keys as input to `git annex examinekey`.
-                input=intersperse(
+                inputs=intersperse(
                     # Add line ending to submit the key to batch processing in
                     # `git annex examinekey`.
                     b'\n',
