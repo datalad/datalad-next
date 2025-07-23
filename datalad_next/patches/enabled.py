@@ -15,7 +15,6 @@ from . import (
     create_sibling_gitlab,
     patch_ria_ora,
     run,
-    update,
     # the following two patches have been taken verbatim from datalad-ria
     ssh_exec,
     sshconnector,

@@ -32,4 +32,3 @@ Patches that are automatically applied to DataLad when loading the
    ssh_exec
    sshconnector
    test_keyring
-   update
