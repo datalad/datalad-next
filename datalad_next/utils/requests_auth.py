@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict
 from urllib.parse import urlparse
 import requests
 
@@ -122,7 +121,7 @@ class DataladAuth(requests.auth.AuthBase):
         self._entered_credential = None
 
     def save_entered_credential(self, suggested_name: str | None = None,
-                                context: str | None = None) -> Dict | None:
+                                context: str | None = None) -> dict | None:
         """Utility method to save a pending credential in the store
 
         Pending credentials have been entered manually, and were subsequently

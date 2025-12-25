@@ -12,11 +12,8 @@ from pathlib import (
 import stat
 from typing import (
     TYPE_CHECKING,
-    Dict,
-    Union,
     Any,
     IO,
-    List,
 )
 
 from datalad_next.consts import COPY_BUFSIZE
@@ -102,12 +99,12 @@ class FileSystemItem(PathBasedItem, TypedItem):
         path: Path,
         *,
         link_target: bool = True,
-    ) -> Union[
-        DirectoryItem,
-        AnnexWorktreeFileSystemItem,
-        FileSystemItem,
-        GitWorktreeFileSystemItem,
-    ]:
+    ) -> (
+        DirectoryItem
+        | AnnexWorktreeFileSystemItem
+        | FileSystemItem
+        | GitWorktreeFileSystemItem
+    ):
         """Populate item properties from a single `stat` and `readlink` call
 
         The given ``path`` must exist. The ``link_target`` flag indicates
@@ -142,10 +139,10 @@ class FileSystemItem(PathBasedItem, TypedItem):
 
 
 def compute_multihash_from_fp(
-    fp: Union[BufferedReader, ExFileObject, ZipExtFile],
-    hash: List[str],
+    fp: BufferedReader | ExFileObject | ZipExtFile,
+    hash: list[str],
     bufsize: int = COPY_BUFSIZE,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Compute multiple hashes from a file-like
     """
     mhash = MultiHash(hash)

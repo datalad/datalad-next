@@ -9,11 +9,8 @@ the capabilities of ``needs_specialremote_credential_envpatch()``.
 
 import logging
 from typing import (
-    Dict,
     Generator,
     Iterable,
-    Optional,
-    Union,
 )
 
 import datalad.core.distributed.push as mod_push
@@ -37,12 +34,12 @@ from . import apply_patch
 lgr = logging.getLogger('datalad.core.distributed.push')
 
 
-def _is_export_remote(remote_info: Optional[Dict]) -> bool:
+def _is_export_remote(remote_info: dict | None) -> bool:
     """Check if remote_info is valid and has exporttree set to "yes"
 
     Parameters
     ----------
-    remote_info: Optional[Dict]
+    remote_info: dict | None
         Optional dictionary the contains git annex special.
 
     Returns
@@ -57,8 +54,8 @@ def _is_export_remote(remote_info: Optional[Dict]) -> bool:
 
 
 def _get_credentials(ds: Dataset,
-                     remote_info: Dict
-                     ) -> Optional[Dict]:
+                     remote_info: dict,
+                     ) -> dict | None:
 
     # Check for credentials
     params = {
@@ -125,8 +122,8 @@ def get_export_records(repo: AnnexRepo) -> Generator:
 
 
 def _get_export_log_entry(repo: AnnexRepo,
-                          target_uuid: str
-                          ) -> Optional[Dict]:
+                          target_uuid: str,
+                          ) -> dict | None:
     target_entries = [
         entry
         for entry in repo.get_export_records()
@@ -138,7 +135,7 @@ def _get_export_log_entry(repo: AnnexRepo,
 
 
 def _is_valid_treeish(repo: AnnexRepo,
-                      export_entry: Dict,
+                      export_entry: dict,
                       ) -> bool:
 
     # Due to issue https://github.com/datalad/datalad-next/issues/39
@@ -156,10 +153,10 @@ def _transfer_data(repo: AnnexRepo,
                    target: str,
                    content: Iterable,
                    data: str,
-                   force: Optional[str],
-                   jobs: Optional[Union[str, int]],
-                   res_kwargs: Dict,
-                   got_path_arg: bool
+                   force: str | None,
+                   jobs: str | int | None,
+                   res_kwargs: dict,
+                   got_path_arg: bool,
                    ) -> Generator:
 
     target_uuid, remote_info = ([

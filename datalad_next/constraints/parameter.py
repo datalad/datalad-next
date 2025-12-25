@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Container
-from itertools import chain
-from typing import (
+from collections.abc import (
     Callable,
-    Dict,
+    Container,
 )
+from itertools import chain
 
 from .base import Constraint
 from .basic import (
@@ -92,12 +91,12 @@ class EnsureCommandParameterization(Constraint):
     """
     def __init__(
         self,
-        param_constraints: Dict[str, Constraint],
+        param_constraints: dict[str, Constraint],
         *,
         validate_defaults: Container[str] | None = None,
         joint_constraints:
-            Dict[ParameterConstraintContext, Callable] | None = None,
-        tailor_for_dataset: Dict[str, str] | None = None,
+            dict[ParameterConstraintContext, Callable] | None = None,
+        tailor_for_dataset: dict[str, str] | None = None,
     ):
         """
         Parameters

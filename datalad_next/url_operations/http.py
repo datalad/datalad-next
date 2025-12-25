@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 import sys
-from typing import Dict
+
 import requests
 from requests_toolbelt import user_agent
 
@@ -37,7 +37,7 @@ class HttpUrlOperations(UrlOperations):
     authentication challenges.
     """
 
-    def __init__(self, cfg=None, headers: Dict | None = None):
+    def __init__(self, cfg=None, headers: dict | None = None):
         """
         Parameters
         ----------
@@ -56,7 +56,7 @@ class HttpUrlOperations(UrlOperations):
         if headers:
             self._headers.update(headers)
 
-    def get_headers(self, headers: Dict | None = None) -> Dict:
+    def get_headers(self, headers: dict | None = None) -> dict:
         # start with the default
         hdrs = dict(self._headers)
         if headers is not None:
@@ -82,7 +82,7 @@ class HttpUrlOperations(UrlOperations):
              url: str,
              *,
              credential: str | None = None,
-             timeout: float | None = None) -> Dict:
+             timeout: float | None = None) -> dict:
         """Gather information on a URL target, without downloading it
 
         See :meth:`datalad_next.url_operations.UrlOperations.stat`
@@ -94,7 +94,7 @@ class HttpUrlOperations(UrlOperations):
           For access targets found absent.
         """
         auth = DataladAuth(self.cfg, credential=credential)
-        props: Dict[str, str | int]
+        props: dict[str, str | int]
         with requests.head(
                 url,
                 headers=self.get_headers(),
@@ -131,7 +131,7 @@ class HttpUrlOperations(UrlOperations):
                url: str,
                *,
                credential: str | None = None,
-               timeout: float | None = None) -> Dict:
+               timeout: float | None = None) -> dict:
         """Delete the target of a http(s)://-URL
 
         """
@@ -159,7 +159,7 @@ class HttpUrlOperations(UrlOperations):
                  *,
                  credential: str | None = None,
                  hash: list[str] | None = None,
-                 timeout: float | None = None) -> Dict:
+                 timeout: float | None = None) -> dict:
         """Download via HTTP GET request
 
         See :meth:`datalad_next.url_operations.UrlOperations.download`
@@ -259,7 +259,7 @@ class HttpUrlOperations(UrlOperations):
         return req.url, props
 
     def _stream_download_from_request(
-            self, r, to_path, hash: list[str] | None = None) -> Dict:
+            self, r, to_path, hash: list[str] | None = None) -> dict:
         from_url = r.url
         hasher = self._get_hasher(hash)
         progress_id = self._get_progress_id(from_url, to_path)
@@ -283,7 +283,7 @@ class HttpUrlOperations(UrlOperations):
         )
 
         fp = None
-        props: Dict[str, str] = {}
+        props: dict[str, str] = {}
         try:
             # we can only write to file-likes opened in bytes mode
             fp = sys.stdout.buffer if to_path is None else open(to_path, 'wb')

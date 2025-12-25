@@ -35,12 +35,7 @@ from dataclasses import dataclass
 
 from pathlib import Path
 from shutil import copyfileobj
-from typing import (
-    Dict,
-    Generator,
-    List,
-    Tuple,
-)
+from collections.abc import Generator
 
 from datalad_next.archive_operations import ArchiveOperations
 
@@ -379,13 +374,13 @@ class _ArchiveHandlers:
     # TODO make archive access caching behavior configurable from the outside
     def __init__(self, repo):
         # mapping of archive keys to an info dict
-        self._db: Dict[AnnexKey, _ArchiveInfo] = {}
+        self._db: dict[AnnexKey, _ArchiveInfo] = {}
         # for running git-annex queries against the repo
         self._repo = repo
 
     def from_locators(
-            self, locs: List[ArchivistLocator]
-    ) -> Generator[Tuple[ArchiveOperations, Iterable[ArchivistLocator]],
+            self, locs: list[ArchivistLocator],
+    ) -> Generator[tuple[ArchiveOperations, Iterable[ArchivistLocator]],
                    None, None]:
         """Produce archive handlers for the given locators
 

@@ -8,7 +8,6 @@ import json
 import logging
 from pathlib import Path
 import re
-from typing import Dict
 
 from datalad_next.config import ConfigManager
 from datalad_next.exceptions import CapturedException

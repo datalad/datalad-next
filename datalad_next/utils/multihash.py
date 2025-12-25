@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-from typing import (
-    ByteString,
-    Dict,
-)
 
 
 class NoOpHash:
@@ -50,12 +46,12 @@ class MultiHash:
             _hasher.append(hr())
         self._hasher = dict(zip(algorithms, _hasher))
 
-    def update(self, data: ByteString) -> None:
+    def update(self, data: bytes | bytearray | memoryview) -> None:
         """Updates all configured digests"""
         for h in self._hasher.values():
             h.update(data)
 
-    def get_hexdigest(self) -> Dict[str, str]:
+    def get_hexdigest(self) -> dict[str, str]:
         """Returns a mapping of algorithm name to hexdigest for all algorithms
         """
         return {a: h.hexdigest() for a, h in self._hasher.items()}

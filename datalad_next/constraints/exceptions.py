@@ -6,11 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from textwrap import indent
 from types import MappingProxyType
-from typing import (
-    Any,
-    Dict,
-    Tuple,
-)
+from typing import Any
 
 # needed for imports in other pieced of the ``constraints`` module
 from datalad_next.exceptions import NoDatasetFound
@@ -38,7 +34,7 @@ class ConstraintError(ValueError):
                  constraint,
                  value: Any,
                  msg: str,
-                 ctx: Dict[str, Any] | None = None):
+                 ctx: dict[str, Any] | None = None):
         """
         Parameters
         ----------
@@ -149,7 +145,7 @@ class ConstraintErrors(ConstraintError):
     nature of the context identifiers (expect for being hashable). See
     ``CommandParametrizationError`` for a specialization.
     """
-    def __init__(self, exceptions: Dict[Any, ConstraintError]):
+    def __init__(self, exceptions: dict[Any, ConstraintError]):
         super().__init__(
             # this is the main payload, the base class expects a Constraint
             # but only stores it
@@ -184,7 +180,7 @@ class ParameterContextErrors(Mapping):
     # went wrong (in general, for a specific parameter, etc...)
     def __init__(
         self,
-        errors: Dict[ParameterConstraintContext, ConstraintError],
+        errors: dict[ParameterConstraintContext, ConstraintError],
     ):
         self._errors = errors
 
@@ -297,8 +293,8 @@ class ParametrizationErrors(ConstraintErrors):
     """
     def __init__(
             self,
-            exceptions: Dict[str, ConstraintError] |
-                        Dict[ParameterConstraintContext, ConstraintError]):
+            exceptions: dict[str, ConstraintError] |
+                        dict[ParameterConstraintContext, ConstraintError]):
         super().__init__(
             {k if isinstance(k, ParameterConstraintContext)
              else ParameterConstraintContext((k,)):

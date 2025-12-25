@@ -12,7 +12,6 @@ __docformat__ = 'restructuredtext'
 
 import json
 import logging
-from typing import Dict
 
 from datalad import (
     cfg as dlcfg,

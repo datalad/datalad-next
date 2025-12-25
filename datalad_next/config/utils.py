@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 from os import environ
-from typing import (
-    Dict,
-    Mapping,
-    Tuple,
-)
+from collections.abc import Mapping
 
 
-def get_gitconfig_items_from_env() -> Mapping[str, str | Tuple[str, ...]]:
+def get_gitconfig_items_from_env() -> Mapping[str, str | tuple[str, ...]]:
     """Parse git-config ENV (``GIT_CONFIG_COUNT|KEY|VALUE``) and return as dict
 
     This implementation does not use ``git-config`` directly, but aims to
@@ -29,7 +25,7 @@ def get_gitconfig_items_from_env() -> Mapping[str, str | Tuple[str, ...]]:
       times, the respective values are aggregated in reported as a tuple
       for that specific key.
     """
-    items: Dict[str, str | Tuple[str, ...]] = {}
+    items: dict[str, str | tuple[str, ...]] = {}
     for k, v in ((_get_gitconfig_var_from_env(i, 'key'),
                   _get_gitconfig_var_from_env(i, 'value'))
                  for i in range(_get_gitconfig_itemcount())):
@@ -64,7 +60,7 @@ def _get_gitconfig_var_from_env(nid: int, kind: str) -> str:
     return var
 
 
-def set_gitconfig_items_in_env(items: Mapping[str, str | Tuple[str, ...]]):
+def set_gitconfig_items_in_env(items: Mapping[str, str | tuple[str, ...]]):
     """Set git-config ENV (``GIT_CONFIG_COUNT|KEY|VALUE``) from a mapping
 
     Any existing declaration of configuration items in the environment is

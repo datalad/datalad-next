@@ -14,12 +14,10 @@ replaces the custom `stop()` method, which is undocumented and only used by the
 This patch also adds code that allows to patch a class that is already loaded
 """
 
+from __future__ import annotations
+
 from contextlib import closing
 import logging
-from typing import (
-    Dict,
-    Type,
-)
 
 from . import apply_patch
 from datalad_next.annexremotes import SpecialRemote
@@ -63,7 +61,7 @@ class AnnexProgressLogHandler(logging.Handler):
     def __init__(self, annexremote: SpecialRemote):
         super().__init__()
         self.annexremote = annexremote
-        self._ptrackers: Dict[str, int] = {}
+        self._ptrackers: dict[str, int] = {}
 
     def emit(self, record: logging.LogRecord):
         """Process a log record
@@ -101,7 +99,7 @@ class AnnexProgressLogHandler(logging.Handler):
             self.annexremote.send_progress(prg)
 
 
-def patched_underscore_main(args: list, cls: Type[SpecialRemote]):
+def patched_underscore_main(args: list, cls: type[SpecialRemote]):
     """Full replacement for datalad.customremotes.main._main()
 
     Its only purpose is to create a running instance of a SpecialRemote.

@@ -13,9 +13,6 @@ from pathlib import (
     PurePath,
 )
 from typing import (
-    Dict,
-    Type,
-    Union,
     Any,
     Generator,
 )
@@ -345,7 +342,7 @@ def _get_worktree_item(
 
 
 def _join_annex_info(
-    processed_data: Union[Type[StoreOnly], Dict[str, str]],
+    processed_data: type[StoreOnly] | dict[str, str],
     stored_data: GitWorktreeItem,
 ) -> dict:
     """Internal helper to join results from pipeline stages

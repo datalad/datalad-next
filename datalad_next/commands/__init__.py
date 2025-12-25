@@ -18,8 +18,6 @@ in this module to offer a one-stop-shop experience. This includes
 """
 from __future__ import annotations
 
-from typing import Dict
-
 from datalad.interface.base import (
     Interface,
     build_doc,
