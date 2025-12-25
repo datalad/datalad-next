@@ -10,7 +10,7 @@ name = "datalad-next"
 dynamic = ["version"]
 description = "What is next in DataLad"
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 license = "MIT"
 keywords = [
   "datalad",
@@ -99,7 +99,7 @@ extra-dependencies = [
 DATALAD_EXTENSIONS_LOAD = "next"
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [tool.hatch.envs.types]
 description = "type checking with MyPy"
@@ -110,7 +110,7 @@ extra-dependencies = [
 
 [tool.hatch.envs.types.scripts]
 check = [
-  "mypy --install-types --non-interactive --python-version 3.8 --pretty --show-error-context {args:datalad_next}",
+  "mypy --install-types --non-interactive --python-version 3.10 --pretty --show-error-context {args:datalad_next}",
 ]
 
 [tool.hatch.envs.docs]
@@ -233,7 +233,7 @@ exclude = [
 ]
 line-length = 88
 indent-width = 4
-target-version = "py38"
+target-version = "py310"
 [tool.ruff.format]
 # Prefer single quotes over double quotes.
 quote-style = "single"
