@@ -133,7 +133,7 @@ class EnsureCommandParameterization(Constraint):
         self._validate_defaults = validate_defaults or set()
         self._tailor_for_dataset = tailor_for_dataset or {}
 
-    def joint_validation(self, params: Dict, on_error: str) -> Dict:
+    def joint_validation(self, params: dict, on_error: str) -> dict:
         """Higher-order validation considering multiple parameters at a time
 
         This method is called with all, individually validated, command
@@ -244,7 +244,7 @@ class EnsureCommandParameterization(Constraint):
         at_default=None,
         required=None,
         on_error='raise-early',
-    ) -> Dict:
+    ) -> dict:
         """
         Parameters
         ----------

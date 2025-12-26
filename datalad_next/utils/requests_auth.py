@@ -154,7 +154,7 @@ class DataladAuth(requests.auth.AuthBase):
         return r
 
     def _get_credential(self, url, auth_schemes
-                        ) -> tuple[str | None, str | None, Dict | None]:
+                        ) -> tuple[str | None, str | None, dict | None]:
         """Get a credential for access to `url` given server-supported schemes
 
         If a particular credential to use was given to the `DataladAuth`

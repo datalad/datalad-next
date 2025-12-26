@@ -96,7 +96,7 @@ class ConstraintError(ValueError):
         return self.args[1]
 
     @property
-    def caused_by(self) -> Tuple[Exception] | None:
+    def caused_by(self) -> tuple[Exception] | None:
         """Returns a tuple of any underlying exceptions that caused a violation
         """
         cb = self.context.get('__caused_by__', None)
@@ -245,7 +245,7 @@ class ParameterConstraintContext:
 
       EnsureRange(min=3)(params['p1'] + params['p2'])
     """
-    parameters: Tuple[str]
+    parameters: tuple[str, ...]
     description: str | None = None
 
     def __str__(self):

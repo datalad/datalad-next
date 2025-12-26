@@ -168,7 +168,7 @@ class AnyUrlOperations(UrlOperations):
              url: str,
              *,
              credential: str | None = None,
-             timeout: float | None = None) -> Dict:
+             timeout: float | None = None) -> dict:
         """Call `*UrlOperations.stat()` for the respective URL scheme"""
         return self._get_handler(url).stat(
             url, credential=credential, timeout=timeout)
@@ -179,7 +179,7 @@ class AnyUrlOperations(UrlOperations):
                  *,
                  credential: str | None = None,
                  hash: list[str] | None = None,
-                 timeout: float | None = None) -> Dict:
+                 timeout: float | None = None) -> dict:
         """Call `*UrlOperations.download()` for the respective URL scheme"""
         return self._get_handler(from_url).download(
             from_url, to_path, credential=credential, hash=hash,
@@ -191,7 +191,7 @@ class AnyUrlOperations(UrlOperations):
                *,
                credential: str | None = None,
                hash: list[str] | None = None,
-               timeout: float | None = None) -> Dict:
+               timeout: float | None = None) -> dict:
         """Call `*UrlOperations.upload()` for the respective URL scheme"""
         return self._get_handler(to_url).upload(
             from_path, to_url, credential=credential, hash=hash,
@@ -201,7 +201,7 @@ class AnyUrlOperations(UrlOperations):
                url: str,
                *,
                credential: str | None = None,
-               timeout: float | None = None) -> Dict:
+               timeout: float | None = None) -> dict:
         """Call `*UrlOperations.delete()` for the respective URL scheme"""
         return self._get_handler(url).delete(
             url, credential=credential, timeout=timeout)
