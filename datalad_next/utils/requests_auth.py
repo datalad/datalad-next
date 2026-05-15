@@ -6,10 +6,12 @@ from __future__ import annotations
 import logging
 from typing import Dict
 from urllib.parse import urlparse
+
 import requests
 
 from datalad_next.config import ConfigManager
 from datalad_next.credman import CredentialManager
+
 from .http_helpers import get_auth_realm
 
 lgr = logging.getLogger('datalad.ext.next.utils.requests_auth')
@@ -285,13 +287,19 @@ class DataladAuth(requests.auth.AuthBase):
             # if there is no authentication scheme identified, look at the
             # credential, if it knows
             ascheme = cred.get('http_auth_scheme')
-            # if it does not, go with the first supported scheme that matches
-            # the credential type, one is guaranteed to match
-            ascheme = [
+        if ascheme is None:
+            # go with the first supported scheme that matches the credential
+            # type; fall back to 'bearer' for token credentials when the
+            # server advertises only basic (e.g. dCache with empty realm)
+            matching = [
                 c for c in auth_schemes
                 if c in DataladAuth._supported_auth_schemes
                 and cred.get('type') == DataladAuth._supported_auth_schemes[c]
-            ][0]
+            ]
+            if matching:
+                ascheme = matching[0]
+            elif cred.get('type') == 'token':
+                ascheme = 'bearer'
 
         if ascheme == 'basic':
             return self._authenticated_rerequest(
