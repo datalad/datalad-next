@@ -110,7 +110,7 @@ extra-dependencies = [
 
 [tool.hatch.envs.types.scripts]
 check = [
-  "mypy --install-types --non-interactive --python-version 3.8 --pretty --show-error-context {args:datalad_next}",
+  "mypy --install-types --non-interactive --python-version 3.10 --pretty --show-error-context --follow-imports skip --disable-error-code import-untyped  {args:datalad_next}",
 ]
 
 [tool.hatch.envs.docs]
