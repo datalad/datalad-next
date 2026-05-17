@@ -34,7 +34,8 @@ New features depending on other `datalad-next` features are, by necessity, bette
 
 [Hatch](https://hatch.pypa.io) is used as a convenience solution for packaging and development tasks.
 Hatch takes care of managing dependencies and environments, including the Python interpreter itself.
-If not installed yet, installing via [pipx](https://github.com/pypa/pipx) is recommended (`pipx install hatch`).
+If not installed yet, installing via [uv](https://docs.astral.sh/uv) is recommended
+(`uv tool install hatch`).
 
 Below is a list of some provided convenience commands.
 An accurate overview of provided convenience scripts can be obtained by running: `hatch env show`.
