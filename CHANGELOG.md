@@ -1,3 +1,105 @@
+# 1.6.0 (2026-05-17)
+
+## 💫 New features
+
+- `iter_gitdiff`:
+  - add support for pathspec-constrained reporting [[76d8db7f]](https://github.com/datalad/datalad-next/commit/76d8db7f)
+- atomic:
+  - describe atomicity property [[f07a613b]](https://github.com/datalad/datalad-next/commit/f07a613b)
+  - atomic upload for `url_operations.file` [[4a8aa14f]](https://github.com/datalad/datalad-next/commit/4a8aa14f)
+  - atomic upload for url_operations.ssh [[116ac16f]](https://github.com/datalad/datalad-next/commit/116ac16f)
+- delete:
+  - add delete to HttpUrlOperations [[dfbf1e50]](https://github.com/datalad/datalad-next/commit/dfbf1e50)
+  - add delete to `SshUrlOperations` [[fb4aeec8]](https://github.com/datalad/datalad-next/commit/fb4aeec8)
+
+## 🐛 Bug Fixes
+
+- guard handle_401 against IndexError when token meets Basic-only server [[d947636b]](https://github.com/datalad/datalad-next/commit/d947636b)
+- include ZipArchiveOperations in Archivist's handlers [[54d783f8]](https://github.com/datalad/datalad-next/commit/54d783f8)
+- proper import of version information to the top-level module [[ed1ca140]](https://github.com/datalad/datalad-next/commit/ed1ca140)
+- delay import to have import subject be impacted by patches [[5ee1a7b8]](https://github.com/datalad/datalad-next/commit/5ee1a7b8)
+- `CreateSiblingRia`:
+  - canonify push-url correctly [[4f1f578b]](https://github.com/datalad/datalad-next/commit/4f1f578b)
+- `decode_bytes`:
+  - error handling led to data loss in subsequent chunks [[dfa1d20b]](https://github.com/datalad/datalad-next/commit/dfa1d20b)
+  - handle multiple errors [[7a73d8ce]](https://github.com/datalad/datalad-next/commit/7a73d8ce)
+  - always backslashreplace when asked to [[0ac7974a]](https://github.com/datalad/datalad-next/commit/0ac7974a)
+- `gitworktree`:
+  - decode bytes before itemization [[5fe82ead]](https://github.com/datalad/datalad-next/commit/5fe82ead)
+- `iter_gitdiff`:
+  - adjust conditional acknowledging that `GitTreeItem.name` is a `str` [[21db7511]](https://github.com/datalad/datalad-next/commit/21db7511)
+  - enable multi-level submodule recursion [[94bd3c50]](https://github.com/datalad/datalad-next/commit/94bd3c50)
+  - yield copy of container item when it is also further processed [[78d71e82]](https://github.com/datalad/datalad-next/commit/78d71e82)
+  - correct `git diff-index|tree` command for submodule recursion [[c37dd315]](https://github.com/datalad/datalad-next/commit/c37dd315)
+  - corrected type annotation in internal helper [[0eb4ffb4]](https://github.com/datalad/datalad-next/commit/0eb4ffb4)
+  - decode bytes before itemization [[8b188142]](https://github.com/datalad/datalad-next/commit/8b188142)
+- `iter_gittree`:
+  - decode bytes before itemization [[c8598545]](https://github.com/datalad/datalad-next/commit/c8598545)
+- delete:
+  - unify semantics of delete-operations [[80bc38c3]](https://github.com/datalad/datalad-next/commit/80bc38c3)
+  - set write-permission in `SshUrlOperations.delete` [[86c728fd]](https://github.com/datalad/datalad-next/commit/86c728fd)
+- tests:
+  - bring back datalad core wtf-test [[6d2d44a5]](https://github.com/datalad/datalad-next/commit/6d2d44a5)
+  - remove print-statement from test [[67acb453]](https://github.com/datalad/datalad-next/commit/67acb453)
+  - remove align_pattern performance test [[3642879a]](https://github.com/datalad/datalad-next/commit/3642879a)
+- types:
+  - add type for `prop` [[f96dd3cf]](https://github.com/datalad/datalad-next/commit/f96dd3cf)
+  - fix exception arguments [[7fa458d3]](https://github.com/datalad/datalad-next/commit/7fa458d3)
+  - fix type annotations in alig_pattern [[247ee261]](https://github.com/datalad/datalad-next/commit/247ee261)
+- uncurl:
+  - add close-handler to uncurl [[c9b2a4c8]](https://github.com/datalad/datalad-next/commit/c9b2a4c8)
+
+## 🏠 Refactorings
+
+- import `PRE_INIT_COMMIT_SHA` from `datalad_core` [[43c72541]](https://github.com/datalad/datalad-next/commit/43c72541)
+- homogenize deprecation pattern for `datalad_next.iterable_subprocess` [[cc846f5b]](https://github.com/datalad/datalad-next/commit/cc846f5b)
+- homogenize deprecation pattern for `datalad_next.iterools` [[7bd83268]](https://github.com/datalad/datalad-next/commit/7bd83268)
+- use `gitpathspec` module from `datasalad` library [[337187ff]](https://github.com/datalad/datalad-next/commit/337187ff)
+- `iter_gitdiff`:
+  - establish new top-level internal helper [[f922c7bd]](https://github.com/datalad/datalad-next/commit/f922c7bd)
+  - new dedicated helper to yield from a submodule [[fbb0318e]](https://github.com/datalad/datalad-next/commit/fbb0318e)
+  - discontinue use of `kwargs` dict [[232dba4b]](https://github.com/datalad/datalad-next/commit/232dba4b)
+  - flip conditional to simplify internal helper [[39505865]](https://github.com/datalad/datalad-next/commit/39505865)
+  - dedicated function for Git output -> `GitDiffItem` [[a513b8c8]](https://github.com/datalad/datalad-next/commit/a513b8c8)
+  - dissolve kwarg-dict to improve type annotation [[b88e21f3]](https://github.com/datalad/datalad-next/commit/b88e21f3)
+- `iter_gitstatus`:
+  - reduce variable recycling to avoid confusing type-checker [[2aa77052]](https://github.com/datalad/datalad-next/commit/2aa77052)
+- `iterable_subprocess`:
+  - removed package and use from `datasalad` [[4ee9c272]](https://github.com/datalad/datalad-next/commit/4ee9c272)
+- `itertools`:
+  - removed package and use from `datasalad` [[a2a992d5]](https://github.com/datalad/datalad-next/commit/a2a992d5)
+
+## 📝 Documentation
+
+- add maintainability badge [[abd0e4b7]](https://github.com/datalad/datalad-next/commit/abd0e4b7)
+- add `datalad_next.shell.shell()` to docs [[e49ca134]](https://github.com/datalad/datalad-next/commit/e49ca134)
+- Add official Hatch badge to README.md [[18fa8c63]](https://github.com/datalad/datalad-next/commit/18fa8c63)
+- trim module API documentation to an overview table of content [[704aeedf]](https://github.com/datalad/datalad-next/commit/704aeedf)
+- (temporarily) disable the inclusion of manpages in the docs [[e3e588af]](https://github.com/datalad/datalad-next/commit/e3e588af)
+- remove unused intersphinx extension [[761f232f]](https://github.com/datalad/datalad-next/commit/761f232f)
+- correct spelling in doc-strings [[6511cbd9]](https://github.com/datalad/datalad-next/commit/6511cbd9)
+- exclude memory addresses from documentation [[0d2440de]](https://github.com/datalad/datalad-next/commit/0d2440de)
+- `iter_gitdiff`:
+  - add docstring for `eval_submodule_state` argument [[e786921b]](https://github.com/datalad/datalad-next/commit/e786921b)
+- Contributing guide:
+  - cheat sheet on `hatch` [[8f2f7d69]](https://github.com/datalad/datalad-next/commit/8f2f7d69)
+
+## 🛡 Tests
+
+- cover token auth with Basic-only challenge [[1e33929d]](https://github.com/datalad/datalad-next/commit/1e33929d)
+- enable zip testing [[2d2b1526]](https://github.com/datalad/datalad-next/commit/2d2b1526)
+- simplify hatch test setup [[e8bc0268]](https://github.com/datalad/datalad-next/commit/e8bc0268)
+- fix test_tree_with_broken_symlinks on Python 3.13 [[25ac6ef0]](https://github.com/datalad/datalad-next/commit/25ac6ef0)
+- fix ruff setup (used wrong path) [[865665ac]](https://github.com/datalad/datalad-next/commit/865665ac)
+- disable test with erratic behavior after hatch-based execution [[1c3f3130]](https://github.com/datalad/datalad-next/commit/1c3f3130)
+- disable test_wtf of datalad-core-4 [[4477de88]](https://github.com/datalad/datalad-next/commit/4477de88)
+- `iter_gitdiff`:
+  - adjust type-annotation to match reality [[5cb96362]](https://github.com/datalad/datalad-next/commit/5cb96362)
+  - new test to show that recursion is broken [[858036fa]](https://github.com/datalad/datalad-next/commit/858036fa)
+  - type-annotate internal helper [[b4bec180]](https://github.com/datalad/datalad-next/commit/b4bec180)
+- `test_gitdiff`:
+  - disable kwargs type-checking [[04d56150]](https://github.com/datalad/datalad-next/commit/04d56150)
+
 # 1.5.0 (2024-06-16)
 
 ## 💫 New features
