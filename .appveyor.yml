@@ -51,7 +51,7 @@ build: off
 
 environment:
   # not ready for --doctest-modules yet, some are invalid
-  TEST_SCRIPT: 'hatch test -i py=3.9 --cover --durations 10'
+  TEST_SCRIPT: 'hatch test -i py=3.10 --cover --durations 10'
   # unless indicated otherwise, we test datalad_next
   DTS: datalad_next
   # place coverage files to a known location regardless of where a test run

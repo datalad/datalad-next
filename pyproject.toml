@@ -10,7 +10,7 @@ name = "datalad-next"
 dynamic = ["version"]
 description = "What is next in DataLad"
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 license = "MIT"
 keywords = [
   "datalad",
@@ -99,7 +99,7 @@ extra-dependencies = [
 DATALAD_EXTENSIONS_LOAD = "next"
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+python = ["3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.types]
 description = "type checking with MyPy"
