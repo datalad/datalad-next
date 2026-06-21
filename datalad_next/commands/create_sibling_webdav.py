@@ -14,6 +14,8 @@ from urllib.parse import (
     urlunparse,
 )
 
+import requests
+
 from datalad_next.commands import (
     EnsureCommandParameterization,
     ValidatedInterface,
@@ -553,6 +555,47 @@ def _get_skip_sibling_result(name, ds, type_):
     )
 
 
+def _ensure_webdav_collection(url, credential):
+    """Ensure the WebDAV collection (directory) at URL exists.
+
+    Uses MKCOL to create the directory if it doesn't exist. Intermediate
+    directories must already exist (WebDAV MKCOL does not create parents).
+    This is fine for our use case since git-annex will handle the nested
+    structure internally.
+
+    Parameters
+    ----------
+    url: str
+        WebDAV URL for the collection to ensure
+    credential: tuple
+        (username, password) tuple for authentication
+    """
+    # First check if it already exists with a PROPFIND
+    response = requests.request(
+        'PROPFIND',
+        url,
+        auth=(credential[0], credential[1]),
+        headers={'Depth': '0'},
+    )
+    if response.status_code in (200, 207):
+        # Collection already exists
+        return
+
+    # Try to create it with MKCOL
+    response = requests.request(
+        'MKCOL',
+        url,
+        auth=(credential[0], credential[1]),
+    )
+    # 201 = Created, 405 = Method Not Allowed (often means it exists)
+    # We don't raise on error - let git-annex handle any issues downstream
+    if response.status_code not in (201, 405):
+        lgr.debug(
+            "MKCOL request to %s returned status %s",
+            url, response.status_code
+        )
+
+
 def _create_git_sibling(
         ds, url, name, credential_name, credential, export, existing,
         known, publish_depends=None):
@@ -631,6 +674,12 @@ def _create_storage_sibling(
     if known and existing == 'skip':
         yield _get_skip_sibling_result(name, ds, 'storage')
         return
+
+    # When reconfiguring, enableremote doesn't create the directory on the
+    # WebDAV server (unlike initremote). We need to explicitly ensure the
+    # collection exists.
+    if known and existing == 'reconfigure':
+        _ensure_webdav_collection(url, credential)
 
     cmd_args = [
         'enableremote' if known and existing == 'reconfigure'
