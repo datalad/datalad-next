@@ -15,6 +15,7 @@ from datalad_next.tests import (
     eq_,
     ok_,
     run_main,
+    verify_special_remote,
 )
 import pytest
 
@@ -155,6 +156,9 @@ def check_common_workflow(
     # at some point, clone should be able to do this internally
     # https://github.com/datalad/datalad/issues/6634
     dsclone.siblings('enable', name='127.0.0.1-storage')
+    # git-annex >= 10.20261026 does not use it before its configuration,
+    # created by this test, is verified
+    verify_special_remote(dsclone.repo, '127.0.0.1-storage')
     # verify that we can get testfile.dat
     # just get the whole damn thing
     assert_status('ok', dsclone.get('.'))

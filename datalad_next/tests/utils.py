@@ -8,8 +8,12 @@ import os
 from os import environ
 from pathlib import Path
 import pytest
+import re
 import subprocess
-from typing import Any
+from typing import (
+    TYPE_CHECKING,
+    Any,
+)
 
 from datalad.support.external_versions import external_versions
 # all datalad-core test utils needed for datalad-next
@@ -50,6 +54,9 @@ from datalad_next.shell import shell
 from datalad_next.utils import (
     CredentialManager,
 )
+
+if TYPE_CHECKING:
+    from datalad_next.datasets import LegacyAnnexRepo
 
 lgr = logging.getLogger("datalad.tests.utils")
 
@@ -303,3 +310,27 @@ def assert_ssh_access(
 
     if localpath:
         assert not (Path(localpath) / 'datalad-tests-probe').exists()
+
+
+def verify_special_remote(repo: LegacyAnnexRepo, name: str) -> None:
+    """Mark the current configuration of a special remote as verified
+
+    Since 10.20261026 (CVE-2026-112818), git-annex does not use a special
+    remote enabled with ``git annex enableremote`` until
+    ``git annex verifyremote`` confirms its configuration. This helper
+    confirms whatever configuration git-annex presents, so use it only for a
+    special remote that the test has set up itself.
+
+    It does nothing with an older git-annex, or when the configuration has
+    not changed since it was last verified.
+    """
+    if external_versions['cmd:annex'] < '10.20261026':
+        return
+    # git-annex displays the configuration along with the command to confirm
+    # it, whose ID makes sure that it is that very configuration which gets
+    # verified
+    out = repo.call_annex(['verifyremote', name])
+    safe_id = re.search(rf'verifyremote {re.escape(name)} --safe (\d+)', out)
+    if safe_id:
+        repo.call_annex(['verifyremote', name, '--safe', safe_id.group(1)])
+        repo.config.reload()
