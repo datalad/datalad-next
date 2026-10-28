@@ -23,6 +23,7 @@
    skip_wo_symlink_capability
    swallow_logs
    skipif_no_network
+   verify_special_remote
 """
 # TODO `assert_raises` is excluded above to avoid syntax errors in the docstring
 # rather than fixing those, we should replace it with `pytest.raises` entirely
@@ -47,6 +48,7 @@ from .utils import (
     skip_if_root,
     skip_wo_symlink_capability,
     swallow_logs,
+    verify_special_remote,
 )
 
 

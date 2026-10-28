@@ -9,7 +9,10 @@ from os import environ
 from pathlib import Path
 import pytest
 import subprocess
-from typing import Any
+from typing import (
+    TYPE_CHECKING,
+    Any,
+)
 
 from datalad.support.external_versions import external_versions
 # all datalad-core test utils needed for datalad-next
@@ -50,6 +53,9 @@ from datalad_next.shell import shell
 from datalad_next.utils import (
     CredentialManager,
 )
+
+if TYPE_CHECKING:
+    from datalad_next.datasets import LegacyAnnexRepo
 
 lgr = logging.getLogger("datalad.tests.utils")
 
@@ -303,3 +309,26 @@ def assert_ssh_access(
 
     if localpath:
         assert not (Path(localpath) / 'datalad-tests-probe').exists()
+
+
+def verify_special_remote(repo: LegacyAnnexRepo, name: str) -> None:
+    """Mark the current configuration of a special remote as verified
+
+    Since 10.20261026 (CVE-2026-112818), git-annex does not use a special
+    remote enabled with ``git annex enableremote`` until
+    ``git annex verifyremote`` confirms its configuration. This helper has
+    ``AnnexRepo.verify_remote()`` of DataLad 1.7.2 or later confirm whatever
+    configuration git-annex presents, so use it only for a special remote
+    that the test has set up itself.
+
+    With an older DataLad, it fails the test with a request to update
+    DataLad, unless git-annex is older than 10.20261026 too.
+    """
+    if external_versions['datalad'] >= '1.7.2':
+        repo.verify_remote(name)
+    elif external_versions['cmd:annex'] >= '10.20261026':
+        pytest.fail(
+            f"git-annex {external_versions['cmd:annex']} only uses special "
+            "remotes whose configuration was verified, which needs DataLad "
+            f">= 1.7.2 (found {external_versions['datalad']}). "
+            "Please update DataLad.")
