@@ -13,7 +13,7 @@ points to the value of ``sys.executable`` by default. This particular
 placeholder was found to be valuable for improving the portability of
 run-recording across (specific) Python versions, or across different (virtual)
 environments. See https://github.com/datalad/datalad-container/issues/224 for
-an example use case.
+an example use case. The default is quoted for the platform's shell.
 
 https://github.com/datalad/datalad/pull/7509
 """
@@ -83,8 +83,12 @@ apply_patch(
 register_config(
     'datalad.run.substitutions.python',
     'Substitution for {python} placeholder',
-    description='Path to a Python interpreter executable',
+    description='Path to a Python interpreter executable. Like any '
+    'substitution, it is inserted into the command line verbatim, and must '
+    'be quoted if it contains spaces or other special characters',
     type=EnsureStr(),
-    default=sys.executable,
+    # quote like {inputs} and {outputs}: unquoted, the shell would split
+    # a path with a space, e.g. under 'C:\Program Files'
+    default=quote_cmdlinearg(sys.executable),
     dialog='question',
 )
