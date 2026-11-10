@@ -6,8 +6,11 @@
 name: Tests
 
 on:
-  # mirror AppVeyor's `only_commits` filter
+  # mirror AppVeyor's `only_commits` filter; on pushes to other branches
+  # the pull_request run is enough
   push:
+    branches:
+      - main
     paths:
       - 'datalad_next/**'
       - 'tools/**'
@@ -197,6 +200,39 @@ jobs:
         run: |
           git config --global user.email "test@github.land"
           git config --global user.name "GitHub Almighty"
+
+      # the SSH test server image and key are AppVeyor build artifacts, whose
+      # downloads AppVeyor refuses at times (HTTP 403): fetch them at most once
+      # a week, with retries, and have tools/appveyor/setup-sshd copy them
+      - name: Determine week for caching the SSH test server image
+        id: week
+        if: matrix.ssh == '1' && runner.os == 'Linux'
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the SSH test server image
+        id: sshd-cache
+        if: matrix.ssh == '1' && runner.os == 'Linux'
+        uses: actions/cache@v6
+        with:
+          path: ~/sshd-cache
+          key: sshd-image-${{ steps.week.outputs.week }}
+
+      - name: Download the SSH test server image
+        if: matrix.ssh == '1' && runner.os == 'Linux' && steps.sshd-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/sshd-cache
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
+            -o ~/sshd-cache/sshd.dockerimg.gz "$DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
+            -o ~/sshd-cache/id_rsa "$DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL"
+
+      - name: Use the cached SSH test server image
+        if: matrix.ssh == '1' && runner.os == 'Linux'
+        run: |
+          {
+            echo "DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL=file://$HOME/sshd-cache/sshd.dockerimg.gz"
+            echo "DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL=file://$HOME/sshd-cache/id_rsa"
+          } >> "$GITHUB_ENV"
 
       - name: Set up SSH test server (POSIX)
         if: matrix.ssh == '1' && runner.os != 'Windows'
