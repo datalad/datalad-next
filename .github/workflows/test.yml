@@ -31,9 +31,8 @@ env:
   # unless indicated otherwise, we test datalad_next
   DTS: datalad_next
   # SSH testing on Linux is done via a side-loaded container that provides a
-  # POSIX/SSHable server environment (see tools/appveyor/setup-sshd)
-  DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/recipes/sshd/id_rsa?job=sshd
-  DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/sshd.dockerimg.gz?job=sshd
+  # POSIX/SSHable server environment (see tools/appveyor/setup-sshd); its
+  # image is built from datalad/datalad-ci-docker-containers below
   DATALAD_TESTS_DOCKER_SSHD_CONTAINER_NAME: test-sshd
 
 jobs:
@@ -201,37 +200,20 @@ jobs:
           git config --global user.email "test@github.land"
           git config --global user.name "GitHub Almighty"
 
-      # the SSH test server image and key are AppVeyor build artifacts, whose
-      # downloads AppVeyor refuses at times (HTTP 403): fetch them at most once
-      # a week, with retries, and have tools/appveyor/setup-sshd copy them
-      - name: Determine week for caching the SSH test server image
-        id: week
-        if: matrix.ssh == '1' && runner.os == 'Linux'
-        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the SSH test server image
-        id: sshd-cache
-        if: matrix.ssh == '1' && runner.os == 'Linux'
-        uses: actions/cache@v6
-        with:
-          path: ~/sshd-cache
-          key: sshd-image-${{ steps.week.outputs.week }}
-
-      - name: Download the SSH test server image
-        if: matrix.ssh == '1' && runner.os == 'Linux' && steps.sshd-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ~/sshd-cache
-          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
-            -o ~/sshd-cache/sshd.dockerimg.gz "$DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL"
-          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
-            -o ~/sshd-cache/id_rsa "$DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL"
-
-      - name: Use the cached SSH test server image
+      # tools/appveyor/setup-sshd downloads the SSH test server image and key
+      # from AppVeyor, which refuses these downloads from GitHub's runners
+      # (HTTP 403): build the image from its recipe instead, and have
+      # setup-sshd copy it and the recipe's key via file:// URLs
+      - name: Build the SSH test server image
         if: matrix.ssh == '1' && runner.os == 'Linux'
         run: |
+          git clone -q --depth 1 \
+            https://github.com/datalad/datalad-ci-docker-containers ~/dcdc
+          docker build -q -t sshd ~/dcdc/recipes/sshd
+          docker save sshd | gzip > ~/sshd.dockerimg.gz
           {
-            echo "DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL=file://$HOME/sshd-cache/sshd.dockerimg.gz"
-            echo "DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL=file://$HOME/sshd-cache/id_rsa"
+            echo "DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL=file://$HOME/sshd.dockerimg.gz"
+            echo "DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL=file://$HOME/dcdc/recipes/sshd/id_rsa"
           } >> "$GITHUB_ENV"
 
       - name: Set up SSH test server (POSIX)
