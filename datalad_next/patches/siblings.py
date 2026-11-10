@@ -17,6 +17,7 @@ from datalad.support.exceptions import (
     AccessFailedError,
     CapturedException,
 )
+from datalad.support.external_versions import external_versions
 from . import apply_patch
 
 
@@ -29,6 +30,7 @@ lgr = logging.getLogger('datalad.distribution.siblings')
 # Changes
 # - removed credential lookup for webdav-remotes
 # - exception logging via CapturedException
+# - verification of the enabled special remote, as done by DataLad >= 1.7.3
 def _enable_remote(ds, repo, name, res_kwargs, **unused_kwargs):
     result_props = dict(
         action='enable-sibling',
@@ -73,6 +75,24 @@ def _enable_remote(ds, repo, name, res_kwargs, **unused_kwargs):
         result_props['status'] = 'error'
         # TODO should use proper way of injecting exceptions in result records
         result_props['message'] = str(e)
+
+    # TODO: remove the version check when datalad >= 1.7.3 is required
+    if result_props['status'] == 'ok' \
+            and external_versions['datalad'] >= '1.7.3':
+        # git-annex >= 10.20261026 (CVE-2026-112818) does not use the special
+        # remote until its configuration is verified: ask to confirm it if
+        # there is an interactive session, and report how to verify it if not
+        from datalad.support.exceptions import RemoteNotVerifiedError
+        try:
+            if not repo.verify_remote(name):
+                result_props['status'] = 'impossible'
+                result_props['message'] = (
+                    "git-annex does not use sibling '%s', which was not "
+                    "verified as safe", name)
+        except RemoteNotVerifiedError as e:
+            CapturedException(e)
+            result_props['status'] = 'impossible'
+            result_props['message'] = str(e)
 
     yield result_props
 
