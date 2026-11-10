@@ -22,7 +22,10 @@ from datalad.api import (
     clone,
     create_sibling_webdav,
 )
-from datalad_next.utils import chpwd
+from datalad_next.utils import (
+    chpwd,
+    external_versions,
+)
 
 
 def test_common_workflow_implicit_cred(
@@ -154,7 +157,16 @@ def check_common_workflow(
     # check that it auto-deploys webdav credentials
     # at some point, clone should be able to do this internally
     # https://github.com/datalad/datalad/issues/6634
-    dsclone.siblings('enable', name='127.0.0.1-storage')
+    # TODO: remove the version check when datalad >= 1.7.3 is required
+    if external_versions['datalad'] >= '1.7.3':
+        # git-annex >= 10.20261026 does not use it before its configuration
+        # is verified, which `siblings enable` cannot ask for without an
+        # interactive session
+        dsclone.siblings(
+            'enable', name='127.0.0.1-storage', on_failure='ignore')
+        # the configuration was created by this test
+        dsclone.repo.verify_remote('127.0.0.1-storage', mode='mark-safe')
+    assert_status('ok', dsclone.siblings('enable', name='127.0.0.1-storage'))
     # verify that we can get testfile.dat
     # just get the whole damn thing
     assert_status('ok', dsclone.get('.'))

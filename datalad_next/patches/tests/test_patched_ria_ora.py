@@ -49,6 +49,7 @@ from datalad.support.exceptions import (
     CommandError,
     IncompleteResultsError,
 )
+from datalad.support.external_versions import external_versions
 from datalad.support.network import get_local_file_url
 from datalad.tests.utils_pytest import (
     DEFAULT_REMOTE,
@@ -1178,6 +1179,11 @@ def _test_ria_postclonecfg(url, dsid, clone_path, superds):
 
     # However, we now can retrieve content since clone should have enabled the
     # special remote with new URL (or origin in case of HTTP).
+    # TODO: remove the version check when datalad >= 1.7.3 is required
+    if external_versions['datalad'] >= '1.7.3':
+        # git-annex >= 10.20261026 does not use it before its configuration,
+        # created by this test, is verified
+        riaclone.repo.verify_remote('store-storage', mode='mark-safe')
     res = riaclone.get('test.txt')
     assert_result_count(res, 1,
                         status='ok',
@@ -1214,6 +1220,11 @@ def _test_ria_postclonecfg(url, dsid, clone_path, superds):
                               "auto-enabled",
                           level="INFO",
                           regex=False)
+    # TODO: remove the version check when datalad >= 1.7.3 is required
+    if external_versions['datalad'] >= '1.7.3':
+        # git-annex >= 10.20261026 does not use it before its configuration,
+        # created by this test, is verified
+        riaclonesub.repo.verify_remote('store-storage', mode='mark-safe')
     res = riaclonesub.get('testsub.txt')
     assert_result_count(res, 1,
                         status='ok',
@@ -1274,6 +1285,11 @@ def _test_ria_postclonecfg(url, dsid, clone_path, superds):
                           regex=False)
 
     subds = Dataset(ds.pathobj / 'sub')
+    # TODO: remove the version check when datalad >= 1.7.3 is required
+    if external_versions['datalad'] >= '1.7.3':
+        # git-annex >= 10.20261026 does not use it before its configuration,
+        # created by this test, is verified
+        subds.repo.verify_remote('store-storage', mode='mark-safe')
     # special remote is fine:
     res = subds.get('test.txt')
     assert_result_count(res, 1,
