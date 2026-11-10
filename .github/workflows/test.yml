@@ -214,7 +214,21 @@ jobs:
             sudo systemsetup -setremotelogin on
           fi
           tools/appveyor/setup-sshd
+          if [ "$RUNNER_OS" = Linux ]; then
+            # the container's sshuser writes into the bind-mounted
+            # DATALAD_TESTS_SERVER_LOCALPATH, which the runner user owns;
+            # give it the runner's UID, as on AppVeyor where both match
+            docker exec -u root "$DATALAD_TESTS_DOCKER_SSHD_CONTAINER_NAME" \
+              usermod -o -u "$(id -u)" "$DATALAD_TESTS_SERVER_SSH_LOGIN"
+          fi
           tools/appveyor/verify-ssh-access
+          # verify-ssh-access only checks that the server can read what we
+          # write; tests also need the reverse
+          ssh -i "$DATALAD_TESTS_SERVER_SSH_SECKEY" \
+            -p "$DATALAD_TESTS_SERVER_SSH_PORT" \
+            "$DATALAD_TESTS_SERVER_SSH_LOGIN@$DATALAD_TESTS_SERVER_SSH_HOST" \
+            touch "$DATALAD_TESTS_SERVER_SSH_PATH/probe-remote"
+          rm "$DATALAD_TESTS_SERVER_LOCALPATH/probe-remote"
 
       - name: Make TMPDIR a crippled filesystem
         if: matrix.crippled
