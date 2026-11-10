@@ -195,6 +195,14 @@ jobs:
         # starts the container
         run: docker pull kennethreitz/httpbin
 
+      - name: Skip httpbin-based tests without a local httpbin, as on AppVeyor
+        if: ${{ !matrix.httpbin }}
+        # the `httpbin` fixture skips them only when APPVEYOR is set (and
+        # DEPLOY_HTTPBIN_IMAGE is not), so on AppVeyor's Windows and macOS
+        # workers; here they would run against the public httpbin.org.
+        # Nothing else in this test suite looks at APPVEYOR.
+        run: echo "APPVEYOR=True" >> "$GITHUB_ENV"
+
       - name: Configure Git identity
         run: |
           git config --global user.email "test@github.land"
