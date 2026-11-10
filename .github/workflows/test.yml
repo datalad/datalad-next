@@ -1,0 +1,256 @@
+# Test suite on GitHub Actions, mirroring the job matrix in .appveyor.yml
+# (test-linux, test-linux-crippled, test-win, test-mac): same platforms,
+# Python versions, service setup (via the same tools/appveyor/ scripts),
+# test selection and `hatch test` invocation.  The datalad-core-* jobs are
+# commented out in .appveyor.yml and are therefore not mirrored here either.
+name: Tests
+
+on:
+  # mirror AppVeyor's `only_commits` filter
+  push:
+    paths:
+      - 'datalad_next/**'
+      - 'tools/**'
+      - 'pyproject.toml'
+      - '.github/workflows/test.yml'
+  pull_request:
+    paths:
+      - 'datalad_next/**'
+      - 'tools/**'
+      - 'pyproject.toml'
+      - '.github/workflows/test.yml'
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # unless indicated otherwise, we test datalad_next
+  DTS: datalad_next
+  # SSH testing on Linux is done via a side-loaded container that provides a
+  # POSIX/SSHable server environment (see tools/appveyor/setup-sshd)
+  DATALAD_TESTS_DOCKER_SSHD_SECKEY_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/recipes/sshd/id_rsa?job=sshd
+  DATALAD_TESTS_DOCKER_SSHD_DOWNLOADURL: https://ci.appveyor.com/api/projects/mih/datalad-ci-docker-containers/artifacts/sshd.dockerimg.gz?job=sshd
+  DATALAD_TESTS_DOCKER_SSHD_CONTAINER_NAME: test-sshd
+
+jobs:
+  test:
+    name: ${{ matrix.job_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu core tests
+          - job_name: test-linux
+            os: ubuntu-latest
+            python: '3.10'
+            ssh: '1'
+            httpbin: true
+            # 'test_publish_target_url' relies on a strict `localhost` target
+            # setup, we don't have that
+            keywords: >-
+              not test_publish_target_url
+              and not test_initremote_basic_sshurl
+              and not test_version_check_ssh
+              and not test_remote_layout_ssh
+              and not test_setup_ds_in_store_ssh
+              and not test_obtain_permission_ssh
+
+          # same as 'test-linux', but TMPDIR is on a crippled filesystem,
+          # causing most, if not all test datasets to be created on that
+          # filesystem
+          - job_name: test-linux-crippled
+            os: ubuntu-latest
+            python: '3.10'
+            ssh: '1'
+            httpbin: true
+            crippled: true
+            keywords: >-
+              not test_initremote_basic_sshurl
+              and not test_version_check_ssh
+              and not test_remote_layout_ssh
+              and not test_setup_ds_in_store_ssh
+
+          # Windows core tests
+          # AppVeyor runs a Linux SSH server container via Docker here.
+          # GitHub's Windows runners can only run Windows containers, so the
+          # SSH-based tests are skipped (DATALAD_TESTS_SSH unset).
+          - job_name: test-win
+            os: windows-2022
+            python: '3.13'
+            ssh: ''
+            keywords: >-
+              not test_initremote_basic_sshurl
+              and not test_version_check_ssh
+              and not test_setup_ds_in_store_ssh
+
+          # MacOS core tests
+          # no docker on Mac, we log into self
+          # 'test_publish_target_url' relies git-annex being installed on the
+          # target, but we only have that in a personal env
+          - job_name: test-mac
+            os: macos-latest
+            python: '3.13'
+            ssh: '1'
+            keywords: >-
+              not test_publish_target_url
+              and not test_initremote_basic_sshurl
+              and not test_version_check_ssh
+              and not test_remote_layout_ssh
+              and not test_setup_ds_in_store_ssh
+
+    env:
+      KEYWORDS: ${{ matrix.keywords }}
+      DATALAD_TESTS_SSH: ${{ matrix.ssh }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # do not make repository clone cheap: interferes with VCS-based
+          # version determination
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Set up scratch space and SSH test settings (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          # we place the scratch space into the user's HOME to avoid
+          # git-annex issues on MacOSX (gh-5291); coverage files go there too
+          mkdir -p "$HOME/DLTMP"
+          {
+            echo "TMPDIR=$HOME/DLTMP"
+            echo "COVERAGE_ROOT=$HOME/DLTMP"
+            echo "DATALAD_TESTS_SERVER_SSH_SECKEY=$HOME/.ssh/datalad_tests_id_rsa"
+          } >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = macOS ]; then
+            # no docker on Mac, we log into self
+            localpath="$HOME/DLTMP/riaroot"
+            {
+              echo "DATALAD_LOCATIONS_SOCKETS=$HOME/DLTMP/sockets"
+              echo "DATALAD_TESTS_SERVER_SSH_HOST=localhost"
+              echo "DATALAD_TESTS_SERVER_SSH_PORT=22"
+              echo "DATALAD_TESTS_SERVER_SSH_LOGIN=$(id -un)"
+              echo "DATALAD_TESTS_SERVER_SSH_PATH=$localpath"
+            } >> "$GITHUB_ENV"
+          else
+            # std SSH container runtime setup
+            localpath="$HOME/DLTMP/sshdroot"
+            {
+              echo "DATALAD_TESTS_SERVER_SSH_HOST=datalad-test-sshd"
+              echo "DATALAD_TESTS_SERVER_SSH_PORT=2222"
+              echo "DATALAD_TESTS_SERVER_SSH_LOGIN=sshuser"
+              echo "DATALAD_TESTS_SERVER_SSH_PATH=/usr/local/apache2/htdocs"
+            } >> "$GITHUB_ENV"
+          fi
+          # establish a root directory for SSH tests
+          mkdir -p "$localpath"
+          echo "DATALAD_TESTS_SERVER_LOCALPATH=$localpath" >> "$GITHUB_ENV"
+
+      - name: Set up long paths and scratch space (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # remove windows 260-char limit on path names
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1
+          # use a top-level scratch space to get short paths in test repos.
+          # Unlike on AppVeyor (C:), GitHub may check out to another drive,
+          # and the scratch space has to be on the same drive as the checkout
+          $dltmp = (Split-Path -Qualifier $env:GITHUB_WORKSPACE) + '\DLTMP'
+          New-Item -ItemType Directory -Force -Path $dltmp | Out-Null
+          "TMP=$dltmp", "TEMP=$dltmp", "COVERAGE_ROOT=$dltmp" | Add-Content -Path $env:GITHUB_ENV
+
+      - name: Install uv, git-annex, hatch, coverage
+        run: |
+          # deploy `uv`
+          if [ "$RUNNER_OS" = Windows ]; then
+            powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+            uvbin="$USERPROFILE\\.local\\bin"
+            uv="$uvbin\\uv.exe"
+            PATH="$(cygpath -u "$uvbin"):$PATH"
+          else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            uvbin="$HOME/.local/bin"
+            uv="$uvbin/uv"
+            PATH="$uvbin:$PATH"
+          fi
+          echo "$uvbin" >> "$GITHUB_PATH"
+          # let hatch use uv for managing packages and envs
+          echo "HATCH_ENV_TYPE_VIRTUAL_UV_PATH=$uv" >> "$GITHUB_ENV"
+          # deploy git-annex from PyPi
+          uv tool install git-annex
+          uv tool install hatch
+          uv tool install 'coverage[toml]'
+          git annex version --raw
+
+      - name: Pull HTTPBIN image
+        if: matrix.httpbin
+        # pulled ahead of time, the `httpbin_service` test fixture then
+        # starts the container
+        run: docker pull kennethreitz/httpbin
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.email "test@github.land"
+          git config --global user.name "GitHub Almighty"
+
+      - name: Set up SSH test server (POSIX)
+        if: matrix.ssh == '1' && runner.os != 'Windows'
+        run: |
+          # tests need specific hostnames to be available
+          printf '127.0.0.1 datalad-test-sshd\n127.0.0.1 datalad-test\n' \
+            | sudo tee -a /etc/hosts
+          # tools/appveyor/setup-sshd expects these to exist
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          touch ~/.ssh/known_hosts ~/.ssh/authorized_keys
+          chmod 600 ~/.ssh/authorized_keys
+          if [ "$RUNNER_OS" = macOS ]; then
+            # Remote Login is off by default on GitHub's macOS runners
+            sudo systemsetup -setremotelogin on
+          fi
+          tools/appveyor/setup-sshd
+          tools/appveyor/verify-ssh-access
+
+      - name: Make TMPDIR a crippled filesystem
+        if: matrix.crippled
+        # test wrong assumptions of POSIX-ness on POSIX OSes. The test
+        # fixtures will create all test datasets under TMPDIR
+        run: |
+          command -v mkfs.vfat \
+            || { sudo apt-get update -qq && sudo apt-get install -q -y dosfstools; }
+          # 750 MB VFAT FS in a box
+          sudo dd if=/dev/zero of=/crippledfs.img count=750 bs=1M
+          sudo mkfs.vfat /crippledfs.img
+          sudo mkdir /crippledfs
+          sudo mount -o "uid=$(id -u),gid=$(id -g)" /crippledfs.img /crippledfs
+          echo "== mount >>"
+          mount | grep crippled
+          echo "<< mount =="
+          echo "TMPDIR=/crippledfs" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        env:
+          TEST_PYTHON: ${{ matrix.python }}
+        run: |
+          echo "TMPDIR=${TMPDIR:-}"
+          # DTS may list several packages
+          # shellcheck disable=SC2086
+          hatch test -i "py=$TEST_PYTHON" --cover --durations 10 \
+            -m "not (turtle)" -k "$KEYWORDS" --pyargs $DTS
+
+      - name: Generate coverage report
+        run: coverage xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          disable_search: true
+          name: github-${{ matrix.job_name }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
