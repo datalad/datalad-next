@@ -127,9 +127,7 @@ jobs:
           {
             echo "TMPDIR=$HOME/DLTMP"
             echo "COVERAGE_ROOT=$HOME/DLTMP"
-            # as on AppVeyor; also keeps hatch's environments out of
-            # "~/Library/Application Support" on macOS, whose space breaks
-            # `run`'s {python} substitution (test_substitution_config_default)
+            # as on AppVeyor
             echo "HATCH_DATA_DIR=$HOME/hatch-data-dir"
             echo "DATALAD_TESTS_SERVER_SSH_SECKEY=$HOME/.ssh/datalad_tests_id_rsa"
           } >> "$GITHUB_ENV"
